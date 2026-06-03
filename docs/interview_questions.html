@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bộ câu hỏi phỏng vấn — AI Phân tích học tập</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --surface: #141414;
+    --surface2: #1c1c1c;
+    --border: #2a2a2a;
+    --accent-sv: #c8a96e;
+    --accent-gv: #7eb8a4;
+    --accent-bql: #9b8ec4;
+    --text: #e8e4dc;
+    --text-muted: #7a7570;
+    --text-dim: #4a4642;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  /* ── NOISE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 80px 40px;
+  }
+
+  /* ── HEADER ── */
+  .site-header {
+    margin-bottom: 80px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 48px;
+  }
+
+  .eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+  }
+
+  h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(36px, 6vw, 64px);
+    font-weight: 400;
+    line-height: 1.1;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+
+  h1 em {
+    font-style: italic;
+    color: var(--text-muted);
+  }
+
+  .header-sub {
+    font-size: 13px;
+    color: var(--text-muted);
+    max-width: 540px;
+    line-height: 1.8;
+  }
+
+  /* ── TAB NAV ── */
+  .tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 56px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tab-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 14px 28px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    position: relative;
+    transition: color 0.25s;
+  }
+
+  .tab-btn::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0; right: 0;
+    height: 2px;
+    background: transparent;
+    transition: background 0.25s;
+  }
+
+  .tab-btn:hover { color: var(--text-muted); }
+
+  .tab-btn.active-sv { color: var(--accent-sv); }
+  .tab-btn.active-sv::after { background: var(--accent-sv); }
+  .tab-btn.active-gv { color: var(--accent-gv); }
+  .tab-btn.active-gv::after { background: var(--accent-gv); }
+  .tab-btn.active-bql { color: var(--accent-bql); }
+  .tab-btn.active-bql::after { background: var(--accent-bql); }
+
+  /* ── PANEL ── */
+  .panel { display: none; animation: fadeIn 0.35s ease; }
+  .panel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  /* ── PANEL HEADER ── */
+  .panel-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+    margin-bottom: 56px;
+  }
+
+  .panel-badge {
+    flex-shrink: 0;
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    margin-top: 4px;
+  }
+
+  .badge-sv { background: rgba(200,169,110,0.12); }
+  .badge-gv { background: rgba(126,184,164,0.12); }
+  .badge-bql { background: rgba(155,142,196,0.12); }
+
+  .panel-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .title-sv { color: var(--accent-sv); }
+  .title-gv { color: var(--accent-gv); }
+  .title-bql { color: var(--accent-bql); }
+
+  .panel-desc {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.7;
+    max-width: 620px;
+  }
+
+  /* ── SECTION ── */
+  .section {
+    margin-bottom: 52px;
+  }
+
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .section-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  .section-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.01em;
+  }
+
+  .section-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── QUESTION CARD ── */
+  .q-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 24px 28px;
+    margin-bottom: 14px;
+    transition: border-color 0.2s;
+  }
+
+  .q-card:hover { border-color: #3a3a3a; }
+
+  .q-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .q-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .q-tag {
+    font-size: 9px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 3px;
+  }
+
+  .tag-open { background: rgba(255,255,255,0.04); color: #5c7a6a; }
+  .tag-probe { background: rgba(255,255,255,0.04); color: #7a6e8a; }
+  .tag-behav { background: rgba(255,255,255,0.04); color: #7a6a4e; }
+
+  .q-text {
+    font-size: 14.5px;
+    color: var(--text);
+    line-height: 1.75;
+    margin-bottom: 12px;
+  }
+
+  .q-probes {
+    list-style: none;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    margin-top: 4px;
+  }
+
+  .q-probes li {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    padding: 4px 0;
+    padding-left: 16px;
+    position: relative;
+  }
+
+  .q-probes li::before {
+    content: '↳';
+    position: absolute;
+    left: 0;
+    color: var(--text-dim);
+    font-size: 11px;
+  }
+
+  /* ── PRINT STRIP ── */
+  .print-bar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-bottom: 40px;
+  }
+
+  .btn-print {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 9px 18px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .btn-print:hover { border-color: #4a4a4a; color: var(--text); }
+
+  /* ── FOOTER ── */
+  footer {
+    margin-top: 100px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  footer p {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  /* ── PRINT ── */
+  @media print {
+    body { background: #fff; color: #111; }
+    body::before { display: none; }
+    .tabs, .print-bar, footer { display: none; }
+    .panel { display: block !important; page-break-after: always; }
+    .q-card { border-color: #ddd; background: #fafafa; }
+    h1, .panel-title, .section-title { color: #111; }
+    .panel-desc, .q-text { color: #333; }
+    .q-probes li { color: #555; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <p class="eyebrow">Nghiên cứu người dùng · AI Phân tích học tập</p>
+    <h1>Bộ câu hỏi<br><em>phỏng vấn sâu</em></h1>
+    <p class="header-sub">Tài liệu dùng trong phỏng vấn trực tiếp (semi-structured) với ba nhóm đối tượng: sinh viên, giảng viên và ban quản lý. Mỗi câu hỏi đi kèm gợi ý khai thác sâu (probes).</p>
+  </header>
+
+  <!-- TABS -->
+  <nav class="tabs">
+    <button class="tab-btn active-sv" onclick="switchTab('sv', this)">👤 Sinh viên</button>
+    <button class="tab-btn" onclick="switchTab('gv', this)">🎓 Giảng viên</button>
+    <button class="tab-btn" onclick="switchTab('bql', this)">🏛 Ban quản lý</button>
+  </nav>
+
+  <!-- ============================================================
+       PANEL: SINH VIÊN
+  ============================================================ -->
+  <div class="panel active" id="panel-sv">
+
+    <div class="print-bar">
+      <button class="btn-print" onclick="window.print()">In / Xuất PDF</button>
+    </div>
+
+    <div class="panel-header">
+      <div class="panel-badge badge-sv">👤</div>
+      <div>
+        <div class="panel-title title-sv">Sinh viên</div>
+        <p class="panel-desc">Tập trung vào hành vi thực tế: cách sinh viên nhận thông tin, tìm tài liệu, tự học, làm bài và nhận thức về kết quả học tập của bản thân. Mục tiêu là khám phá pain points chân thực và kỳ vọng ẩn.</p>
+      </div>
+    </div>
+
+    <!-- Phần 1 -->
+    <div class="section">
+      <div class="section-label">
+        <span class="section-num">Phần 01</span>
+        <span class="section-title">Thông tin học tập & deadline</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">SV–01</span><span class="q-tag tag-behav">Hành vi</span></div>
+        <p class="q-text">Mô tả cho tôi nghe, trong một tuần bình thường bạn nhận thông tin về deadline, bài tập, lịch học từ đâu và như thế nào?</p>
+        <ul class="q-probes">
+          <li>Bạn thường kiểm tra kênh đó vào lúc nào trong ngày?</li>
+          <li>Có lần nào bạn bỏ sót thông báo quan trọng không? Chuyện gì xảy ra sau đó?</li>
+          <li>Nếu cần tìm lại thông báo cũ, bạn làm gì?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">SV–02</span><span class="q-tag tag-open">Mở</span></div>
+        <p class="q-text">Điều gì khiến bạn cảm thấy bực bội nhất với cách nhận thông tin học tập hiện nay?</p>
+        <ul class="q-probes">
+          <li>Chuyện đó xảy ra thường xuyên không?</li>
+          <li>Bạn đã thử giải quyết bằng cách nào chưa?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">SV–03</span><span class="q-tag tag-probe">Kỳ vọng</span></div>
+        <p class="q-text">Nếu có một công cụ tổng hợp tất cả thông báo và deadline từ mọi môn học, điều đầu tiên bạn muốn nhìn thấy ngay khi mở lên là gì?</p>
+        <ul class="q-probes">
+          <li>Bạn có muốn tự cài đặt hay muốn hệ thống tự sắp xếp thứ tự ưu tiên?</li>
+          <li>Nếu hệ thống nhắc nhở bạn, bạn muốn nhắc sớm bao nhiêu ngày trước hạn?</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Phần 2 -->
+    <div class="section">
+      <div class="section-label">
+        <span class="section-num">Phần 02</span>
+        <span class="section-title">Tìm kiếm & sử dụng tài liệu</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">SV–04</span><span class="q-tag tag-behav">Hành vi</span></div>
+        <p class="q-text">Kể cho tôi nghe lần gần nhất bạn cần tìm tài liệu để ôn bài hoặc làm bài tập — bạn đã làm gì, từng bước một?</p>
+        <ul class="q-probes">
+          <li>Bạn mất bao lâu để tìm được thứ mình cần?</li>
+          <li>Bạn biết tài liệu đó có đáng tin không? Bằng cách nào?</li>
+          <li>Có khi nào bạn tìm mãi không ra không?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">SV–05</span><span class="q-tag tag-open">Mở</span></div>
+        <p class="q-text">Khi bạn không hiểu một khái niệm trong bài học, bạn thường làm gì đầu tiên? Và nếu cách đó không hiệu quả thì sao?</p>
+        <ul class="q-probes">
+          <li>Bạn có bao giờ hỏi trực tiếp giảng viên không? Tại sao có hoặc không?</li>
+          <li>Bạn dùng ChatGPT/Gemini kiểu nào — hỏi trực tiếp hay dùng khác?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">SV–06</span><span class="q-tag tag-probe">Kỳ vọng</span></div>
+        <p class="q-text">Giả sử có một AI được cài sẵn toàn bộ tài liệu của môn học bạn đang học — bạn muốn hỏi nó những loại câu hỏi nào? Cho tôi ví dụ cụ thể.</p>
+        <ul class="q-probes">
+          <li>Bạn sẽ tin AI giải thích hơn hay vẫn muốn hỏi người?</li>
+          <li>Bạn lo ngại gì khi dùng AI để học tập?</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Phần 3 -->
+    <div class="section">
+      <div class="section-label">
+        <span class="section-num">Phần 03</span>
+        <span class="section-title">Tự học & ôn tập</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">SV–07</span><span class="q-tag tag-behav">Hành vi</span></div>
+        <p class="q-text">Hãy mô tả cách bạn thường ôn tập trước một kỳ thi — bạn bắt đầu từ đâu, làm theo trình tự nào?</p>
+        <ul class="q-probes">
+          <li>Bạn có kế hoạch ôn tập trước hay chỉ làm khi gần thi?</li>
+          <li>Bạn biết mình đang yếu chỗ nào không? Bằng cách nào bạn biết?</li>
+          <li>Bạn có cách nào tự kiểm tra xem mình đã học đủ chưa không?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">SV–08</span><span class="q-tag tag-open">Mở</span></div>
+        <p class="q-text">Điều gì khiến bạn khó duy trì được việc tự học đều đặn? Hãy kể một tình huống thực tế.</p>
+        <ul class="q-probes">
+          <li>Động lực của bạn thay đổi như thế nào trong học kỳ?</li>
+          <li>Có môn nào bạn cảm thấy không biết học như thế nào cho đúng không?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">SV–09</span><span class="q-tag tag-probe">Kỳ vọng</span></div>
+        <p class="q-text">Nếu có hệ thống theo dõi tiến độ học tập cá nhân của bạn và đưa ra gợi ý ôn tập — bạn muốn nó "thông minh" theo nghĩa nào?</p>
+        <ul class="q-probes">
+          <li>Bạn muốn nó tự quyết định lịch ôn hay chỉ gợi ý và để bạn chọn?</li>
+          <li>Bạn có muốn biết mình đang đứng ở đâu so với lớp không?</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Phần 4 -->
+    <div class="section">
+      <div class="section-label">
+        <span class="section-num">Phần 04</span>
+        <span class="section-title">Theo dõi kết quả & cảm nhận bản thân</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">SV–10</span><span class="q-tag tag-behav">Hành vi</span></div>
+        <p class="q-text">Hiện bạn biết điểm số các môn của mình không? Bạn theo dõi bằng cách nào và bao lâu một lần?</p>
+        <ul class="q-probes">
+          <li>Bạn có biết mình cần bao nhiêu điểm ở bài còn lại để qua môn không?</li>
+          <li>Có môn nào bạn cảm thấy đang trong vùng nguy hiểm không?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">SV–11</span><span class="q-tag tag-open">Mở</span></div>
+        <p class="q-text">Kể về một lần bạn bị bất ngờ với kết quả học tập — hoặc bất ngờ tốt hoặc bất ngờ xấu. Chuyện gì đã dẫn đến điều đó?</p>
+        <ul class="q-probes">
+          <li>Nếu bạn biết sớm hơn, bạn sẽ làm gì khác?</li>
+          <li>Ai hoặc cái gì đã giúp bạn (hoặc lẽ ra nên giúp bạn) nhận ra sớm hơn?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">SV–12</span><span class="q-tag tag-probe">Kỳ vọng</span></div>
+        <p class="q-text">Nếu trường cung cấp một dashboard học tập cá nhân cho bạn, điều gì sẽ khiến bạn thực sự mở nó ra mỗi ngày — chứ không chỉ dùng một lần rồi quên?</p>
+        <ul class="q-probes">
+          <li>Bạn có muốn gia đình hoặc cố vấn học tập cũng thấy dashboard đó không?</li>
+          <li>Có thông tin nào bạn không muốn ai thấy không?</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Phần 5 -->
+    <div class="section">
+      <div class="section-label">
+        <span class="section-num">Phần 05</span>
+        <span class="section-title">Thái độ với AI & tin tưởng</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">SV–13</span><span class="q-tag tag-open">Mở</span></div>
+        <p class="q-text">Theo bạn, sự khác biệt giữa dùng AI để học và dùng AI để "làm thay" bài là gì? Bạn tự đặt ranh giới ở đâu?</p>
+        <ul class="q-probes">
+          <li>Bạn cảm thấy thế nào khi nộp bài có sự hỗ trợ từ AI?</li>
+          <li>Bạn có lo ngại gì về việc nhà trường dùng AI để theo dõi bạn không?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">SV–14</span><span class="q-tag tag-probe">Đóng lại</span></div>
+        <p class="q-text">Nếu được thiết kế lại toàn bộ trải nghiệm học tập của mình với sự hỗ trợ của AI, bạn muốn thay đổi điều gì nhất? Chỉ một điều thôi.</p>
+        <ul class="q-probes">
+          <li>Tại sao điều đó quan trọng với bạn hơn những điều khác?</li>
+        </ul>
+      </div>
+    </div>
+
+  </div><!-- /panel sv -->
+
+
+  <!-- ============================================================
+       PANEL: GIẢNG VIÊN
+  ============================================================ -->
+  <div class="panel" id="panel-gv">
+
+    <div class="print-bar">
+      <button class="btn-print" onclick="window.print()">In / Xuất PDF</button>
+    </div>
+
+    <div class="panel-header">
+      <div class="panel-badge badge-gv">🎓</div>
+      <div>
+        <div class="panel-title title-gv">Giảng viên</div>
+        <p class="panel-desc">Tập trung vào quy trình thực tế: quản lý tài liệu, giao và thu bài, phát hiện sinh viên gặp khó khăn, và tương tác với nhiều lớp cùng lúc. Mục tiêu là hiểu gánh nặng công việc ẩn và nhu cầu thông tin thực sự.</p>
+      </div>
+    </div>
+
+    <!-- Phần 1 -->
+    <div class="section">
+      <div class="section-label">
+        <span class="section-num">Phần 01</span>
+        <span class="section-title">Quản lý tài liệu & thông báo</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">GV–01</span><span class="q-tag tag-behav">Hành vi</span></div>
+        <p class="q-text">Thầy/cô mô tả cách mình tổ chức và gửi tài liệu học tập cho sinh viên trong một học phần điển hình — từ khi bắt đầu học kỳ đến khi kết thúc.</p>
+        <ul class="q-probes">
+          <li>Thầy/cô dùng bao nhiêu công cụ/kênh khác nhau? Vì sao chọn những kênh đó?</li>
+          <li>Sinh viên có hay hỏi lại "tài liệu ở đâu" không? Điều đó nói lên điều gì?</li>
+          <li>Có lần nào tài liệu bị gửi nhầm phiên bản hoặc gây nhầm lẫn không?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">GV–02</span><span class="q-tag tag-open">Mở</span></div>
+        <p class="q-text">Thầy/cô thường mất bao nhiêu thời gian mỗi tuần chỉ để quản lý thông tin hành chính — thông báo, lịch, trả lời câu hỏi lặp lại? Cảm giác như thế nào?</p>
+        <ul class="q-probes">
+          <li>Có loại câu hỏi nào sinh viên hay hỏi lại mà thầy/cô thấy đáng lẽ không cần hỏi không?</li>
+          <li>Nếu được lấy lại thời gian đó, thầy/cô muốn dùng vào việc gì?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">GV–03</span><span class="q-tag tag-probe">Kỳ vọng</span></div>
+        <p class="q-text">Nếu có một hệ thống trung tâm quản lý toàn bộ tài liệu và thông báo cho tất cả các lớp thầy/cô dạy — điều gì sẽ thuyết phục thầy/cô chuyển sang dùng nó?</p>
+        <ul class="q-probes">
+          <li>Thầy/cô lo ngại điều gì khi thay đổi công cụ đang dùng?</li>
+          <li>Mức độ tích hợp với công cụ hiện tại quan trọng đến đâu?</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Phần 2 -->
+    <div class="section">
+      <div class="section-label">
+        <span class="section-num">Phần 02</span>
+        <span class="section-title">Giao bài, thu bài & chấm điểm</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">GV–04</span><span class="q-tag tag-behav">Hành vi</span></div>
+        <p class="q-text">Mô tả quy trình giao bài và thu bài của thầy/cô từ đầu đến cuối — từ lúc tạo bài tập đến khi trả kết quả cho sinh viên.</p>
+        <ul class="q-probes">
+          <li>Bước nào mất nhiều thời gian nhất? Bước nào dễ bị sai sót?</li>
+          <li>Thầy/cô xử lý bài nộp muộn như thế nào? Có mất nhiều thời gian theo dõi không?</li>
+          <li>Thầy/cô có cách nào tổng hợp xem sinh viên nào chưa nộp không?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">GV–05</span><span class="q-tag tag-open">Mở</span></div>
+        <p class="q-text">Sau khi chấm một loạt bài tập, thầy/cô có thường nhận ra "lỗi này rất nhiều sinh viên mắc" không? Thầy/cô làm gì với thông tin đó?</p>
+        <ul class="q-probes">
+          <li>Thầy/cô có cách nào ghi nhận và tổng hợp thông tin đó theo thời gian không?</li>
+          <li>Thầy/cô có phản hồi cá nhân hóa cho từng sinh viên không? Điều đó có khả thi không?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">GV–06</span><span class="q-tag tag-probe">Kỳ vọng</span></div>
+        <p class="q-text">Nếu AI có thể hỗ trợ một công đoạn trong quy trình chấm bài của thầy/cô, thầy/cô muốn hỗ trợ ở đâu nhất? Và thầy/cô muốn giữ quyền kiểm soát ở đâu?</p>
+        <ul class="q-probes">
+          <li>Thầy/cô tin tưởng AI ở mức độ nào trong việc đánh giá bài của sinh viên?</li>
+          <li>Phản hồi do AI tạo ra có ổn không nếu thầy/cô đã xem qua?</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Phần 3 -->
+    <div class="section">
+      <div class="section-label">
+        <span class="section-num">Phần 03</span>
+        <span class="section-title">Phát hiện sinh viên gặp khó khăn</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">GV–07</span><span class="q-tag tag-behav">Hành vi</span></div>
+        <p class="q-text">Kể về một sinh viên mà thầy/cô nhận ra đang gặp khó khăn — thầy/cô phát hiện ra thế nào, vào lúc nào trong học kỳ, và đã làm gì?</p>
+        <ul class="q-probes">
+          <li>Dấu hiệu đầu tiên thầy/cô nhận ra là gì?</li>
+          <li>Nếu phát hiện sớm hơn một vài tuần, kết quả có thể khác không?</li>
+          <li>Có sinh viên nào thầy/cô chỉ biết khi đã có kết quả cuối kỳ không?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">GV–08</span><span class="q-tag tag-open">Mở</span></div>
+        <p class="q-text">Với lớp đông (trên 40 sinh viên), thầy/cô có thực sự biết được ai đang đuối không? Những sinh viên "nằm vùng" — không ồn ào, không hỏi, không nộp muộn — thầy/cô phát hiện họ bằng cách nào?</p>
+        <ul class="q-probes">
+          <li>Thầy/cô có cảm thấy bất lực với những trường hợp đó không?</li>
+          <li>Điều gì cản trở thầy/cô theo dõi sát hơn?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">GV–09</span><span class="q-tag tag-probe">Kỳ vọng</span></div>
+        <p class="q-text">Nếu có hệ thống cảnh báo sớm — mỗi tuần hiển thị danh sách sinh viên có nguy cơ — thầy/cô sẽ làm gì với thông tin đó? Quy trình can thiệp của thầy/cô sẽ như thế nào?</p>
+        <ul class="q-probes">
+          <li>Thầy/cô muốn liên hệ trực tiếp với sinh viên hay thông qua cố vấn học tập?</li>
+          <li>Có lo ngại gì về việc sinh viên biết mình bị "đánh dấu nguy cơ" không?</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Phần 4 -->
+    <div class="section">
+      <div class="section-label">
+        <span class="section-num">Phần 04</span>
+        <span class="section-title">Quan hệ với sinh viên & gánh nặng cảm xúc</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">GV–10</span><span class="q-tag tag-open">Mở</span></div>
+        <p class="q-text">Có những sinh viên nào dễ chia sẻ khó khăn với thầy/cô và những sinh viên nào thì không? Thầy/cô nghĩ điều gì tạo ra sự khác biệt đó?</p>
+        <ul class="q-probes">
+          <li>Thầy/cô có điều chỉnh cách tiếp cận với từng nhóm không?</li>
+          <li>Yếu tố nào — ngoài điểm số — thầy/cô thường dùng để đánh giá một sinh viên đang ổn hay không?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">GV–11</span><span class="q-tag tag-probe">Đóng lại</span></div>
+        <p class="q-text">Nếu được lấy lại 5 tiếng mỗi tuần từ công việc hành chính, thầy/cô muốn dùng vào việc gì trong giảng dạy? Điều đó nói lên gì về những gì thầy/cô thực sự coi trọng?</p>
+        <ul class="q-probes">
+          <li>Thầy/cô nghĩ AI có thể thực sự giúp ở điều đó không?</li>
+        </ul>
+      </div>
+    </div>
+
+  </div><!-- /panel gv -->
+
+
+  <!-- ============================================================
+       PANEL: BAN QUẢN LÝ
+  ============================================================ -->
+  <div class="panel" id="panel-bql">
+
+    <div class="print-bar">
+      <button class="btn-print" onclick="window.print()">In / Xuất PDF</button>
+    </div>
+
+    <div class="panel-header">
+      <div class="panel-badge badge-bql">🏛</div>
+      <div>
+        <div class="panel-title title-bql">Ban quản lý</div>
+        <p class="panel-desc">Tập trung vào việc ra quyết định dựa trên dữ liệu: chất lượng thông tin hiện có, quy trình báo cáo, phát hiện điểm nghẽn và khả năng can thiệp kịp thời. Mục tiêu là hiểu khoảng cách giữa dữ liệu có và dữ liệu cần.</p>
+      </div>
+    </div>
+
+    <!-- Phần 1 -->
+    <div class="section">
+      <div class="section-label">
+        <span class="section-num">Phần 01</span>
+        <span class="section-title">Dữ liệu học tập hiện có</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">BQL–01</span><span class="q-tag tag-behav">Hành vi</span></div>
+        <p class="q-text">Khi anh/chị cần hiểu tình hình học tập của sinh viên trong một học kỳ đang diễn ra, anh/chị lấy thông tin từ đâu và theo quy trình nào?</p>
+        <ul class="q-probes">
+          <li>Thông tin đó đến tay anh/chị sau bao lâu kể từ khi sự kiện xảy ra?</li>
+          <li>Có khi nào anh/chị ra quyết định mà sau đó mới biết thông tin đã lỗi thời không?</li>
+          <li>Ai là người thực sự tổng hợp số liệu đó? Quy trình đó mất bao lâu?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">BQL–02</span><span class="q-tag tag-open">Mở</span></div>
+        <p class="q-text">Trong tất cả dữ liệu học tập hiện đơn vị đang có, loại nào anh/chị tin tưởng nhất và loại nào ít tin tưởng nhất? Tại sao?</p>
+        <ul class="q-probes">
+          <li>Có dữ liệu nào tồn tại nhưng thực ra không được dùng để ra quyết định không?</li>
+          <li>Có dữ liệu nào anh/chị muốn có nhưng hiện chưa thu thập được không?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">BQL–03</span><span class="q-tag tag-probe">Kỳ vọng</span></div>
+        <p class="q-text">Nếu có hệ thống tích hợp tất cả dữ liệu học tập từ mọi nguồn trong thời gian thực — điều gì khiến anh/chị lo ngại nhất về việc đó?</p>
+        <ul class="q-probes">
+          <li>Vấn đề bảo mật, phân quyền, hay độ chính xác quan trọng hơn với anh/chị?</li>
+          <li>Ai trong tổ chức cần thấy dữ liệu gì — và ai không nên thấy?</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Phần 2 -->
+    <div class="section">
+      <div class="section-label">
+        <span class="section-num">Phần 02</span>
+        <span class="section-title">Báo cáo & dashboard quản lý</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">BQL–04</span><span class="q-tag tag-behav">Hành vi</span></div>
+        <p class="q-text">Mô tả cho tôi nghe quy trình tạo một báo cáo chất lượng đào tạo định kỳ — từ đầu đến cuối, ai làm gì, mất bao lâu?</p>
+        <ul class="q-probes">
+          <li>Bước nào mất nhiều thời gian và công sức nhất?</li>
+          <li>Có bước nào dễ xảy ra sai sót không?</li>
+          <li>Sau khi báo cáo xong, thông tin đó thực sự dẫn đến hành động gì?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">BQL–05</span><span class="q-tag tag-open">Mở</span></div>
+        <p class="q-text">Anh/chị thường dùng dashboard hay báo cáo để trả lời loại câu hỏi nào? Cho tôi xem ví dụ câu hỏi điển hình mà anh/chị cần trả lời mỗi tháng.</p>
+        <ul class="q-probes">
+          <li>Có câu hỏi nào anh/chị muốn trả lời nhưng hiện không có dữ liệu để trả lời không?</li>
+          <li>Câu hỏi nào tốn nhiều thời gian nhất để tìm câu trả lời?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">BQL–06</span><span class="q-tag tag-probe">Kỳ vọng</span></div>
+        <p class="q-text">Nếu anh/chị có một dashboard mà mỗi sáng mở ra trong 5 phút là hiểu được tình hình đào tạo — nó cần hiển thị gì trên màn hình đầu tiên?</p>
+        <ul class="q-probes">
+          <li>Anh/chị muốn thấy so sánh với kỳ trước, hay chỉ cần thấy tình trạng hiện tại?</li>
+          <li>Mức độ chi tiết nào là đủ — toàn trường, theo khoa, hay theo học phần?</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Phần 3 -->
+    <div class="section">
+      <div class="section-label">
+        <span class="section-num">Phần 03</span>
+        <span class="section-title">Phát hiện điểm nghẽn trong đào tạo</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">BQL–07</span><span class="q-tag tag-behav">Hành vi</span></div>
+        <p class="q-text">Kể về một lần đơn vị phát hiện ra một học phần hoặc một nhóm sinh viên đang có vấn đề nghiêm trọng — phát hiện bằng cách nào, vào lúc nào, và đơn vị đã xử lý thế nào?</p>
+        <ul class="q-probes">
+          <li>Khi nào thì mới đủ bằng chứng để quyết định can thiệp?</li>
+          <li>Nếu phát hiện sớm hơn 6 tuần, kết quả có thể khác không?</li>
+          <li>Ai trong đơn vị là người đưa ra quyết định can thiệp?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">BQL–08</span><span class="q-tag tag-open">Mở</span></div>
+        <p class="q-text">Hiện tại, những học phần có tỷ lệ trượt cao hay điểm thấp — đơn vị có biết nguyên nhân cụ thể không? Hay chỉ biết kết quả mà không biết nguyên nhân?</p>
+        <ul class="q-probes">
+          <li>Đơn vị có phân biệt được học phần khó thực sự và học phần có vấn đề về chất lượng giảng dạy không?</li>
+          <li>Phản hồi của sinh viên có được dùng để ra quyết định không?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">BQL–09</span><span class="q-tag tag-probe">Kỳ vọng</span></div>
+        <p class="q-text">Nếu AI có thể gợi ý nguyên nhân của một học phần có kết quả kém — anh/chị sẽ tin vào gợi ý đó ở mức độ nào? Cần thêm điều kiện gì để tin hơn?</p>
+        <ul class="q-probes">
+          <li>Anh/chị muốn AI giải thích lý do tại sao nó đưa ra kết luận đó không?</li>
+          <li>Nếu AI và giảng viên phụ trách có đánh giá khác nhau, anh/chị xử lý thế nào?</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Phần 4 -->
+    <div class="section">
+      <div class="section-label">
+        <span class="section-num">Phần 04</span>
+        <span class="section-title">Cảnh báo sớm & can thiệp</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">BQL–10</span><span class="q-tag tag-behav">Hành vi</span></div>
+        <p class="q-text">Hiện nay khi sinh viên được xác định là "có nguy cơ" — ví dụ nợ nhiều môn, GPA giảm liên tiếp — quy trình can thiệp của đơn vị là gì? Ai làm gì?</p>
+        <ul class="q-probes">
+          <li>Thông tin đến tay người cần hành động sau bao lâu?</li>
+          <li>Đơn vị có theo dõi xem can thiệp có hiệu quả không? Bằng cách nào?</li>
+          <li>Có sinh viên nào "lọt lưới" — tức là có nguy cơ nhưng không ai phát hiện ra?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">BQL–11</span><span class="q-tag tag-open">Mở</span></div>
+        <p class="q-text">Điều gì cản trở đơn vị can thiệp sớm hơn và hiệu quả hơn với sinh viên có nguy cơ? Nếu chỉ được chọn một rào cản lớn nhất, đó là gì?</p>
+        <ul class="q-probes">
+          <li>Là thiếu thông tin kịp thời, thiếu nhân lực, thiếu quy trình, hay thiếu gì khác?</li>
+          <li>Rào cản đó có thể giải quyết bằng công nghệ không, hay cần thay đổi cơ chế?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">BQL–12</span><span class="q-tag tag-probe">Kỳ vọng</span></div>
+        <p class="q-text">Nếu hệ thống AI tự động tạo danh sách sinh viên cần can thiệp mỗi tuần và gửi đến đúng người phụ trách — điều đó thay đổi gì trong quy trình hiện tại của đơn vị?</p>
+        <ul class="q-probes">
+          <li>Anh/chị muốn hệ thống chỉ cảnh báo hay còn gợi ý hành động cụ thể?</li>
+          <li>Ai trong đơn vị sẽ là người chịu trách nhiệm với những cảnh báo đó?</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Phần 5 -->
+    <div class="section">
+      <div class="section-label">
+        <span class="section-num">Phần 05</span>
+        <span class="section-title">Tầm nhìn & lo ngại với AI</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">BQL–13</span><span class="q-tag tag-open">Mở</span></div>
+        <p class="q-text">Anh/chị hình dung hệ thống AI Phân tích học tập lý tưởng sẽ thay đổi công việc của đơn vị như thế nào trong 3 năm tới? Điều gì sẽ khác so với hôm nay?</p>
+        <ul class="q-probes">
+          <li>Quyết định nào anh/chị muốn AI hỗ trợ? Quyết định nào nhất định phải do con người?</li>
+          <li>Anh/chị lo ngại điều gì nhất về việc phụ thuộc vào AI để ra quyết định đào tạo?</li>
+        </ul>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta"><span class="q-num">BQL–14</span><span class="q-tag tag-probe">Đóng lại</span></div>
+        <p class="q-text">Nếu dự án AI này thành công, chỉ số nào — cụ thể, đo được — sẽ thuyết phục anh/chị rằng hệ thống đang thực sự tạo ra giá trị?</p>
+        <ul class="q-probes">
+          <li>Anh/chị muốn thấy kết quả đó trong vòng bao lâu?</li>
+          <li>Ai trong tổ chức sẽ là người quyết định tiếp tục hay dừng dự án?</li>
+        </ul>
+      </div>
+    </div>
+
+  </div><!-- /panel bql -->
+
+  <footer>
+    <p>AI Phân tích học tập · Nghiên cứu người dùng</p>
+    <p>Phỏng vấn semi-structured · 3 nhóm đối tượng</p>
+  </footer>
+
+</div><!-- /wrapper -->
+
+<script>
+  function switchTab(id, btn) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.className = 'tab-btn');
+    document.getElementById('panel-' + id).classList.add('active');
+    const map = { sv: 'active-sv', gv: 'active-gv', bql: 'active-bql' };
+    btn.classList.add(map[id]);
+  }
+</script>
+</body>
+</html>
