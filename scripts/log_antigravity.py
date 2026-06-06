@@ -46,6 +46,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from typing import List, Optional, Set, Iterator, Dict
 
 # Fix Windows console encoding so VN diacritics in prompts print cleanly.
 if sys.platform == "win32":
@@ -86,7 +87,7 @@ def git(cmd: str) -> str:
 # Locating brain/
 # ---------------------------------------------------------------------------
 
-def get_brain_dirs() -> list[Path]:
+def get_brain_dirs() -> List[Path]:
     """Brain directories to scan, newest layout first."""
     env = os.environ.get("ANTIGRAVITY_BRAIN_DIR")
     if env:
@@ -119,9 +120,9 @@ def _unquote_arg(val):
     return val
 
 
-def _conv_cwds(transcript: Path) -> set[str]:
+def _conv_cwds(transcript: Path) -> Set[str]:
     """All Cwd values that appear in tool calls inside this transcript."""
-    cwds: set[str] = set()
+    cwds: Set[str] = set()
     try:
         with open(transcript, encoding="utf-8") as f:
             for line in f:
@@ -202,8 +203,8 @@ def get_logged_entry_ids(log_file: Path) -> set[str]:
 # Iterating user inputs
 # ---------------------------------------------------------------------------
 
-def iter_user_inputs(brain_dirs: list[Path], cutoff: datetime | None,
-                     only_conv: str | None, repo_root_n: str):
+def iter_user_inputs(brain_dirs: List[Path], cutoff: Optional[datetime],
+                     only_conv: Optional[str], repo_root_n: str):
     """Yield user-input dicts from every matching conversation transcript."""
     for brain in brain_dirs:
         for conv_dir in sorted(brain.iterdir()):
@@ -342,7 +343,7 @@ def main() -> None:
     student = git("git config user.email") or os.environ.get(
         "USERNAME", os.environ.get("USER", "unknown"))
 
-    new_entries: list[dict] = []
+    new_entries: List[dict] = []
     for msg in iter_user_inputs(brain_dirs, cutoff, args.conv_id, repo_root_n):
         entry = build_entry(msg, repo or Path.cwd().name, branch, commit,
                             student)
