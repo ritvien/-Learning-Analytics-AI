@@ -187,6 +187,17 @@ function getTeacherQuestions_() {
         "Không xác định được"
       ]
     },
+    {
+      type: "checkbox",
+      title: "2.3. Đề cương (Syllabus) môn học của thầy/cô hiện đang được quản lý như thế nào?",
+      choices: [
+        "Lưu file Word/PDF cá nhân, gửi khi được yêu cầu",
+        "Upload lên hệ thống LMS/cổng thông tin nội bộ",
+        "Theo mẫu chuẩn của khoa/trường, nộp đầu học kỳ",
+        "Không có mẫu chuẩn, mỗi giảng viên tự biên soạn khác nhau"
+      ],
+      other: true
+    },
 
     {
       type: "header",
@@ -265,6 +276,42 @@ function getTeacherQuestions_() {
     {
       type: "paragraph",
       title: "4.4. Theo thầy/cô, chương trình đào tạo ngành mình hiện đang có điểm nghẽn (bottleneck) nào rõ ràng nhất? (VD: Sinh viên thường kẹt ở môn nào? Thiếu kỹ năng gì?)"
+    },
+
+    {
+      type: "header",
+      title: "4B. Nhu cầu về công cụ phân tích & AI"
+    },
+    {
+      type: "multiple_choice",
+      title: "4B.1. Khi cần tìm hiểu kết quả học tập, thầy/cô thường muốn nhìn dữ liệu theo cấp nào đầu tiên?",
+      choices: [
+        "Toàn khoa (tổng quan tất cả các ngành)",
+        "Theo ngành cụ thể (các môn trong 1 ngành)",
+        "Theo môn học cụ thể (chi tiết 1 môn)",
+        "Theo khóa/học kỳ cụ thể",
+        "Tùy tình huống, cần linh hoạt chuyển đổi giữa các cấp"
+      ]
+    },
+    {
+      type: "multiple_choice",
+      title: "4B.2. Nếu có một hệ thống AI cho phép thầy/cô đặt câu hỏi bằng tiếng Việt (VD: 'Môn nào trượt nhiều nhất K18?', 'So sánh GPA K17 vs K18') và nhận câu trả lời kèm biểu đồ tự động, thầy/cô đánh giá tính năng này thế nào?",
+      choices: [
+        "Rất hữu ích — đây chính là thứ tôi đang cần",
+        "Khá hữu ích — nhưng tôi cần xem demo thực tế mới đánh giá được",
+        "Bình thường — tôi quen dùng Excel/báo cáo truyền thống hơn",
+        "Không cần thiết — tôi thích tự thao tác trên bảng số liệu"
+      ]
+    },
+    {
+      type: "multiple_choice",
+      title: "4B.3. Nếu hệ thống hiển thị dữ liệu dạng cây phân cấp (Khoa → Ngành → Môn học), mỗi mục có chỉ số sức khỏe (xanh/vàng/đỏ), click vào sẽ hiện phân tích chi tiết — thầy/cô có thấy cách trình bày này trực quan không?",
+      choices: [
+        "Rất trực quan — phù hợp với cách tôi tư duy về cấu trúc chương trình",
+        "Khá trực quan — nhưng cần kết hợp thêm bảng biểu/dashboard",
+        "Bình thường — tôi quen xem dữ liệu dạng bảng Excel hơn",
+        "Không phù hợp — tôi thích cách trình bày khác"
+      ]
     },
 
     {
@@ -363,6 +410,17 @@ function getManagerQuestions_() {
         "Nhiều tuần"
       ]
     },
+    {
+      type: "multiple_choice",
+      title: "1.3. Khi cần đánh giá tình hình đào tạo, anh/chị thường bắt đầu từ góc nhìn nào?",
+      choices: [
+        "Nhìn tổng thể toàn trường/khoa trước, rồi drill-down xuống từng ngành",
+        "Bắt đầu từ một ngành cụ thể, rồi so sánh với các ngành khác",
+        "Bắt đầu từ các môn có vấn đề (tỷ lệ trượt cao, phản ánh nhiều)",
+        "Xem báo cáo tổng hợp định kỳ (cuối kỳ/cuối năm)",
+        "Không có quy trình cố định, tùy vào yêu cầu/vấn đề phát sinh"
+      ]
+    },
 
     {
       type: "header",
@@ -452,6 +510,31 @@ function getManagerQuestions_() {
 
     {
       type: "header",
+      title: "4B. Nhu cầu về công cụ phân tích & AI"
+    },
+    {
+      type: "multiple_choice",
+      title: "4B.1. Nếu có một hệ thống AI cho phép anh/chị hỏi bằng tiếng Việt (VD: 'Ngành nào có tỷ lệ trượt cao nhất?', 'So sánh hiệu quả CTĐT K17 vs K18') và nhận câu trả lời kèm biểu đồ tự động, anh/chị đánh giá tính năng này thế nào?",
+      choices: [
+        "Rất hữu ích — giúp lãnh đạo nắm tình hình nhanh mà không cần chờ chuyên viên tổng hợp",
+        "Khá hữu ích — nhưng cần đảm bảo dữ liệu chính xác và có nguồn trích dẫn",
+        "Bình thường — tôi quen nhận báo cáo từ nhân viên/bộ môn gửi lên",
+        "Không cần thiết"
+      ]
+    },
+    {
+      type: "multiple_choice",
+      title: "4B.2. Nếu hệ thống hiển thị dữ liệu dạng cây phân cấp (Trường → Khoa → Ngành → Môn), mỗi mục có chỉ số sức khỏe đào tạo (xanh/vàng/đỏ), click vào sẽ hiện phân tích AI tự động — anh/chị thấy cách tiếp cận này thế nào?",
+      choices: [
+        "Rất phù hợp — đúng cách tôi muốn giám sát tình hình từ trên xuống",
+        "Khá phù hợp — nhưng cần kết hợp thêm dashboard tổng hợp",
+        "Bình thường — tôi quen xem báo cáo dạng văn bản/bảng biểu",
+        "Không phù hợp với quy trình hiện tại của đơn vị"
+      ]
+    },
+
+    {
+      type: "header",
       title: "5. Xác định điểm nghẽn & Sẵn sàng chi trả (Willingness to Pay)"
     },
     {
@@ -485,13 +568,24 @@ function getManagerQuestions_() {
     },
     {
       type: "multiple_choice",
-      title: "5.3. Nếu một hệ thống AI có khả năng tự động gom dữ liệu, phân tích CTĐT, tự động hóa toàn bộ việc tính toán chuẩn đầu ra PLO/CLO và tạo báo cáo cải tiến định kỳ, đơn vị sẵn sàng chi trả mức phí bao nhiêu (tính trên 1 ngành đào tạo/năm)?",
+      title: "5.3. Ước tính tổng thời gian nhân sự của đơn vị dành cho các việc tổng hợp dữ liệu, phân tích, làm báo cáo đào tạo thủ công mỗi HỌC KỲ là bao nhiêu?",
       choices: [
+        "Dưới 1 tuần làm việc (< 40 giờ)",
+        "Từ 1 - 2 tuần làm việc (40 - 80 giờ)",
+        "Từ 2 - 4 tuần làm việc (80 - 160 giờ)",
+        "Hơn 1 tháng làm việc (> 160 giờ)",
+        "Không ước tính được"
+      ]
+    },
+    {
+      type: "multiple_choice",
+      title: "5.4. Giả sử hệ thống AI giúp tự động hóa phần lớn công việc kể trên (gom dữ liệu, phân tích, tính CLO/PLO, sinh báo cáo), và đơn vị đã được demo thấy hiệu quả thực tế. Khi đó, mức chi phí nào là hợp lý để đơn vị cân nhắc đầu tư (tính trên 1 ngành đào tạo/năm)?",
+      choices: [
+        "Chỉ sử dụng nếu nhà trường/khoa cấp kinh phí và triển khai tập trung",
         "Dưới 10 triệu VNĐ / năm",
         "Từ 10 - 30 triệu VNĐ / năm",
         "Từ 30 - 50 triệu VNĐ / năm",
-        "Từ 50 - 100 triệu VNĐ / năm",
-        "Sẵn sàng chi trả cao hơn tùy thuộc vào năng lực thực tế của hệ thống"
+        "Tùy thuộc vào ROI — nếu tiết kiệm được nhân sự tương đương, sẵn sàng đầu tư cao hơn"
       ]
     },
     {
