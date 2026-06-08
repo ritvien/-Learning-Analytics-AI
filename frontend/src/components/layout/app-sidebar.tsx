@@ -8,6 +8,7 @@ import {
   MessageSquare,
   FileText,
   FileUp,
+  Layers,
 } from "lucide-react"
 
 import {
@@ -49,6 +50,11 @@ const data = {
     {
       title: "Đào tạo",
       items: [
+        {
+          title: "Cây học thuật",
+          url: "/manager/academic-tree",
+          icon: Layers,
+        },
         {
           title: "Môn học",
           url: "/manager/courses",

@@ -64,7 +64,7 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status |
 |:-:|:-----|:----------------|:--------:|:------:|
-| V1 | Nghiên cứu UI/UX references | Thu thập 5–10 references: Metabase, Grafana, Linear, NotebookLM. Tạo mood board | 08/06 | ⬜ |
+| V1 | Nghiên cứu UI/UX references | Thu thập 5–10 references: Metabase, Grafana, Linear, NotebookLM. Tạo mood board | 08/06 | ✅ Done |
 | V2 | Wireframe — Academic Tree + Detail Panel | Wireframe (Figma/tay): Tree sidebar, Detail Panel khi click node, layout tổng thể | 09/06 | ⬜ |
 | V3 | Wireframe — Chat Interface | Wireframe: Chat panel, auto-analysis output, suggested questions, inline chart | 09/06 | ⬜ |
 | V4 | Wireframe — CRUD + Login Pages | Wireframe: Danh sách entities, form CRUD, import Excel, trang login | 09/06 | ⬜ |
