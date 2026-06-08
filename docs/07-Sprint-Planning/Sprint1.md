@@ -16,7 +16,7 @@
 |:----------------|:-----------------|:------:|
 | D1 — Source Code | Repo structure theo template AI20K, ruff + type hints enforced | ⬜ |
 | D3 — Architecture Diagram | 3 Mermaid diagrams: System, Agent Flow, Data Flow | ⬜ |
-| D4 — AI Logs | Setup AI Usage Logging Hooks (1 lần) | ⬜ |
+| D4 — AI Logs | Setup AI Usage Logging Hooks (1 lần) | ✅ Done |
 | D8 — Journal + Worklog | Bắt đầu ghi worklog hàng ngày | ⬜ |
 | DevOps foundation | Docker + docker-compose + CI/CD (GitHub Actions) | ⬜ |
 
@@ -33,8 +33,8 @@
 | H5 | Architecture Diagrams (D3) | Vẽ 3 Mermaid diagrams: System Overview, Agent Flow, Data Flow. Đưa vào README | 09/06 | ⬜ |
 | H6 | Thiết kế bộ Synthetic Data | Script Python sinh dữ liệu giả: 1 trường, 2 khoa, 5 ngành, 30 môn, 5 khóa × 100 SV, điểm + CLO mapping. Output: SQL seed hoặc CSV | 10/06 | ⬜ |
 | H7 | Thiết kế AI Agent Architecture | LangGraph state diagram, định nghĩa State schema (TypedDict), Router Node, ≥ 3 Tools (SQL query, CLO calc, chart gen), prompt templates theo cấp (Khoa/Ngành/Môn) | 10/06 | ⬜ |
-| H8 | Setup AI Usage Logging (D4) | Cấu hình AI Usage Logging Hooks theo template AI20K (bắt buộc, 1 lần) | 08/06 | ⬜ |
-| H9 | Review bộ câu hỏi phỏng vấn | Review câu hỏi của Hưng, góp ý trước khi interview | 08/06 | ⬜ |
+| H8 | ✅ Setup AI Usage Logging (D4) | Cấu hình AI Usage Logging Hooks theo template AI20K (bắt buộc, 1 lần) | 08/06 | ✅ Done |
+| H9 | ✅ Review bộ câu hỏi phỏng vấn | Review câu hỏi của Hưng, góp ý trước khi interview | 08/06 | ✅ Done |
 | H10 | Cập nhật PRD sau interview | Dựa trên kết quả interview → cập nhật PRD v2.1 (features, priority) | 10/06 | ⬜ |
 
 **Tổng: 10 task · Trọng tâm: Architecture + Data + AI Design + Product**
