@@ -65,15 +65,15 @@
 | # | Task | Mô tả chi tiết | Deadline | Status |
 |:-:|:-----|:----------------|:--------:|:------:|
 | V1 | Nghiên cứu UI/UX references | Thu thập 5–10 references: Metabase, Grafana, Linear, NotebookLM. Tạo mood board | 08/06 | ✅ Done |
-| V2 | Wireframe — Academic Tree + Detail Panel | Wireframe (Figma/tay): Tree sidebar, Detail Panel khi click node, layout tổng thể | 09/06 | ⬜ |
-| V3 | Wireframe — Chat Interface | Wireframe: Chat panel, auto-analysis output, suggested questions, inline chart | 09/06 | ⬜ |
-| V4 | Wireframe — CRUD + Login Pages | Wireframe: Danh sách entities, form CRUD, import Excel, trang login | 09/06 | ⬜ |
-| V5 | Next.js Project Setup | Init Next.js 16 + TypeScript + TailwindCSS + shadcn/ui. Theme config, dark mode, layout | 09/06 | ⬜ |
-| V6 | UI Component Library | Base components: Sidebar, Breadcrumb, Card, Table, Modal, Form (shadcn/ui) | 10/06 | ⬜ |
-| V7 | Academic Tree Component (Static) | Tree component với mock JSON. Collapsible nodes, badge màu (🟢🟡🔴), click handler | 10/06 | ⬜ |
-| V8 | Detail Panel Component (Static) | Panel hiển thị metric cards khi click node. Mock data. Responsive layout | 10/06 | ⬜ |
-| V9 | API Service Layer | Axios/fetch wrapper, TypeScript interfaces cho entities, mock API responses | 10/06 | ⬜ |
-| V10 | Login Page (Static) | Trang login UI hoàn chỉnh (chưa cần auth logic, chỉ cần UI) | 10/06 | ⬜ |
+| V2 | Wireframe — Academic Tree + Detail Panel | Wireframe (Figma/tay): Tree sidebar, Detail Panel khi click node, layout tổng thể | 09/06 | ✅ Done |
+| V3 | Wireframe — Chat Interface | Wireframe: Chat panel, auto-analysis output, suggested questions, inline chart | 09/06 | ✅ Done |
+| V4 | Wireframe — CRUD + Login Pages | Wireframe: Danh sách entities, form CRUD, import Excel, trang login | 09/06 | ✅ Done |
+| V5 | Next.js Project Setup | Init Next.js 16 + TypeScript + TailwindCSS + shadcn/ui. Theme config, dark mode, layout | 09/06 | ✅ Done |
+| V6 | UI Component Library | Base components: Sidebar, Breadcrumb, Card, Table, Modal, Form (shadcn/ui) | 10/06 | ✅ Done |
+| V7 | Academic Tree Component (Static) | Tree component với mock JSON. Collapsible nodes, badge màu (🟢🟡🔴), click handler | 10/06 | ✅ Done |
+| V8 | Detail Panel Component (Static) | Panel hiển thị metric cards khi click node. Mock data. Responsive layout | 10/06 | ✅ Done |
+| V9 | API Service Layer | Axios/fetch wrapper, TypeScript interfaces cho entities, mock API responses | 10/06 | ✅ Done |
+| V10 | Login Page (Static) | Trang login UI hoàn chỉnh (chưa cần auth logic, chỉ cần UI) | 10/06 | ✅ Done |
 
 **Tổng: 10 task · Trọng tâm: Design + Frontend Foundation + Login UI**
 

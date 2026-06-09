@@ -17,3 +17,14 @@
   - Restructured survey files into `docs/08-Surveys/`.
   - Updated `interview_questions.html` to add deep-dive questions validating the Academic Tree UI, Natural Language AI Assistant, and Syllabus management.
   - Successfully deployed the pre-push AI log hook and submitted pending logs. Marked tasks H8, H9, and D4 as done.
+
+## 2026-06-09: Complete Hiếu's Frontend Foundation Tasks (V1-V10)
+- **Decision**: Finalized, verified and closed all of Hiếu's frontend foundation tasks (V1-V10) after checking code compliance and running test/build verification.
+- **Changes**:
+  - Installed `jsdom` devDependency in frontend workspace using `--legacy-peer-deps` due to React 19 canary.
+  - Configured custom `@/` path alias resolution in `vitest.config.ts` so Vitest can find dependencies properly.
+  - Adjusted unit tests in `detail-panel.test.tsx` to match component's exact formatting logic (`toFixed(1)`).
+  - Executed tests and verified they compile and pass (2/2 test suites passed successfully).
+  - Executed production build of the Next.js app and verified that code compiles successfully.
+  - Updated Sprint 1 planning documents (`Sprint1.md` and `Sprint1_v2.md`) to mark tasks V1 through V10 as `✅ Done`.
+
