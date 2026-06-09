@@ -1,0 +1,131 @@
+"""Pydantic schemas for academic hierarchy entities."""
+
+from datetime import datetime
+
+from pydantic import BaseModel, Field
+
+from app.schemas.common import OrmBase
+
+
+# ================================================================ Department
+class DepartmentBase(BaseModel):
+    """Shared fields for Department create/update."""
+
+    code: str = Field(max_length=20)
+    name: str = Field(max_length=255)
+    name_en: str | None = None
+    description: str | None = None
+    head_name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    is_active: bool = True
+
+
+class DepartmentCreate(DepartmentBase):
+    """Fields required when creating a Department."""
+
+    university_id: int
+
+
+class DepartmentUpdate(BaseModel):
+    """All fields optional for PATCH update."""
+
+    code: str | None = Field(None, max_length=20)
+    name: str | None = Field(None, max_length=255)
+    name_en: str | None = None
+    description: str | None = None
+    head_name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    is_active: bool | None = None
+
+
+class DepartmentResponse(DepartmentBase, OrmBase):
+    """Full Department response including PK and timestamps."""
+
+    id: int
+    university_id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+# ================================================================== Program
+class ProgramBase(BaseModel):
+    code: str = Field(max_length=30)
+    name: str = Field(max_length=255)
+    name_en: str | None = None
+    description: str | None = None
+    duration_years: int = 4
+    total_credits: int | None = None
+    accreditation: str | None = None
+    version: str | None = None
+    is_active: bool = True
+
+
+class ProgramCreate(ProgramBase):
+    department_id: int
+
+
+class ProgramUpdate(BaseModel):
+    code: str | None = Field(None, max_length=30)
+    name: str | None = Field(None, max_length=255)
+    name_en: str | None = None
+    description: str | None = None
+    duration_years: int | None = None
+    total_credits: int | None = None
+    accreditation: str | None = None
+    version: str | None = None
+    is_active: bool | None = None
+
+
+class ProgramResponse(ProgramBase, OrmBase):
+    id: int
+    department_id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+# =================================================================== Course
+class CourseBase(BaseModel):
+    code: str = Field(max_length=30)
+    name: str = Field(max_length=255)
+    name_en: str | None = None
+    credits: int = Field(ge=1)
+    theory_hours: int | None = None
+    lab_hours: int | None = None
+    description: str | None = None
+    is_elective: bool = False
+    is_active: bool = True
+
+
+class CourseCreate(CourseBase):
+    program_id: int
+
+
+class CourseUpdate(BaseModel):
+    code: str | None = Field(None, max_length=30)
+    name: str | None = Field(None, max_length=255)
+    name_en: str | None = None
+    credits: int | None = Field(None, ge=1)
+    theory_hours: int | None = None
+    lab_hours: int | None = None
+    description: str | None = None
+    is_elective: bool | None = None
+    is_active: bool | None = None
+
+
+class CourseResponse(CourseBase, OrmBase):
+    id: int
+    program_id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+# ================================================================= Semester
+class SemesterResponse(OrmBase):
+    id: int
+    code: str
+    name: str
+    year: int
+    term: int
+    is_current: bool
