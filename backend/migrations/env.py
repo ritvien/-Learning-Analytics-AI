@@ -6,10 +6,11 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
-# Import Base and all models so autogenerate can detect table changes.
-from app.database import Base
 import app.models  # noqa: F401 — registers all ORM models on Base.metadata
 from app.config import get_settings
+
+# Import Base and all models so autogenerate can detect table changes.
+from app.database import Base
 
 config = context.config
 settings = get_settings()

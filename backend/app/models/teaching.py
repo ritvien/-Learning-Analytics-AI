@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
-    CheckConstraint,
     ForeignKey,
     Integer,
     Numeric,
@@ -101,7 +100,9 @@ class GradeComponent(TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     enrollment_id: Mapped[int] = mapped_column(ForeignKey("enrollments.id", ondelete="CASCADE"), nullable=False)
-    component_type_id: Mapped[int] = mapped_column(ForeignKey("grade_component_types.id", ondelete="CASCADE"), nullable=False)
+    component_type_id: Mapped[int] = mapped_column(
+        ForeignKey("grade_component_types.id", ondelete="CASCADE"), nullable=False
+    )
     score: Mapped[float | None] = mapped_column(Numeric(5, 2))
     max_score: Mapped[float] = mapped_column(Numeric(5, 2), default=10.0, nullable=False)
     is_absent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

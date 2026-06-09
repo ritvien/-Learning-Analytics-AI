@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import enum
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, Date, Enum, ForeignKey, Integer, Numeric, SmallInteger, String, Text
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -17,7 +16,7 @@ if TYPE_CHECKING:
     from app.models.teaching import Enrollment, Section
 
 
-class UserRole(str, enum.Enum):
+class UserRole(StrEnum):
     """RBAC roles for the EduInsight system."""
 
     superadmin = "superadmin"
