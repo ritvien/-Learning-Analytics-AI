@@ -1,4 +1,8 @@
-"""Pytest fixtures shared across all tests."""
+"""Pytest fixtures shared across all tests.
+
+Uses pure pytest-asyncio (asyncio_mode = "auto" in pyproject.toml).
+No anyio markers needed — async def test_* is handled automatically.
+"""
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -7,19 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.database import Base, get_db
 from app.main import app
 
-# Use in-memory SQLite for tests — fast, no cleanup needed.
+# In-memory SQLite — no external services needed in CI.
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 
-@pytest.fixture(scope="session")
-def anyio_backend() -> str:
-    """Use asyncio backend for all async tests."""
-    return "asyncio"
-
-
-@pytest.fixture(scope="session")
+@pytest.fixture
 async def test_engine():
-    """Create a shared async engine for the test session."""
+    """Create a fresh async engine with schema for each test."""
     engine = create_async_engine(TEST_DATABASE_URL, echo=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -31,16 +29,16 @@ async def test_engine():
 
 @pytest.fixture
 async def db_session(test_engine) -> AsyncSession:
-    """Yield a transactional session that rolls back after each test."""
-    session_factory = async_sessionmaker(test_engine, expire_on_commit=False)
-    async with session_factory() as session:
+    """Yield a session that rolls back after each test."""
+    factory = async_sessionmaker(test_engine, expire_on_commit=False)
+    async with factory() as session:
         yield session
         await session.rollback()
 
 
 @pytest.fixture
 async def client(db_session: AsyncSession) -> AsyncClient:
-    """Async HTTP client with DB session override."""
+    """Async HTTP client with the test DB session injected."""
 
     async def _override_get_db():
         yield db_session
