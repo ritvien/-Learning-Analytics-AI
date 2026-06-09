@@ -263,8 +263,7 @@ graph TB
     end
 
     subgraph "Storage"
-        Q["PostgreSQL / SQLite"]
-        R["ChromaDB — Syllabus vectors"]
+        Q["PostgreSQL (pgvector)"]
         S["Redis / In-memory Cache"]
     end
 
@@ -276,7 +275,7 @@ graph TB
     K --> L & M & N & O & P
     L & M --> Q
     N --> Q
-    O --> R
+    O --> Q
     H --> Q
     H --> S
 ```
@@ -291,8 +290,8 @@ graph TB
 | **Backend** | FastAPI + Pydantic | Async, type-safe, auto-docs |
 | **AI Agent** | LangGraph + LangChain | State machine, tool calling, ReAct |
 | **LLM** | Google Gemini API / Mistral AI | Free tier, đủ cho demo |
-| **Database** | SQLite (dev) → PostgreSQL (prod) | Đơn giản → Scale |
-| **Vector Store** | ChromaDB | Self-hosted, embedding syllabus |
+| **Database** | PostgreSQL (với pgvector) | Quản lý Relational + Vector chung |
+| **Vector Store** | pgvector (PostgreSQL extension) | Hybrid search, kiến trúc đơn giản |
 | **Monitoring** | Langfuse | Open-source, unlimited |
 | **Deploy** | Vercel (FE) + Render (BE) | Free tier |
 | **CI/CD** | GitHub Actions | Ruff + pytest + Docker build |
