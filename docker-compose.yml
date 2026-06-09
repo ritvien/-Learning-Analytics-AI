@@ -1,10 +1,55 @@
 services:
+
+  # ──────────────────────────────────────────────────────── PostgreSQL database
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-eduinsight}
+      POSTGRES_USER:     ${POSTGRES_USER:-eduinsight}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eduinsight_dev}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"        # expose to host for local psql / DBeaver access
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eduinsight} -d ${POSTGRES_DB:-eduinsight}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # ─────────────────────────────────────────────────────────── FastAPI backend
   backend:
     build:
       context: ./backend
-    env_file:
-      - ./backend/.env.example
+      target: runtime          # use the slim runtime stage
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_ENV:         development
+      DATABASE_URL:    postgresql+asyncpg://${POSTGRES_USER:-eduinsight}:${POSTGRES_PASSWORD:-eduinsight_dev}@db:5432/${POSTGRES_DB:-eduinsight}
+      SECRET_KEY:      ${SECRET_KEY:-change-me-in-production}
+      CORS_ORIGINS:    ${CORS_ORIGINS:-http://localhost:3000}
+      LLM_PROVIDER:    ${LLM_PROVIDER:-gemini}
+      LLM_MODEL:       ${LLM_MODEL:-gemini-1.5-flash}
+      LLM_API_KEY:     ${LLM_API_KEY:-}
     ports:
       - "8000:8000"
     volumes:
+      # Hot-reload: mount source so code changes take effect without rebuild.
+      # Remove in production.
       - ./backend/app:/app/app
+      - ./backend/migrations:/app/migrations
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  postgres_data:
+    driver: local

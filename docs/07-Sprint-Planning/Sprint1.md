@@ -51,7 +51,7 @@
 | T4 | Tổng hợp Interview Insights | Key findings: pain points, feature mong muốn, data hiện có | 10/06 | ⬜ |
 | T5 | DB Schema Design (SQL) | Schema chi tiết: tables, indexes, constraints. Dựa trên Data Model trong PRD | 08/06 | ✅ Done |
 | T6 | FastAPI Project Setup | Folder structure theo template AI20K, `pyproject.toml`, Pydantic models, SQLAlchemy/SQLModel, alembic. **Type hints + docstrings bắt buộc** | 09/06 | ✅ Done |
-| T7 | Docker + docker-compose (DevOps) | Multi-stage Dockerfile cho backend + docker-compose (app + db). README hướng dẫn chạy | 09/06 | ⬜ |
+| T7 | Docker + docker-compose (DevOps) | Multi-stage Dockerfile cho backend + docker-compose (app + db). README hướng dẫn chạy | 09/06 | ✅ Done |
 | T8 | CI/CD — GitHub Actions (DevOps) | Workflow: Ruff lint + pytest chạy trên mỗi PR. Block merge nếu fail | 09/06 | ⬜ |
 | T9 | CRUD API — Core Entities | Implement CRUD: departments, programs, courses, students, teachers, sections, grades. Health check `/health` | 10/06 | ⬜ |
 | T10 | Excel Import API | POST `/api/v1/import/grades` + `/api/v1/import/students` — parse Excel, validate, bulk insert | 10/06 | ⬜ |
