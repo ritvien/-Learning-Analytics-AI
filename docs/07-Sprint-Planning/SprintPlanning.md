@@ -175,7 +175,7 @@ gantt
 
 | File | Sprint | Trạng thái |
 |:-----|:------:|:----------:|
-| [Sprint1.md](file:///c:/Users/Admin/AI%20in%20Action/Project/C2-App-056/docs/07-Sprint-Planning/Sprint1.md) | S1 — Foundation & Research (W1–W2) | 🟡 Đang chạy |
-| Sprint2.md | S2 — Core Agent & Demo 1 (W3–W4) | ⬜ Chưa lập |
+| [Sprint1.md](file:///c:/Users/Admin/Work/AI%20In%20Action/C2-App-056/docs/07-Sprint-Planning/Sprint1.md) | S1 — Foundation & Research (W1–W2) | ✅ Hoàn thành |
+| [Sprint2.md](file:///c:/Users/Admin/Work/AI%20In%20Action/C2-App-056/docs/07-Sprint-Planning/Sprint2.md) | S2 — Core Agent & Demo 1 (W3–W4) | 🟡 Đang chạy |
 | Sprint3.md | S3 — Production & Demo 2 (W5) | ⬜ Chưa lập |
 | Sprint4.md | S4 — Polish & Demo Day (W6) | ⬜ Chưa lập |

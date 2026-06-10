@@ -1,3 +1,5 @@
+"""Main FastAPI application module."""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -19,5 +21,4 @@ app.add_middleware(
 @app.get("/health", tags=["system"])
 def health_check() -> dict[str, str]:
     """Return basic service health."""
-
     return {"status": "ok", "service": "backend"}

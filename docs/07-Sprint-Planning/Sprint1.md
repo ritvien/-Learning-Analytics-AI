@@ -15,10 +15,10 @@
 | Deliverable BTC | Yêu cầu Sprint 1 | Status |
 |:----------------|:-----------------|:------:|
 | D1 — Source Code | Repo structure theo template AI20K, ruff + type hints enforced | ⬜ |
-| D3 — Architecture Diagram | 3 Mermaid diagrams: System, Agent Flow, Data Flow | ⬜ |
+| D3 — Architecture Diagram | 3 Mermaid diagrams: System, Agent Flow, Data Flow | ✅ Done |
 | D4 — AI Logs | Setup AI Usage Logging Hooks (1 lần) | ✅ Done |
-| D8 — Journal + Worklog | Bắt đầu ghi worklog hàng ngày | ⬜ |
-| DevOps foundation | Docker + docker-compose + CI/CD (GitHub Actions) | ⬜ |
+| D8 — Journal + Worklog | Bắt đầu ghi worklog hàng ngày | ✅ Done |
+| DevOps foundation | Docker + docker-compose + CI/CD (GitHub Actions) | ✅ Done |
 
 ---
 
@@ -30,9 +30,9 @@
 | H2 | ✅ PRD v1.0 → v2.0 | Viết PRD, cập nhật Academic Tree concept | 07/06 | ✅ Done |
 | H3 | ✅ Tạo Team Skills Survey | Google Form khảo sát năng lực team | 06/06 | ✅ Done |
 | H4 | ✅ Sprint Planning & phân công | Lập bảng sprint, phân task cho team | 07/06 | ✅ Done |
-| H5 | Architecture Diagrams (D3) | Vẽ 3 Mermaid diagrams: System Overview, Agent Flow, Data Flow. Đưa vào README | 09/06 | ⬜ |
+| H5 | Architecture Diagrams (D3) | Vẽ 3 Mermaid diagrams: System Overview, Agent Flow, Data Flow. Đưa vào README | 09/06 | ✅ Done |
 | H6 | Thiết kế bộ Synthetic Data | Script Python sinh dữ liệu giả: 1 trường, 2 khoa, 5 ngành, 30 môn, 5 khóa × 100 SV, điểm + CLO mapping. Output: SQL seed hoặc CSV | 10/06 | ⬜ |
-| H7 | Thiết kế AI Agent Architecture | LangGraph state diagram, định nghĩa State schema (TypedDict), Router Node, ≥ 3 Tools (SQL query, CLO calc, chart gen), prompt templates theo cấp (Khoa/Ngành/Môn) | 10/06 | ⬜ |
+| H7 | Thiết kế AI Agent Architecture | LangGraph state diagram, định nghĩa State schema (TypedDict), Router Node, ≥ 3 Tools (SQL query, CLO calc, chart gen), prompt templates theo cấp (Khoa/Ngành/Môn) | 10/06 | ✅ Done |
 | H8 | ✅ Setup AI Usage Logging (D4) | Cấu hình AI Usage Logging Hooks theo template AI20K (bắt buộc, 1 lần) | 08/06 | ✅ Done |
 | H9 | ✅ Review bộ câu hỏi phỏng vấn | Review câu hỏi của Hưng, góp ý trước khi interview | 08/06 | ✅ Done |
 | H10 | Cập nhật PRD sau interview | Dựa trên kết quả interview → cập nhật PRD v2.1 (features, priority) | 10/06 | ⬜ |
@@ -50,9 +50,9 @@
 | T3 | Tiến hành phỏng vấn | Phỏng vấn + ghi notes vào `05-Meeting-Notes/` | 08–10/06 | ⬜ |
 | T4 | Tổng hợp Interview Insights | Key findings: pain points, feature mong muốn, data hiện có | 10/06 | ⬜ |
 | T5 | DB Schema Design (SQL) | Schema chi tiết: tables, indexes, constraints. Dựa trên Data Model trong PRD | 08/06 | ✅ Done |
-| T6 | FastAPI Project Setup | Folder structure theo template AI20K, `pyproject.toml`, Pydantic models, SQLAlchemy/SQLModel, alembic. **Type hints + docstrings bắt buộc** | 09/06 | ⬜ |
-| T7 | Docker + docker-compose (DevOps) | Multi-stage Dockerfile cho backend + docker-compose (app + db). README hướng dẫn chạy | 09/06 | ⬜ |
-| T8 | CI/CD — GitHub Actions (DevOps) | Workflow: Ruff lint + pytest chạy trên mỗi PR. Block merge nếu fail | 09/06 | ⬜ |
+| T6 | FastAPI Project Setup | Folder structure theo template AI20K, `pyproject.toml`, Pydantic models, SQLAlchemy/SQLModel, alembic. **Type hints + docstrings bắt buộc** | 09/06 | ✅ Done |
+| T7 | Docker + docker-compose (DevOps) | Multi-stage Dockerfile cho backend + docker-compose (app + db). README hướng dẫn chạy | 09/06 | ✅ Done |
+| T8 | CI/CD — GitHub Actions (DevOps) | Workflow: Ruff lint + pytest chạy trên mỗi PR. Block merge nếu fail | 09/06 | ✅ Done |
 | T9 | CRUD API — Core Entities | Implement CRUD: departments, programs, courses, students, teachers, sections, grades. Health check `/health` | 10/06 | ⬜ |
 | T10 | Excel Import API | POST `/api/v1/import/grades` + `/api/v1/import/students` — parse Excel, validate, bulk insert | 10/06 | ⬜ |
 

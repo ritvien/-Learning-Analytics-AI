@@ -266,3 +266,66 @@ sequenceDiagram
     API-->>FE: SSE: data: {"type":"suggestions","items":[...]}
     FE-->>User: Display 3-4 follow-up questions
 ```
+
+### 4. Agent Flow Diagram
+
+```mermaid
+stateDiagram-v2
+    [*] --> ReceiveReq : User nhập câu hỏi
+    ReceiveReq : Nhận Yêu Cầu
+    
+    state StateInit {
+        ChatHistory --> Context
+        NewQuestion --> Context
+    }
+    StateInit : Khởi tạo State
+    ChatHistory : Lịch sử Chat
+    NewQuestion : Câu hỏi mới
+    
+    ReceiveReq --> StateInit
+
+    StateInit --> RouterNode : Phân loại Intent
+    RouterNode : Router Node (GPT-5.4 Nano)
+    
+    RouterNode --> DirectResponse : Hỏi đáp thông thường
+    DirectResponse : Fast Response
+    DirectResponse --> [*] : Trả về Frontend (SSE)
+
+    state AgentNode {
+        Analyze --> Reasoning
+        Reasoning --> Act
+    }
+    AgentNode : Core Agent Node (GPT-5.4)<br/>*RetryPolicy (Max 3)*
+    Analyze : Phân tích ngữ cảnh
+    Reasoning : Suy luận Logic
+    Act : Quyết định gọi Tool
+    
+    RouterNode --> AgentNode : Cần tra cứu / Phân tích
+
+    state Condition1 <<choice>>
+    AgentNode --> Condition1
+
+    Condition1 --> [*] : Không (Đã có câu trả lời)
+    
+    state ToolNode {
+        state ToolRouter <<choice>>
+        ToolRouter --> SQLTool : Lọc dữ liệu
+        ToolRouter --> VectorTool : Tra cứu RAG
+        ToolRouter --> CLOTool : Tính toán CLO
+        ToolRouter --> ChartTool : Vẽ biểu đồ
+        ToolRouter --> ReportTool : Viết báo cáo
+        ToolRouter --> DiagramTool : Tạo sơ đồ
+    }
+    ToolNode : Thực thi Công cụ (handle_tool_errors=True)
+    SQLTool : SQL Query Tool
+    VectorTool : Vector Search Tool (pgvector)
+    CLOTool : CLO Calculator Tool
+    ChartTool : Chart Generator Tool
+    ReportTool : Report Writer Tool
+    DiagramTool : Diagram Generator Tool
+
+    Condition1 --> ToolNode : Có (Danh sách Tool)
+
+    %% Lỗi ở Tool sẽ được handle_tool_errors chuyển thành Text trả về Agent tự sửa
+    ToolNode --> AgentNode : Kết quả (Thành công / Chuỗi báo lỗi)
+```

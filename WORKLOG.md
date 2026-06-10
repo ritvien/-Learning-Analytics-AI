@@ -28,3 +28,9 @@
   - Executed production build of the Next.js app and verified that code compiles successfully.
   - Updated Sprint 1 planning documents (`Sprint1.md` and `Sprint1_v2.md`) to mark tasks V1 through V10 as `✅ Done`.
 
+## 2026-06-10: Agent Flow Diagram & Documentation Alignment
+- **Decision**: Aligned the `AgentFlowDiagram.md` to strictly follow the LangGraph Agent design (`LangGraphAgent.md`) and the project PRD.
+- **Changes**:
+  - Replaced the generic `ErrHandler` node in Mermaid with the LangGraph-native `ToolNode(handle_tool_errors=True)` and `RetryPolicy` pattern.
+  - Added missing core tools to the diagram: `CLO Calculator Tool` and `Diagram Generator Tool`.
+  - Embedded the updated `Agent Flow Diagram` directly into the `README.md` to fulfill Deliverable D3 requirements.

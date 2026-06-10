@@ -28,7 +28,7 @@ stateDiagram-v2
         Analyze --> Reasoning
         Reasoning --> Act
     }
-    AgentNode : Core Agent Node (GPT-5.4)
+    AgentNode : Core Agent Node (GPT-5.4)<br/>*RetryPolicy (Max 3)*
     Analyze : Phân tích ngữ cảnh
     Reasoning : Suy luận Logic
     Act : Quyết định gọi Tool
@@ -43,32 +43,24 @@ stateDiagram-v2
     state ToolNode {
         state ToolRouter <<choice>>
         ToolRouter --> SQLTool : Lọc dữ liệu
-        ToolRouter --> VectorTool : Tra cứu (pgvector)
+        ToolRouter --> VectorTool : Tra cứu RAG
+        ToolRouter --> CLOTool : Tính toán CLO
         ToolRouter --> ChartTool : Vẽ biểu đồ
         ToolRouter --> ReportTool : Viết báo cáo
+        ToolRouter --> DiagramTool : Tạo sơ đồ
     }
-    ToolNode : Thực thi Công cụ
+    ToolNode : Thực thi Công cụ (handle_tool_errors=True)
     SQLTool : SQL Query Tool
-    VectorTool : Vector Search Tool
+    VectorTool : Vector Search Tool (pgvector)
+    CLOTool : CLO Calculator Tool
     ChartTool : Chart Generator Tool
     ReportTool : Report Writer Tool
+    DiagramTool : Diagram Generator Tool
 
     Condition1 --> ToolNode : Có (Danh sách Tool)
 
-    state ConditionError <<choice>>
-    ToolNode --> ConditionError : Kết quả từ Tool
-
-    ConditionError --> AgentNode : Thành công
-    
-    state ErrHandler {
-        LogError --> RequestFix
-    }
-    ErrHandler : Xử lý Lỗi (Graceful Failure)
-    LogError : Ghi nhận lỗi
-    RequestFix : Yêu cầu Agent sửa lỗi
-
-    ConditionError --> ErrHandler : Lỗi
-    ErrHandler --> AgentNode : Agent thử lại (Max 3 lần)
+    %% Lỗi ở Tool sẽ được handle_tool_errors chuyển thành Text trả về Agent tự sửa
+    ToolNode --> AgentNode : Kết quả (Thành công / Chuỗi báo lỗi)
 ```
 
 ## Giải thích luồng hoạt động:
