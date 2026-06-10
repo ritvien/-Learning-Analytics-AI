@@ -88,7 +88,7 @@ CREATE TABLE semesters (
     code        VARCHAR(20)     NOT NULL UNIQUE, -- e.g. '2024-1', '2024-2', '2024-3'
     name        VARCHAR(100)    NOT NULL,         -- e.g. 'HK1 năm học 2024–2025'
     year        SMALLINT        NOT NULL,
-    term        SMALLINT        NOT NULL CHECK (term BETWEEN 1 AND 3),
+    term        SMALLINT        NOT NULL CHECK (term BETWEEN 1 AND 10),
     start_date  DATE,
     end_date    DATE,
     is_current  BOOLEAN         NOT NULL DEFAULT FALSE,
@@ -100,11 +100,10 @@ COMMENT ON TABLE semesters IS 'Học kỳ — used as FK for sections and snapsh
 
 CREATE TABLE courses (
     id              SERIAL          PRIMARY KEY,
-    program_id      INT             NOT NULL REFERENCES programs(id) ON DELETE RESTRICT,
     code            VARCHAR(30)     NOT NULL UNIQUE,
     name            VARCHAR(255)    NOT NULL,
     name_en         VARCHAR(255),
-    credits         SMALLINT        NOT NULL CHECK (credits > 0),
+    credits         SMALLINT        NOT NULL CHECK (credits >= 0),
     theory_hours    SMALLINT,
     lab_hours       SMALLINT,
     prerequisite_note TEXT,                       -- free-text until course_prerequisites
@@ -115,8 +114,16 @@ CREATE TABLE courses (
     updated_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW()
 );
 COMMENT ON TABLE courses IS 'Môn học — fourth level of Academic Tree.';
-CREATE INDEX idx_courses_program ON courses(program_id);
 CREATE INDEX idx_courses_name_trgm ON courses USING gin(name gin_trgm_ops);
+
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE program_courses (
+    program_id      INT             NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+    course_id       INT             NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    PRIMARY KEY (program_id, course_id)
+);
+COMMENT ON TABLE program_courses IS 'Mapping between programs and courses to handle shared courses.';
 
 -- ---------------------------------------------------------------------------
 
@@ -214,7 +221,7 @@ CREATE TABLE sections (
     course_id       INT             NOT NULL REFERENCES courses(id) ON DELETE RESTRICT,
     teacher_id      INT             REFERENCES teachers(id) ON DELETE SET NULL,
     semester_id     INT             NOT NULL REFERENCES semesters(id) ON DELETE RESTRICT,
-    section_code    VARCHAR(20)     NOT NULL,    -- e.g. 'L01', 'L02'
+    section_code    VARCHAR(50)     NOT NULL,    -- e.g. 'L01', 'L02'
     room            VARCHAR(50),
     schedule        VARCHAR(255),               -- e.g. 'T2-4 (7:00-9:30)'
     max_students    SMALLINT,
@@ -635,20 +642,25 @@ COMMENT ON VIEW vw_section_stats IS 'Thống kê tổng hợp từng lớp học
 
 CREATE OR REPLACE VIEW vw_course_stats AS
 SELECT
+    pc.program_id,
     c.id                                    AS course_id,
-    c.program_id,
     c.code,
     c.name,
     c.credits,
-    sm.semester_id,
-    COUNT(DISTINCT ss.id)                   AS section_count,
-    SUM(ss.enrollment_count)                AS total_students,
-    ROUND(AVG(ss.gpa_avg_10)::NUMERIC, 2)  AS gpa_avg,
-    ROUND(AVG(ss.fail_rate)::NUMERIC, 4)   AS fail_rate_avg
-FROM courses c
-JOIN vw_section_stats ss ON ss.course_id = c.id
-JOIN (SELECT DISTINCT section_id, semester_id FROM sections) sm ON sm.section_id = ss.section_id
-GROUP BY c.id, c.program_id, c.code, c.name, c.credits, sm.semester_id;
+    sec.semester_id,
+    COUNT(DISTINCT sec.id)                  AS section_count,
+    COUNT(e.id)                             AS total_students,
+    ROUND(AVG(e.final_grade)::NUMERIC, 2)   AS gpa_avg,
+    ROUND(
+        COUNT(e.id) FILTER (WHERE e.is_passed = FALSE)::NUMERIC 
+        / NULLIF(COUNT(e.id), 0), 4
+    )                                       AS fail_rate_avg
+FROM program_courses pc
+JOIN courses c ON pc.course_id = c.id
+JOIN sections sec ON sec.course_id = c.id
+JOIN enrollments e ON e.section_id = sec.id AND e.status = 'completed'
+JOIN students s ON e.student_id = s.id AND s.program_id = pc.program_id
+GROUP BY pc.program_id, c.id, c.code, c.name, c.credits, sec.semester_id;
 
 COMMENT ON VIEW vw_course_stats IS 'Thống kê môn học theo học kỳ — used for drill-down in Academic Tree.';
 
@@ -663,8 +675,8 @@ SELECT
     cs.semester_id,
     COUNT(DISTINCT cs.course_id)            AS course_count,
     SUM(cs.total_students)                  AS total_students,
-    ROUND(AVG(cs.gpa_avg)::NUMERIC, 2)     AS gpa_avg,
-    ROUND(AVG(cs.fail_rate_avg)::NUMERIC, 4) AS fail_rate_avg
+    ROUND(SUM(cs.gpa_avg * cs.total_students) / NULLIF(SUM(cs.total_students), 0), 2) AS gpa_avg,
+    ROUND(SUM(cs.fail_rate_avg * cs.total_students) / NULLIF(SUM(cs.total_students), 0), 4) AS fail_rate_avg
 FROM programs p
 JOIN vw_course_stats cs ON cs.program_id = p.id
 GROUP BY p.id, p.department_id, p.code, p.name, cs.semester_id;
@@ -790,7 +802,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION trigger_invalidate_metric_cache();
 -- =============================================================================
 
 INSERT INTO universities (code, name, name_short, website)
-VALUES ('HCMUT', 'Trường Đại học Bách Khoa TP.HCM', 'Bách Khoa', 'https://hcmut.edu.vn');
+VALUES ('EPU', 'Trường Đại học Điện Lực', 'EPU', 'https://epu.edu.vn');
 
 INSERT INTO cohorts (code, year_start, year_end) VALUES
     ('K17', 2012, 2017),
