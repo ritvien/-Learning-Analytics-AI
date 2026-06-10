@@ -46,7 +46,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import List, Optional, Set, Iterator, Dict
+from typing import List, Optional, Set
 
 # Fix Windows console encoding so VN diacritics in prompts print cleanly.
 if sys.platform == "win32":

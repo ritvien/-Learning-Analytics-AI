@@ -18,6 +18,7 @@ def crawl_epu_grades(token: str) -> dict[str, Any] | None:
     try:
         response = requests.get(url, verify=False, timeout=10)
         response.raise_for_status()
+        response.encoding = 'utf-8'
     except Exception as e:
         print(f"  -> Lỗi kết nối: {e}")
         return None
@@ -39,6 +40,20 @@ def crawl_epu_grades(token: str) -> dict[str, Any] | None:
     if group_right:
         tds = group_right.find_all('td')
         for td in tds:
+            text = td.get_text(strip=True)
+            if ':' in text:
+                key, val = text.split(':', 1)
+                if key.strip() and val.strip():
+                    student_info[key.strip()] = val.strip()
+
+    # Extract THÔNG TIN HỌC TẬP (Academic Info)
+    academic_info_tables = soup.find_all('table', class_='none-grid')
+    for table in academic_info_tables:
+        tds = table.find_all('td')
+        for td in tds:
+            # Skip tds that contain tables to avoid nested text issues
+            if td.find('table'):
+                continue
             text = td.get_text(strip=True)
             if ':' in text:
                 key, val = text.split(':', 1)
