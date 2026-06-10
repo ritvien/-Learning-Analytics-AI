@@ -302,7 +302,7 @@ graph TB
 erDiagram
     DEPARTMENT ||--o{ PROGRAM : has
     DEPARTMENT ||--o{ TEACHER : belongs_to
-    PROGRAM ||--o{ COURSE : includes
+    PROGRAM }o--o{ COURSE : shares
     PROGRAM ||--o{ PLO : defines
     COURSE ||--o{ CLO : defines
     COURSE ||--o{ SECTION : has
@@ -330,7 +330,6 @@ erDiagram
         string code
         string name
         int credits
-        int program_id FK
     }
     SYLLABUS {
         int id PK
