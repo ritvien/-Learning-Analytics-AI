@@ -34,7 +34,7 @@ class PLO(Base):
     code: Mapped[str] = mapped_column(String(20), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
-    bloom_level: Mapped[int | None] = mapped_column(SmallInteger)  # 1–6 Bloom's taxonomy
+    bloom_level: Mapped[int | None] = mapped_column(SmallInteger)  # 1-6 Bloom's taxonomy
     sort_order: Mapped[int] = mapped_column(SmallInteger, default=0, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 

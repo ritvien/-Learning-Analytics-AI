@@ -7,6 +7,8 @@ from app.schemas.common import OrmBase
 
 # ====================================================================== PLO
 class PLOBase(BaseModel):
+    """Shared fields for PLO create/update."""
+
     code: str = Field(max_length=20)
     name: str = Field(max_length=255)
     description: str | None = None
@@ -16,10 +18,14 @@ class PLOBase(BaseModel):
 
 
 class PLOCreate(PLOBase):
+    """Fields required when creating a PLO."""
+
     program_id: int
 
 
 class PLOUpdate(BaseModel):
+    """All fields optional for PATCH update of PLO."""
+
     name: str | None = Field(None, max_length=255)
     description: str | None = None
     bloom_level: int | None = Field(None, ge=1, le=6)
@@ -28,12 +34,16 @@ class PLOUpdate(BaseModel):
 
 
 class PLOResponse(PLOBase, OrmBase):
+    """Full PLO response."""
+
     id: int
     program_id: int
 
 
 # ====================================================================== CLO
 class CLOBase(BaseModel):
+    """Shared fields for CLO create/update."""
+
     code: str = Field(max_length=20)
     name: str = Field(max_length=255)
     description: str | None = None
@@ -44,10 +54,14 @@ class CLOBase(BaseModel):
 
 
 class CLOCreate(CLOBase):
+    """Fields required when creating a CLO."""
+
     course_id: int
 
 
 class CLOUpdate(BaseModel):
+    """All fields optional for PATCH update of CLO."""
+
     name: str | None = Field(None, max_length=255)
     description: str | None = None
     bloom_level: int | None = Field(None, ge=1, le=6)
@@ -57,6 +71,8 @@ class CLOUpdate(BaseModel):
 
 
 class CLOResponse(CLOBase, OrmBase):
+    """Full CLO response."""
+
     id: int
     course_id: int
 
@@ -71,6 +87,8 @@ class CLOPLOMappingCreate(BaseModel):
 
 
 class CLOPLOMappingResponse(OrmBase):
+    """CLO-PLO mapping response."""
+
     clo_id: int
     plo_id: int
     contribution: int
@@ -84,6 +102,8 @@ class CLOPLOMatrixUpdate(BaseModel):
 
 # ======================================================== CLO Achievement
 class StudentCLOAchievementResponse(OrmBase):
+    """CLO achievement result for a single student."""
+
     id: int
     enrollment_id: int
     clo_id: int

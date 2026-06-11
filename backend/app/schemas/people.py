@@ -20,6 +20,8 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    """All fields optional for PATCH update of User."""
+
     full_name: str | None = Field(None, max_length=255)
     role: UserRole | None = None
     department_id: int | None = None
@@ -47,6 +49,8 @@ class TokenResponse(BaseModel):
 
 # ================================================================= Teacher
 class TeacherBase(BaseModel):
+    """Shared fields for Teacher create/update."""
+
     code: str | None = Field(None, max_length=20)
     full_name: str = Field(max_length=255)
     email: str | None = None
@@ -57,10 +61,14 @@ class TeacherBase(BaseModel):
 
 
 class TeacherCreate(TeacherBase):
+    """Fields required when creating a Teacher."""
+
     department_id: int
 
 
 class TeacherUpdate(BaseModel):
+    """All fields optional for PATCH update of Teacher."""
+
     code: str | None = Field(None, max_length=20)
     full_name: str | None = Field(None, max_length=255)
     email: str | None = None
@@ -72,6 +80,8 @@ class TeacherUpdate(BaseModel):
 
 
 class TeacherResponse(TeacherBase, OrmBase):
+    """Full Teacher response including PK and timestamps."""
+
     id: int
     department_id: int
     created_at: datetime
@@ -80,6 +90,8 @@ class TeacherResponse(TeacherBase, OrmBase):
 
 # ================================================================== Student
 class StudentBase(BaseModel):
+    """Shared fields for Student create/update."""
+
     student_code: str = Field(max_length=20)
     full_name: str = Field(max_length=255)
     date_of_birth: date | None = None
@@ -92,11 +104,15 @@ class StudentBase(BaseModel):
 
 
 class StudentCreate(StudentBase):
+    """Fields required when creating a Student."""
+
     program_id: int
     cohort_id: int
 
 
 class StudentUpdate(BaseModel):
+    """All fields optional for PATCH update of Student."""
+
     full_name: str | None = Field(None, max_length=255)
     email: str | None = None
     phone: str | None = None
@@ -106,6 +122,8 @@ class StudentUpdate(BaseModel):
 
 
 class StudentResponse(StudentBase, OrmBase):
+    """Full Student response including PK and timestamps."""
+
     id: int
     program_id: int
     cohort_id: int
@@ -116,6 +134,8 @@ class StudentResponse(StudentBase, OrmBase):
 
 # ================================================================== Cohort
 class CohortResponse(OrmBase):
+    """Full Cohort response."""
+
     id: int
     code: str
     year_start: int

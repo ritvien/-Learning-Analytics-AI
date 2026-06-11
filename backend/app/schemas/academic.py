@@ -51,6 +51,8 @@ class DepartmentResponse(DepartmentBase, OrmBase):
 
 # ================================================================== Program
 class ProgramBase(BaseModel):
+    """Shared fields for Program create/update."""
+
     code: str = Field(max_length=30)
     name: str = Field(max_length=255)
     name_en: str | None = None
@@ -63,10 +65,14 @@ class ProgramBase(BaseModel):
 
 
 class ProgramCreate(ProgramBase):
+    """Fields required when creating a Program."""
+
     department_id: int
 
 
 class ProgramUpdate(BaseModel):
+    """All fields optional for PATCH update of Program."""
+
     code: str | None = Field(None, max_length=30)
     name: str | None = Field(None, max_length=255)
     name_en: str | None = None
@@ -79,6 +85,8 @@ class ProgramUpdate(BaseModel):
 
 
 class ProgramResponse(ProgramBase, OrmBase):
+    """Full Program response including PK and timestamps."""
+
     id: int
     department_id: int
     created_at: datetime
@@ -87,6 +95,8 @@ class ProgramResponse(ProgramBase, OrmBase):
 
 # =================================================================== Course
 class CourseBase(BaseModel):
+    """Shared fields for Course create/update."""
+
     code: str = Field(max_length=30)
     name: str = Field(max_length=255)
     name_en: str | None = None
@@ -99,10 +109,14 @@ class CourseBase(BaseModel):
 
 
 class CourseCreate(CourseBase):
+    """Fields required when creating a Course."""
+
     program_id: int
 
 
 class CourseUpdate(BaseModel):
+    """All fields optional for PATCH update of Course."""
+
     code: str | None = Field(None, max_length=30)
     name: str | None = Field(None, max_length=255)
     name_en: str | None = None
@@ -115,6 +129,8 @@ class CourseUpdate(BaseModel):
 
 
 class CourseResponse(CourseBase, OrmBase):
+    """Full Course response including PK and timestamps."""
+
     id: int
     program_id: int
     created_at: datetime
@@ -123,6 +139,8 @@ class CourseResponse(CourseBase, OrmBase):
 
 # ================================================================= Semester
 class SemesterResponse(OrmBase):
+    """Full Semester response."""
+
     id: int
     code: str
     name: str

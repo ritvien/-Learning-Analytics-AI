@@ -32,6 +32,7 @@ async def list_sections(
 
 @router.get("/{section_id}", response_model=SectionResponse)
 async def get_section(section_id: int, db: DBSession) -> Section:
+    """Retrieve a section by ID."""
     obj = await db.get(Section, section_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Section not found")
@@ -40,6 +41,7 @@ async def get_section(section_id: int, db: DBSession) -> Section:
 
 @router.post("", response_model=SectionResponse, status_code=status.HTTP_201_CREATED)
 async def create_section(payload: SectionCreate, db: DBSession) -> Section:
+    """Create a new section."""
     obj = Section(**payload.model_dump())
     db.add(obj)
     await db.flush()
@@ -49,6 +51,7 @@ async def create_section(payload: SectionCreate, db: DBSession) -> Section:
 
 @router.patch("/{section_id}", response_model=SectionResponse)
 async def update_section(section_id: int, payload: SectionUpdate, db: DBSession) -> Section:
+    """Apply a partial update to a section."""
     obj = await db.get(Section, section_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Section not found")
@@ -61,6 +64,7 @@ async def update_section(section_id: int, payload: SectionUpdate, db: DBSession)
 
 @router.delete("/{section_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_section(section_id: int, db: DBSession) -> None:
+    """Soft-delete a section."""
     obj = await db.get(Section, section_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Section not found")

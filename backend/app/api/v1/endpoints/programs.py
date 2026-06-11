@@ -26,6 +26,7 @@ async def list_programs(
 
 @router.get("/{program_id}", response_model=ProgramResponse)
 async def get_program(program_id: int, db: DBSession) -> Program:
+    """Retrieve a program by ID."""
     obj = await db.get(Program, program_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Program not found")
@@ -34,6 +35,7 @@ async def get_program(program_id: int, db: DBSession) -> Program:
 
 @router.post("", response_model=ProgramResponse, status_code=status.HTTP_201_CREATED)
 async def create_program(payload: ProgramCreate, db: DBSession) -> Program:
+    """Create a new program."""
     obj = Program(**payload.model_dump())
     db.add(obj)
     await db.flush()
@@ -43,6 +45,7 @@ async def create_program(payload: ProgramCreate, db: DBSession) -> Program:
 
 @router.patch("/{program_id}", response_model=ProgramResponse)
 async def update_program(program_id: int, payload: ProgramUpdate, db: DBSession) -> Program:
+    """Apply a partial update to a program."""
     obj = await db.get(Program, program_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Program not found")
@@ -55,6 +58,7 @@ async def update_program(program_id: int, payload: ProgramUpdate, db: DBSession)
 
 @router.delete("/{program_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_program(program_id: int, db: DBSession) -> None:
+    """Soft-delete a program."""
     obj = await db.get(Program, program_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Program not found")

@@ -39,6 +39,7 @@ class Pagination:
     """Query-string pagination helper: ?skip=0&limit=50."""
 
     def __init__(self, skip: int = 0, limit: int = 50) -> None:
+        """Set skip/limit with safety clamping."""
         self.skip = max(0, skip)
         self.limit = min(200, max(1, limit))
 

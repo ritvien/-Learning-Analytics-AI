@@ -9,6 +9,8 @@ from app.schemas.common import OrmBase
 
 # ================================================================= Section
 class SectionBase(BaseModel):
+    """Shared fields for Section create/update."""
+
     section_code: str = Field(max_length=20)
     room: str | None = None
     schedule: str | None = None
@@ -17,12 +19,16 @@ class SectionBase(BaseModel):
 
 
 class SectionCreate(SectionBase):
+    """Fields required when creating a Section."""
+
     course_id: int
     teacher_id: int | None = None
     semester_id: int
 
 
 class SectionUpdate(BaseModel):
+    """All fields optional for PATCH update of Section."""
+
     teacher_id: int | None = None
     room: str | None = None
     schedule: str | None = None
@@ -31,6 +37,8 @@ class SectionUpdate(BaseModel):
 
 
 class SectionResponse(SectionBase, OrmBase):
+    """Full Section response including PK and timestamps."""
+
     id: int
     course_id: int
     teacher_id: int | None
@@ -41,6 +49,8 @@ class SectionResponse(SectionBase, OrmBase):
 
 # =============================================================== Enrollment
 class EnrollmentCreate(BaseModel):
+    """Fields required when creating an Enrollment."""
+
     student_id: int
     section_id: int
     attempt_number: int = 1
@@ -53,6 +63,8 @@ class EnrollmentGradeUpdate(BaseModel):
 
 
 class EnrollmentResponse(OrmBase):
+    """Full Enrollment response."""
+
     id: int
     student_id: int
     section_id: int
@@ -88,6 +100,8 @@ class GradeComponentUpsert(BaseModel):
 
 
 class GradeComponentResponse(OrmBase):
+    """Full GradeComponent response."""
+
     id: int
     enrollment_id: int
     component_type_id: int

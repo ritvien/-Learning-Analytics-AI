@@ -26,6 +26,7 @@ async def list_courses(
 
 @router.get("/{course_id}", response_model=CourseResponse)
 async def get_course(course_id: int, db: DBSession) -> Course:
+    """Retrieve a course by ID."""
     obj = await db.get(Course, course_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
@@ -34,6 +35,7 @@ async def get_course(course_id: int, db: DBSession) -> Course:
 
 @router.post("", response_model=CourseResponse, status_code=status.HTTP_201_CREATED)
 async def create_course(payload: CourseCreate, db: DBSession) -> Course:
+    """Create a new course."""
     obj = Course(**payload.model_dump())
     db.add(obj)
     await db.flush()
@@ -43,6 +45,7 @@ async def create_course(payload: CourseCreate, db: DBSession) -> Course:
 
 @router.patch("/{course_id}", response_model=CourseResponse)
 async def update_course(course_id: int, payload: CourseUpdate, db: DBSession) -> Course:
+    """Apply a partial update to a course."""
     obj = await db.get(Course, course_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
@@ -55,6 +58,7 @@ async def update_course(course_id: int, payload: CourseUpdate, db: DBSession) ->
 
 @router.delete("/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_course(course_id: int, db: DBSession) -> None:
+    """Soft-delete a course."""
     obj = await db.get(Course, course_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")

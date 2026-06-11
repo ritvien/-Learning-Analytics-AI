@@ -29,6 +29,7 @@ async def list_students(
 
 @router.get("/{student_id}", response_model=StudentResponse)
 async def get_student(student_id: int, db: DBSession) -> Student:
+    """Retrieve a student by ID."""
     obj = await db.get(Student, student_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
@@ -37,6 +38,7 @@ async def get_student(student_id: int, db: DBSession) -> Student:
 
 @router.post("", response_model=StudentResponse, status_code=status.HTTP_201_CREATED)
 async def create_student(payload: StudentCreate, db: DBSession) -> Student:
+    """Create a new student."""
     obj = Student(**payload.model_dump())
     db.add(obj)
     await db.flush()
@@ -46,6 +48,7 @@ async def create_student(payload: StudentCreate, db: DBSession) -> Student:
 
 @router.patch("/{student_id}", response_model=StudentResponse)
 async def update_student(student_id: int, payload: StudentUpdate, db: DBSession) -> Student:
+    """Apply a partial update to a student."""
     obj = await db.get(Student, student_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
@@ -58,6 +61,7 @@ async def update_student(student_id: int, payload: StudentUpdate, db: DBSession)
 
 @router.delete("/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_student(student_id: int, db: DBSession) -> None:
+    """Soft-delete a student."""
     obj = await db.get(Student, student_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")

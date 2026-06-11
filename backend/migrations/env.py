@@ -4,6 +4,7 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
+from sqlalchemy import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 import app.models  # noqa: F401 — registers all ORM models on Base.metadata
@@ -34,7 +35,8 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def do_run_migrations(connection):  # type: ignore[no-untyped-def]
+def do_run_migrations(connection: Connection) -> None:
+    """Configure and run migrations against the given connection."""
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
