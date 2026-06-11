@@ -263,8 +263,7 @@ graph TB
     end
 
     subgraph "Storage"
-        Q["PostgreSQL / SQLite"]
-        R["ChromaDB — Syllabus vectors"]
+        Q["PostgreSQL (pgvector)"]
         S["Redis / In-memory Cache"]
     end
 
@@ -276,7 +275,7 @@ graph TB
     K --> L & M & N & O & P
     L & M --> Q
     N --> Q
-    O --> R
+    O --> Q
     H --> Q
     H --> S
 ```
@@ -291,8 +290,8 @@ graph TB
 | **Backend** | FastAPI + Pydantic | Async, type-safe, auto-docs |
 | **AI Agent** | LangGraph + LangChain | State machine, tool calling, ReAct |
 | **LLM** | Google Gemini API / Mistral AI | Free tier, đủ cho demo |
-| **Database** | SQLite (dev) → PostgreSQL (prod) | Đơn giản → Scale |
-| **Vector Store** | ChromaDB | Self-hosted, embedding syllabus |
+| **Database** | PostgreSQL (với pgvector) | Quản lý Relational + Vector chung |
+| **Vector Store** | pgvector (PostgreSQL extension) | Hybrid search, kiến trúc đơn giản |
 | **Monitoring** | Langfuse | Open-source, unlimited |
 | **Deploy** | Vercel (FE) + Render (BE) | Free tier |
 | **CI/CD** | GitHub Actions | Ruff + pytest + Docker build |
@@ -303,7 +302,7 @@ graph TB
 erDiagram
     DEPARTMENT ||--o{ PROGRAM : has
     DEPARTMENT ||--o{ TEACHER : belongs_to
-    PROGRAM ||--o{ COURSE : includes
+    PROGRAM }o--o{ COURSE : shares
     PROGRAM ||--o{ PLO : defines
     COURSE ||--o{ CLO : defines
     COURSE ||--o{ SECTION : has
@@ -331,7 +330,6 @@ erDiagram
         string code
         string name
         int credits
-        int program_id FK
     }
     SYLLABUS {
         int id PK
@@ -499,7 +497,7 @@ gantt
 | Risk | Impact | Likelihood | Mitigation |
 |:-----|:------:|:----------:|:-----------|
 | LLM API rate limit / cost | High | Medium | Cache auto-analysis results, mock in tests, dùng Gemini Flash cho routing |
-| Dữ liệu thực không đủ | High | High | Synthetic dataset: 1 khoa, 3 ngành, 30 môn, 5 khóa × 200 SV |
+| Dữ liệu thực không đủ | High | High | Dùng dataset crawl thực tế từ 700 sinh viên |
 | Tree UI phức tạp | Medium | Medium | Bắt đầu với simple list/accordion, nâng cấp thành D3 tree sau |
 | Auto-analysis chậm (>10s) | Medium | High | Cache kết quả, chỉ re-analyze khi data thay đổi, streaming giảm perceived latency |
 | Scope creep | Medium | High | Tuân thủ PRD, mỗi tuần review, strict priority (P0 trước, P1/P2 nếu kịp) |
@@ -513,7 +511,7 @@ gantt
 > Các câu hỏi cần thảo luận và quyết định:
 
 1. **Tree UI library:** Dùng `react-d3-tree` (interactive tree) hay custom accordion/list (đơn giản hơn, dễ responsive)?
-2. **Nguồn dữ liệu demo:** Synthetic hoàn toàn hay lấy dữ liệu thực (ẩn danh) từ Bách Khoa?
+2. **Nguồn dữ liệu demo:** Đã chốt dùng dữ liệu crawl thực tế (ẩn danh) của 700 sinh viên.
 3. **LLM Provider:** Gemini API (free tier lớn) hay Mistral (generous free tier)?
 4. **Health Score weights:** `0.4 GPA + 0.3 Fail + 0.3 CLO` có hợp lý? Cần cho phép admin cấu hình?
 5. **Auto-analysis scope:** Phân tích mặc định bao nhiêu khóa gần nhất? (gợi ý: 3 khóa)

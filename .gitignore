@@ -19,3 +19,11 @@ build/
 .ai-log/*.jsonl
 .ai-log/**/*.jsonl
 .ai-log/last_push_commit
+
+# Scratch and Temp files
+scratch_*
+*.log
+
+# Build & Tooling
+node_modules/
+.ruff_cache/
