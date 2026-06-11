@@ -2,21 +2,21 @@ services:
 
   # ──────────────────────────────────────────────────────── PostgreSQL database
   db:
-    image: pgvector/pgvector:pg16
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB:               ${POSTGRES_DB:-eduinsight}
-      POSTGRES_USER:             ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD:         ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER:             ${POSTGRES_USER:-eduinsight}
+      POSTGRES_PASSWORD:         ${POSTGRES_PASSWORD:-eduinsight_dev}
       POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./backend/db/init-data.sql:/docker-entrypoint-initdb.d/02-init-data.sql
     ports:
-      - "5432:5432"
+      - "5433:5432"        # 5433 on host → avoid conflict with local PostgreSQL
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-eduinsight}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eduinsight} -d ${POSTGRES_DB:-eduinsight}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -33,7 +33,7 @@ services:
         condition: service_healthy
     environment:
       APP_ENV:         development
-      DATABASE_URL:    postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-eduinsight}
+      DATABASE_URL:    postgresql+asyncpg://${POSTGRES_USER:-eduinsight}:${POSTGRES_PASSWORD:-eduinsight_dev}@db:5432/${POSTGRES_DB:-eduinsight}
       SECRET_KEY:      ${SECRET_KEY:-change-me-in-production}
       CORS_ORIGINS:    ${CORS_ORIGINS:-http://localhost:3000}
       LLM_PROVIDER:    ${LLM_PROVIDER:-gemini}
