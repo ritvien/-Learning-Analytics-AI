@@ -1,12 +1,13 @@
-from fastapi.testclient import TestClient
+"""Smoke test: health check endpoint."""
 
-from app.main import app
+from httpx import AsyncClient
 
 
-def test_health_check() -> None:
-    client = TestClient(app)
-
-    response = client.get("/health")
+async def test_health_check(client: AsyncClient) -> None:
+    """GET /health should return 200 with status ok."""
+    response = await client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "service": "backend"}
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["service"] == "eduinsight-backend"

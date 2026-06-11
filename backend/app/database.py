@@ -1,20 +1,45 @@
-import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from dotenv import load_dotenv
+"""Async SQLAlchemy engine, session factory, and declarative Base."""
 
-load_dotenv()
+from collections.abc import AsyncGenerator
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/eduinsight")
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.orm import DeclarativeBase
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+from app.config import get_settings
 
-Base = declarative_base()
+settings = get_settings()
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Engine is created once at module load. echo=True in dev prints all SQL.
+engine = create_async_engine(
+    settings.database_url,
+    echo=settings.app_env == "development",
+    future=True,
+    # Pool settings — ignored for SQLite (no pool), relevant for PostgreSQL.
+    pool_pre_ping=True,
+    pool_recycle=3600,
+)
+
+AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
+    bind=engine,
+    expire_on_commit=False,
+    autoflush=False,
+)
+
+
+class Base(DeclarativeBase):
+    """Shared declarative base for all ORM models."""
+
+
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """FastAPI dependency that yields a database session per request."""
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise

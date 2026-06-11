@@ -1,41 +1,59 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Date, Numeric, Text, SmallInteger, JSON, Enum as SQLEnum, Table
+"""Legacy flat ORM models (kept for Alembic migrations)."""
+
+import enum
+import uuid
+
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, SmallInteger, String, Table, Text
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from app.database import Base
-import uuid
-import enum
 
-class UserRole(str, enum.Enum):
+from app.database import Base
+
+
+class UserRole(enum.StrEnum):
+    """User permission roles."""
+
     superadmin = 'superadmin'
     admin = 'admin'
     manager = 'manager'
     lecturer = 'lecturer'
     viewer = 'viewer'
 
-class NodeType(str, enum.Enum):
+class NodeType(enum.StrEnum):
+    """Academic tree node types."""
+
     university = 'university'
     department = 'department'
     program = 'program'
     course = 'course'
 
-class HealthStatus(str, enum.Enum):
+class HealthStatus(enum.StrEnum):
+    """Traffic-light health indicator."""
+
     green = 'green'
     yellow = 'yellow'
     red = 'red'
 
-class AlertLevel(str, enum.Enum):
+class AlertLevel(enum.StrEnum):
+    """Alert severity levels."""
+
     info = 'info'
     warning = 'warning'
     critical = 'critical'
 
-class ImportStatus(str, enum.Enum):
+class ImportStatus(enum.StrEnum):
+    """Data import pipeline states."""
+
     pending = 'pending'
     processing = 'processing'
     completed = 'completed'
     failed = 'failed'
 
 class University(Base):
+    """ORM model for universities table."""
+
     __tablename__ = "universities"
     id = Column(Integer, primary_key=True, index=True)
     code = Column(String(20), unique=True, nullable=False)
@@ -50,6 +68,8 @@ class University(Base):
     departments = relationship("Department", back_populates="university")
 
 class Department(Base):
+    """ORM model for departments table."""
+
     __tablename__ = "departments"
     id = Column(Integer, primary_key=True, index=True)
     university_id = Column(Integer, ForeignKey("universities.id", ondelete="RESTRICT"), nullable=False)
@@ -68,6 +88,8 @@ class Department(Base):
     programs = relationship("Program", back_populates="department")
 
 class Program(Base):
+    """ORM model for programs table."""
+
     __tablename__ = "programs"
     id = Column(Integer, primary_key=True, index=True)
     department_id = Column(Integer, ForeignKey("departments.id", ondelete="RESTRICT"), nullable=False)
@@ -92,6 +114,8 @@ program_courses = Table('program_courses', Base.metadata,
 )
 
 class Semester(Base):
+    """ORM model for semesters table."""
+
     __tablename__ = "semesters"
     id = Column(Integer, primary_key=True, index=True)
     code = Column(String(20), unique=True, nullable=False)
@@ -104,6 +128,8 @@ class Semester(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 class Course(Base):
+    """ORM model for courses table."""
+
     __tablename__ = "courses"
     id = Column(Integer, primary_key=True, index=True)
     code = Column(String(30), unique=True, nullable=False)
@@ -122,6 +148,8 @@ class Course(Base):
     programs = relationship("Program", secondary="program_courses", back_populates="courses")
 
 class Cohort(Base):
+    """ORM model for cohorts table."""
+
     __tablename__ = "cohorts"
     id = Column(Integer, primary_key=True, index=True)
     code = Column(String(10), unique=True, nullable=False)
@@ -131,6 +159,8 @@ class Cohort(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 class User(Base):
+    """ORM model for users table."""
+
     __tablename__ = "users"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(255), unique=True, nullable=False)
@@ -144,6 +174,8 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
 class Teacher(Base):
+    """ORM model for teachers table."""
+
     __tablename__ = "teachers"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
@@ -159,6 +191,8 @@ class Teacher(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
 class Student(Base):
+    """ORM model for students table."""
+
     __tablename__ = "students"
     id = Column(Integer, primary_key=True, index=True)
     program_id = Column(Integer, ForeignKey("programs.id", ondelete="RESTRICT"), nullable=False)
@@ -180,6 +214,8 @@ class Student(Base):
     cohort = relationship("Cohort")
 
 class Section(Base):
+    """ORM model for sections table."""
+
     __tablename__ = "sections"
     id = Column(Integer, primary_key=True, index=True)
     course_id = Column(Integer, ForeignKey("courses.id", ondelete="RESTRICT"), nullable=False)
@@ -197,6 +233,8 @@ class Section(Base):
     semester = relationship("Semester")
 
 class Enrollment(Base):
+    """ORM model for enrollments table."""
+
     __tablename__ = "enrollments"
     id = Column(Integer, primary_key=True, index=True)
     student_id = Column(Integer, ForeignKey("students.id", ondelete="RESTRICT"), nullable=False)
@@ -215,6 +253,8 @@ class Enrollment(Base):
     components = relationship("GradeComponent", back_populates="enrollment", cascade="all, delete-orphan")
 
 class GradeComponentType(Base):
+    """ORM model for grade_component_types table."""
+
     __tablename__ = "grade_component_types"
     id = Column(Integer, primary_key=True, index=True)
     section_id = Column(Integer, ForeignKey("sections.id", ondelete="CASCADE"), nullable=False)
@@ -225,6 +265,8 @@ class GradeComponentType(Base):
     sort_order = Column(SmallInteger, default=0, nullable=False)
 
 class GradeComponent(Base):
+    """ORM model for grade_components table."""
+
     __tablename__ = "grade_components"
     id = Column(Integer, primary_key=True, index=True)
     enrollment_id = Column(Integer, ForeignKey("enrollments.id", ondelete="CASCADE"), nullable=False)
