@@ -31,7 +31,7 @@
 | H3 | ✅ Tạo Team Skills Survey | Google Form khảo sát năng lực team | 06/06 | ✅ Done |
 | H4 | ✅ Sprint Planning & phân công | Lập bảng sprint, phân task cho team | 07/06 | ✅ Done |
 | H5 | Architecture Diagrams (D3) | Vẽ 3 Mermaid diagrams: System Overview, Agent Flow, Data Flow. Đưa vào README | 09/06 | ✅ Done |
-| H6 | Thiết kế bộ Synthetic Data | Script Python sinh dữ liệu giả: 1 trường, 2 khoa, 5 ngành, 30 môn, 5 khóa × 100 SV, điểm + CLO mapping. Output: SQL seed hoặc CSV | 10/06 | ⬜ |
+| H6 | Chuẩn hóa Data Crawl Thực Tế | Viết script tiền xử lý dữ liệu crawl thực tế của 700 sinh viên. Format và chuẩn hóa data (điểm, CLO mapping) để chuẩn bị insert vào DB. Output: SQL seed hoặc CSV | 10/06 | ⬜ |
 | H7 | Thiết kế AI Agent Architecture | LangGraph state diagram, định nghĩa State schema (TypedDict), Router Node, ≥ 3 Tools (SQL query, CLO calc, chart gen), prompt templates theo cấp (Khoa/Ngành/Môn) | 10/06 | ✅ Done |
 | H8 | ✅ Setup AI Usage Logging (D4) | Cấu hình AI Usage Logging Hooks theo template AI20K (bắt buộc, 1 lần) | 08/06 | ✅ Done |
 | H9 | ✅ Review bộ câu hỏi phỏng vấn | Review câu hỏi của Hưng, góp ý trước khi interview | 08/06 | ✅ Done |
@@ -96,7 +96,7 @@ W2 (08–10/06) — Sprint 1 chính (3 ngày còn lại)
          ──────  ──────  ──────
 
 Hoàng    H8,H9   H5      H6,H7,H10
-         AI log  Arch    Synth data
+         AI log  Arch    Crawl data
          Review  Diag    + Agent design
                          + PRD update
 
@@ -133,7 +133,7 @@ graph LR
         T6 --> T7["T7: Docker"]
         T6 --> T8["T8: CI/CD"]
         T6 --> T9["T9: CRUD API"]
-        H6["H6: Synthetic Data"] --> T9
+        H6["H6: Crawl Data"] --> T9
         T9 --> T10["T10: Import API"]
     end
 

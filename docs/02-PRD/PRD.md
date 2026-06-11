@@ -497,7 +497,7 @@ gantt
 | Risk | Impact | Likelihood | Mitigation |
 |:-----|:------:|:----------:|:-----------|
 | LLM API rate limit / cost | High | Medium | Cache auto-analysis results, mock in tests, dùng Gemini Flash cho routing |
-| Dữ liệu thực không đủ | High | High | Synthetic dataset: 1 khoa, 3 ngành, 30 môn, 5 khóa × 200 SV |
+| Dữ liệu thực không đủ | High | High | Dùng dataset crawl thực tế từ 700 sinh viên |
 | Tree UI phức tạp | Medium | Medium | Bắt đầu với simple list/accordion, nâng cấp thành D3 tree sau |
 | Auto-analysis chậm (>10s) | Medium | High | Cache kết quả, chỉ re-analyze khi data thay đổi, streaming giảm perceived latency |
 | Scope creep | Medium | High | Tuân thủ PRD, mỗi tuần review, strict priority (P0 trước, P1/P2 nếu kịp) |
@@ -511,7 +511,7 @@ gantt
 > Các câu hỏi cần thảo luận và quyết định:
 
 1. **Tree UI library:** Dùng `react-d3-tree` (interactive tree) hay custom accordion/list (đơn giản hơn, dễ responsive)?
-2. **Nguồn dữ liệu demo:** Synthetic hoàn toàn hay lấy dữ liệu thực (ẩn danh) từ Bách Khoa?
+2. **Nguồn dữ liệu demo:** Đã chốt dùng dữ liệu crawl thực tế (ẩn danh) của 700 sinh viên.
 3. **LLM Provider:** Gemini API (free tier lớn) hay Mistral (generous free tier)?
 4. **Health Score weights:** `0.4 GPA + 0.3 Fail + 0.3 CLO` có hợp lý? Cần cho phép admin cấu hình?
 5. **Auto-analysis scope:** Phân tích mặc định bao nhiêu khóa gần nhất? (gợi ý: 3 khóa)

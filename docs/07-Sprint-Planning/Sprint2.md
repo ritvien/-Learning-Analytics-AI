@@ -48,7 +48,7 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status |
 |:-:|:-----|:----------------|:--------:|:------:|
-| H11 | Seed Data vào PostgreSQL | Chạy synthetic data script → load SQL seed vào Docker PostgreSQL. Đảm bảo có đủ data: 1 trường, 2 khoa, 5 ngành, 30 môn, 5 khóa × 100 SV, điểm + CLO mapping | 11/06 | ⬜ |
+| H11 | Seed Data vào PostgreSQL | Chạy script tiền xử lý data crawl → load SQL seed của 700 sinh viên thực tế vào Docker PostgreSQL. Đảm bảo map đúng schema: trường, khoa, ngành, môn, điểm + CLO | 11/06 | ⬜ |
 | H12 | Implement AgentState + Router Node | Code `AgentState(TypedDict)`, `router_node` dùng GPT-5.4 Nano phân loại intent (simple → fast_response, complex → core_agent). Theo pattern trong `LangGraphAgent.md` | 12/06 | ⬜ |
 | H13 | Implement Core Agent Node + SQL Tool | Code `core_agent_node` dùng GPT-5.4 + `sql_query_tool` kết nối PostgreSQL thật. Agent phải query được điểm, tỷ lệ trượt từ DB | 12/06 | ⬜ |
 | H14 | Implement ReAct Loop + ToolNode | Ghép `ToolNode(handle_tool_errors=True)`, conditional edges, vòng lặp ReAct. Compile graph hoàn chỉnh | 13/06 | ⬜ |
