@@ -23,7 +23,7 @@ Hệ thống được chia thành **6 module độc lập**, có thể phát tri
 ```mermaid
 graph LR
     subgraph "Tầng Dữ liệu"
-        M6["Module 6<br/>Data Management<br/>& Import"]
+        M6["Module 6<br/>Data Management<br/>(Đơn giản hóa)"]
     end
 
     subgraph "Tầng Tính toán"
@@ -207,27 +207,22 @@ graph LR
 
 ---
 
-### Module 6: Data Management & Import 🗄️
+### Module 6: Data Management (Đã tinh gọn) 🗄️
 
-**Mục đích:** Quản lý CRUD các entity cốt lõi và import dữ liệu hàng loạt.
+**Mục đích:** Quản lý CRUD các entity cốt lõi. Bỏ phần import tự động do không phải tính năng chính, và giản lược CRUD cho các bảng phức tạp/rủi ro.
 
 | Entity | Chức năng | Priority |
 |:-------|:----------|:--------:|
 | Khoa (Departments) | CRUD, gắn vào University | P0 |
 | Chương trình / Ngành (Programs) | CRUD, gắn vào Khoa, định nghĩa PLO | P0 |
 | Môn học (Courses) | CRUD, gắn vào Ngành, định nghĩa CLO, đề cương (syllabus) | P0 |
-| Sinh viên (Students) | CRUD, import Excel/CSV | P0 |
+| Sinh viên (Students) | CRUD cơ bản (bỏ Import) | P0 |
 | Giảng viên (Teachers) | CRUD, gắn vào Khoa | P0 |
 | Lớp học phần (Sections) | CRUD, gắn Môn + GV + Học kỳ | P0 |
-| Điểm (Grades) | CRUD, import Excel, validation, điểm thành phần | P0 |
-| Đề cương môn học (Syllabus) | Upload PDF/text đề cương, parse cấu trúc chương/mục | P1 |
+| Điểm (Grades) | Chỉ Query (Bỏ CRUD do rủi ro sai sót data, ưu tiên dùng DB seed) | P2 |
+| Đề cương môn học (Syllabus) | Bỏ qua | Đã bỏ |
 
-| Feature | Mô tả | Priority |
-|:--------|:-------|:--------:|
-| Excel/CSV Import | Import hàng loạt sinh viên, điểm từ file Excel. Validation + error report | P0 |
-| Data Validation | Kiểm tra ràng buộc: điểm 0-10, mã SV unique, FK hợp lệ | P0 |
-| Bulk Operations | Xóa/cập nhật hàng loạt | P1 |
-| Import History | Lưu lịch sử import, cho phép rollback | P2 |
+*(Ghi chú từ meeting: Đã loại bỏ hoàn toàn các tính năng Import Excel/CSV, Bulk Operations và Import History để đơn giản hóa module này).*
 
 ---
 
@@ -420,9 +415,7 @@ erDiagram
 | `CRUD` | `/api/v1/students` | Quản lý sinh viên |
 | `CRUD` | `/api/v1/teachers` | Quản lý giảng viên |
 | `CRUD` | `/api/v1/sections` | Quản lý lớp học phần |
-| `CRUD` | `/api/v1/grades` | Quản lý điểm |
-| `POST` | `/api/v1/import/grades` | Import điểm từ Excel |
-| `POST` | `/api/v1/import/students` | Import sinh viên từ Excel |
+| `CRUD` | `/api/v1/grades` | Quản lý điểm (Chỉ đọc) |
 
 #### System
 
@@ -455,7 +448,7 @@ erDiagram
 | Tuần | Sprint Goal | Module Focus | Deliverables |
 |:----:|:------------|:------------:|:-------------|
 | **W1** | Kick-off & Foundation | M6 | ✅ Repo setup, DB schema, FastAPI skeleton, CRUD APIs, seed data |
-| **W2** | Data & Metrics | M6 + M3 | Excel import, Metric Engine (GPA, fail rate, health score), API endpoints |
+| **W2** | Data & Metrics | M6 + M3 | Metric Engine (GPA, fail rate, health score), CRUD API endpoints |
 | **W3** | AI Agent & CLO | M2 + M4 | LangGraph agent (4+ tools), CLO/PLO calculation, streaming chat API |
 | **W4** | Frontend & Tree | M1 + M2 | Academic Tree UI, Detail Panel, Chat Interface, metric cards |
 | **W5** | Integration & Deploy | M1-M6 + M5 | Tích hợp Tree↔Chat↔Metrics, deploy Vercel+Render, early warning, testing |
@@ -470,7 +463,7 @@ gantt
     axisFormat %d/%m
 
     section Tầng Dữ liệu
-    M6 - CRUD & Import          :m6, 2026-06-09, 14d
+    M6 - CRUD Data Management   :m6, 2026-06-09, 14d
 
     section Tầng Tính toán
     M3 - Metric Engine          :m3, after m6, 7d
