@@ -89,7 +89,7 @@ gantt
 
 | Sprint | Tuần | Ngày | Theme | Milestone | Mục tiêu chính |
 |:------:|:----:|:-----|:------|:----------|:---------------|
-| **S1** | W1–W2 | 28/05 – 10/06 | Foundation & Research | Project Charter ✅ | Setup env, Docker, CI/CD, DB schema, FastAPI skeleton, FE skeleton, interview stakeholder, synthetic data |
+| **S1** | W1–W2 | 28/05 – 10/06 | Foundation & Research | Project Charter ✅ | Setup env, Docker, CI/CD, DB schema, FastAPI skeleton, FE skeleton, interview stakeholder, crawl data thực tế |
 | **S2** | W3–W4 | 11/06 – 24/06 | Core Agent & Demo 1 | **🎯 Demo 1 (14/06)** | LangGraph agent, Metric Engine, Streamlit prototype → Demo 1. Sau đó: Next.js FE, CRUD, Chat UI |
 | **S3** | W5 | 25/06 – 01/07 | Production & Demo 2 | **🎯 Demo 2 (28/06)** | Deploy Render+Vercel, Auth, testing, RAGAS evaluation, integration, polish → Demo 2 |
 | **S4** | W6 | 02/07 – 07/07 | Polish & Demo Day | **🎯 Demo Day (05-07/07)** | README, Pitch Deck, Video Demo, final QA, kiểm tra 10 deliverables |
@@ -129,7 +129,7 @@ gantt
 
 | Sprint | Hoàng (AI/PM) | Hưng (BE/DevOps) | Hiếu (FE/QA) |
 |:------:|:------|:-----|:-----|
-| **S1** | Synthetic data, AI agent design, Architecture diagrams, PRD update | Interview stakeholder, DB schema, FastAPI + CRUD, **Docker + CI/CD** | Wireframes, Next.js setup, base components, Tree component (static) |
+| **S1** | Crawl data thực tế, AI agent design, Architecture diagrams, PRD update | Interview stakeholder, DB schema, FastAPI + CRUD, **Docker + CI/CD** | Wireframes, Next.js setup, base components, Tree component (static) |
 | **S2** | LangGraph agent (≥3 tools), Metric Engine, Streamlit prototype cho Demo 1, prompt tuning | CLO/PLO backend, Tree metrics API, SSE streaming, unit tests (BE) | Academic Tree ↔ API, Chat UI (streaming), CRUD pages, biểu đồ |
 | **S3** | Auto-analysis, early warning, RAGAS evaluation, AI tuning | **Deploy** Render + Vercel, Auth (JWT), integration tests, monitoring | Integration test, responsive, dark mode, UX fixes, FE tests |
 | **S4** | README final, architecture diagram final, evaluation evidence | Final QA, security review, performance check | **Pitch Deck 10 slides**, **Video Demo**, UI polish |
@@ -159,7 +159,7 @@ gantt
 |:--------|:---------|
 | **Standup** | 09:00 hàng ngày trên Discord, format: Done / Doing / Blocked |
 | **Giờ core** | 09:00–11:30 và 14:00–17:00 — tất cả online |
-| **Branch naming** | `feature/<mã-task>-<tên-ngắn>` — VD: `feature/H5-synthetic-data` |
+| **Branch naming** | `feature/<mã-task>-<tên-ngắn>` — VD: `feature/H5-crawl-data` |
 | **Commit** | Tiếng Anh, ngắn gọn: `feat:`, `fix:`, `docs:`, `test:`, `chore:` |
 | **PR Review** | Mọi PR cần ≥ 1 review. Hoàng: BE+AI, Hiếu: FE, Hưng: BE |
 | **Sprint Review** | Cuối mỗi Sprint — Demo + Retrospective + Plan Sprint tiếp |
