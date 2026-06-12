@@ -133,6 +133,22 @@ class StudentResponse(StudentBase, OrmBase):
 
 
 # ================================================================== Cohort
+class CohortCreate(BaseModel):
+    """Fields required when creating a Cohort."""
+
+    code: str = Field(max_length=10)
+    year_start: int
+    year_end: int | None = None
+    note: str | None = None
+
+
+class CohortUpdate(BaseModel):
+    """All fields optional for PATCH update of Cohort."""
+
+    year_end: int | None = None
+    note: str | None = None
+
+
 class CohortResponse(OrmBase):
     """Full Cohort response."""
 
@@ -140,3 +156,4 @@ class CohortResponse(OrmBase):
     code: str
     year_start: int
     year_end: int | None
+    note: str | None

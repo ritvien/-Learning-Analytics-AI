@@ -139,6 +139,23 @@ class CourseResponse(CourseBase, OrmBase):
 
 
 # ================================================================= Semester
+class SemesterCreate(BaseModel):
+    """Fields required when creating a Semester."""
+
+    code: str = Field(max_length=20)
+    name: str = Field(max_length=100)
+    year: int
+    term: int = Field(ge=1, le=3)
+    is_current: bool = False
+
+
+class SemesterUpdate(BaseModel):
+    """All fields optional for PATCH update of Semester."""
+
+    name: str | None = Field(None, max_length=100)
+    is_current: bool | None = None
+
+
 class SemesterResponse(OrmBase):
     """Full Semester response."""
 

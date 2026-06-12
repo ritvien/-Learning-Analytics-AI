@@ -19,6 +19,25 @@ from app.schemas.teaching import (
 router = APIRouter()
 
 
+def _grade_letter_and_4(final_grade: float) -> tuple[str, float]:
+    """Return (letter, 4-point) for a Vietnamese 10-point final grade."""
+    if final_grade >= 8.5:
+        return "A", 4.0
+    if final_grade >= 8.0:
+        return "B+", 3.5
+    if final_grade >= 7.0:
+        return "B", 3.0
+    if final_grade >= 6.5:
+        return "C+", 2.5
+    if final_grade >= 5.5:
+        return "C", 2.0
+    if final_grade >= 5.0:
+        return "D+", 1.5
+    if final_grade >= 4.0:
+        return "D", 1.0
+    return "F", 0.0
+
+
 # ============================================================== Enrollments
 @router.get("/enrollments", response_model=list[EnrollmentResponse])
 async def list_enrollments(
@@ -58,7 +77,7 @@ async def submit_final_grade(
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Enrollment not found")
     obj.final_grade = payload.final_grade
-    # Compute pass status inline (mirrors the DB trigger for non-PostgreSQL dev)
+    obj.grade_letter, obj.grade_4 = _grade_letter_and_4(payload.final_grade)
     obj.is_passed = payload.final_grade >= 5.0
     await db.flush()
     await db.refresh(obj)

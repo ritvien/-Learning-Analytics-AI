@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -86,7 +87,7 @@ class Student(TimestampMixin, Base):
     cohort_id: Mapped[int] = mapped_column(ForeignKey("cohorts.id", ondelete="RESTRICT"), nullable=False)
     student_code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    date_of_birth: Mapped[str | None] = mapped_column(Date)
+    date_of_birth: Mapped[datetime.date | None] = mapped_column(Date)
     gender: Mapped[str | None] = mapped_column(String(10))
     email: Mapped[str | None] = mapped_column(String(255))
     phone: Mapped[str | None] = mapped_column(String(30))
