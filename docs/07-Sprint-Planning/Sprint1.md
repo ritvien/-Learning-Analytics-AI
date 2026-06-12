@@ -31,7 +31,7 @@
 | H3 | ✅ Tạo Team Skills Survey | Google Form khảo sát năng lực team | 06/06 | ✅ Done |
 | H4 | ✅ Sprint Planning & phân công | Lập bảng sprint, phân task cho team | 07/06 | ✅ Done |
 | H5 | Architecture Diagrams (D3) | Vẽ 3 Mermaid diagrams: System Overview, Agent Flow, Data Flow. Đưa vào README | 09/06 | ✅ Done |
-| H6 | Chuẩn hóa Data Crawl Thực Tế | Viết script tiền xử lý dữ liệu crawl thực tế của 700 sinh viên. Format và chuẩn hóa data (điểm, CLO mapping) để chuẩn bị insert vào DB. Output: SQL seed hoặc CSV | 10/06 | ⬜ |
+| H6 | Chuẩn hóa Data Crawl Thực Tế | Viết script tiền xử lý dữ liệu crawl thực tế của 700 sinh viên. Format và chuẩn hóa data (điểm, CLO mapping) để chuẩn bị insert vào DB. Output: SQL seed hoặc CSV | 10/06 | ✅ Done |
 | H7 | Thiết kế AI Agent Architecture | LangGraph state diagram, định nghĩa State schema (TypedDict), Router Node, ≥ 3 Tools (SQL query, CLO calc, chart gen), prompt templates theo cấp (Khoa/Ngành/Môn) | 10/06 | ✅ Done |
 | H8 | ✅ Setup AI Usage Logging (D4) | Cấu hình AI Usage Logging Hooks theo template AI20K (bắt buộc, 1 lần) | 08/06 | ✅ Done |
 | H9 | ✅ Review bộ câu hỏi phỏng vấn | Review câu hỏi của Hưng, góp ý trước khi interview | 08/06 | ✅ Done |

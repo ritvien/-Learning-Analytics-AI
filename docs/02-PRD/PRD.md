@@ -23,7 +23,7 @@ Hệ thống được chia thành **8 module**, có thể phát triển song son
 ```mermaid
 graph LR
     subgraph "Tầng Dữ liệu"
-        M6["Module 6<br/>Data Management<br/>& Import"]
+        M6["Module 6<br/>Data Management<br/>(Đơn giản hóa)"]
         M7["Module 7<br/>Data Warehouse<br/>& ETL"]
     end
 
@@ -213,9 +213,9 @@ graph LR
 
 ---
 
-### Module 6: Data Management & Import 🗄️
+### Module 6: Data Management (Đã tinh gọn) 🗄️
 
-**Mục đích:** Quản lý CRUD các entity cốt lõi và import dữ liệu hàng loạt.
+**Mục đích:** Quản lý CRUD và validation cho các entity cốt lõi. Không triển khai Import Excel/CSV, Bulk Operations hoặc Import History trong MVP.
 
 | Entity | Chức năng | Priority |
 |:-------|:----------|:--------:|
@@ -231,8 +231,6 @@ graph LR
 | Feature | Mô tả | Priority |
 |:--------|:-------|:--------:|
 | Data Validation | Kiểm tra ràng buộc: điểm 0-10, mã SV unique, FK hợp lệ | P0 |
-| Bulk Operations | Xóa/cập nhật hàng loạt | P1 |
-| Import History | Lưu lịch sử import, cho phép rollback | P2 |
 
 ---
 
@@ -246,7 +244,7 @@ flowchart TB
         A["Academic Tree<br/>Navigation"]
         B["Detail Panel<br/>+ Metric Cards"]
         C["AI Chat<br/>Interface"]
-        D["CRUD & Import<br/>Pages"]
+        D["CRUD & Validation<br/>Pages"]
         E["CLO/PLO & Risk<br/>Reports"]
     end
 
@@ -287,7 +285,7 @@ flowchart TB
     J --> K
     K --> L & M & N & O & P
 
-    F -->|"CRUD / Import"| OLTP
+    F -->|"CRUD / Seed / Sync"| OLTP
     OLTP --> ETL --> STG --> DWH
     H <--> DWH
     ML <--> DWH
@@ -302,7 +300,7 @@ flowchart TB
 
 **Nguyên tắc đọc/ghi dữ liệu:**
 
-- CRUD và import ghi vào schema `public` (OLTP).
+- CRUD, seed và sync job được kiểm soát ghi vào schema `public` (OLTP).
 - ETL đồng bộ dữ liệu đã kiểm tra sang schema `dwh`.
 - Dashboard, trend, cross-cohort và Analytics SQL Tool ưu tiên đọc từ DWH.
 - ML Service huấn luyện từ dữ liệu lịch sử trong DWH, ghi prediction từng môn và tổng tín chỉ pass/trượt kỳ vọng vào schema `ml`.
@@ -599,7 +597,7 @@ Với MVP, ETL chạy theo lịch, theo thay đổi dữ liệu hoặc được 
 | Tuần | Sprint Goal | Module Focus | Deliverables |
 |:----:|:------------|:------------:|:-------------|
 | **W1** | Kick-off & Foundation | M6 | ✅ Repo setup, DB schema, FastAPI skeleton, CRUD APIs, seed data |
-| **W2** | Data Foundation | M6 + M7 | Chốt ORM, Alembic baseline, import và DWH/ETL foundation |
+| **W2** | Data Foundation | M6 + M7 | Chốt ORM, Alembic baseline và DWH/ETL foundation |
 | **W3** | AI Agent, CLO & ML Baseline | M2 + M4 + M8 | LangGraph agent, CLO/PLO, model pass/trượt từng môn |
 | **W4** | Frontend, Tree & Analytics | M1 + M2 + M7 + M8 | Tree, Chat, DWH metrics, prediction UI và tổng tín chỉ |
 | **W5** | Integration & Deploy | M1-M8 | Tích hợp Tree↔Chat↔DWH↔ML, deploy, reconciliation và testing |
@@ -614,7 +612,7 @@ gantt
     axisFormat %d/%m
 
     section Tầng Dữ liệu
-    M6 - CRUD & Import          :m6, 2026-06-09, 14d
+    M6 - CRUD Data Management   :m6, 2026-06-09, 14d
     M7 - DWH & ETL              :m7, 2026-06-19, 8d
 
     section Tầng Tính toán
