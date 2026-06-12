@@ -80,3 +80,39 @@ async def health_check():
     # Thêm logic kiểm tra kết nối Database tại đây
     return {"status": "ok", "db": "connected", "llm": "available"}
 ```
+
+## 5. Database Migration và Rollout
+
+- Backend entrypoint chạy `alembic upgrade head` trước khi start API.
+- Mọi thay đổi database phải có Alembic migration được review.
+- Team chỉ reset local volume một lần sau baseline migration được thông báo.
+- Production/staging tuyệt đối không dùng `docker compose down -v`.
+
+CI cho PR thay đổi database phải kiểm tra:
+
+```text
+upgrade database sạch
+→ seed
+→ upgrade database có dữ liệu
+→ downgrade/upgrade migration mới
+→ chạy tests
+```
+
+## 6. ETL và ML Jobs
+
+ETL và ML là batch job độc lập với API request:
+
+| Job | Trigger MVP | Output |
+|:----|:------------|:-------|
+| DWH refresh | Sau import hoặc admin trigger | `dwh` facts/dimensions + reconciliation |
+| ML train | Thủ công theo model version | `ml.model_run` + artifact + metrics |
+| ML score | Sau DWH refresh hoặc admin trigger | prediction từng môn + tổng tín chỉ |
+
+Monitoring cần theo dõi:
+
+- Alembic revision hiện tại.
+- ETL status, thời gian chạy và data quality failures.
+- Model version đang active.
+- Số prediction được tạo và lỗi batch scoring.
+
+Chi tiết rollout: [DatabaseModernizationPlan.md](./DatabaseModernizationPlan.md).

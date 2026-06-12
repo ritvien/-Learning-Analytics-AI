@@ -2,7 +2,7 @@
 
 > **Team 056:** Hoàng (Lead), Hưng, Hiếu
 > **Ngày lập:** 07/06/2026 · **Cập nhật:** 07/06/2026
-> **Tham chiếu:** [ProgramRequirements.md](file:///c:/Users/Admin/AI%20in%20Action/Project/C2-App-056/docs/00-Requirements/ProgramRequirements.md)
+> **Tham chiếu:** [ProgramRequirements.md](../00-Requirements/ProgramRequirements.md)
 
 ---
 
@@ -90,8 +90,8 @@ gantt
 | Sprint | Tuần | Ngày | Theme | Milestone | Mục tiêu chính |
 |:------:|:----:|:-----|:------|:----------|:---------------|
 | **S1** | W1–W2 | 28/05 – 10/06 | Foundation & Research | Project Charter ✅ | Setup env, Docker, CI/CD, DB schema, FastAPI skeleton, FE skeleton, interview stakeholder, crawl data thực tế |
-| **S2** | W3–W4 | 11/06 – 24/06 | Core Agent & Demo 1 | **🎯 Demo 1 (14/06)** | LangGraph agent, Metric Engine, Streamlit prototype → Demo 1. Sau đó: Next.js FE, CRUD, Chat UI |
-| **S3** | W5 | 25/06 – 01/07 | Production & Demo 2 | **🎯 Demo 2 (28/06)** | Deploy Render+Vercel, Auth, testing, RAGAS evaluation, integration, polish → Demo 2 |
+| **S2** | W3–W4 | 11/06 – 24/06 | Core Agent & Analytics Foundation | **🎯 Demo 1 (14/06)** | Agent MVP, ORM/Alembic baseline, DWH/ETL và ML baseline |
+| **S3** | W5 | 25/06 – 01/07 | Production & Demo 2 | **🎯 Demo 2 (28/06)** | Deploy, DWH reconciliation, ML evaluation, integration và polish |
 | **S4** | W6 | 02/07 – 07/07 | Polish & Demo Day | **🎯 Demo Day (05-07/07)** | README, Pitch Deck, Video Demo, final QA, kiểm tra 10 deliverables |
 
 ### Module → Sprint mapping
@@ -104,6 +104,8 @@ gantt
 | M2 — Contextual AI Chat | · Design | ██ Build (Streamlit→Next.js) | ██ Integration | · Polish |
 | M1 — Academic Tree Navigation | · Wireframe | ██ Build | ██ Integration | · Polish |
 | M5 — Report & Early Warning | · | · | ██ Build | ██ Polish |
+| M7 — Data Warehouse & ETL | · Design | ██ Baseline + Build | ██ Tune | · |
+| M8 — ML Pass & Credit Prediction | · Design | ██ Baseline | ██ Integration + Evaluate | · Polish |
 | **DevOps** | ██ Docker + CI/CD | · Maintain | ██ Deploy | · Monitor |
 | **Testing** | · Setup | · Unit tests | ██ Coverage ≥ 60% | · Final QA |
 
@@ -130,8 +132,8 @@ gantt
 | Sprint | Hoàng (AI/PM) | Hưng (BE/DevOps) | Hiếu (FE/QA) |
 |:------:|:------|:-----|:-----|
 | **S1** | Crawl data thực tế, AI agent design, Architecture diagrams, PRD update | Interview stakeholder, DB schema, FastAPI + CRUD, **Docker + CI/CD** | Wireframes, Next.js setup, base components, Tree component (static) |
-| **S2** | LangGraph agent (≥3 tools), Metric Engine, Streamlit prototype cho Demo 1, prompt tuning | CLO/PLO backend, Tree metrics API, SSE streaming, unit tests (BE) | Academic Tree ↔ API, Chat UI (streaming), CRUD pages, biểu đồ |
-| **S3** | Auto-analysis, early warning, RAGAS evaluation, AI tuning | **Deploy** Render + Vercel, Auth (JWT), integration tests, monitoring | Integration test, responsive, dark mode, UX fixes, FE tests |
+| **S2** | LangGraph agent, ML baseline từng môn, tổng hợp tín chỉ, prompt tuning | Chốt ORM, Alembic baseline, reset rollout, DWH + ETL | Academic Tree ↔ API, Chat UI, prediction UI |
+| **S3** | Auto-analysis, ML evaluation, early warning, AI tuning | **Deploy** Render + Vercel, Auth, integration tests, DWH reconciliation | Integration test, responsive, dark mode, UX fixes, FE tests |
 | **S4** | README final, architecture diagram final, evaluation evidence | Final QA, security review, performance check | **Pitch Deck 10 slides**, **Video Demo**, UI polish |
 
 ---
@@ -168,6 +170,8 @@ gantt
 | **Blocked?** | Post Discord #support. Kẹt > 4h → pair-programming |
 | **Task ID prefix** | Hoàng: `H1, H2...` · Hưng: `T1, T2...` · Hiếu: `V1, V2...` |
 | **Code quality** | Type hints + Ruff lint bắt buộc mọi PR. CI sẽ block merge nếu fail |
+| **Database change** | Mọi thay đổi DB phải có Alembic migration, seed/ETL test và ghi breaking change trong PR |
+| **DB reset** | Chỉ reset volume khi tech lead thông báo đợt reset có kiểm soát; pull bình thường không dùng `down -v` |
 
 ---
 
@@ -175,7 +179,7 @@ gantt
 
 | File | Sprint | Trạng thái |
 |:-----|:------:|:----------:|
-| [Sprint1.md](file:///c:/Users/Admin/Work/AI%20In%20Action/C2-App-056/docs/07-Sprint-Planning/Sprint1.md) | S1 — Foundation & Research (W1–W2) | ✅ Hoàn thành |
-| [Sprint2.md](file:///c:/Users/Admin/Work/AI%20In%20Action/C2-App-056/docs/07-Sprint-Planning/Sprint2.md) | S2 — Core Agent & Demo 1 (W3–W4) | 🟡 Đang chạy |
+| [Sprint1.md](./Sprint1.md) | S1 — Foundation & Research (W1–W2) | ✅ Hoàn thành |
+| [Sprint2.md](./Sprint2.md) | S2 — Core Agent & Demo 1 (W3–W4) | 🟡 Đang chạy |
 | Sprint3.md | S3 — Production & Demo 2 (W5) | ⬜ Chưa lập |
 | Sprint4.md | S4 — Polish & Demo Day (W6) | ⬜ Chưa lập |

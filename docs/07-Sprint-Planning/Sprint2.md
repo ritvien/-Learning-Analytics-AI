@@ -94,7 +94,7 @@
 |:-:|:-----|:----------------|:--------:|:------:|
 | T15 | SSE Streaming Endpoint | Upgrade `/api/v1/chat` sang Server-Sent Events streaming. FE nhận token-by-token | 15/06 | ⬜ |
 | T16 | Unit Tests — Backend | Viết unit tests cho CRUD APIs + DB models. Mục tiêu: ≥ 10 test cases, chạy qua CI/CD | 16/06 | ⬜ |
-| T17 | Excel Import API | `POST /api/v1/import/grades` + `/api/v1/import/students` — parse Excel, validate, bulk insert | 17/06 | ⬜ |
+| T17 | Chốt ORM + Alembic Baseline | Đồng bộ ORM với thiết kế OLTP, tạo migration baseline, seed được database sạch và ghi hướng dẫn rollout | 17/06 | ⬜ |
 | T18 | PR Cleanup — đảm bảo ≥ 10 PRs | Review + merge các PRs tồn đọng. Tạo PRs mới cho các features đã code trực tiếp. Đảm bảo repo có ≥ 10 merged PRs | 18/06 | ⬜ |
 
 ### Phase 2 mở rộng: W4 (19–24/06)
@@ -135,7 +135,7 @@
 |:-:|:-----|:----------------|:--------:|:------:|
 | V18 | CRUD Pages (Courses, Students) | Trang quản lý: danh sách, thêm/sửa/xóa. Dùng shadcn/ui Table + Dialog + Form | 20/06 | ⬜ |
 | V19 | Chart Component | Render biểu đồ từ chart spec (JSON) trả về bởi Agent. Dùng Recharts hoặc Chart.js | 22/06 | ⬜ |
-| V20 | Import Excel UI | Trang upload Excel → gọi Import API → hiển thị kết quả (success/error count) | 22/06 | ⬜ |
+| V20 | Prediction UI | Hiển thị xác suất pass/trượt từng môn và tổng tín chỉ pass/trượt kỳ vọng | 22/06 | ⬜ |
 | V21 | Responsive + Dark Mode | Đảm bảo layout responsive trên mobile/tablet. Toggle dark mode hoạt động đúng | 24/06 | ⬜ |
 | V22 | FE Unit Tests | Viết tests cho core components: Tree, Chat, DetailPanel. Mục tiêu: ≥ 5 test suites | 24/06 | ⬜ |
 
@@ -178,8 +178,8 @@ Hoàng    H17      H18,H19  H20      H21
          Tool     +README  Tests    Tuning
 
 Hưng     T15      T16      T17      T18
-         SSE      Unit     Import   PRs
-         Stream   Tests    Excel    ≥ 10
+         SSE      Unit     ORM      PRs
+         Stream   Tests    Baseline ≥ 10
 
 Hiếu     (buffer) V16      V15      V17
                    Tree↔    Video    Chat↔
@@ -204,7 +204,7 @@ Hưng     T19      T20,T21  T22
 
 Hiếu     V18      V19,V20  V21,V22
          CRUD     Chart+   Responsive
-         Pages    Import   +Tests
+         Pages    Predict  +Tests
 ```
 
 ---
@@ -293,6 +293,32 @@ graph LR
 ---
 
 ## Definition of Done — Sprint 2
+
+### Change Request: Database Modernization + Analytics Foundation
+
+Để toàn team cùng đi trên một database thống nhất, Sprint 2 thực hiện theo thứ tự: chốt ORM → migration baseline → reset local một lần → DWH/ETL → ML prediction → UI.
+
+| # | Task | Owner | Deadline | Status |
+|:-:|:-----|:-----:|:--------:|:------:|
+| T23 | Đồng bộ ORM với schema, chốt Program-Course many-to-many, bỏ model source trùng | Hưng | 19/06 | ⬜ |
+| T24 | Sửa seed cohort/import điểm thành phần và tạo Alembic baseline | Hưng | 20/06 | ⬜ |
+| T25 | Điều phối một lần reset DB local và xác minh revision/row counts toàn team | Hưng + cả team | 20/06 | ⬜ |
+| T26 | Tạo schema `dwh`, ETL idempotent và data quality checks | Hưng | 23/06 | ⬜ |
+| H25 | Tạo schema `ml`, baseline dự đoán pass/trượt từng môn, chống leakage | Hoàng | 23/06 | ⬜ |
+| H26 | Tổng hợp expected passed/failed credits và báo cáo evaluation | Hoàng | 24/06 | ⬜ |
+| V23 | UI prediction từng môn và tổng tín chỉ pass/trượt kỳ vọng | Hiếu | 24/06 | ⬜ |
+
+**Definition of Done bổ sung:**
+
+- Chỉ còn một ORM model source và có Alembic baseline migration.
+- Cả team xác nhận cùng migration revision sau đợt reset local.
+- Một KPI dashboard được đọc từ DWH và đối soát khớp OLTP.
+- Có file/report metric của model; tối thiểu gồm Recall, Precision, F1 và PR-AUC.
+- Prediction lưu xác suất pass/trượt từng môn, model version, cutoff và explanation.
+- API/UI hiển thị expected passed/failed credits theo sinh viên-học kỳ.
+- Demo được luồng seed/import -> refresh DWH -> batch score -> xem prediction.
+
+Tham khảo [DatabaseModernizationPlan.md](../10-References/DatabaseModernizationPlan.md) và [ML_DWH_Architecture.md](../10-References/ML_DWH_Architecture.md).
 
 ### Gate G2 Checklist (Deadline: 18/06)
 

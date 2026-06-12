@@ -1,6 +1,6 @@
 """Endpoints for grade management: enrollments and grade components.
 
-Bulk Excel import (POST /import/grades) is implemented in T10.
+Bulk ingestion is intentionally outside the current API scope.
 """
 
 from fastapi import APIRouter, HTTPException, status

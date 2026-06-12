@@ -11,8 +11,6 @@ services:
       POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
-      - ./backend/db/init-data.sql:/docker-entrypoint-initdb.d/02-init-data.sql
     ports:
       - "5433:5432"        # 5433 on host → avoid conflict with local PostgreSQL
     healthcheck:

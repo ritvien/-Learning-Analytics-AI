@@ -42,17 +42,19 @@ stateDiagram-v2
     
     state ToolNode {
         state ToolRouter <<choice>>
-        ToolRouter --> SQLTool : Lọc dữ liệu
+        ToolRouter --> SQLTool : Analytics từ DWH
         ToolRouter --> VectorTool : Tra cứu RAG
         ToolRouter --> CLOTool : Tính toán CLO
+        ToolRouter --> PredictionTool : Giải thích prediction
         ToolRouter --> ChartTool : Vẽ biểu đồ
         ToolRouter --> ReportTool : Viết báo cáo
         ToolRouter --> DiagramTool : Tạo sơ đồ
     }
     ToolNode : Thực thi Công cụ (handle_tool_errors=True)
-    SQLTool : SQL Query Tool
+    SQLTool : Analytics SQL Tool (DWH, read-only)
     VectorTool : Vector Search Tool (pgvector)
     CLOTool : CLO Calculator Tool
+    PredictionTool : Prediction Explanation Tool (ml schema)
     ChartTool : Chart Generator Tool
     ReportTool : Report Writer Tool
     DiagramTool : Diagram Generator Tool
@@ -67,6 +69,8 @@ stateDiagram-v2
 1. **Khởi tạo State:** Agent nhận câu hỏi mới và kết hợp với lịch sử chat để tạo thành `State` (Memory).
 2. **Router Node (Vệ sĩ & Điều phối):** Sử dụng `GPT-5.4 Nano` (siêu rẻ, siêu tốc độ). Nếu câu hỏi đơn giản (VD: "Chào bạn", "Tóm tắt đoạn văn trên"), nó xử lý và trả về luôn. Nếu câu hỏi khó (VD: "Tỷ lệ trượt Toán là bao nhiêu?"), nó chuyển cho `Core Agent Node`.
 3. **Core Agent Node (Não bộ):** Sử dụng `GPT-5.4`. Tại đây, AI sẽ suy luận (Reasoning) xem cần gọi những công cụ nào.
-4. **Tool Node (Thực thi):** Chạy các hàm Python tương ứng (SQL, Vector Search, Vẽ chart).
+4. **Tool Node (Thực thi):** Analytics SQL đọc DWH; Prediction Tool đọc schema `ml`; Vector Search đọc pgvector.
 5. **Vòng lặp ReAct:** Sau khi Tool chạy xong, kết quả được gửi ngược lại `Core Agent Node` để AI đánh giá xem đã đủ thông tin trả lời chưa. Nếu chưa đủ, nó tiếp tục gọi Tool khác. Nếu có lỗi, AI tự động nhận lỗi và viết lại lệnh đúng.
 6. **Kết thúc:** Khi không cần gọi Tool nữa, AI sinh ra câu trả lời cuối cùng và stream về cho người dùng.
+
+> Agent không tự tính xác suất pass/trượt. Model ML thực hiện batch scoring; Agent chỉ truy xuất và giải thích prediction có sẵn.

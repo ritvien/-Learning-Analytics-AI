@@ -12,6 +12,7 @@ def escape_sql(text: str | None) -> str:
     text = str(text).replace("'", "''")
     return f"'{text}'"
 
+
 def parse_float(text: str | None) -> str:
     """Parse a string to a SQL float literal, or NULL on failure."""
     if not text:
@@ -21,46 +22,49 @@ def parse_float(text: str | None) -> str:
     except ValueError:
         return "NULL"
 
+
 def parse_semester_code(text: str) -> tuple[str, int, int]:
     """Parse a Vietnamese semester label into (code, year, term)."""
     # e.g., "HK1 (2021-2022)" -> code: "2021-1", name: "HK1 (2021-2022)", year: 2021, term: 1
     # Check if format is matching
-    match = re.search(r'HK(\d)\s*\((\d{4})-\d{4}\)', text)
+    match = re.search(r"HK(\d)\s*\((\d{4})-\d{4}\)", text)
     if match:
         term = int(match.group(1))
         year = int(match.group(2))
         return f"{year}-{term}", year, term
     return text, 2020, 1
 
+
 def generate_sql() -> None:
     """Read crawled JSON and write SQL INSERT statements to init-data.sql."""
-    json_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), '../../../crawl/epu_data_batch.json')
-    )
-    sql_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), '../db/init-data.sql')
-    )
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+    candidates = [
+        os.path.join(repo_root, "crawl", "epu_data_batch.json"),
+        os.path.join(repo_root, "epu_data.json"),
+    ]
+    json_path = next((path for path in candidates if os.path.exists(path)), candidates[0])
+    sql_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../db/init-data.sql"))
 
     if not os.path.exists(json_path):
         print(f"File not found: {json_path}")
         return
 
-    with open(json_path, encoding='utf-8') as f:
+    with open(json_path, encoding="utf-8") as f:
         data = json.load(f)
 
     # In-memory structures to ensure uniqueness and generate IDs
     # Using 1-indexed integers for simplicity
 
-    universities = {} # code -> id
+    universities = {}  # code -> id
     departments = {}  # name -> id
-    programs = {}     # name -> id
-    cohorts = {}      # code -> id
-    semesters = {}    # code -> id
-    courses = {}      # name -> id
-    program_courses = set() # (program_id, course_id)
-    students = {}     # mssv -> id
-    sections = {}     # code -> id
-    enrollments = set() # (student_id, section_id)
+    programs = {}  # name -> id
+    cohorts = {}  # code -> id
+    semesters = {}  # code -> id
+    courses = {}  # name -> id
+    program_courses = set()  # (program_id, course_id)
+    students = {}  # mssv -> id
+    sections = {}  # code -> id
+    enrollments = set()  # (student_id, section_id)
 
     uni_id = 1
     dept_id = 1
@@ -72,7 +76,7 @@ def generate_sql() -> None:
     sec_id = 1
 
     # Initialize university
-    universities['EPU'] = uni_id
+    universities["EPU"] = uni_id
 
     # Store items for writing
     dept_items = []
@@ -99,7 +103,7 @@ def generate_sql() -> None:
             dept_id += 1
 
         # Parse Program
-        nganh = student_info.get("Nganh", "Chua phan nganh")
+        nganh = student_info.get("Ngành", "Chua phan nganh")
         if nganh not in programs:
             programs[nganh] = prog_id
             code = f"PROG{prog_id:03d}"
@@ -108,18 +112,14 @@ def generate_sql() -> None:
             prog_id += 1
 
         # Parse Cohort
-        khoa_hoc = student_info.get("Khoa hoc", "2021")
+        khoa_hoc = student_info.get("Khóa", "2021")
         if khoa_hoc not in cohorts:
             cohorts[khoa_hoc] = coh_id
             try:
                 year_start = int(khoa_hoc)
             except (ValueError, TypeError):
                 year_start = 2021
-            code = (
-                f"K{str(year_start)[-2:]}"
-                if len(str(year_start)) == 4
-                else f"K{khoa_hoc}"
-            )
+            code = f"K{str(year_start)[-2:]}" if len(str(year_start)) == 4 else f"K{khoa_hoc}"
             coh_items.append(f"({coh_id}, {escape_sql(code)}, {year_start})")
             coh_id += 1
 
@@ -131,9 +131,9 @@ def generate_sql() -> None:
             students[mssv] = stu_id
             p_id = programs[nganh]
             c_id = cohorts[khoa_hoc]
-            name = student_info.get("Ho va ten", "")
-            gender = student_info.get("Gioi tinh", "")
-            class_code = student_info.get("Lop", "")
+            name = student_info.get("Họ và tên", "")
+            gender = student_info.get("Giới tính", "")
+            class_code = student_info.get("Lớp", "")
             stu_items.append(
                 f"({stu_id}, {p_id}, {c_id}, {escape_sql(mssv)}, "
                 f"{escape_sql(name)}, {escape_sql(gender)}, {escape_sql(class_code)})"
@@ -143,18 +143,12 @@ def generate_sql() -> None:
         s_id = students[mssv]
 
         for g in grades:
-            hk_name = g.get("Hoc ky", "")
-            course_name = g.get("Ten mon hoc", "")
-            section_code = g.get("Ma lop", "")
+            hk_name = g.get("Học kỳ", "")
+            course_name = g.get("Tên môn học", "")
+            section_code = g.get("Mã lớp", "")
             credits_str = g.get("TC", "0")
-            final_grade = g.get("Diem tong ket", "")
-            grade_letter = (
-                g.get("Xep loai", "")
-                .replace("[", "")
-                .replace("]", "")
-                .replace("-", "")
-                .strip()
-            )
+            final_grade = g.get("Điểm tổng kết", "")
+            grade_letter = g.get("Xếp loại", "").replace("[", "").replace("]", "").replace("-", "").strip()
 
             if not course_name or not section_code:
                 continue
@@ -163,9 +157,7 @@ def generate_sql() -> None:
             if hk_name not in semesters:
                 code, year, term = parse_semester_code(hk_name)
                 semesters[hk_name] = sem_id
-                sem_items.append(
-                    f"({sem_id}, {escape_sql(code)}, {escape_sql(hk_name)}, {year}, {term})"
-                )
+                sem_items.append(f"({sem_id}, {escape_sql(code)}, {escape_sql(hk_name)}, {year}, {term})")
                 sem_id += 1
 
             sm_id = semesters[hk_name]
@@ -178,9 +170,7 @@ def generate_sql() -> None:
                     tc = int(credits_str)
                 except (ValueError, TypeError):
                     tc = 0
-                crs_items.append(
-                    f"({crs_id}, {escape_sql(c_code)}, {escape_sql(course_name)}, {tc})"
-                )
+                crs_items.append(f"({crs_id}, {escape_sql(c_code)}, {escape_sql(course_name)}, {tc})")
                 crs_id += 1
 
             cr_id = courses[course_name]
@@ -210,7 +200,7 @@ def generate_sql() -> None:
     # Ensure directory exists
     os.makedirs(os.path.dirname(sql_path), exist_ok=True)
 
-    with open(sql_path, 'w', encoding='utf-8') as f:
+    with open(sql_path, "w", encoding="utf-8") as f:
         f.write("-- Auto-generated seed data from crawled JSON\n")
         f.write("-- DO NOT EDIT MANUALLY\n\n")
 
@@ -259,9 +249,7 @@ def generate_sql() -> None:
         if stu_items:
             # Batching to avoid huge statements
             f.write(
-                "INSERT INTO students"
-                " (id, program_id, cohort_id, student_code, full_name, gender, class_code)"
-                " VALUES\n"
+                "INSERT INTO students (id, program_id, cohort_id, student_code, full_name, gender, class_code) VALUES\n"
             )
             f.write(",\n".join(stu_items))
             f.write("\nON CONFLICT DO NOTHING;\n\n")
@@ -270,10 +258,8 @@ def generate_sql() -> None:
         if sec_items:
             batch_size = 1000
             for i in range(0, len(sec_items), batch_size):
-                batch = sec_items[i:i+batch_size]
-                f.write(
-                    "INSERT INTO sections (id, course_id, semester_id, section_code) VALUES\n"
-                )
+                batch = sec_items[i : i + batch_size]
+                f.write("INSERT INTO sections (id, course_id, semester_id, section_code) VALUES\n")
                 f.write(",\n".join(batch))
                 f.write("\nON CONFLICT DO NOTHING;\n\n")
 
@@ -281,13 +267,9 @@ def generate_sql() -> None:
         if enr_items:
             batch_size = 1000
             for i in range(0, len(enr_items), batch_size):
-                batch = enr_items[i:i+batch_size]
-                f.write(
-                    "INSERT INTO enrollments"
-                    " (student_id, section_id, final_grade, grade_letter, status)"
-                    " VALUES\n"
-                )
-                f.write(",\n".join([f"({row[1:row.rfind(')')]}, 'completed')" for row in batch]))
+                batch = enr_items[i : i + batch_size]
+                f.write("INSERT INTO enrollments (student_id, section_id, final_grade, grade_letter, status) VALUES\n")
+                f.write(",\n".join([f"({row[1 : row.rfind(')')]}, 'completed')" for row in batch]))
                 f.write("\nON CONFLICT DO NOTHING;\n\n")
 
         # Fix sequences
@@ -303,6 +285,7 @@ def generate_sql() -> None:
         f.write("SELECT setval('enrollments_id_seq', (SELECT MAX(id) FROM enrollments));\n")
 
     print("Success! Generated init-data.sql.")
+
 
 if __name__ == "__main__":
     generate_sql()

@@ -21,9 +21,9 @@ class UserRole(StrEnum):
 
     superadmin = "superadmin"
     admin = "admin"
-    manager = "manager"    # BQL khoa — full read + limited write
+    manager = "manager"  # BQL khoa — full read + limited write
     lecturer = "lecturer"  # Giảng viên — view own sections only
-    viewer = "viewer"      # Read-only
+    viewer = "viewer"  # Read-only
 
 
 class User(TimestampMixin, Base):

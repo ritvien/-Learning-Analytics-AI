@@ -73,27 +73,64 @@ sequenceDiagram
     end
 ```
 
-## 3. Luồng Import Dữ liệu (ETL / Data Management)
-Cách hệ thống xử lý khi Admin upload một file Excel chứa hàng nghìn dòng dữ liệu điểm số hoặc sinh viên.
+## 3. Luồng Ghi nhận và Đồng bộ Dữ liệu
+
+Dữ liệu nghiệp vụ được ghi nhận qua CRUD API hoặc seed/sync job đã được kiểm soát. Mọi đường ghi dữ liệu đều phải validation, có transaction và để lại dấu vết phục vụ đối soát.
 
 ```mermaid
 graph TD
-    User(["👨‍💻 Admin"]) -->|"Upload File Excel/CSV"| FE("Next.js Dashboard")
-    FE -->|"POST /api/v1/import/grades<br>Multipart Form"| API("FastAPI Gateway")
+    User(["Admin / Giảng viên"]) -->|"CRUD nghiệp vụ"| FE("Next.js Dashboard")
+    FE -->|"REST API"| API("FastAPI Gateway")
+    Source["Nguồn dữ liệu đã chuẩn hóa"] -->|"Seed / Sync job"| API
     
     subgraph Backend_Processing ["Backend Processing"]
-        API --> Val["Pydantic Validation<br>(Kiểm tra format, kiểu dữ liệu)"]
-        Val -- "Lỗi Validation" --> FE
-        
-        Val -- "Dữ liệu Hợp lệ" --> Queue["Background Task / Celery Queue"]
-        Queue --> BatchInsert["Gom nhóm dữ liệu<br>(Batch Insert 1000 rows/lần)"]
+        API --> Val["Pydantic + Business Validation"]
+        Val -- "Lỗi validation" --> FE
+        Val -- "Dữ liệu hợp lệ" --> Tx["Database Transaction"]
     end
     
     subgraph Storage ["Storage"]
-        BatchInsert --> DB[("PostgreSQL")]
-        DB -.->|"Trigger"| InvalidateCache["Xóa Cache cũ<br>Redis"]
+        Tx --> DB[("PostgreSQL public - OLTP")]
+        DB --> Audit["Audit / Data Quality Log"]
     end
     
-    Queue -->|"Xử lý xong (Async)"| Notification["Gửi thông báo SSE<br>Import thành công"]
-    Notification --> FE
+    DB -->|"updated_at / ETL schedule"| DWH["ETL sang DWH"]
+```
+
+## 4. Luồng ETL sang Data Warehouse
+
+```mermaid
+sequenceDiagram
+    participant OLTP as PostgreSQL OLTP
+    participant ETL as ETL Job
+    participant DQ as Data Quality Checks
+    participant DWH as PostgreSQL DWH
+    participant API as Analytics API
+
+    ETL->>OLTP: Đọc dữ liệu thay đổi theo updated_at
+    ETL->>ETL: Chuẩn hóa dimension và fact
+    ETL->>DQ: Kiểm tra grain, khóa ngoại, khoảng điểm
+    DQ-->>ETL: Pass / Error report
+    ETL->>DWH: Upsert dimensions, load facts
+    ETL->>DWH: Refresh KPI/materialized views
+    API->>DWH: Query analytics theo cohort/semester/course
+```
+
+## 5. Luồng dự đoán pass/trượt và tổng tín chỉ bằng ML
+
+```mermaid
+sequenceDiagram
+    participant DWH as Data Warehouse
+    participant ML as ML Pipeline
+    participant Pred as ML Predictions
+    participant API as FastAPI
+    participant User as Giảng viên
+
+    ML->>DWH: Tạo dataset không chứa feature leakage
+    ML->>ML: Split theo học kỳ, train và evaluate
+    ML->>Pred: Lưu model version và batch predictions
+    User->>API: GET /api/v1/predictions/students/{id}/semesters/{semester_id}
+    API->>Pred: Đọc prediction từng môn
+    Pred->>Pred: Tổng hợp expected passed/failed credits
+    API-->>User: Xác suất từng môn + tổng tín chỉ kỳ vọng
 ```

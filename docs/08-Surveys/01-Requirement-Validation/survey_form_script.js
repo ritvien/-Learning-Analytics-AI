@@ -97,6 +97,30 @@ function getCommonQuestions_() {
         "Thường xuyên sử dụng để hỗ trợ soạn bài/lập báo cáo",
         "Sử dụng hàng ngày, là công cụ không thể thiếu"
       ]
+    },
+    {
+      type: "checkbox",
+      title: "0.4. Đơn vị hiện có thể cung cấp những dữ liệu nào theo từng học kỳ?",
+      choices: [
+        "Danh sách sinh viên và chương trình/khóa học",
+        "Danh sách môn và số tín chỉ",
+        "Đăng ký lớp học phần của từng sinh viên",
+        "Điểm thành phần có thời điểm ghi nhận",
+        "Điểm tổng kết và trạng thái pass/trượt",
+        "Dữ liệu CLO/PLO",
+        "Chưa rõ hoặc cần xin từ nhiều đơn vị"
+      ],
+      other: true
+    },
+    {
+      type: "multiple_choice",
+      title: "0.5. Nếu hệ thống dự đoán xác suất pass/trượt từng môn và tổng tín chỉ pass/trượt kỳ vọng, mức độ hữu ích là?",
+      choices: [
+        "Rất hữu ích — có thể dùng để ưu tiên hỗ trợ sớm",
+        "Khá hữu ích — cần kèm giải thích và nguồn dữ liệu",
+        "Bình thường — chỉ dùng để tham khảo",
+        "Không hữu ích hoặc không phù hợp"
+      ]
     }
   ];
 }

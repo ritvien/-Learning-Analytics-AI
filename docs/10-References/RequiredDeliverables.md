@@ -20,3 +20,15 @@ Dưới đây là danh sách kiểm tra (Checklist) những gì cần hoàn thi�
 ## 4. Kiểm thử
 - Cung cấp hình ảnh hoặc log chứng minh hệ thống vượt qua các Unit Test cốt lõi.
 - Agent có cơ chế Fallback (Báo lỗi nhẹ nhàng) khi API của LLM bị sập.
+
+## 5. Database, DWH và ML Evidence
+
+- Có Alembic baseline migration và lịch sử migration rõ ràng.
+- Database sạch dựng được bằng migration + seed script; seed chạy lại không tạo duplicate.
+- Có bằng chứng đối soát KPI giữa OLTP và DWH.
+- ETL chạy lặp lại không tạo duplicate và ghi nhận trạng thái lần chạy.
+- Có báo cáo đánh giá model dự đoán pass/trượt từng môn.
+- Demo hiển thị xác suất từng môn và tổng tín chỉ pass/trượt kỳ vọng.
+- Prediction có model version, prediction cutoff, scored time và explanation.
+
+Tham khảo checklist triển khai tại [DatabaseModernizationPlan.md](./DatabaseModernizationPlan.md).

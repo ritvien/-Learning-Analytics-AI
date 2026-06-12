@@ -70,6 +70,8 @@ docker compose up --build
 | PostgreSQL | localhost:5432 (user/pass: see .env) |
 
 Migrations run automatically inside the container before the server starts.
+The runtime schema is created only by Alembic. Files under `backend/db/` are
+legacy/reference artifacts and are not mounted into PostgreSQL by Docker Compose.
 
 **Useful commands:**
 

@@ -56,3 +56,39 @@ LANGCHAIN_ENDPOINT="https://api.smith.langchain.com"
 LANGCHAIN_API_KEY="ls__xxx"
 LANGCHAIN_PROJECT="My_Agent_Project"
 ```
+
+## 3. Database, DWH và ETL Testing
+
+| Nhóm test | Điều cần chứng minh |
+|:----------|:--------------------|
+| Migration test | Database sạch và database có seed đều upgrade lên `head` thành công |
+| Seed idempotency | Chạy seed lần hai không tạo duplicate hoặc sai liên kết cohort |
+| ETL idempotency | Chạy ETL lần hai không tăng số dòng ngoài dự kiến |
+| Reconciliation | Enrollment count, tổng tín chỉ pass/trượt và fail rate khớp giữa OLTP/DWH |
+| Data quality | Không có orphan key, duplicate tại grain fact hoặc điểm ngoài khoảng hợp lệ |
+
+## 4. ML Evaluation
+
+Model dự đoán pass/trượt từng môn phải được chia train/test theo học kỳ để mô phỏng dự đoán tương lai.
+
+Metric bắt buộc:
+
+- Recall và Precision của lớp trượt.
+- F1, PR-AUC và confusion matrix.
+- Calibration của xác suất pass/trượt.
+- Sai số của `expected_passed_credits` và `expected_failed_credits` sau khi tổng hợp.
+
+Test chống leakage phải xác nhận feature không chứa `final_grade`, `is_passed` hoặc dữ liệu được ghi sau `prediction_cutoff`.
+
+## 5. Integration Flow Bắt Buộc
+
+```text
+Migration + seed
+→ ETL public sang dwh
+→ data reconciliation
+→ ML batch scoring
+→ API prediction từng môn và tổng tín chỉ
+→ Agent giải thích prediction
+```
+
+Tham khảo [DatabaseModernizationPlan.md](./DatabaseModernizationPlan.md).

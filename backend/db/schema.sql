@@ -1,3 +1,7 @@
+-- LEGACY REFERENCE ONLY.
+-- Runtime database creation is owned by SQLAlchemy ORM + Alembic migrations.
+-- Docker Compose must not execute this file.
+
 -- =============================================================================
 -- EduInsight — PostgreSQL Schema v1.0
 -- Hệ thống AI Phân tích Học tập (Student Analytics for Faculty Management)

@@ -19,9 +19,8 @@ dependencies = [
     # Auth
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
-    # File handling
+    # File handling for syllabus/document uploads
     "python-multipart>=0.0.12",
-    "openpyxl>=3.1.5",
     "aiofiles>=24.1.0",
 ]
 

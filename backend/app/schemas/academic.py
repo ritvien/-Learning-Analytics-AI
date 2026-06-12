@@ -111,7 +111,7 @@ class CourseBase(BaseModel):
 class CourseCreate(CourseBase):
     """Fields required when creating a Course."""
 
-    program_id: int
+    program_ids: list[int] = Field(min_length=1)
 
 
 class CourseUpdate(BaseModel):
@@ -126,13 +126,14 @@ class CourseUpdate(BaseModel):
     description: str | None = None
     is_elective: bool | None = None
     is_active: bool | None = None
+    program_ids: list[int] | None = Field(None, min_length=1)
 
 
 class CourseResponse(CourseBase, OrmBase):
     """Full Course response including PK and timestamps."""
 
     id: int
-    program_id: int
+    program_ids: list[int]
     created_at: datetime
     updated_at: datetime
 

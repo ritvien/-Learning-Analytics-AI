@@ -75,3 +75,14 @@ Xây dựng **hệ thống AI Phân Tích Học Tập** (AI Learning Analytics P
 | Độ chính xác CLO assessment | ≥ 90% so với tính thủ công |
 | AI Agent response time (p95) | < 10 giây |
 | User satisfaction (khảo sát) | ≥ 4/5 |
+
+## 7. Bổ sung định vị Analytics
+
+Để đúng với định vị **AI Learning Analytics Platform**, giải pháp cần có hai năng lực nền tảng bên cạnh dashboard và AI Chat:
+
+1. **Data Warehouse:** tách dữ liệu phân tích lịch sử khỏi các bảng CRUD/OLTP, hỗ trợ phân tích đa chiều theo học kỳ, khóa, ngành, môn và CLO/PLO.
+2. **Machine Learning dự đoán:** dự đoán xác suất pass/trượt từng môn, sau đó tổng hợp tổng tín chỉ pass/trượt kỳ vọng trước khi kết thúc học kỳ.
+
+AI Agent đóng vai trò hỏi đáp và diễn giải kết quả. Các KPI lịch sử phải đến từ DWH; xác suất rủi ro phải đến từ mô hình ML đã được đánh giá và lưu phiên bản.
+
+Phạm vi MVP ưu tiên DWH dạng star schema và một baseline model có thể giải thích, không xây dựng hệ thống MLOps phức tạp. Xem [ML_DWH_Architecture.md](../10-References/ML_DWH_Architecture.md) và [DatabaseModernizationPlan.md](../10-References/DatabaseModernizationPlan.md).

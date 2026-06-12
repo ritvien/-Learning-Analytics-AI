@@ -70,6 +70,7 @@ function createTeamSkillsSurvey() {
     .setRows([
       "Python / FastAPI", 
       "Thiết kế Database (SQL/NoSQL)", 
+      "Alembic Migration / Data Warehouse / ETL",
       "Docker / Tự động hoá CI-CD (GitHub Actions)", 
       "Deploy hệ thống (Render, Vercel, AWS...)"
     ])
@@ -82,7 +83,8 @@ function createTeamSkillsSurvey() {
       "Xây dựng AI Agent (LangChain / LangGraph)", 
       "Kỹ thuật RAG & Vector Database (ChromaDB...)", 
       "Prompt Engineering & Tối ưu LLM", 
-      "Thu thập, xử lý và làm sạch dữ liệu"
+      "Thu thập, xử lý và làm sạch dữ liệu",
+      "Machine Learning / Feature Engineering / Model Evaluation"
     ])
     .setColumns(scaleColumns)
     .setRequired(true);
