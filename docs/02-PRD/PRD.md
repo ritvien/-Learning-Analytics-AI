@@ -1,6 +1,6 @@
 # 📄 Product Requirements Document (PRD) — AI Phân Tích Học Tập
 
-> **Phiên bản:** v2.0 · Ngày tạo: 06/06/2026 · Cập nhật: 07/06/2026
+> **Phiên bản:** v2.1 · Ngày tạo: 06/06/2026 · Cập nhật: 12/06/2026
 
 ## Tổng quan sản phẩm
 
@@ -18,19 +18,17 @@ Thay vì tách biệt Dashboard và AI Chat thành 2 trang riêng, EduInsight h�
 
 ### Tổng quan kiến trúc tính năng
 
-Hệ thống được chia thành **8 module**, có thể phát triển song song và tích hợp dần. Module 7-8 là phần bổ sung bắt buộc để sản phẩm có nền tảng DWH và predictive analytics đúng với định vị learning analytics:
+Hệ thống được chia thành **6 module độc lập**, có thể phát triển song song và tích hợp dần:
 
 ```mermaid
 graph LR
     subgraph "Tầng Dữ liệu"
         M6["Module 6<br/>Data Management<br/>(Đơn giản hóa)"]
-        M7["Module 7<br/>Data Warehouse<br/>& ETL"]
     end
 
     subgraph "Tầng Tính toán"
         M3["Module 3<br/>Metric Engine"]
         M4["Module 4<br/>CLO/PLO<br/>Assessment"]
-        M8["Module 8<br/>ML Pass & Credit<br/>Prediction"]
     end
 
     subgraph "Tầng Trải nghiệm"
@@ -39,17 +37,13 @@ graph LR
         M5["Module 5<br/>Report &<br/>Early Warning"]
     end
 
-    M6 --> M7
-    M7 --> M3
-    M7 --> M4
-    M7 --> M8
+    M6 --> M3
+    M6 --> M4
     M3 --> M1
     M4 --> M1
-    M8 --> M1
     M1 --> M2
     M3 --> M5
     M4 --> M5
-    M8 --> M5
 ```
 
 > Mỗi module có thể chạy và test độc lập. Khi tích hợp, chúng tạo thành trải nghiệm Academic Tree hoàn chỉnh.
@@ -215,22 +209,22 @@ graph LR
 
 ### Module 6: Data Management (Đã tinh gọn) 🗄️
 
-**Mục đích:** Quản lý CRUD và validation cho các entity cốt lõi. Không triển khai Import Excel/CSV, Bulk Operations hoặc Import History trong MVP.
+**Mục đích:** Quản lý CRUD các entity cốt lõi. Bỏ phần import tự động do không phải tính năng chính, và giản lược CRUD cho các bảng phức tạp/rủi ro.
 
-| Entity | Chức năng | Priority |
-|:-------|:----------|:--------:|
-| Khoa (Departments) | CRUD, gắn vào University | P0 |
-| Chương trình / Ngành (Programs) | CRUD, gắn vào Khoa, định nghĩa PLO | P0 |
-| Môn học (Courses) | CRUD, gắn vào Ngành, định nghĩa CLO, đề cương (syllabus) | P0 |
-| Sinh viên (Students) | CRUD, validation | P0 |
-| Giảng viên (Teachers) | CRUD, gắn vào Khoa | P0 |
-| Lớp học phần (Sections) | CRUD, gắn Môn + GV + Học kỳ | P0 |
-| Điểm (Grades) | CRUD, validation, điểm thành phần | P0 |
-| Đề cương môn học (Syllabus) | Upload PDF/text đề cương, parse cấu trúc chương/mục | P1 |
+| Entity | Chức năng | Trạng thái | Priority |
+|:-------|:----------|:----------:|:--------:|
+| Khoa (Departments) | CRUD, gắn vào University | ✅ | P0 |
+| Chương trình / Ngành (Programs) | CRUD, gắn vào Khoa, định nghĩa PLO | ✅ | P0 |
+| Môn học (Courses) | CRUD, gắn vào Ngành, định nghĩa CLO | ✅ | P0 |
+| Sinh viên (Students) | CRUD cơ bản (bỏ Import) | ✅ | P0 |
+| Giảng viên (Teachers) | CRUD, gắn vào Khoa | ✅ | P0 |
+| Lớp học phần (Sections) | CRUD, gắn Môn + GV + Học kỳ | ✅ | P0 |
+| Học kỳ (Semesters) | CRUD, hỗ trợ đánh dấu current semester | ✅ | P0 |
+| Khóa học (Cohorts) | CRUD (K17, K18...), dùng cho cross-cohort analytics | ✅ | P0 |
+| Điểm (Grades) | Enrollment CRUD + upsert grade component; tự tính grade_letter và grade_4 | ✅ | P0 |
+| Đề cương môn học (Syllabus) | Bỏ qua | Đã bỏ | — |
 
-| Feature | Mô tả | Priority |
-|:--------|:-------|:--------:|
-| Data Validation | Kiểm tra ràng buộc: điểm 0-10, mã SV unique, FK hợp lệ | P0 |
+*(Ghi chú từ meeting: Đã loại bỏ hoàn toàn các tính năng Import Excel/CSV, Bulk Operations và Import History để đơn giản hóa module này).*
 
 ---
 
@@ -239,72 +233,49 @@ graph LR
 ### 2.1 Architecture Overview
 
 ```mermaid
-flowchart TB
+graph TB
     subgraph "Frontend — Next.js (Vercel)"
         A["Academic Tree<br/>Navigation"]
         B["Detail Panel<br/>+ Metric Cards"]
         C["AI Chat<br/>Interface"]
-        D["CRUD & Validation<br/>Pages"]
-        E["CLO/PLO & Risk<br/>Reports"]
+        D["CRUD & Import<br/>Pages"]
+        E["CLO/PLO<br/>Config & Reports"]
     end
 
     subgraph "Backend — FastAPI (Render)"
         F["REST API"]
         G["Auth & Rate Limiting"]
-        I["SSE Streaming"]
         H["Metric Engine"]
-        ETL["ETL Service<br/>Validate + Transform"]
-        ML["ML Service<br/>Train + Batch Score"]
+        I["SSE Streaming"]
     end
 
     subgraph "AI Agent — LangGraph"
         J["StateGraph"]
         K["Router Node"]
-        L["Analytics SQL Tool"]
+        L["SQL Query Tool"]
         M["CLO Calculator Tool"]
         N["Chart Generator Tool"]
         O["Report Writer Tool"]
-        P["Prediction Explanation Tool"]
+        P["Diagram Generator Tool"]
     end
 
-    subgraph "PostgreSQL — tách schema theo workload"
-        OLTP[("public<br/>OLTP / CRUD")]
-        STG[("staging<br/>Dữ liệu tạm")]
-        DWH[("dwh<br/>Star Schema")]
-        MODEL[("ml<br/>Model Runs")]
-        PRED[("ml.enrollment_prediction<br/>ml.student_semester_prediction")]
-        VECTOR[("public + pgvector<br/>Syllabus Embeddings")]
+    subgraph "Storage"
+        Q["PostgreSQL (pgvector)"]
         S["Redis / In-memory Cache"]
     end
 
     A --> B --> C
     A & B & C & D & E -->|HTTP/SSE| F
-    F --> G
-    G --> H & ETL & ML & I
-    I --> J
+    F --> G --> H
+    G --> I --> J
     J --> K
     K --> L & M & N & O & P
-
-    F -->|"CRUD / Seed / Sync"| OLTP
-    OLTP --> ETL --> STG --> DWH
-    H <--> DWH
-    ML <--> DWH
-    ML --> MODEL
-    ML --> PRED
-    L & M --> DWH
-    P --> PRED
-    J --> VECTOR
-    H <--> S
-    PRED --> F
+    L & M --> Q
+    N --> Q
+    O --> Q
+    H --> Q
+    H --> S
 ```
-
-**Nguyên tắc đọc/ghi dữ liệu:**
-
-- CRUD, seed và sync job được kiểm soát ghi vào schema `public` (OLTP).
-- ETL đồng bộ dữ liệu đã kiểm tra sang schema `dwh`.
-- Dashboard, trend, cross-cohort và Analytics SQL Tool ưu tiên đọc từ DWH.
-- ML Service huấn luyện từ dữ liệu lịch sử trong DWH, ghi prediction từng môn và tổng tín chỉ pass/trượt kỳ vọng vào schema `ml`.
-- LLM/Agent chỉ diễn giải KPI và prediction; không tự tính xác suất rủi ro.
 
 ### 2.2 Technology Stack
 
@@ -316,17 +287,13 @@ flowchart TB
 | **Backend** | FastAPI + Pydantic | Async, type-safe, auto-docs |
 | **AI Agent** | LangGraph + LangChain | State machine, tool calling, ReAct |
 | **LLM** | Google Gemini API / Mistral AI | Free tier, đủ cho demo |
-| **OLTP Database** | PostgreSQL schema `public` | CRUD và dữ liệu nghiệp vụ chuẩn hóa |
-| **Data Warehouse** | PostgreSQL schema `dwh` + star schema | Phân tích lịch sử, drill-down và cross-cohort |
-| **ETL** | Python + SQLAlchemy/Pandas + scheduled batch job | Validate, transform và đồng bộ OLTP → DWH |
-| **Machine Learning** | scikit-learn | Baseline model có thể giải thích, phù hợp MVP |
-| **ML Metadata** | PostgreSQL schema `ml` + serialized artifact | Lưu model version, feature set và evaluation metrics |
+| **Database** | PostgreSQL (với pgvector) | Quản lý Relational + Vector chung |
 | **Vector Store** | pgvector (PostgreSQL extension) | Hybrid search, kiến trúc đơn giản |
 | **Monitoring** | Langfuse | Open-source, unlimited |
 | **Deploy** | Vercel (FE) + Render (BE) | Free tier |
 | **CI/CD** | GitHub Actions | Ruff + pytest + Docker build |
 
-### 2.3 OLTP Data Model (Core Entities)
+### 2.3 Data Model (Core Entities)
 
 ```mermaid
 erDiagram
@@ -413,103 +380,7 @@ erDiagram
     }
 ```
 
-### 2.4 Data Warehouse Model (Star Schema)
-
-**Grain trung tâm:** một dòng trong `FACT_ENROLLMENT_OUTCOME` đại diện cho kết quả của một sinh viên trong một lớp học phần. Mô hình này giúp aggregate nhanh theo nhiều chiều mà không phải join toàn bộ schema CRUD cho mỗi dashboard request.
-
-```mermaid
-erDiagram
-    DIM_STUDENT ||--o{ FACT_ENROLLMENT_OUTCOME : student
-    DIM_COURSE ||--o{ FACT_ENROLLMENT_OUTCOME : course
-    DIM_SECTION ||--o{ FACT_ENROLLMENT_OUTCOME : section
-    DIM_SEMESTER ||--o{ FACT_ENROLLMENT_OUTCOME : semester
-    DIM_PROGRAM ||--o{ FACT_ENROLLMENT_OUTCOME : program
-    DIM_COHORT ||--o{ FACT_ENROLLMENT_OUTCOME : cohort
-
-    DIM_STUDENT {
-        int student_key PK
-        int student_id NK
-        string cohort
-        string program
-        string status
-    }
-    DIM_COURSE {
-        int course_key PK
-        int course_id NK
-        string course_code
-        string course_name
-        int credits
-    }
-    DIM_SECTION {
-        int section_key PK
-        int section_id NK
-        string section_code
-        string lecturer
-    }
-    DIM_SEMESTER {
-        int semester_key PK
-        int semester_id NK
-        int year
-        int term
-    }
-    DIM_PROGRAM {
-        int program_key PK
-        int program_id NK
-        string program_code
-        string program_name
-        string department
-    }
-    DIM_COHORT {
-        int cohort_key PK
-        int cohort_id NK
-        string cohort_code
-        int year_start
-    }
-    FACT_ENROLLMENT_OUTCOME {
-        int enrollment_id NK
-        int student_key FK
-        int course_key FK
-        int section_key FK
-        int semester_key FK
-        int program_key FK
-        int cohort_key FK
-        float final_grade
-        float grade_4
-        boolean is_passed
-        int attempt_number
-    }
-```
-
-**Các bảng trong DWH MVP:**
-
-| Loại | Bảng | Grain / mục đích |
-|:-----|:-----|:-----------------|
-| Dimension | `dim_student`, `dim_course`, `dim_section`, `dim_semester`, `dim_program`, `dim_cohort` | Các chiều dùng để filter, group và drill-down |
-| Fact chính | `fact_enrollment_outcome` | Một sinh viên trong một lớp học phần |
-| Fact tổng hợp | `fact_student_semester` | Một sinh viên trong một học kỳ; tổng tín chỉ đăng ký/pass/trượt |
-| Fact mở rộng | `fact_grade_component` | Một điểm thành phần của một enrollment |
-| Fact mở rộng | `fact_clo_achievement` | Một enrollment và một CLO |
-| Metadata | `etl_run`, `data_quality_result` | Theo dõi lần refresh và kết quả đối soát |
-
-`fact_grade_component` và `fact_clo_achievement` có thể triển khai sau fact chính nhưng cần có trong thiết kế để hỗ trợ topic-level analytics và CLO/PLO trend.
-
-**Luồng refresh DWH:**
-
-```mermaid
-flowchart LR
-    Source["CRUD API / Seed / Đồng bộ nguồn dữ liệu"] --> OLTP[("public - OLTP")]
-    OLTP --> Extract["Extract changed rows"]
-    Extract --> Validate["Validate + Data Quality"]
-    Validate --> Dimensions["Upsert Dimensions"]
-    Dimensions --> Facts["Load Facts"]
-    Facts --> DWH[("dwh - Star Schema")]
-    DWH --> Metrics["Refresh KPI Views"]
-    DWH --> Scoring["ML Batch Scoring"]
-```
-
-Với MVP, ETL chạy theo lịch, theo thay đổi dữ liệu hoặc được admin kích hoạt thủ công. Job phải idempotent và có đối soát KPI giữa OLTP/DWH.
-
-### 2.5 API Endpoints
+### 2.4 API Endpoints
 
 #### Tree & Metrics
 
@@ -518,24 +389,6 @@ Với MVP, ETL chạy theo lịch, theo thay đổi dữ liệu hoặc được 
 | `GET` | `/api/v1/tree` | Lấy toàn bộ cây Academic Tree với health badges |
 | `GET` | `/api/v1/tree/{node_type}/{node_id}/metrics` | Lấy metric chi tiết của 1 node (khoa/ngành/môn) |
 | `GET` | `/api/v1/tree/{node_type}/{node_id}/trends` | Xu hướng metric của node qua các kỳ |
-
-#### Analytics & Data Warehouse
-
-| Method | Endpoint | Mô tả |
-|:-------|:---------|:-------|
-| `GET` | `/api/v1/analytics/overview` | KPI tổng quan đọc từ DWH |
-| `GET` | `/api/v1/analytics/trends` | Trend theo semester/cohort/program/course |
-| `GET` | `/api/v1/analytics/refresh-status` | Trạng thái và thời điểm refresh DWH gần nhất |
-| `POST` | `/api/v1/admin/dwh/refresh` | Chạy ETL OLTP → DWH thủ công |
-
-#### ML Prediction
-
-| Method | Endpoint | Mô tả |
-|:-------|:---------|:-------|
-| `GET` | `/api/v1/predictions/students/{id}/semesters/{semester_id}` | Tổng tín chỉ pass/trượt kỳ vọng |
-| `GET` | `/api/v1/predictions/enrollments/{id}` | Probability pass/trượt và explanation từng môn |
-| `POST` | `/api/v1/admin/ml/train` | Huấn luyện và đánh giá model |
-| `POST` | `/api/v1/admin/ml/score` | Batch scoring enrollment đang học |
 
 #### AI Chat
 
@@ -554,25 +407,46 @@ Với MVP, ETL chạy theo lịch, theo thay đổi dữ liệu hoặc được 
 | `POST` | `/api/v1/assessment/clo-plo-matrix` | Cập nhật ma trận CLO-PLO |
 | `GET` | `/api/v1/assessment/report/{program_id}` | Sinh báo cáo kiểm định |
 
+#### Analytics & Data Warehouse
+
+| Method | Endpoint | Trạng thái | Mô tả |
+|:-------|:---------|:----------:|:-------|
+| `GET` | `/api/v1/analytics/overview` | ✅ Đã có | KPI tổng quan đọc từ DWH |
+| `GET` | `/api/v1/analytics/trends` | ✅ Đã có | Trend theo semester/cohort/program/course |
+| `GET` | `/api/v1/analytics/refresh-status` | ✅ Đã có | Trạng thái và thời điểm refresh DWH gần nhất |
+| `POST` | `/api/v1/admin/dwh/refresh` | ✅ Đã có | Chạy ETL OLTP → DWH thủ công |
+
+#### ML Prediction
+
+| Method | Endpoint | Trạng thái | Mô tả |
+|:-------|:---------|:----------:|:-------|
+| `GET` | `/api/v1/predictions/students/{id}/semesters/{semester_id}` | ✅ Đã có | Tổng tín chỉ pass/trượt kỳ vọng |
+| `GET` | `/api/v1/predictions/enrollments/{id}` | ✅ Đã có | Xác suất pass/trượt và explanation từng môn |
+| `POST` | `/api/v1/admin/ml/score` | ✅ Đã có | Batch scoring enrollment theo model_run_id |
+| `POST` | `/api/v1/admin/ml/train` | 🚧 Stub | Huấn luyện model (trả 501, chờ M8 hoàn thiện) |
+
 #### Data Management (CRUD)
 
-| Method | Endpoint | Mô tả |
-|:-------|:---------|:-------|
-| `CRUD` | `/api/v1/departments` | Quản lý khoa |
-| `CRUD` | `/api/v1/programs` | Quản lý ngành/chương trình |
-| `CRUD` | `/api/v1/courses` | Quản lý môn học |
-| `CRUD` | `/api/v1/students` | Quản lý sinh viên |
-| `CRUD` | `/api/v1/teachers` | Quản lý giảng viên |
-| `CRUD` | `/api/v1/sections` | Quản lý lớp học phần |
-| `CRUD` | `/api/v1/grades` | Quản lý điểm |
+| Method | Endpoint | Trạng thái | Mô tả |
+|:-------|:---------|:----------:|:-------|
+| `CRUD` | `/api/v1/departments` | ✅ Đã có | Quản lý khoa |
+| `CRUD` | `/api/v1/programs` | ✅ Đã có | Quản lý ngành/chương trình |
+| `CRUD` | `/api/v1/courses` | ✅ Đã có | Quản lý môn học |
+| `CRUD` | `/api/v1/students` | ✅ Đã có | Quản lý sinh viên |
+| `CRUD` | `/api/v1/teachers` | ✅ Đã có | Quản lý giảng viên |
+| `CRUD` | `/api/v1/sections` | ✅ Đã có | Quản lý lớp học phần |
+| `CRUD` | `/api/v1/semesters` | ✅ Đã có | Quản lý học kỳ (kèm GET /current) |
+| `CRUD` | `/api/v1/cohorts` | ✅ Đã có | Quản lý khóa học (K17, K18...) |
+| `CRUD` | `/api/v1/grades` | ✅ Đã có | Quản lý điểm (enrollment + grade component) |
 
 #### System
 
-| Method | Endpoint | Mô tả |
-|:-------|:---------|:-------|
-| `GET` | `/api/v1/health` | Health check |
-| `POST` | `/api/v1/auth/login` | Đăng nhập |
-| `GET` | `/api/v1/auth/me` | Thông tin user hiện tại |
+| Method | Endpoint | Trạng thái | Mô tả |
+|:-------|:---------|:----------:|:-------|
+| `GET` | `/health` | ✅ Đã có | Health check (root, dùng cho Docker/load balancer) |
+| `GET` | `/api/v1/health` | ✅ Đã có | Health check (versioned, dùng cho frontend) |
+| `POST` | `/api/v1/auth/login` | 🚧 Chưa có | Đăng nhập |
+| `GET` | `/api/v1/auth/me` | 🚧 Chưa có | Thông tin user hiện tại |
 
 ---
 
@@ -597,10 +471,10 @@ Với MVP, ETL chạy theo lịch, theo thay đổi dữ liệu hoặc được 
 | Tuần | Sprint Goal | Module Focus | Deliverables |
 |:----:|:------------|:------------:|:-------------|
 | **W1** | Kick-off & Foundation | M6 | ✅ Repo setup, DB schema, FastAPI skeleton, CRUD APIs, seed data |
-| **W2** | Data Foundation | M6 + M7 | Chốt ORM, Alembic baseline và DWH/ETL foundation |
-| **W3** | AI Agent, CLO & ML Baseline | M2 + M4 + M8 | LangGraph agent, CLO/PLO, model pass/trượt từng môn |
-| **W4** | Frontend, Tree & Analytics | M1 + M2 + M7 + M8 | Tree, Chat, DWH metrics, prediction UI và tổng tín chỉ |
-| **W5** | Integration & Deploy | M1-M8 | Tích hợp Tree↔Chat↔DWH↔ML, deploy, reconciliation và testing |
+| **W2** | Data & Metrics | M6 + M3 | Metric Engine (GPA, fail rate, health score), CRUD API endpoints |
+| **W3** | AI Agent & CLO | M2 + M4 | LangGraph agent (4+ tools), CLO/PLO calculation, streaming chat API |
+| **W4** | Frontend & Tree | M1 + M2 | Academic Tree UI, Detail Panel, Chat Interface, metric cards |
+| **W5** | Integration & Deploy | M1-M6 + M5 | Tích hợp Tree↔Chat↔Metrics, deploy Vercel+Render, early warning, testing |
 | **W6** | Polish & Demo | All | Report export, final QA, README, Pitch Deck, Video Demo |
 
 ### Dependency Map
@@ -613,12 +487,10 @@ gantt
 
     section Tầng Dữ liệu
     M6 - CRUD Data Management   :m6, 2026-06-09, 14d
-    M7 - DWH & ETL              :m7, 2026-06-19, 8d
 
     section Tầng Tính toán
     M3 - Metric Engine          :m3, after m6, 7d
     M4 - CLO/PLO Assessment     :m4, 2026-06-16, 10d
-    M8 - ML Pass/Credit         :m8, after m7, 8d
 
     section Tầng AI
     M2 - AI Chat Agent          :m2, 2026-06-16, 14d
@@ -660,69 +532,3 @@ gantt
 4. **Health Score weights:** `0.4 GPA + 0.3 Fail + 0.3 CLO` có hợp lý? Cần cho phép admin cấu hình?
 5. **Auto-analysis scope:** Phân tích mặc định bao nhiêu khóa gần nhất? (gợi ý: 3 khóa)
 6. **Authentication:** JWT + 2 roles (lecturer view-only, manager full) hay đơn giản hơn?
-
----
-
-## 7. Product Addendum v2.1 — Predictive Analytics và Data Warehouse
-
-### 7.1 Điều chỉnh định vị sản phẩm
-
-EduInsight không chỉ là dashboard + AI Chat. Sản phẩm cung cấp đủ ba lớp analytics:
-
-| Lớp | Câu hỏi | Thành phần |
-|:----|:--------|:-----------|
-| Descriptive/Diagnostic | Điều gì đã xảy ra và vì sao? | DWH + Metric Engine |
-| Predictive | Môn nào có khả năng pass/trượt và tổng tín chỉ kỳ vọng là bao nhiêu? | ML pass/credit model |
-| Narrative/Conversational | Diễn giải và hỏi đáp kết quả thế nào? | LangGraph Agent + LLM |
-
-LLM không thay thế mô hình ML. Xác suất rủi ro phải đến từ model đã được đánh giá và có version.
-
-### 7.2 Module 7: Data Warehouse & ETL
-
-**Mục đích:** tạo nguồn dữ liệu phân tích thống nhất, tối ưu cho trend, cross-cohort và báo cáo lịch sử.
-
-| Feature | Mô tả | Priority |
-|:--------|:------|:--------:|
-| Star Schema | Dimension student/course/semester và fact enrollment outcome | P0 |
-| Batch ETL | Đồng bộ idempotent từ OLTP sang schema `dwh` | P0 |
-| Data Quality Checks | Kiểm tra grain, duplicate, khóa ngoại và đối soát KPI | P0 |
-| Analytics Views | View/materialized view cho GPA, fail rate, cohort trend | P1 |
-| Refresh Metadata | Hiển thị thời điểm refresh và trạng thái ETL | P1 |
-
-### 7.3 Module 8: ML Pass & Credit Prediction
-
-**Mục đích:** dự đoán xác suất pass/trượt từng enrollment trước khi kết thúc học kỳ, sau đó tổng hợp tổng tín chỉ pass/trượt kỳ vọng.
-
-| Feature | Mô tả | Priority |
-|:--------|:------|:--------:|
-| Baseline Model | Logistic Regression làm baseline có thể giải thích | P0 |
-| Time-aware Evaluation | Chia train/test theo học kỳ, tránh data leakage | P0 |
-| Enrollment Prediction | Sinh xác suất pass/trượt cho từng môn đang học | P0 |
-| Credit Aggregation | Tổng hợp expected passed/failed credits theo sinh viên-học kỳ | P0 |
-| Prediction Explanation | Trả về yếu tố ảnh hưởng chính và model version | P0 |
-| Model Monitoring | Theo dõi metric theo cohort/học kỳ | P1 |
-
-### 7.4 API bổ sung
-
-| Method | Endpoint | Mô tả |
-|:-------|:---------|:------|
-| `GET` | `/api/v1/analytics/overview` | KPI từ DWH |
-| `GET` | `/api/v1/analytics/trends` | Trend đa chiều |
-| `GET` | `/api/v1/predictions/students/{id}/semesters/{semester_id}` | Tổng tín chỉ pass/trượt kỳ vọng |
-| `GET` | `/api/v1/predictions/enrollments/{id}` | Chi tiết prediction từng môn |
-| `POST` | `/api/v1/admin/dwh/refresh` | Chạy ETL thủ công |
-| `POST` | `/api/v1/admin/ml/train` | Huấn luyện model |
-| `POST` | `/api/v1/admin/ml/score` | Batch scoring |
-
-### 7.5 Success Metrics bổ sung
-
-| Metric | Target MVP |
-|:-------|:-----------|
-| DWH reconciliation | KPI chính khớp OLTP 100% trên dataset demo |
-| ETL repeatability | Chạy lại không tạo duplicate |
-| Fail-class recall | Báo cáo rõ và tốt hơn baseline rule-based |
-| Prediction traceability | 100% prediction có model version + scored time |
-| Data leakage | Không có feature dùng thông tin phát sinh sau thời điểm dự đoán |
-
-Thiết kế chi tiết: [ML_DWH_Architecture.md](../10-References/ML_DWH_Architecture.md).
-Kế hoạch sửa database và rollout cho team: [DatabaseModernizationPlan.md](../10-References/DatabaseModernizationPlan.md).

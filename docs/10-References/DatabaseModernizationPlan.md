@@ -41,7 +41,7 @@ Một PostgreSQL instance được tách thành ba schema bắt buộc và một
 | `public` | OLTP: CRUD, enrollment, điểm, CLO/PLO và audit | Bắt buộc |
 | `dwh` | Star schema, dữ liệu lịch sử, feature và KPI analytics | Bắt buộc |
 | `ml` | Model run, prediction từng môn và tổng hợp tín chỉ | Bắt buộc |
-| `staging` | Dữ liệu tạm trước validation/transform | Tùy chọn; dùng khi import phức tạp |
+| `staging` | Dữ liệu tạm trước validation/transform | Chưa tạo; chỉ bổ sung khi có nguồn ingest thô phức tạp |
 
 ```mermaid
 flowchart LR
@@ -180,6 +180,8 @@ docker compose up --build
 
 **Gate:** KPI DWH khớp OLTP trên dataset demo; có log `etl_run` và `data_quality_result`.
 
+**Trạng thái triển khai:** Đã có migration tạo đủ 6 dimension (`dim_student`, `dim_course`, `dim_semester`, `dim_section`, `dim_program`, `dim_cohort`), 2 fact table chính và ETL idempotent đồng bộ toàn bộ dimensions. Cần tiếp tục kiểm chứng trên dataset demo đầy đủ và mở rộng `fact_grade_component`/`fact_clo_achievement`.
+
 ### Phase 4 - Xây ML prediction
 
 - Tạo schema `ml`.
@@ -189,6 +191,41 @@ docker compose up --build
 - Tổng hợp thành expected passed/failed credits.
 
 **Gate:** API trả prediction từng môn và tổng tín chỉ; có model version, metrics và explanation.
+
+**Trạng thái triển khai:** Đã có schema `ml`, bảng lưu model run/prediction và hàm tổng hợp tín chỉ kỳ vọng. Chưa huấn luyện hoặc batch-score model thật.
+
+### Các lệnh vận hành đã triển khai
+
+```powershell
+# OLTP -> DWH, kèm reconciliation
+docker compose exec backend python -m app.analytics.etl
+
+# enrollment predictions -> student-semester expected credits
+docker compose exec backend python -m app.ml.scoring <model_run_id>
+```
+
+Migrations triển khai schema:
+- `8b2d4c7e91af_add_dwh_and_ml_schemas.py` — tạo `dwh` và `ml` schema, 3 dimension đầu, 2 fact table và toàn bộ `ml.*`
+- `c9e3f1a2b845_add_missing_dwh_dimensions.py` — bổ sung `dim_section`, `dim_program`, `dim_cohort`
+
+Các endpoint vận hành đã có:
+
+| Method | Endpoint | Trạng thái |
+|:-------|:---------|:----------:|
+| `GET` | `/health` | ✅ Đã chạy |
+| `GET` | `/api/v1/health` | ✅ Đã chạy |
+| `GET` | `/api/v1/analytics/overview` | ✅ Đã chạy |
+| `GET` | `/api/v1/analytics/trends` | ✅ Đã chạy |
+| `GET` | `/api/v1/analytics/refresh-status` | ✅ Đã chạy |
+| `POST` | `/api/v1/admin/dwh/refresh` | ✅ Đã chạy |
+| `POST` | `/api/v1/admin/ml/score` | ✅ Đã chạy |
+| `POST` | `/api/v1/admin/ml/train` | 🚧 501 stub |
+| `GET` | `/api/v1/predictions/enrollments/{id}` | ✅ Đã triển khai |
+| `GET` | `/api/v1/predictions/students/{id}/semesters/{semester_id}` | ✅ Đã triển khai |
+| `CRUD` | `/api/v1/semesters` | ✅ Đã chạy |
+| `CRUD` | `/api/v1/cohorts` | ✅ Đã chạy |
+
+Các endpoint admin (`/api/v1/admin/*`) cần RBAC trước khi triển khai production.
 
 ### Phase 5 - Tích hợp UI, Agent và vận hành
 

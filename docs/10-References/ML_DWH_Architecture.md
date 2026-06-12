@@ -74,8 +74,7 @@ expected_failed_credits = SUM(course_credits * fail_probability)
 ```mermaid
 flowchart LR
     Sources["CRUD API / Seed / Đồng bộ nguồn dữ liệu"] --> OLTP[("PostgreSQL schema public\nOLTP")]
-    OLTP -->|"Batch ETL theo lịch hoặc theo thay đổi"| Staging[("schema staging")]
-    Staging --> Transform["Validate + Transform"]
+    OLTP -->|"Batch ETL theo lịch hoặc theo thay đổi"| Transform["Validate + Transform"]
     Transform --> DWH[("schema dwh\nStar Schema")]
 
     DWH --> Metrics["Metric Engine / SQL Analytics"]
@@ -118,7 +117,7 @@ Các fact table dùng surrogate key của dimension. Với MVP, ETL có thể re
 
 ## 6. Luồng ETL
 
-1. Import file hoặc CRUD ghi vào các bảng OLTP.
+1. CRUD, seed hoặc sync job được kiểm soát ghi vào các bảng OLTP.
 2. Job ETL đọc các record đã thay đổi dựa trên `updated_at`.
 3. Validate khóa ngoại, khoảng điểm và record trùng.
 4. Upsert dimension trước, sau đó load fact.
@@ -176,7 +175,7 @@ flowchart LR
 | `GET` | `/api/v1/predictions/enrollments/{id}` | Xác suất pass/trượt và explanation từng môn |
 | `POST` | `/api/v1/admin/dwh/refresh` | Chạy ETL thủ công cho demo/admin |
 | `POST` | `/api/v1/admin/ml/train` | Huấn luyện model thủ công |
-| `POST` | `/api/v1/admin/ml/score` | Chạy batch scoring |
+| `POST` | `/api/v1/admin/ml/aggregate/{model_run_id}` | Tổng hợp enrollment prediction thành tín chỉ kỳ vọng |
 
 Dashboard cần phân biệt rõ:
 
@@ -195,3 +194,57 @@ Dashboard cần phân biệt rõ:
 - Demo được flow: import dữ liệu -> refresh DWH -> train/score -> xem cảnh báo -> hỏi Agent giải thích.
 
 Kế hoạch chuyển đổi database và rollout cho team được chốt tại [DatabaseModernizationPlan.md](./DatabaseModernizationPlan.md).
+
+## 10. Phạm vi triển khai hiện tại
+
+Hai migration tạo toàn bộ schema analytics trên PostgreSQL:
+
+| Migration | Bảng triển khai |
+|:----------|:----------------|
+| `8b2d4c7e91af` | `dwh.dim_student`, `dwh.dim_course`, `dwh.dim_semester`, `dwh.fact_enrollment_outcome`, `dwh.fact_student_semester`, `dwh.etl_run`, `dwh.data_quality_result`; `ml.model_run`, `ml.enrollment_prediction`, `ml.student_semester_prediction` |
+| `c9e3f1a2b845` | `dwh.dim_section`, `dwh.dim_program`, `dwh.dim_cohort` |
+
+Tất cả 6 dimension của star schema đã được tạo và đồng bộ bởi ETL.
+
+ETL MVP nằm tại `backend/app/analytics/etl.py`:
+
+```powershell
+docker compose exec backend python -m app.analytics.etl
+```
+
+Đặc tính của ETL hiện tại:
+
+- Upsert toàn bộ 6 dimension (`dim_student`, `dim_course`, `dim_semester`, `dim_section`, `dim_program`, `dim_cohort`) trước khi load fact.
+- Load `fact_enrollment_outcome` và tổng hợp `fact_student_semester` theo sinh viên-học kỳ.
+- Ghi `etl_run` và kiểm tra đối soát số enrollment giữa `public` và `dwh`.
+- Chỉ chạy trên PostgreSQL; SQLite tiếp tục được dùng cho unit/integration test OLTP.
+
+Sau khi model ghi các dòng vào `ml.enrollment_prediction`, chạy batch aggregation:
+
+```powershell
+docker compose exec backend python -m app.ml.scoring <model_run_id>
+```
+
+Lệnh này upsert `ml.student_semester_prediction`, gồm expected passed/failed credits, high-risk failed credits và risk level.
+
+Schema `staging` chưa tạo vì MVP không có luồng ingest thô cần vùng tạm. Khi xuất hiện nguồn sync phức tạp, schema này phải được bổ sung bằng migration riêng.
+
+### Endpoints vận hành đã triển khai
+
+| Method | Endpoint | Mô tả |
+|:-------|:---------|:------|
+| `GET` | `/api/v1/analytics/overview` | KPI tổng quan từ DWH |
+| `GET` | `/api/v1/analytics/trends` | Trend theo semester/cohort/program/course |
+| `GET` | `/api/v1/analytics/refresh-status` | Trạng thái ETL run gần nhất |
+| `POST` | `/api/v1/admin/dwh/refresh` | Chạy ETL OLTP → DWH |
+| `POST` | `/api/v1/admin/ml/score` | Batch scoring theo model_run_id |
+| `POST` | `/api/v1/admin/ml/train` | 501 stub — chờ pipeline train thật |
+| `GET` | `/api/v1/predictions/enrollments/{id}` | Prediction từng môn |
+| `GET` | `/api/v1/predictions/students/{id}/semesters/{sem_id}` | Tổng tín chỉ pass/trượt kỳ vọng |
+
+### Giới hạn triển khai hiện tại
+
+- Chưa có pipeline train model thật; schema `ml` đã sẵn sàng nhận kết quả từ pipeline đó.
+- Chưa có fact `fact_grade_component` và `fact_clo_achievement` trong DWH.
+- Các endpoint `/api/v1/admin/*` hiện phục vụ môi trường phát triển/demo; phải bổ sung RBAC trước production.
+- ETL hiện refresh toàn bộ bằng upsert; incremental extraction theo watermark sẽ được bổ sung khi dữ liệu lớn hơn.
