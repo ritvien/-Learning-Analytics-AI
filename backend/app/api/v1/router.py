@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
+    chat,
     courses,
     departments,
     grades,
@@ -21,3 +22,5 @@ api_router.include_router(students.router, prefix="/students", tags=["students"]
 api_router.include_router(teachers.router, prefix="/teachers", tags=["teachers"])
 api_router.include_router(sections.router, prefix="/sections", tags=["sections"])
 api_router.include_router(grades.router, prefix="/grades", tags=["grades"])
+api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
+
