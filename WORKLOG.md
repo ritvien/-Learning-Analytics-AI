@@ -34,3 +34,13 @@
   - Replaced the generic `ErrHandler` node in Mermaid with the LangGraph-native `ToolNode(handle_tool_errors=True)` and `RetryPolicy` pattern.
   - Added missing core tools to the diagram: `CLO Calculator Tool` and `Diagram Generator Tool`.
   - Embedded the updated `Agent Flow Diagram` directly into the `README.md` to fulfill Deliverable D3 requirements.
+
+## 2026-06-13: Complete Hiếu's Phase 1 Tasks for Sprint 2
+- **Decision**: Implemented mock Next.js API endpoints in the frontend for robust offline testing, integrated the AcademicTreePage to consume them, and launched a premium Streamlit visual prototype showcasing the full LangGraph ReAct agent loop for Demo 1.
+- **Changes**:
+  - Created mock JSON endpoints `/api/v1/departments`, `/api/v1/students`, `/api/v1/courses`, `/api/v1/grades`, and `/api/v1/teachers` using Next.js App Router API handlers.
+  - Rewrote [academic-tree/page.tsx](file:///c:/Users/ADMIN/C2-App-056/frontend/src/app/(dashboard)/manager/academic-tree/page.tsx) to fetch and calculate student count, GPA, and fail rates dynamically via the `api` service.
+  - Created [streamlit_app.py](file:///c:/Users/ADMIN/C2-App-056/streamlit_app.py) containing a fully-functional premium agent chat and visual execution flow corresponding to all 5 required Gate G2 test cases (TC1-TC5).
+  - Verified and passed all vitest frontend tests successfully.
+  - Marked Sprint 2 planning tasks `V11` to `V14` as completed.
+

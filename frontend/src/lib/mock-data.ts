@@ -5,37 +5,69 @@ export const mockDepartments: Department[] = [
   {
     id: "dept-1",
     tenKhoa: "Khoa Công nghệ Thông tin",
-    moTa: "Đào tạo CNTT, An toàn thông tin, TMĐT",
+    moTa: "Đào tạo công nghệ thông tin ứng dụng",
     nganhs: [
       { id: "major-1", tenNganh: "Công nghệ thông tin", khoaId: "dept-1", moTa: "Ngành CNTT cốt lõi" },
-      { id: "major-2", tenNganh: "Hệ thống thương mại điện tử", khoaId: "dept-1", moTa: "CNTT ứng dụng TMĐT" },
-      { id: "major-3", tenNganh: "An toàn thông tin", khoaId: "dept-1", moTa: "Bảo mật hệ thống" },
     ],
   },
   {
     id: "dept-2",
-    tenKhoa: "Khoa Điện",
-    moTa: "Đào tạo kỹ thuật điện, hệ thống điện",
+    tenKhoa: "Khoa Điều khiển và Tự động hóa",
+    moTa: "Đào tạo kỹ thuật điều khiển, tự động hoá và trí tuệ nhân tạo",
     nganhs: [
-      { id: "major-4", tenNganh: "Kỹ thuật điện", khoaId: "dept-2", moTa: "Điện công nghiệp" },
-      { id: "major-5", tenNganh: "Hệ thống điện", khoaId: "dept-2", moTa: "Lưới điện" },
+      { id: "major-2", tenNganh: "Công nghệ kỹ thuật điều khiển và tự động hoá", khoaId: "dept-2", moTa: "Hệ thống điều khiển tự động" },
+      { id: "major-3", tenNganh: "Trí tuệ nhân tạo", khoaId: "dept-2", moTa: "AI và học máy" },
     ],
   },
   {
     id: "dept-3",
-    tenKhoa: "Khoa Điện tử - Viễn thông",
-    moTa: "Đào tạo điện tử, viễn thông",
+    tenKhoa: "Khoa Cơ khí - ô tô và Xây dựng",
+    moTa: "Đào tạo kỹ thuật cơ khí, cơ điện tử và xây dựng",
     nganhs: [
-      { id: "major-6", tenNganh: "Kỹ thuật điện tử - viễn thông", khoaId: "dept-3", moTa: "Viễn thông và mạng" },
+      { id: "major-4", tenNganh: "Công nghệ kỹ thuật cơ điện tử", khoaId: "dept-3", moTa: "Cơ điện tử tích hợp" },
+      { id: "major-5", tenNganh: "Công nghệ kỹ thuật cơ khí", khoaId: "dept-3", moTa: "Cơ khí chế tạo máy" },
+      { id: "major-6", tenNganh: "Công nghệ kỹ thuật công trình xây dựng", khoaId: "dept-3", moTa: "Thiết kế và thi công công trình" },
     ],
   },
   {
     id: "dept-4",
-    tenKhoa: "Khoa Cơ khí",
-    moTa: "Đào tạo kỹ thuật cơ khí",
+    tenKhoa: "Khoa Điện tử Viễn thông",
+    moTa: "Đào tạo kỹ thuật điện tử và viễn thông",
     nganhs: [
-      { id: "major-7", tenNganh: "Kỹ thuật cơ khí", khoaId: "dept-4", moTa: "Cơ khí chế tạo" },
-      { id: "major-8", tenNganh: "Kỹ thuật nhiệt", khoaId: "dept-4", moTa: "Nhiệt - Lạnh" },
+      { id: "major-7", tenNganh: "Công nghệ kỹ thuật điện tử - viễn thông", khoaId: "dept-4", moTa: "Viễn thông và mạng truyền dẫn" },
+    ],
+  },
+  {
+    id: "dept-5",
+    tenKhoa: "Khoa Kỹ thuật điện",
+    moTa: "Đào tạo kỹ thuật điện, điện tử công nghiệp",
+    nganhs: [
+      { id: "major-8", tenNganh: "Công nghệ kỹ thuật điện, điện tử", khoaId: "dept-5", moTa: "Hệ thống điện và điện tử" },
+    ],
+  },
+  {
+    id: "dept-6",
+    tenKhoa: "Khoa Kế toán - Tài chính",
+    moTa: "Đào tạo kế toán, kiểm toán và tài chính ngân hàng",
+    nganhs: [
+      { id: "major-9", tenNganh: "Kiểm toán", khoaId: "dept-6", moTa: "Kiểm toán doanh nghiệp và nhà nước" },
+      { id: "major-10", tenNganh: "Tài chính – Ngân hàng", khoaId: "dept-6", moTa: "Tài chính và dịch vụ ngân hàng" },
+    ],
+  },
+  {
+    id: "dept-7",
+    tenKhoa: "Khoa Quản trị Kinh doanh và Du lịch",
+    moTa: "Đào tạo quản trị kinh doanh và du lịch dịch vụ",
+    nganhs: [
+      { id: "major-11", tenNganh: "Quản trị kinh doanh", khoaId: "dept-7", moTa: "Quản lý và điều hành doanh nghiệp" },
+    ],
+  },
+  {
+    id: "dept-8",
+    tenKhoa: "Khoa Quản lý Công nghiệp và Năng lượng",
+    moTa: "Đào tạo logistics, quản lý chuỗi cung ứng và năng lượng",
+    nganhs: [
+      { id: "major-12", tenNganh: "Logistics và quản lý chuỗi cung ứng", khoaId: "dept-8", moTa: "Quản trị chuỗi cung ứng toàn cầu" },
     ],
   },
 ]
@@ -45,8 +77,8 @@ export const mockStudents: Student[] = [
   {
     id: "sv-1", mssv: "22810340001", hoTen: "Phạm Tiến Hưng", gioiTinh: "Nam",
     ngayVaoTruong: "28/09/2022", khoa: "2022", bacDaoTao: "Đại học - Tín chỉ",
-    loaiHinh: "Chính quy", nganh: "Công nghệ thông tin", chuyenNganh: "Hệ thống thương mại điện tử",
-    khoaQuanLy: "Khoa Công nghệ Thông tin", lop: "D17HTTMDT", trangThai: "Đang học",
+    loaiHinh: "Chính quy", nganh: "Công nghệ thông tin", chuyenNganh: "Công nghệ thông tin",
+    khoaQuanLy: "Khoa Công nghệ Thông tin", lop: "D17CNTT3", trangThai: "Đang học",
     coVanHocTap: "Đào Nam Anh", soDienThoaiCVHT: "0915123418",
     tongTCTichLuy: 105, diemTBTichLuy: 3.15, tongTCNo: 0, soMonNo: 0,
   },
@@ -61,16 +93,16 @@ export const mockStudents: Student[] = [
   {
     id: "sv-3", mssv: "22810340003", hoTen: "Phạm Minh Hiếu", gioiTinh: "Nam",
     ngayVaoTruong: "28/09/2022", khoa: "2022", bacDaoTao: "Đại học - Tín chỉ",
-    loaiHinh: "Chính quy", nganh: "Công nghệ thông tin", chuyenNganh: "An toàn thông tin",
-    khoaQuanLy: "Khoa Công nghệ Thông tin", lop: "D17ATTT", trangThai: "Đang học",
+    loaiHinh: "Chính quy", nganh: "Công nghệ thông tin", chuyenNganh: "Công nghệ thông tin",
+    khoaQuanLy: "Khoa Công nghệ Thông tin", lop: "D17CNTT2", trangThai: "Đang học",
     coVanHocTap: "Trần Văn C", soDienThoaiCVHT: "0987654321",
     tongTCTichLuy: 110, diemTBTichLuy: 3.42, tongTCNo: 0, soMonNo: 0,
   },
   {
     id: "sv-4", mssv: "21810220015", hoTen: "Lê Thị Mai", gioiTinh: "Nữ",
     ngayVaoTruong: "15/09/2021", khoa: "2021", bacDaoTao: "Đại học - Tín chỉ",
-    loaiHinh: "Chính quy", nganh: "Kỹ thuật điện", chuyenNganh: "Hệ thống điện",
-    khoaQuanLy: "Khoa Điện", lop: "D16HTD", trangThai: "Đang học",
+    loaiHinh: "Chính quy", nganh: "Công nghệ kỹ thuật điện, điện tử", chuyenNganh: "Công nghệ kỹ thuật điện, điện tử",
+    khoaQuanLy: "Khoa Kỹ thuật điện", lop: "D16KTD", trangThai: "Đang học",
     coVanHocTap: "Phạm Văn D", soDienThoaiCVHT: "0901234567",
     tongTCTichLuy: 125, diemTBTichLuy: 3.05, tongTCNo: 6, soMonNo: 2,
   },
@@ -85,8 +117,8 @@ export const mockStudents: Student[] = [
   {
     id: "sv-6", mssv: "20810220005", hoTen: "Nguyễn Thị Hồng", gioiTinh: "Nữ",
     ngayVaoTruong: "10/09/2020", khoa: "2020", bacDaoTao: "Đại học - Tín chỉ",
-    loaiHinh: "Chính quy", nganh: "Kỹ thuật cơ khí", chuyenNganh: "Kỹ thuật cơ khí",
-    khoaQuanLy: "Khoa Cơ khí", lop: "D15CK", trangThai: "Đã tốt nghiệp",
+    loaiHinh: "Chính quy", nganh: "Công nghệ kỹ thuật cơ khí", chuyenNganh: "Công nghệ kỹ thuật cơ khí",
+    khoaQuanLy: "Khoa Cơ khí - ô tô và Xây dựng", lop: "D15CK", trangThai: "Đã tốt nghiệp",
     coVanHocTap: "Lê Văn E", soDienThoaiCVHT: "0945678901",
     tongTCTichLuy: 150, diemTBTichLuy: 3.55, tongTCNo: 0, soMonNo: 0,
   },
@@ -99,8 +131,8 @@ export const mockCourses: Course[] = [
   { id: "c-3", maHocPhan: "CS301", tenMonHoc: "Mạng máy tính", tinChi: 3, khoaQuanLy: "Khoa Công nghệ Thông tin", moTa: "TCP/IP, mạng LAN/WAN", trangThai: "Đang giảng dạy" },
   { id: "c-4", maHocPhan: "MATH101", tenMonHoc: "Giải tích 1", tinChi: 3, khoaQuanLy: "Khoa Công nghệ Thông tin", moTa: "Đạo hàm, tích phân", trangThai: "Đang giảng dạy" },
   { id: "c-5", maHocPhan: "MATH201", tenMonHoc: "Giải tích 2", tinChi: 3, khoaQuanLy: "Khoa Công nghệ Thông tin", moTa: "Tích phân bội, chuỗi", trangThai: "Đang giảng dạy" },
-  { id: "c-6", maHocPhan: "PHY101", tenMonHoc: "Vật lý đại cương", tinChi: 4, khoaQuanLy: "Khoa Điện", moTa: "Cơ học, nhiệt, điện", trangThai: "Đang giảng dạy" },
-  { id: "c-7", maHocPhan: "EE201", tenMonHoc: "Mạch điện 1", tinChi: 3, khoaQuanLy: "Khoa Điện", moTa: "Phân tích mạch điện DC/AC", trangThai: "Đang giảng dạy" },
+  { id: "c-6", maHocPhan: "PHY101", tenMonHoc: "Vật lý đại cương", tinChi: 4, khoaQuanLy: "Khoa Kỹ thuật điện", moTa: "Cơ học, nhiệt, điện", trangThai: "Đang giảng dạy" },
+  { id: "c-7", maHocPhan: "EE201", tenMonHoc: "Mạch điện 1", tinChi: 3, khoaQuanLy: "Khoa Kỹ thuật điện", moTa: "Phân tích mạch điện DC/AC", trangThai: "Đang giảng dạy" },
   { id: "c-8", maHocPhan: "PE101", tenMonHoc: "Giáo dục thể chất 1", tinChi: 1, khoaQuanLy: "Khoa Công nghệ Thông tin", moTa: "Thể dục cơ bản", trangThai: "Đang giảng dạy" },
 ]
 
@@ -108,8 +140,8 @@ export const mockCourses: Course[] = [
 export const mockTeachers: Teacher[] = [
   { id: "gv-1", maGV: "GV001", hoTen: "Đào Nam Anh", email: "dna@epu.edu.vn", soDienThoai: "0915123418", khoaQuanLy: "Khoa Công nghệ Thông tin", chucVu: "Giảng viên", trangThai: "Đang công tác" },
   { id: "gv-2", maGV: "GV002", hoTen: "Nguyễn Văn Bình", email: "nvb@epu.edu.vn", soDienThoai: "0912345678", khoaQuanLy: "Khoa Công nghệ Thông tin", chucVu: "Phó khoa", trangThai: "Đang công tác" },
-  { id: "gv-3", maGV: "GV003", hoTen: "Trần Thị Cúc", email: "ttc@epu.edu.vn", soDienThoai: "0987654321", khoaQuanLy: "Khoa Điện", chucVu: "Trưởng khoa", trangThai: "Đang công tác" },
-  { id: "gv-4", maGV: "GV004", hoTen: "Phạm Văn Dũng", email: "pvd@epu.edu.vn", soDienThoai: "0901234567", khoaQuanLy: "Khoa Cơ khí", chucVu: "Giảng viên", trangThai: "Đang công tác" },
+  { id: "gv-3", maGV: "GV003", hoTen: "Trần Thị Cúc", email: "ttc@epu.edu.vn", soDienThoai: "0987654321", khoaQuanLy: "Khoa Kỹ thuật điện", chucVu: "Trưởng khoa", trangThai: "Đang công tác" },
+  { id: "gv-4", maGV: "GV004", hoTen: "Phạm Văn Dũng", email: "pvd@epu.edu.vn", soDienThoai: "0901234567", khoaQuanLy: "Khoa Cơ khí - ô tô và Xây dựng", chucVu: "Giảng viên", trangThai: "Đang công tác" },
 ]
 
 // ===== MOCK: Grades =====
