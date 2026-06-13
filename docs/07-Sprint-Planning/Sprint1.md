@@ -2,7 +2,7 @@
 
 > **Thời gian:** 28/05 – 10/06 (2 tuần — W1 + W2)
 > **Sprint Goal:** _Setup nền tảng kỹ thuật hoàn chỉnh (Docker, CI/CD, DB, API, FE skeleton) + thu thập yêu cầu từ stakeholder + chuẩn bị sẵn sàng để Sprint 2 build core features và Demo 1._
-> **Tham chiếu:** [SprintPlanning.md](file:///c:/Users/Admin/AI%20in%20Action/Project/C2-App-056/docs/07-Sprint-Planning/SprintPlanning.md) · [ProgramRequirements.md](file:///c:/Users/Admin/AI%20in%20Action/Project/C2-App-056/docs/00-Requirements/ProgramRequirements.md)
+> **Tham chiếu:** [SprintPlanning.md](./SprintPlanning.md) · [ProgramRequirements.md](../00-Requirements/ProgramRequirements.md)
 
 > [!IMPORTANT]
 > **Infrastructure First** — Bài học từ top teams Cohort 1: Docker + CI/CD phải có từ Sprint 1.
@@ -54,7 +54,7 @@
 | T7 | Docker + docker-compose (DevOps) | Multi-stage Dockerfile cho backend + docker-compose (app + db). README hướng dẫn chạy | 09/06 | ✅ Done |
 | T8 | CI/CD — GitHub Actions (DevOps) | Workflow: Ruff lint + pytest chạy trên mỗi PR. Block merge nếu fail | 09/06 | ✅ Done |
 | T9 | CRUD API — Core Entities | Implement CRUD: departments, programs, courses, students, teachers, sections, grades. Health check `/health` | 10/06 | ⬜ |
-| T10 | Excel Import API | POST `/api/v1/import/grades` + `/api/v1/import/students` — parse Excel, validate, bulk insert | 10/06 | ⬜ |
+| T10 | Rà soát nền DB + kế hoạch migration | Chốt ORM là nguồn định nghĩa duy nhất, ghi nhận chênh lệch ORM/SQL, lập kế hoạch Alembic baseline và rollout cho team | 10/06 | ✅ Done |
 
 **Tổng: 10 task · Trọng tâm: Interview + Backend + DevOps (Docker/CI/CD)**
 
@@ -67,7 +67,7 @@
 | V1 | Nghiên cứu UI/UX references | Thu thập 5–10 references: Metabase, Grafana, Linear, NotebookLM. Tạo mood board | 08/06 | ✅ Done |
 | V2 | Wireframe — Academic Tree + Detail Panel | Wireframe (Figma/tay): Tree sidebar, Detail Panel khi click node, layout tổng thể | 09/06 | ✅ Done |
 | V3 | Wireframe — Chat Interface | Wireframe: Chat panel, auto-analysis output, suggested questions, inline chart | 09/06 | ✅ Done |
-| V4 | Wireframe — CRUD + Login Pages | Wireframe: Danh sách entities, form CRUD, import Excel, trang login | 09/06 | ✅ Done |
+| V4 | Wireframe — CRUD + Login Pages | Wireframe: Danh sách entities, form CRUD, validation, trang login | 09/06 | ✅ Done |
 | V5 | Next.js Project Setup | Init Next.js 16 + TypeScript + TailwindCSS + shadcn/ui. Theme config, dark mode, layout | 09/06 | ✅ Done |
 | V6 | UI Component Library | Base components: Sidebar, Breadcrumb, Card, Table, Modal, Form (shadcn/ui) | 10/06 | ✅ Done |
 | V7 | Academic Tree Component (Static) | Tree component với mock JSON. Collapsible nodes, badge màu (🟢🟡🔴), click handler | 10/06 | ✅ Done |
@@ -102,7 +102,7 @@ Hoàng    H8,H9   H5      H6,H7,H10
 
 Hưng     T1,T2   T5,T6   T9,T10
          T3───────────    T4
-         Câu hỏi  DB     CRUD + Import
+         Câu hỏi  DB     CRUD + DB review
          + PV    +API    + Insights
                 T7,T8
                 Docker
@@ -134,7 +134,7 @@ graph LR
         T6 --> T8["T8: CI/CD"]
         T6 --> T9["T9: CRUD API"]
         H6["H6: Crawl Data"] --> T9
-        T9 --> T10["T10: Import API"]
+        T9 --> T10["T10: DB review + migration plan"]
     end
 
     subgraph "Frontend Track"

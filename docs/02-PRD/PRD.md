@@ -1,6 +1,6 @@
 # 📄 Product Requirements Document (PRD) — AI Phân Tích Học Tập
 
-> **Phiên bản:** v2.0 · Ngày tạo: 06/06/2026 · Cập nhật: 07/06/2026
+> **Phiên bản:** v2.1 · Ngày tạo: 06/06/2026 · Cập nhật: 12/06/2026
 
 ## Tổng quan sản phẩm
 
@@ -211,16 +211,18 @@ graph LR
 
 **Mục đích:** Quản lý CRUD các entity cốt lõi. Bỏ phần import tự động do không phải tính năng chính, và giản lược CRUD cho các bảng phức tạp/rủi ro.
 
-| Entity | Chức năng | Priority |
-|:-------|:----------|:--------:|
-| Khoa (Departments) | CRUD, gắn vào University | P0 |
-| Chương trình / Ngành (Programs) | CRUD, gắn vào Khoa, định nghĩa PLO | P0 |
-| Môn học (Courses) | CRUD, gắn vào Ngành, định nghĩa CLO, đề cương (syllabus) | P0 |
-| Sinh viên (Students) | CRUD cơ bản (bỏ Import) | P0 |
-| Giảng viên (Teachers) | CRUD, gắn vào Khoa | P0 |
-| Lớp học phần (Sections) | CRUD, gắn Môn + GV + Học kỳ | P0 |
-| Điểm (Grades) | Chỉ Query (Bỏ CRUD do rủi ro sai sót data, ưu tiên dùng DB seed) | P2 |
-| Đề cương môn học (Syllabus) | Bỏ qua | Đã bỏ |
+| Entity | Chức năng | Trạng thái | Priority |
+|:-------|:----------|:----------:|:--------:|
+| Khoa (Departments) | CRUD, gắn vào University | ✅ | P0 |
+| Chương trình / Ngành (Programs) | CRUD, gắn vào Khoa, định nghĩa PLO | ✅ | P0 |
+| Môn học (Courses) | CRUD, gắn vào Ngành, định nghĩa CLO | ✅ | P0 |
+| Sinh viên (Students) | CRUD cơ bản (bỏ Import) | ✅ | P0 |
+| Giảng viên (Teachers) | CRUD, gắn vào Khoa | ✅ | P0 |
+| Lớp học phần (Sections) | CRUD, gắn Môn + GV + Học kỳ | ✅ | P0 |
+| Học kỳ (Semesters) | CRUD, hỗ trợ đánh dấu current semester | ✅ | P0 |
+| Khóa học (Cohorts) | CRUD (K17, K18...), dùng cho cross-cohort analytics | ✅ | P0 |
+| Điểm (Grades) | Enrollment CRUD + upsert grade component; tự tính grade_letter và grade_4 | ✅ | P0 |
+| Đề cương môn học (Syllabus) | Bỏ qua | Đã bỏ | — |
 
 *(Ghi chú từ meeting: Đã loại bỏ hoàn toàn các tính năng Import Excel/CSV, Bulk Operations và Import History để đơn giản hóa module này).*
 
@@ -405,25 +407,46 @@ erDiagram
 | `POST` | `/api/v1/assessment/clo-plo-matrix` | Cập nhật ma trận CLO-PLO |
 | `GET` | `/api/v1/assessment/report/{program_id}` | Sinh báo cáo kiểm định |
 
+#### Analytics & Data Warehouse
+
+| Method | Endpoint | Trạng thái | Mô tả |
+|:-------|:---------|:----------:|:-------|
+| `GET` | `/api/v1/analytics/overview` | ✅ Đã có | KPI tổng quan đọc từ DWH |
+| `GET` | `/api/v1/analytics/trends` | ✅ Đã có | Trend theo semester/cohort/program/course |
+| `GET` | `/api/v1/analytics/refresh-status` | ✅ Đã có | Trạng thái và thời điểm refresh DWH gần nhất |
+| `POST` | `/api/v1/admin/dwh/refresh` | ✅ Đã có | Chạy ETL OLTP → DWH thủ công |
+
+#### ML Prediction
+
+| Method | Endpoint | Trạng thái | Mô tả |
+|:-------|:---------|:----------:|:-------|
+| `GET` | `/api/v1/predictions/students/{id}/semesters/{semester_id}` | ✅ Đã có | Tổng tín chỉ pass/trượt kỳ vọng |
+| `GET` | `/api/v1/predictions/enrollments/{id}` | ✅ Đã có | Xác suất pass/trượt và explanation từng môn |
+| `POST` | `/api/v1/admin/ml/score` | ✅ Đã có | Batch scoring enrollment theo model_run_id |
+| `POST` | `/api/v1/admin/ml/train` | 🚧 Stub | Huấn luyện model (trả 501, chờ M8 hoàn thiện) |
+
 #### Data Management (CRUD)
 
-| Method | Endpoint | Mô tả |
-|:-------|:---------|:-------|
-| `CRUD` | `/api/v1/departments` | Quản lý khoa |
-| `CRUD` | `/api/v1/programs` | Quản lý ngành/chương trình |
-| `CRUD` | `/api/v1/courses` | Quản lý môn học |
-| `CRUD` | `/api/v1/students` | Quản lý sinh viên |
-| `CRUD` | `/api/v1/teachers` | Quản lý giảng viên |
-| `CRUD` | `/api/v1/sections` | Quản lý lớp học phần |
-| `CRUD` | `/api/v1/grades` | Quản lý điểm (Chỉ đọc) |
+| Method | Endpoint | Trạng thái | Mô tả |
+|:-------|:---------|:----------:|:-------|
+| `CRUD` | `/api/v1/departments` | ✅ Đã có | Quản lý khoa |
+| `CRUD` | `/api/v1/programs` | ✅ Đã có | Quản lý ngành/chương trình |
+| `CRUD` | `/api/v1/courses` | ✅ Đã có | Quản lý môn học |
+| `CRUD` | `/api/v1/students` | ✅ Đã có | Quản lý sinh viên |
+| `CRUD` | `/api/v1/teachers` | ✅ Đã có | Quản lý giảng viên |
+| `CRUD` | `/api/v1/sections` | ✅ Đã có | Quản lý lớp học phần |
+| `CRUD` | `/api/v1/semesters` | ✅ Đã có | Quản lý học kỳ (kèm GET /current) |
+| `CRUD` | `/api/v1/cohorts` | ✅ Đã có | Quản lý khóa học (K17, K18...) |
+| `CRUD` | `/api/v1/grades` | ✅ Đã có | Quản lý điểm (enrollment + grade component) |
 
 #### System
 
-| Method | Endpoint | Mô tả |
-|:-------|:---------|:-------|
-| `GET` | `/api/v1/health` | Health check |
-| `POST` | `/api/v1/auth/login` | Đăng nhập |
-| `GET` | `/api/v1/auth/me` | Thông tin user hiện tại |
+| Method | Endpoint | Trạng thái | Mô tả |
+|:-------|:---------|:----------:|:-------|
+| `GET` | `/health` | ✅ Đã có | Health check (root, dùng cho Docker/load balancer) |
+| `GET` | `/api/v1/health` | ✅ Đã có | Health check (versioned, dùng cho frontend) |
+| `POST` | `/api/v1/auth/login` | 🚧 Chưa có | Đăng nhập |
+| `GET` | `/api/v1/auth/me` | 🚧 Chưa có | Thông tin user hiện tại |
 
 ---
 

@@ -117,9 +117,21 @@
 | **Frontend** | Next.js (production) / Streamlit (prototype) | Chat UI, Streaming display, Dark Mode, Responsive |
 | **Backend** | FastAPI + Pydantic | REST API, SSE Streaming, CORS, Rate Limiting, Auth |
 | **AI Agent** | LangGraph StateGraph | Nodes, Conditional Edges, Tools, ReAct pattern, Error handling 3 tầng |
-| **Storage** | SQLite → PostgreSQL + ChromaDB | Relational data + Vector store cho RAG |
+| **Storage** | PostgreSQL + pgvector | Relational data, vector store và nền tảng mở rộng DWH/ML |
 
-### 6.2 Code Quality Checklist (ảnh hưởng trực tiếp tiêu chí chấm)
+### 6.2 Mở rộng kỹ thuật riêng của EduInsight
+
+Yêu cầu chương trình phía trên là baseline bắt buộc. Với đề tài Learning Analytics, team bổ sung:
+
+- PostgreSQL schema `public` cho OLTP, `dwh` cho analytics và `ml` cho prediction.
+- ETL có data quality và reconciliation.
+- ML dự đoán pass/trượt từng môn, sau đó tổng hợp tổng tín chỉ pass/trượt kỳ vọng.
+- Agent chỉ giải thích KPI/prediction từ DWH/ML; không tự sinh xác suất.
+- Mọi thay đổi database được quản lý bằng Alembic migration.
+
+Chi tiết: [DatabaseModernizationPlan.md](../10-References/DatabaseModernizationPlan.md).
+
+### 6.3 Code Quality Checklist (ảnh hưởng trực tiếp tiêu chí chấm)
 
 - [ ] Type hints cho **mọi** function
 - [ ] Docstrings cho mọi class/function public
@@ -129,7 +141,7 @@
 - [ ] Import order chuẩn (stdlib → third-party → local)
 - [ ] Tổ chức code theo module: `agent/`, `api/`, `tools/`, `models/`
 
-### 6.3 DevOps Checklist (ảnh hưởng trực tiếp tiêu chí chấm)
+### 6.4 DevOps Checklist (ảnh hưởng trực tiếp tiêu chí chấm)
 
 - [ ] Docker — Multi-stage Dockerfile
 - [ ] docker-compose cho local development
@@ -138,7 +150,7 @@
 - [ ] Health check endpoint `/health`
 - [ ] Monitoring: Langfuse hoặc LangSmith
 
-### 6.4 Agent Quality Checklist
+### 6.5 Agent Quality Checklist
 
 - [ ] LangGraph StateGraph với TypedDict State schema
 - [ ] Router Node + Conditional Edges
@@ -148,7 +160,7 @@
 - [ ] Memory / Context management
 - [ ] RAG: Vector Store + Embedding + Search tool
 
-### 6.5 Evaluation Evidence Checklist
+### 6.6 Evaluation Evidence Checklist
 
 - [ ] Unit tests cho agent nodes
 - [ ] Integration tests cho API endpoints

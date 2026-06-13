@@ -1,6 +1,6 @@
 # 🧠 Xây dựng AI Agent với LangGraph (EduInsight)
 
-Chương này là trái tim của toàn bộ tài liệu. Bạn sẽ học cách xây dựng AI Agent từ đầu — từ khái niệm cơ bản đến triển khai hoàn chỉnh — sử dụng LangGraph, thư viện mạnh mẽ nhất hiện nay cho việc xây dựng ứng dụng AI có trạng thái (stateful). Đến cuối chương này, bạn sẽ có đủ kiến thức để xây dựng một agent có khả năng suy nghĩ, hành động và phản hồi như một trợ lý thông minh thực thụ cho EduInsight (sử dụng GPT-5.4 Nano & GPT-5.4, kết nối PostgreSQL pgvector).
+Chương này là trái tim của toàn bộ tài liệu. Bạn sẽ học cách xây dựng AI Agent từ đầu — từ khái niệm cơ bản đến triển khai hoàn chỉnh — sử dụng LangGraph. Agent EduInsight kết nối ba nguồn rõ ràng: DWH cho analytics, schema `ml` cho prediction và pgvector cho RAG.
 
 ---
 
@@ -152,7 +152,7 @@ class SQLInput(BaseModel):
 @tool("sql_query_tool", args_schema=SQLInput)
 def sql_query_tool(query: str) -> str:
     """
-    Sử dụng tool này ĐỂ lấy số liệu điểm số, tỷ lệ trượt từ Database.
+    Sử dụng tool này ĐỂ lấy KPI và số liệu lịch sử từ schema DWH.
     LUÔN gọi tool này khi người dùng hỏi về thống kê thành tích.
     """
     try:
@@ -164,6 +164,17 @@ def sql_query_tool(query: str) -> str:
 ```
 
 > **Mẹo:** Không bao giờ trust input từ LLM mù quáng. Luôn validate và sanitize input trong tool (ví dụ: gò ép quyền Read-Only trên Database).
+
+### Tool boundary cho EduInsight
+
+| Tool | Nguồn dữ liệu | Trách nhiệm |
+|:-----|:--------------|:------------|
+| `analytics_sql_tool` | schema `dwh` | KPI, trend, cross-cohort và drill-down |
+| `prediction_explanation_tool` | schema `ml` | Xác suất pass/trượt từng môn và tổng tín chỉ kỳ vọng |
+| `vector_search_tool` | pgvector | Tra cứu đề cương/tài liệu |
+| `clo_calculator_tool` | OLTP/DWH | Tính và giải thích CLO/PLO |
+
+Agent không train model và không tự tạo probability. Pipeline ML chạy ngoài LangGraph; Agent chỉ diễn giải output đã có version và prediction cutoff.
 
 ---
 

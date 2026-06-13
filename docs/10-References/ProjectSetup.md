@@ -1,85 +1,114 @@
-# Hướng dẫn Khởi tạo Dự án (Project Setup)
+# Hướng dẫn Setup và Đồng bộ Database cho Team
 
-Chào mừng bạn đến với hướng dẫn khởi tạo dự án AI Agent. Việc thiết lập một môi trường nhất quán ngay từ ngày đầu là vô cùng quan trọng để đảm bảo tất cả các lập trình viên trong đội đều có trải nghiệm phát triển giống nhau, ngăn chặn lỗi "trên máy tôi thì chạy được" (It works on my machine).
+Tài liệu này mô tả cách mọi thành viên chạy dự án, nhận thay đổi database và tham gia đợt chuyển đổi DWH/ML mà không làm lệch môi trường.
 
-## 1. Yêu cầu Hệ thống (Prerequisites)
-Trước khi bắt đầu, hãy đảm bảo máy tính của bạn đã cài đặt các công cụ sau:
-- **Python 3.10+**: Bắt buộc để tương thích tốt nhất với LangGraph và FastAPI.
-- **Git**: Để quản lý mã nguồn.
-- **Docker & Docker Compose**: Dành cho việc khởi chạy database và môi trường cô lập.
-- **Node.js 18+ & npm/yarn**: Nếu bạn tham gia phát triển giao diện Next.js.
+## 1. Yêu cầu
 
-## 2. Clone Repository
-Hãy bắt đầu bằng việc clone mã nguồn từ kho lưu trữ chính:
+- Git
+- Docker Desktop và Docker Compose v2
+- Python 3.11+
+- Node.js 20+
 
-```bash
-git clone https://github.com/your-org/ai-agent-project.git
-cd ai-agent-project
+Docker Compose là môi trường phát triển chuẩn cho database và backend. PostgreSQL là database chuẩn; SQLite chỉ dùng cho một số unit test nhỏ.
+
+## 2. Setup lần đầu
+
+```powershell
+git clone <repository-url>
+cd C2-App-056
+Copy-Item .env.example .env
+docker compose up --build
 ```
 
-## 3. Thiết lập Môi trường Backend (FastAPI & LangGraph)
+Kiểm tra:
 
-Chúng tôi sử dụng môi trường ảo (Virtual Environment) để cô lập các gói phụ thuộc (dependencies). Không bao giờ cài đặt thư viện trực tiếp vào hệ điều hành.
-
-### Tạo và Kích hoạt Môi trường:
-```bash
-# Tạo môi trường ảo
-python -m venv venv
-
-# Kích hoạt trên Mac/Linux
-source venv/bin/activate
-
-# Kích hoạt trên Windows (Command Prompt)
-venv\Scripts\activate
+```powershell
+docker compose ps
+docker compose exec backend alembic current
+docker compose exec backend pytest
 ```
 
-### Cài đặt Dependencies:
-```bash
-pip install --upgrade pip
-pip install -r backend/requirements.txt
+## 3. Quy trình pull code hằng ngày
+
+```powershell
+git pull
+docker compose up --build
 ```
 
-## 4. Quản lý Biến Môi Trường (.env)
-Dự án yêu cầu các biến môi trường để cấu hình API Keys, Database URL.
-1. Copy file template:
-   ```bash
-   cp .env.example .env
-   ```
-2. Mở file `.env` và điền các giá trị thực tế:
-   ```env
-   # LLM Provider
-   OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxx
-   ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxx
-   
-   # Database
-   DATABASE_URL=sqlite:///./ai_agent.db
-   
-   # Agent Settings
-   AGENT_MODEL=gpt-4o
-   ```
-   **CẢNH BÁO BẢO MẬT:** Tuyệt đối không commit file `.env` lên GitHub.
+Backend tự chạy `alembic upgrade head`. Không xóa database volume khi pull bình thường.
 
-## 5. Khởi chạy Ứng dụng Cục bộ (Local Development)
+## 4. Đợt reset database có kiểm soát
 
-Dự án cung cấp `Makefile` để tự động hoá các lệnh:
+Dự án sẽ có **một lần reset database local** khi migration baseline mới được merge. Tech lead phải thông báo rõ commit/PR bắt đầu reset. Schema DWH và ML được thêm bằng các migration tiếp theo, không yêu cầu reset lần nữa.
 
-```bash
-# Khởi chạy Backend (FastAPI)
-make run-backend
+Sau khi nhận thông báo:
 
-# Hoặc khởi chạy thủ công
-cd backend
-uvicorn app.main:app --reload --port 8000
+```powershell
+git pull
+docker compose down -v
+docker compose up --build
 ```
-Truy cập tài liệu API tự động tại: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-## 6. Thiết lập Git Workflow và Pre-commit Hooks
-Để duy trì chất lượng code, chúng ta sử dụng `pre-commit`:
-```bash
-pip install pre-commit
-pre-commit install
+> `docker compose down -v` xóa toàn bộ database local. Không chạy lệnh này ngoài đợt reset đã thống nhất.
+
+Sau reset, mỗi thành viên xác nhận:
+
+```powershell
+docker compose exec backend alembic current
+docker compose exec db psql -U eduinsight -d eduinsight -c "\dn"
 ```
-Mỗi khi bạn tạo commit, hệ thống sẽ tự động format code (Black) và kiểm tra lỗi (Flake8).
 
----
-**Bước tiếp theo:** Hãy chuyển sang tài liệu `SystemArchitecture.md` để hiểu cách các thành phần trong hệ thống tương tác với nhau.
+Kết quả phải có cùng Alembic revision và schema `public`. Sau các phase DWH/ML, schema `dwh` và `ml` phải xuất hiện qua migration bình thường.
+
+## 5. Quy tắc thay đổi database
+
+Nguồn định nghĩa database chính là SQLAlchemy ORM trong `backend/app/models/`.
+
+Mỗi thay đổi database phải đi theo quy trình:
+
+1. Sửa ORM model.
+2. Tạo Alembic migration.
+3. Review cả `upgrade()` và `downgrade()`.
+4. Chạy migration trên database sạch.
+5. Chạy migration trên database đang có seed data.
+6. Cập nhật seed, ETL và test liên quan.
+
+```powershell
+docker compose exec backend alembic revision --autogenerate -m "describe change"
+docker compose exec backend alembic upgrade head
+docker compose exec backend alembic downgrade -1
+docker compose exec backend alembic upgrade head
+```
+
+Không sửa database trực tiếp bằng GUI rồi bỏ qua migration.
+
+## 6. Quy tắc seed và ETL
+
+- Seed script dùng natural key như `student_code`, `course_code`, `cohort_code`; không dựa vào ID hard-code.
+- Seed phải idempotent: chạy lại không tạo duplicate.
+- ETL load dimension trước, fact sau.
+- ETL phải ghi `dwh.etl_run` và kết quả đối soát.
+- Prediction chỉ chạy sau khi ETL thành công.
+
+## 7. Quy trình xác minh sau pull
+
+Khi PR có label hoặc mô tả `database-change`, chạy:
+
+```powershell
+git pull
+docker compose up --build
+docker compose exec backend alembic current
+docker compose exec backend pytest
+```
+
+Nếu PR thay đổi ETL/ML, chạy thêm runner tương ứng và kiểm tra:
+
+- ETL chạy lại không tăng số dòng ngoài dự kiến.
+- Tổng enrollment và tín chỉ pass/trượt khớp giữa OLTP/DWH.
+- Prediction có `model_run_id`, `scored_at` và `prediction_cutoff`.
+
+## 8. Tài liệu nguồn chuẩn
+
+- Kiến trúc DWH/ML: [ML_DWH_Architecture.md](./ML_DWH_Architecture.md)
+- Kế hoạch chuyển đổi toàn team: [DatabaseModernizationPlan.md](./DatabaseModernizationPlan.md)
+- Kiến trúc hệ thống: [SystemArchitecture.md](./SystemArchitecture.md)

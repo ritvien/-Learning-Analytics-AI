@@ -4,9 +4,15 @@ Uses pure pytest-asyncio (asyncio_mode = "auto" in pyproject.toml).
 No anyio markers needed — async def test_* is handled automatically.
 """
 
+import os
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+# Tests must not depend on a developer's local .env values.
+os.environ["DEBUG"] = "false"
+os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 
 from app.database import Base, get_db
 from app.main import app

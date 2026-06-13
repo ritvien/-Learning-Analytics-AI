@@ -111,7 +111,7 @@ class CourseBase(BaseModel):
 class CourseCreate(CourseBase):
     """Fields required when creating a Course."""
 
-    program_id: int
+    program_ids: list[int] = Field(min_length=1)
 
 
 class CourseUpdate(BaseModel):
@@ -126,18 +126,36 @@ class CourseUpdate(BaseModel):
     description: str | None = None
     is_elective: bool | None = None
     is_active: bool | None = None
+    program_ids: list[int] | None = Field(None, min_length=1)
 
 
 class CourseResponse(CourseBase, OrmBase):
     """Full Course response including PK and timestamps."""
 
     id: int
-    program_id: int
+    program_ids: list[int]
     created_at: datetime
     updated_at: datetime
 
 
 # ================================================================= Semester
+class SemesterCreate(BaseModel):
+    """Fields required when creating a Semester."""
+
+    code: str = Field(max_length=20)
+    name: str = Field(max_length=100)
+    year: int
+    term: int = Field(ge=1, le=3)
+    is_current: bool = False
+
+
+class SemesterUpdate(BaseModel):
+    """All fields optional for PATCH update of Semester."""
+
+    name: str | None = Field(None, max_length=100)
+    is_current: bool | None = None
+
+
 class SemesterResponse(OrmBase):
     """Full Semester response."""
 

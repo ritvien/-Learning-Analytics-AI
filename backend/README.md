@@ -70,6 +70,8 @@ docker compose up --build
 | PostgreSQL | localhost:5432 (user/pass: see .env) |
 
 Migrations run automatically inside the container before the server starts.
+The runtime schema is created only by Alembic. Files under `backend/db/` are
+legacy/reference artifacts and are not mounted into PostgreSQL by Docker Compose.
 
 **Useful commands:**
 
@@ -209,3 +211,31 @@ All endpoints are prefixed with `/api/v1/`. Full interactive docs at `/api/docs`
 | Sections | `GET/POST /sections`, `GET/PATCH/DELETE /sections/{id}` |
 | Grades | `GET/POST /grades/enrollments`, `PATCH /grades/enrollments/{id}/grade`, `PUT /grades/components` |
 | Health | `GET /health` |
+
+---
+
+## Analytics warehouse and ML persistence
+
+PostgreSQL is split by workload:
+
+| Schema | Responsibility |
+|:-------|:---------------|
+| `public` | OLTP entities and CRUD |
+| `dwh` | Analytics dimensions, facts, ETL and data-quality logs |
+| `ml` | Model runs and enrollment/student-semester predictions |
+
+Refresh the DWH after OLTP data changes:
+
+```bash
+docker compose exec backend python -m app.analytics.etl
+```
+
+After a model writes enrollment-level rows to `ml.enrollment_prediction`,
+aggregate expected credits for a model run:
+
+```bash
+docker compose exec backend python -m app.ml.scoring <model_run_id>
+```
+
+Both operations use upserts and can be run repeatedly without duplicating facts
+or student-semester prediction summaries.

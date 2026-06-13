@@ -13,13 +13,12 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Pencil, Trash2, ArrowUpDown, FileDown, FileUp } from "lucide-react"
+import { Pencil, Trash2, ArrowUpDown, FileDown } from "lucide-react"
 import * as XLSX from "xlsx"
 
 export default function GradesPage() {
   const [grades, setGrades] = React.useState<GradeRecord[]>(mockGrades)
   const [editGrade, setEditGrade] = React.useState<GradeRecord | null>(null)
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   // Helpers to get student name from ID
   const getStudentName = (id: string) => mockStudents.find(s => s.id === id)?.hoTen || id
@@ -45,45 +44,6 @@ export default function GradesPage() {
     }
     setGrades(grades.map((g) => (g.id === updated.id ? updated : g)))
     setEditGrade(null)
-  }
-
-  // IMPORT EXCEL
-  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const data = new Uint8Array(event.target?.result as ArrayBuffer)
-      const workbook = XLSX.read(data, { type: "array" })
-      const firstSheetName = workbook.SheetNames[0]
-      const worksheet = workbook.Sheets[firstSheetName]
-      const json = XLSX.utils.sheet_to_json(worksheet)
-
-      // Transform raw JSON into GradeRecord (simplified for demo)
-      const newGrades: GradeRecord[] = json.map((row: any, i) => ({
-        id: `g-imported-${Date.now()}-${i}`,
-        studentId: row.studentId || "sv-1",
-        tenMonHoc: row.tenMonHoc || "Unknown",
-        maLop: row.maLop || "",
-        tinChi: Number(row.tinChi) || 3,
-        diemTX1: Number(row.diemTX1) || null,
-        diemTX2: Number(row.diemTX2) || null,
-        diemTX3: null, diemTX4: null,
-        tbThuongKy: Number(row.tbThuongKy) || null,
-        duocDuThi: row.duocDuThi !== false,
-        diemThiLan1: Number(row.diemThiLan1) || null,
-        diemThiLan2: null,
-        diemTongKet: Number(row.diemTongKet) || null,
-        xepLoai: row.xepLoai || "",
-        ghiChu: row.ghiChu || "",
-        hocKy: row.hocKy || "HK1 (2023-2024)",
-      }))
-
-      setGrades([...grades, ...newGrades])
-      if (fileInputRef.current) fileInputRef.current.value = ""
-    }
-    reader.readAsArrayBuffer(file)
   }
 
   // EXPORT EXCEL
@@ -179,19 +139,9 @@ export default function GradesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Quản lý Điểm</h1>
-          <p className="text-muted-foreground">Nhập, sửa điểm số sinh viên và xuất/nhập Excel.</p>
+          <p className="text-muted-foreground">Nhập, sửa điểm số sinh viên và xuất báo cáo Excel.</p>
         </div>
         <div className="flex gap-2">
-          <input
-            type="file"
-            accept=".xlsx, .xls"
-            className="hidden"
-            ref={fileInputRef}
-            onChange={handleImportExcel}
-          />
-          <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-            <FileUp className="mr-2 h-4 w-4" /> Import Excel
-          </Button>
           <Button variant="outline" onClick={handleExportExcel}>
             <FileDown className="mr-2 h-4 w-4" /> Export Excel
           </Button>

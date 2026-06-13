@@ -4,23 +4,23 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, ForeignKey, Integer, SmallInteger, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, SmallInteger, String, Table, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 from app.models.base import TimestampMixin
-from sqlalchemy import Table, Column
-
-program_courses = Table(
-    "program_courses",
-    Base.metadata,
-    Column("program_id", Integer, ForeignKey("programs.id", ondelete="CASCADE"), primary_key=True),
-    Column("course_id", Integer, ForeignKey("courses.id", ondelete="CASCADE"), primary_key=True),
-)
 
 if TYPE_CHECKING:
     from app.models.people import Student, Teacher
     from app.models.teaching import Section
+
+
+program_courses = Table(
+    "program_courses",
+    Base.metadata,
+    Column("program_id", ForeignKey("programs.id", ondelete="CASCADE"), primary_key=True),
+    Column("course_id", ForeignKey("courses.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 class University(TimestampMixin, Base):
@@ -80,7 +80,7 @@ class Program(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     department: Mapped[Department] = relationship(back_populates="programs")
-    courses: Mapped[list[Course]] = relationship(secondary="program_courses", back_populates="programs")
+    courses: Mapped[list[Course]] = relationship(secondary=program_courses, back_populates="programs")
     plos: Mapped[list[PLO]] = relationship(back_populates="program")  # type: ignore[name-defined]
     students: Mapped[list[Student]] = relationship(back_populates="program")
 
@@ -117,10 +117,15 @@ class Course(TimestampMixin, Base):
     is_elective: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    programs: Mapped[list[Program]] = relationship(secondary="program_courses", back_populates="courses")
+    programs: Mapped[list[Program]] = relationship(secondary=program_courses, back_populates="courses")
     clos: Mapped[list[CLO]] = relationship(back_populates="course")  # type: ignore[name-defined]
     plo_mappings: Mapped[list[CoursePLOMapping]] = relationship(back_populates="course") # type: ignore[name-defined]
     sections: Mapped[list[Section]] = relationship(back_populates="course")
+
+    @property
+    def program_ids(self) -> list[int]:
+        """Return IDs of programs that include this course."""
+        return [program.id for program in self.programs]
 
 
 # Deferred import to avoid circular dependency at top level

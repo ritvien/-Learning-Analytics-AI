@@ -10,7 +10,7 @@ Tài liệu được chia thành 10 chương chính:
 
 1. **Lời mở đầu** - Giới thiệu tổng quan và mục tiêu của tài liệu.
 2. **Khởi tạo dự án từ Template** - Cách bắt đầu một dự án chuẩn chỉnh, cấu trúc thư mục, môi trường.
-3. **Thiết kế kiến trúc hệ thống** - Tổng quan kiến trúc 3 tầng (Frontend, Backend, AI Agent).
+3. **Thiết kế kiến trúc hệ thống** - Frontend, Backend, AI Agent và nền tảng analytics DWH/ML.
 4. **Xây dựng AI Agent với LangGraph** - Trái tim của hệ thống: State, Nodes, Edges, Tools, RAG.
 5. **Phát triển API với FastAPI** - Khung xương kết nối: Routes, Validation, Error Handling, Streaming.
 6. **Giao diện người dùng** - Tương tác người dùng: Next.js, Streamlit, Responsive Design, Dark Mode.
@@ -109,6 +109,24 @@ Sử dụng **LangGraph** để quản lý "luồng suy nghĩ" của AI. Khác v
 - **Dữ liệu RAG & Vector:** Thay vì dùng 2 database song song (như PostgreSQL + ChromaDB), hãy tận dụng extension **`pgvector`** được cài thẳng vào PostgreSQL. Kiến trúc "Một mũi tên trúng hai đích" này vừa giúp Hybrid Search cực kỳ mạnh mẽ (kết hợp SQL + Vector), vừa giúp team DevOps nhàn hạ vì chỉ phải duy trì một Database duy nhất.
 > [!IMPORTANT]
 > Hãy tập thói quen viết **Architecture Decision Records (ADR)**. Khi đứng trước các ngã rẽ như "Dùng LangGraph hay LangChain?", "SQLite hay PostgreSQL?", hãy viết lại một tệp markdown giải thích lý do (Pros/Cons) đằng sau quyết định đó vào thư mục `docs/`.
+
+### 3.5 Data Warehouse và Machine Learning
+
+EduInsight không dùng trực tiếp các bảng CRUD cho toàn bộ analytics. PostgreSQL được tách schema:
+
+- `public`: dữ liệu OLTP.
+- `dwh`: star schema, KPI lịch sử và feature.
+- `ml`: model run, prediction từng môn và tổng tín chỉ kỳ vọng.
+
+Luồng chuẩn:
+
+```text
+public → ETL/data quality → dwh → ML batch scoring → ml → API/Agent
+```
+
+ML dự đoán xác suất pass/trượt từng môn. Tổng tín chỉ pass/trượt kỳ vọng được tổng hợp từ xác suất và số tín chỉ môn học. LLM chỉ diễn giải kết quả, không thay thế model ML.
+
+Xem [ML_DWH_Architecture.md](./ML_DWH_Architecture.md) và [DatabaseModernizationPlan.md](./DatabaseModernizationPlan.md).
 
 ---
 

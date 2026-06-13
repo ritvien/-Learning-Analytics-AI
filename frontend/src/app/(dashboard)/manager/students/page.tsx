@@ -3,7 +3,7 @@
 import * as React from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { Student } from "@/types"
-import { mockStudents } from "@/lib/mock-data"
+import { api } from "@/lib/api"
 import { DataTable } from "@/components/crud/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -38,40 +38,79 @@ const statusVariant = (s: string) => {
   }
 }
 
+const STATUS_VI: Record<string, Student["trangThai"]> = {
+  active: "Đang học",
+  graduated: "Đã tốt nghiệp",
+  withdrawn: "Bảo lưu",
+  expelled: "Thôi học",
+}
+
 export default function StudentsPage() {
-  const [students, setStudents] = React.useState<Student[]>(mockStudents)
+  const [students, setStudents] = React.useState<Student[]>([])
+
+  React.useEffect(() => {
+    Promise.all([api.getStudents({ limit: 500 }), api.getPrograms({ limit: 100 })]).then(
+      ([apiStudents, apiPrograms]) => {
+        const progMap = new Map(apiPrograms.map((p) => [p.id, p.name]))
+        setStudents(
+          apiStudents.map((s) => ({
+            id: String(s.id),
+            mssv: s.student_code,
+            hoTen: s.full_name,
+            gioiTinh: (s.gender as Student["gioiTinh"]) ?? "Nam",
+            ngayVaoTruong: "",
+            khoa: "",
+            bacDaoTao: "Đại học - Tín chỉ",
+            loaiHinh: "Chính quy",
+            nganh: progMap.get(s.program_id) ?? "",
+            chuyenNganh: "",
+            khoaQuanLy: progMap.get(s.program_id) ?? "",
+            lop: s.class_code ?? "",
+            trangThai: STATUS_VI[s.status] ?? "Đang học",
+            coVanHocTap: "",
+            soDienThoaiCVHT: "",
+            tongTCTichLuy: 0,
+            diemTBTichLuy: s.gpa_cumulative ?? 0,
+            tongTCNo: 0,
+            soMonNo: 0,
+          }))
+        )
+      }
+    )
+  }, [])
   const [editStudent, setEditStudent] = React.useState<Student | null>(null)
   const [isCreateOpen, setIsCreateOpen] = React.useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = React.useState(false)
   const [deleteTarget, setDeleteTarget] = React.useState<Student | null>(null)
 
+  const STATUS_EN: Record<string, string> = {
+    "Đang học": "active", "Đã tốt nghiệp": "graduated",
+    "Bảo lưu": "withdrawn", "Thôi học": "expelled",
+  }
+
   // CREATE
   const handleCreate = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    const newStudent: Student = {
-      id: `sv-${Date.now()}`,
-      mssv: fd.get("mssv") as string,
-      hoTen: fd.get("hoTen") as string,
-      gioiTinh: fd.get("gioiTinh") as Student["gioiTinh"],
-      ngayVaoTruong: fd.get("ngayVaoTruong") as string,
-      khoa: fd.get("khoa") as string,
-      bacDaoTao: "Đại học - Tín chỉ",
-      loaiHinh: "Chính quy",
-      nganh: fd.get("nganh") as string,
-      chuyenNganh: fd.get("chuyenNganh") as string,
-      khoaQuanLy: fd.get("khoaQuanLy") as string,
-      lop: fd.get("lop") as string,
-      trangThai: "Đang học",
-      coVanHocTap: "",
-      soDienThoaiCVHT: "",
-      tongTCTichLuy: 0,
-      diemTBTichLuy: 0,
-      tongTCNo: 0,
-      soMonNo: 0,
-    }
-    setStudents([...students, newStudent])
-    setIsCreateOpen(false)
+    api.createStudent({
+      student_code: fd.get("mssv") as string,
+      full_name: fd.get("hoTen") as string,
+      gender: fd.get("gioiTinh") as string,
+      class_code: fd.get("lop") as string,
+      program_id: 1,
+      cohort_id: 1,
+      status: "active",
+    }).then((s) => {
+      setStudents((prev) => [...prev, {
+        id: String(s.id), mssv: s.student_code, hoTen: s.full_name,
+        gioiTinh: (s.gender as Student["gioiTinh"]) ?? "Nam",
+        ngayVaoTruong: "", khoa: "", bacDaoTao: "Đại học - Tín chỉ", loaiHinh: "Chính quy",
+        nganh: "Công nghệ thông tin", chuyenNganh: "", khoaQuanLy: "Công nghệ thông tin",
+        lop: s.class_code ?? "", trangThai: "Đang học", coVanHocTap: "",
+        soDienThoaiCVHT: "", tongTCTichLuy: 0, diemTBTichLuy: 0, tongTCNo: 0, soMonNo: 0,
+      }])
+      setIsCreateOpen(false)
+    })
   }
 
   // UPDATE
@@ -79,26 +118,31 @@ export default function StudentsPage() {
     e.preventDefault()
     if (!editStudent) return
     const fd = new FormData(e.currentTarget)
-    const updated: Student = {
-      ...editStudent,
-      hoTen: fd.get("hoTen") as string,
-      gioiTinh: fd.get("gioiTinh") as Student["gioiTinh"],
-      nganh: fd.get("nganh") as string,
-      chuyenNganh: fd.get("chuyenNganh") as string,
-      khoaQuanLy: fd.get("khoaQuanLy") as string,
-      lop: fd.get("lop") as string,
-      trangThai: fd.get("trangThai") as Student["trangThai"],
-    }
-    setStudents(students.map((s) => (s.id === updated.id ? updated : s)))
-    setEditStudent(null)
+    const trangThai = fd.get("trangThai") as Student["trangThai"]
+    api.updateStudent(Number(editStudent.id), {
+      full_name: fd.get("hoTen") as string,
+      gender: fd.get("gioiTinh") as string,
+      class_code: fd.get("lop") as string,
+      status: STATUS_EN[trangThai] ?? "active",
+    }).then(() => {
+      setStudents(students.map((s) =>
+        s.id === editStudent.id
+          ? { ...editStudent, hoTen: fd.get("hoTen") as string, gioiTinh: fd.get("gioiTinh") as Student["gioiTinh"],
+              lop: fd.get("lop") as string, trangThai }
+          : s
+      ))
+      setEditStudent(null)
+    })
   }
 
   // DELETE
   const handleDelete = () => {
     if (!deleteTarget) return
-    setStudents(students.filter((s) => s.id !== deleteTarget.id))
-    setDeleteTarget(null)
-    setIsDeleteOpen(false)
+    api.deleteStudent(Number(deleteTarget.id)).then(() => {
+      setStudents(students.filter((s) => s.id !== deleteTarget.id))
+      setDeleteTarget(null)
+      setIsDeleteOpen(false)
+    })
   }
 
   const columns: ColumnDef<Student>[] = [

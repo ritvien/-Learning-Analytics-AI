@@ -87,4 +87,35 @@
 
 ---
 
-*(Bổ sung thêm User Stories theo tiến độ dự án)*
+### Epic 4: Predictive Analytics và Cảnh báo sớm bằng ML
+
+**User Story 4.1:**
+> **Là một** Giảng viên, tôi muốn xem xác suất pass/trượt từng môn và tổng tín chỉ pass/trượt kỳ vọng của sinh viên trước khi kết thúc học kỳ,
+> **Để** tôi biết sinh viên cần hỗ trợ ở môn nào và mức độ ảnh hưởng đến tiến độ học tập.
+
+**Acceptance Criteria:**
+- Hiển thị xác suất pass/trượt của từng môn, prediction cutoff và thời điểm dự đoán.
+- Hiển thị expected passed credits, expected failed credits và high-risk failed credits theo học kỳ.
+- Mỗi prediction có các yếu tố giải thích chính, ví dụ GPA lịch sử thấp hoặc điểm giữa kỳ giảm.
+- Không sử dụng điểm cuối kỳ hoặc trạng thái đậu/trượt làm feature tại thời điểm dự đoán.
+- Cho phép lọc theo môn, lớp học phần và mức rủi ro.
+- Cảnh báo ghi rõ đây là thông tin hỗ trợ quyết định, không phải kết luận tự động.
+
+---
+
+### Epic 5: Data Warehouse cho phân tích lịch sử
+
+**User Story 5.1:**
+> **Là một** Ban quản lý, tôi muốn xem và so sánh KPI theo học kỳ, khóa, ngành và môn học từ một nguồn dữ liệu phân tích thống nhất,
+> **Để** báo cáo không phụ thuộc vào các truy vấn thủ công trên dữ liệu vận hành.
+
+**Acceptance Criteria:**
+- Dashboard đọc KPI lịch sử từ DWH theo star schema.
+- Có thể drill-down từ ngành đến môn và lớp học phần.
+- Dữ liệu DWH được refresh theo lịch, theo thay đổi dữ liệu hoặc bằng thao tác admin.
+- Có kiểm tra đối soát để KPI quan trọng khớp với dữ liệu OLTP.
+- Hiển thị thời điểm refresh gần nhất.
+
+---
+
+Tham khảo thiết kế chi tiết tại [ML_DWH_Architecture.md](../10-References/ML_DWH_Architecture.md).
