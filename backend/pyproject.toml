@@ -22,6 +22,11 @@ dependencies = [
     # File handling for syllabus/document uploads
     "python-multipart>=0.0.12",
     "aiofiles>=24.1.0",
+    # AI & LangGraph
+    "langgraph>=0.2.0",
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "psycopg2-binary>=2.9.0",  # Sync PG driver for tools
 ]
 
 [project.optional-dependencies]
@@ -55,3 +60,4 @@ select = ["E", "F", "I", "UP", "B", "ANN", "D", "RUF"]
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
+cache_dir = "/tmp/.pytest_cache"

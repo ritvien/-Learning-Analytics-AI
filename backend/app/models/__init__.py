@@ -5,6 +5,7 @@ from app.models.assessment import (
     CLO,
     PLO,
     CLOPLOMapping,
+    CoursePLOMapping,
     GradeComponentCLOMapping,
     StudentCLOAchievement,
 )
@@ -15,6 +16,7 @@ __all__ = [
     "CLO",
     "PLO",
     "CLOPLOMapping",
+    "CoursePLOMapping",
     "Cohort",
     "Course",
     "Department",

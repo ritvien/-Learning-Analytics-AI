@@ -112,12 +112,14 @@ class Course(TimestampMixin, Base):
     credits: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     theory_hours: Mapped[int | None] = mapped_column(SmallInteger)
     lab_hours: Mapped[int | None] = mapped_column(SmallInteger)
+    prerequisite_note: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
     is_elective: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     programs: Mapped[list[Program]] = relationship(secondary=program_courses, back_populates="courses")
     clos: Mapped[list[CLO]] = relationship(back_populates="course")  # type: ignore[name-defined]
+    plo_mappings: Mapped[list[CoursePLOMapping]] = relationship(back_populates="course") # type: ignore[name-defined]
     sections: Mapped[list[Section]] = relationship(back_populates="course")
 
     @property

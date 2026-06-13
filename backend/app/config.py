@@ -32,11 +32,16 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
 
     # --------------------------------------------------------------------- llm
-    llm_provider: str = "gemini"  # gemini | mistral | openai
-    llm_model: str = "gemini-1.5-flash"
+    llm_provider: str = "openai"  # gemini | mistral | openai
+    llm_model: str = "gpt-4o"
     llm_api_key: str = ""
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    # ------------------------------------------------------------------- agent
+    agent_router_model: str = "gpt-5.4-nano"
+    agent_core_model: str = "gpt-5.4-nano"
+    agent_db_url: str = "postgresql://eduinsight:eduinsight_dev@localhost:5433/eduinsight"
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @property
     def cors_origins_list(self) -> list[str]:
