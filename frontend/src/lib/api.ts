@@ -49,6 +49,26 @@ export interface ApiEnrollment {
   status: string
 }
 
+export interface ApiSection {
+  id: number
+  section_code: string
+  course_id: number
+  semester_id: number
+  teacher_id: number | null
+  room: string | null
+  max_students: number | null
+  is_active: boolean
+}
+
+export interface ApiSemester {
+  id: number
+  code: string
+  name: string
+  year: number
+  term: number
+  is_current: boolean
+}
+
 async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init)
   const text = await response.text()
@@ -116,4 +136,12 @@ export const api = {
   // --- Enrollments ---
   getEnrollments: (params?: { student_id?: number; section_id?: number; limit?: number }) =>
     fetcher<ApiEnrollment[]>(`/api/v1/grades/enrollments${qs(params ?? {})}`),
+
+  // --- Sections ---
+  getSections: (params?: { limit?: number; course_id?: number }) =>
+    fetcher<ApiSection[]>(`/api/v1/sections${qs(params ?? {})}`),
+
+  // --- Semesters ---
+  getSemesters: () =>
+    fetcher<ApiSemester[]>('/api/v1/semesters'),
 }
