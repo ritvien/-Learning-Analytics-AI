@@ -21,7 +21,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Install dependencies (layer-cached until pyproject.toml changes)
 COPY pyproject.toml ./
-RUN pip install --upgrade pip && pip install .
+RUN pip install --upgrade pip && pip install ".[dev]"
 
 # ─── Stage 2: runtime ─────────────────────────────────────────────────────────
 FROM python:3.11-slim AS runtime
@@ -41,8 +41,8 @@ COPY --from=builder /opt/venv /opt/venv
 # Copy application source
 COPY --chown=app:app . .
 
-# Entrypoint: run Alembic migrations then start server
-RUN chmod +x entrypoint.sh
+# Entrypoint: convert CRLF to LF to avoid 'Illegal option' errors on Windows, then run migrations & start server
+RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
 
 USER app
 
