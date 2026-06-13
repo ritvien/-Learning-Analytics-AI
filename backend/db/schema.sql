@@ -338,6 +338,16 @@ COMMENT ON TABLE clo_plo_mappings IS 'Ma trận CLO ↔ PLO. contribution: 1=Int
 
 -- ---------------------------------------------------------------------------
 
+CREATE TABLE course_plos (
+    course_id       INT             NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    plo_id          INT             NOT NULL REFERENCES plos(id) ON DELETE CASCADE,
+    level           SMALLINT        NOT NULL DEFAULT 1 CHECK (level BETWEEN 1 AND 3),
+    PRIMARY KEY (course_id, plo_id)
+);
+COMMENT ON TABLE course_plos IS 'Ma trận Course ↔ PLO. level: 1=Thấp, 2=Trung bình, 3=Cao.';
+
+-- ---------------------------------------------------------------------------
+
 CREATE TABLE grade_component_clo_mappings (
     component_type_id   INT             NOT NULL REFERENCES grade_component_types(id) ON DELETE CASCADE,
     clo_id              INT             NOT NULL REFERENCES clos(id) ON DELETE CASCADE,
@@ -801,23 +811,4 @@ FOR EACH STATEMENT EXECUTE FUNCTION trigger_invalidate_metric_cache();
 -- SEED: Default University (for single-tenant dev setup)
 -- =============================================================================
 
-INSERT INTO universities (code, name, name_short, website)
-VALUES ('EPU', 'Trường Đại học Điện Lực', 'EPU', 'https://epu.edu.vn');
 
-INSERT INTO cohorts (code, year_start, year_end) VALUES
-    ('K17', 2012, 2017),
-    ('K18', 2013, 2018),
-    ('K19', 2014, 2019),
-    ('K20', 2015, 2020),
-    ('K21', 2021, 2025),
-    ('K22', 2022, 2026),
-    ('K23', 2023, 2027),
-    ('K24', 2024, 2028);
-
-INSERT INTO semesters (code, name, year, term, is_current) VALUES
-    ('2022-1', 'HK1 năm học 2022–2023', 2022, 1, FALSE),
-    ('2022-2', 'HK2 năm học 2022–2023', 2022, 2, FALSE),
-    ('2023-1', 'HK1 năm học 2023–2024', 2023, 1, FALSE),
-    ('2023-2', 'HK2 năm học 2023–2024', 2023, 2, FALSE),
-    ('2024-1', 'HK1 năm học 2024–2025', 2024, 1, FALSE),
-    ('2024-2', 'HK2 năm học 2024–2025', 2024, 2, TRUE);

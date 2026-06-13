@@ -148,13 +148,15 @@ def generate_sql() -> None:
             section_code = g.get("Ma lop", "")
             credits_str = g.get("TC", "0")
             final_grade = g.get("Diem tong ket", "")
-            grade_letter = (
+            grade_letter_raw = (
                 g.get("Xep loai", "")
                 .replace("[", "")
                 .replace("]", "")
                 .replace("-", "")
                 .strip()
             )
+            # Dữ liệu có thể là "A   Giỏi", chỉ lấy phần chữ cái đầu tiên (A, B+, C, D, F)
+            grade_letter = grade_letter_raw.split()[0] if grade_letter_raw else ""
 
             if not course_name or not section_code:
                 continue

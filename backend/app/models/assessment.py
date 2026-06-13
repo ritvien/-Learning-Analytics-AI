@@ -40,6 +40,7 @@ class PLO(Base):
 
     program: Mapped[Program] = relationship(back_populates="plos")
     clo_mappings: Mapped[list[CLOPLOMapping]] = relationship(back_populates="plo")
+    course_mappings: Mapped[list[CoursePLOMapping]] = relationship(back_populates="plo")
 
 
 class CLO(Base):
@@ -79,6 +80,19 @@ class CLOPLOMapping(Base):
 
     clo: Mapped[CLO] = relationship(back_populates="plo_mappings")
     plo: Mapped[PLO] = relationship(back_populates="clo_mappings")
+
+
+class CoursePLOMapping(Base):
+    """Ma trận Course ↔ PLO. (Ánh xạ trực tiếp từ môn học sang chuẩn đầu ra chương trình)."""
+
+    __tablename__ = "course_plos"
+
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), primary_key=True)
+    plo_id: Mapped[int] = mapped_column(ForeignKey("plos.id", ondelete="CASCADE"), primary_key=True)
+    level: Mapped[int] = mapped_column(SmallInteger, default=1, nullable=False)
+
+    course: Mapped[Course] = relationship(back_populates="plo_mappings")
+    plo: Mapped[PLO] = relationship(back_populates="course_mappings")
 
 
 class GradeComponentCLOMapping(Base):

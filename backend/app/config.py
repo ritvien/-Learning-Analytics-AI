@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     llm_model: str = "gemini-1.5-flash"
     llm_api_key: str = ""
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @property
     def cors_origins_list(self) -> list[str]:
