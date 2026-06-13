@@ -10,6 +10,8 @@ Trang này giúp team biết tài liệu nào là nguồn chuẩn hiện tại, 
 | Bài toán ML và kiến trúc DWH | [ML_DWH_Architecture.md](./10-References/ML_DWH_Architecture.md) |
 | Kế hoạch sửa DB và rollout team | [DatabaseModernizationPlan.md](./10-References/DatabaseModernizationPlan.md) |
 | Review Backend Sprint 1 | [BackendSprint1Review.md](./10-References/BackendSprint1Review.md) |
+| Review Backend Sprint 2 | [BackendSprint2Review.md](./10-References/BackendSprint2Review.md) |
+| Backend progress (Hưng) | [Hung/README.md](./09-Materials/Hung/README.md) |
 | Kiến trúc tổng thể | [SystemArchitecture.md](./10-References/SystemArchitecture.md) |
 | Setup, pull, reset và migration | [ProjectSetup.md](./10-References/ProjectSetup.md) |
 | Kế hoạch thực thi hiện tại | [Sprint2.md](./07-Sprint-Planning/Sprint2.md) |

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import type { Department, Major } from "@/types"
-import { mockDepartments } from "@/lib/mock-data"
+import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -15,7 +15,29 @@ import { Label } from "@/components/ui/label"
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, Building2 } from "lucide-react"
 
 export default function DepartmentsPage() {
-  const [departments, setDepartments] = React.useState<Department[]>(mockDepartments)
+  const [departments, setDepartments] = React.useState<Department[]>([])
+
+  React.useEffect(() => {
+    Promise.all([api.getDepartments({ limit: 100 }), api.getPrograms({ limit: 100 })]).then(
+      ([apiDepts, apiProgs]) => {
+        setDepartments(
+          apiDepts.map((d) => ({
+            id: String(d.id),
+            tenKhoa: d.name,
+            moTa: d.description ?? "",
+            nganhs: apiProgs
+              .filter((p) => p.department_id === d.id)
+              .map((p): Major => ({
+                id: String(p.id),
+                tenNganh: p.name,
+                khoaId: String(d.id),
+                moTa: p.description ?? "",
+              })),
+          }))
+        )
+      }
+    )
+  }, [])
   const [expandedDepts, setExpandedDepts] = React.useState<Set<string>>(new Set(["dept-1"]))
   const [isCreateDeptOpen, setIsCreateDeptOpen] = React.useState(false)
   const [isCreateMajorOpen, setIsCreateMajorOpen] = React.useState(false)
@@ -36,32 +58,31 @@ export default function DepartmentsPage() {
   const handleCreateDept = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    const newDept: Department = {
-      id: `dept-${Date.now()}`,
-      tenKhoa: fd.get("tenKhoa") as string,
-      moTa: fd.get("moTa") as string,
-      nganhs: [],
-    }
-    setDepartments([...departments, newDept])
-    setIsCreateDeptOpen(false)
+    const name = fd.get("tenKhoa") as string
+    const code = "DEPT" + String(Date.now()).slice(-4)
+    api.createDepartment({ university_id: 1, code, name, description: fd.get("moTa") as string || undefined })
+      .then((d) => {
+        setDepartments((prev) => [...prev, { id: String(d.id), tenKhoa: d.name, moTa: d.description ?? "", nganhs: [] }])
+        setIsCreateDeptOpen(false)
+      })
   }
 
-  // CREATE Major
+  // CREATE Major (Program)
   const handleCreateMajor = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!createMajorParent) return
     const fd = new FormData(e.currentTarget)
-    const newMajor: Major = {
-      id: `major-${Date.now()}`,
-      tenNganh: fd.get("tenNganh") as string,
-      khoaId: createMajorParent,
-      moTa: fd.get("moTa") as string,
-    }
-    setDepartments(departments.map((d) =>
-      d.id === createMajorParent ? { ...d, nganhs: [...d.nganhs, newMajor] } : d
-    ))
-    setIsCreateMajorOpen(false)
-    setCreateMajorParent(null)
+    const name = fd.get("tenNganh") as string
+    const code = "PROG" + String(Date.now()).slice(-4)
+    api.createProgram({ department_id: Number(createMajorParent), code, name, description: fd.get("moTa") as string || undefined })
+      .then((p) => {
+        const newMajor: Major = { id: String(p.id), tenNganh: p.name, khoaId: createMajorParent, moTa: p.description ?? "" }
+        setDepartments(departments.map((d) =>
+          d.id === createMajorParent ? { ...d, nganhs: [...d.nganhs, newMajor] } : d
+        ))
+        setIsCreateMajorOpen(false)
+        setCreateMajorParent(null)
+      })
   }
 
   // UPDATE Department
@@ -69,24 +90,30 @@ export default function DepartmentsPage() {
     e.preventDefault()
     if (!editDept) return
     const fd = new FormData(e.currentTarget)
-    setDepartments(departments.map((d) =>
-      d.id === editDept.id
-        ? { ...d, tenKhoa: fd.get("tenKhoa") as string, moTa: fd.get("moTa") as string }
-        : d
-    ))
-    setEditDept(null)
+    const name = fd.get("tenKhoa") as string
+    api.updateDepartment(Number(editDept.id), { name, description: fd.get("moTa") as string || undefined })
+      .then(() => {
+        setDepartments(departments.map((d) =>
+          d.id === editDept.id ? { ...d, tenKhoa: name, moTa: fd.get("moTa") as string } : d
+        ))
+        setEditDept(null)
+      })
   }
 
   // DELETE Department
   const deleteDept = (id: string) => {
-    setDepartments(departments.filter((d) => d.id !== id))
+    api.deleteDepartment(Number(id)).then(() =>
+      setDepartments(departments.filter((d) => d.id !== id))
+    )
   }
 
-  // DELETE Major
+  // DELETE Major (Program)
   const deleteMajor = (deptId: string, majorId: string) => {
-    setDepartments(departments.map((d) =>
-      d.id === deptId ? { ...d, nganhs: d.nganhs.filter((m) => m.id !== majorId) } : d
-    ))
+    api.deleteProgram(Number(majorId)).then(() =>
+      setDepartments(departments.map((d) =>
+        d.id === deptId ? { ...d, nganhs: d.nganhs.filter((m) => m.id !== majorId) } : d
+      ))
+    )
   }
 
   return (
@@ -218,15 +245,17 @@ export default function DepartmentsPage() {
             <form onSubmit={(e) => {
               e.preventDefault()
               const fd = new FormData(e.currentTarget)
-              setDepartments(departments.map((d) => ({
-                ...d,
-                nganhs: d.nganhs.map((m) =>
-                  m.id === editMajor.id
-                    ? { ...m, tenNganh: fd.get("tenNganh") as string, moTa: fd.get("moTa") as string }
-                    : m
-                ),
-              })))
-              setEditMajor(null)
+              const name = fd.get("tenNganh") as string
+              api.updateProgram(Number(editMajor.id), { name, description: fd.get("moTa") as string || undefined })
+                .then(() => {
+                  setDepartments(departments.map((d) => ({
+                    ...d,
+                    nganhs: d.nganhs.map((m) =>
+                      m.id === editMajor.id ? { ...m, tenNganh: name, moTa: fd.get("moTa") as string } : m
+                    ),
+                  })))
+                  setEditMajor(null)
+                })
             }}>
               <DialogHeader>
                 <DialogTitle>Sửa Ngành</DialogTitle>

@@ -3,7 +3,7 @@
 import * as React from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { Course } from "@/types"
-import { mockCourses } from "@/lib/mock-data"
+import { api } from "@/lib/api"
 import { DataTable } from "@/components/crud/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -19,7 +19,23 @@ import {
 import { Plus, Pencil, Trash2, ArrowUpDown } from "lucide-react"
 
 export default function CoursesPage() {
-  const [courses, setCourses] = React.useState<Course[]>(mockCourses)
+  const [courses, setCourses] = React.useState<Course[]>([])
+
+  React.useEffect(() => {
+    api.getCourses({ limit: 500 }).then((apiCourses) => {
+      setCourses(
+        apiCourses.map((c) => ({
+          id: String(c.id),
+          maHocPhan: c.code,
+          tenMonHoc: c.name,
+          tinChi: c.credits,
+          khoaQuanLy: "Khoa CNTT",
+          moTa: c.description ?? "",
+          trangThai: c.is_active ? "Đang giảng dạy" : "Ngừng giảng dạy",
+        }))
+      )
+    })
+  }, [])
   const [editCourse, setEditCourse] = React.useState<Course | null>(null)
   const [isCreateOpen, setIsCreateOpen] = React.useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = React.useState(false)
@@ -28,40 +44,50 @@ export default function CoursesPage() {
   const handleCreate = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    const newCourse: Course = {
-      id: `c-${Date.now()}`,
-      maHocPhan: fd.get("maHocPhan") as string,
-      tenMonHoc: fd.get("tenMonHoc") as string,
-      tinChi: Number(fd.get("tinChi")),
-      khoaQuanLy: fd.get("khoaQuanLy") as string,
-      moTa: fd.get("moTa") as string,
-      trangThai: "Đang giảng dạy",
-    }
-    setCourses([...courses, newCourse])
-    setIsCreateOpen(false)
+    api.createCourse({
+      code: fd.get("maHocPhan") as string,
+      name: fd.get("tenMonHoc") as string,
+      credits: Number(fd.get("tinChi")),
+      description: fd.get("moTa") as string || undefined,
+      program_ids: [1],
+    }).then((c) => {
+      setCourses((prev) => [...prev, {
+        id: String(c.id), maHocPhan: c.code, tenMonHoc: c.name,
+        tinChi: c.credits, khoaQuanLy: "Khoa CNTT",
+        moTa: c.description ?? "", trangThai: "Đang giảng dạy",
+      }])
+      setIsCreateOpen(false)
+    })
   }
 
   const handleUpdate = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!editCourse) return
     const fd = new FormData(e.currentTarget)
-    const updated: Course = {
-      ...editCourse,
-      tenMonHoc: fd.get("tenMonHoc") as string,
-      tinChi: Number(fd.get("tinChi")),
-      khoaQuanLy: fd.get("khoaQuanLy") as string,
-      moTa: fd.get("moTa") as string,
-      trangThai: fd.get("trangThai") as Course["trangThai"],
-    }
-    setCourses(courses.map((c) => (c.id === updated.id ? updated : c)))
-    setEditCourse(null)
+    const trangThai = fd.get("trangThai") as Course["trangThai"]
+    api.updateCourse(Number(editCourse.id), {
+      name: fd.get("tenMonHoc") as string,
+      credits: Number(fd.get("tinChi")),
+      description: fd.get("moTa") as string || undefined,
+      is_active: trangThai === "Đang giảng dạy",
+    }).then(() => {
+      setCourses(courses.map((c) =>
+        c.id === editCourse.id
+          ? { ...editCourse, tenMonHoc: fd.get("tenMonHoc") as string,
+              tinChi: Number(fd.get("tinChi")), moTa: fd.get("moTa") as string, trangThai }
+          : c
+      ))
+      setEditCourse(null)
+    })
   }
 
   const handleDelete = () => {
     if (!deleteTarget) return
-    setCourses(courses.filter((c) => c.id !== deleteTarget.id))
-    setDeleteTarget(null)
-    setIsDeleteOpen(false)
+    api.deleteCourse(Number(deleteTarget.id)).then(() => {
+      setCourses(courses.filter((c) => c.id !== deleteTarget.id))
+      setDeleteTarget(null)
+      setIsDeleteOpen(false)
+    })
   }
 
   const columns: ColumnDef<Course>[] = [

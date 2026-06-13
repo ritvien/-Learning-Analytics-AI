@@ -1,23 +1,119 @@
-import type { Course, Department, GradeRecord, Student, Teacher } from "@/types"
+// API types matching backend response shapes
+export interface ApiStudent {
+  id: number
+  student_code: string
+  full_name: string
+  gender: string | null
+  class_code: string | null
+  status: string
+  program_id: number
+  cohort_id: number
+  gpa_cumulative: number | null
+}
 
-async function fetcher<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+export interface ApiDepartment {
+  id: number
+  code: string
+  name: string
+  description: string | null
+  is_active: boolean
+}
+
+export interface ApiProgram {
+  id: number
+  code: string
+  name: string
+  description: string | null
+  department_id: number
+}
+
+export interface ApiCourse {
+  id: number
+  code: string
+  name: string
+  credits: number
+  description: string | null
+  is_elective: boolean
+  is_active: boolean
+  program_ids: number[]
+}
+
+export interface ApiEnrollment {
+  id: number
+  student_id: number
+  section_id: number
+  final_grade: number | null
+  grade_letter: string | null
+  is_passed: boolean | null
+  attempt_number: number
+  status: string
+}
+
+async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init)
   const text = await response.text()
   const contentType = response.headers.get("content-type") || ""
   const data = contentType.includes("application/json") ? JSON.parse(text) : text
 
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status} ${response.statusText} ${typeof data === "string" ? data : ""}`)
+    throw new Error(
+      `API ${response.status} ${response.statusText}: ${typeof data === "string" ? data : JSON.stringify(data)}`
+    )
   }
 
   return data as T
 }
 
+function qs(params: Record<string, string | number | undefined>): string {
+  const q = Object.entries(params)
+    .filter(([, v]) => v !== undefined)
+    .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+    .join("&")
+  return q ? `?${q}` : ""
+}
+
 export const api = {
-  fetcher,
-  getStudents: () => fetcher<Student[]>('/api/v1/students'),
-  getTeachers: () => fetcher<Teacher[]>('/api/v1/teachers'),
-  getCourses: () => fetcher<Course[]>('/api/v1/courses'),
-  getDepartments: () => fetcher<Department[]>('/api/v1/departments'),
-  getGrades: () => fetcher<GradeRecord[]>('/api/v1/grades'),
+  // --- Students ---
+  getStudents: (params?: { limit?: number; offset?: number; program_id?: number; cohort_id?: number }) =>
+    fetcher<ApiStudent[]>(`/api/v1/students${qs(params ?? {})}`),
+  createStudent: (body: { student_code: string; full_name: string; program_id: number; cohort_id: number; gender?: string; class_code?: string; status?: string }) =>
+    fetcher<ApiStudent>("/api/v1/students", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  updateStudent: (id: number, body: Partial<{ full_name: string; gender: string; class_code: string; status: string }>) =>
+    fetcher<ApiStudent>(`/api/v1/students/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  deleteStudent: (id: number) =>
+    fetcher<void>(`/api/v1/students/${id}`, { method: "DELETE" }),
+
+  // --- Departments ---
+  getDepartments: (params?: { limit?: number }) =>
+    fetcher<ApiDepartment[]>(`/api/v1/departments${qs(params ?? {})}`),
+  createDepartment: (body: { university_id: number; code: string; name: string; description?: string }) =>
+    fetcher<ApiDepartment>("/api/v1/departments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  updateDepartment: (id: number, body: Partial<{ name: string; description: string }>) =>
+    fetcher<ApiDepartment>(`/api/v1/departments/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  deleteDepartment: (id: number) =>
+    fetcher<void>(`/api/v1/departments/${id}`, { method: "DELETE" }),
+
+  // --- Programs ---
+  getPrograms: (params?: { limit?: number; department_id?: number }) =>
+    fetcher<ApiProgram[]>(`/api/v1/programs${qs(params ?? {})}`),
+  createProgram: (body: { department_id: number; code: string; name: string; description?: string }) =>
+    fetcher<ApiProgram>("/api/v1/programs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  updateProgram: (id: number, body: Partial<{ name: string; description: string }>) =>
+    fetcher<ApiProgram>(`/api/v1/programs/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  deleteProgram: (id: number) =>
+    fetcher<void>(`/api/v1/programs/${id}`, { method: "DELETE" }),
+
+  // --- Courses ---
+  getCourses: (params?: { limit?: number; program_id?: number }) =>
+    fetcher<ApiCourse[]>(`/api/v1/courses${qs(params ?? {})}`),
+  createCourse: (body: { code: string; name: string; credits: number; program_ids: number[]; description?: string }) =>
+    fetcher<ApiCourse>("/api/v1/courses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  updateCourse: (id: number, body: Partial<{ name: string; credits: number; description: string; is_active: boolean }>) =>
+    fetcher<ApiCourse>(`/api/v1/courses/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  deleteCourse: (id: number) =>
+    fetcher<void>(`/api/v1/courses/${id}`, { method: "DELETE" }),
+
+  // --- Enrollments ---
+  getEnrollments: (params?: { student_id?: number; section_id?: number; limit?: number }) =>
+    fetcher<ApiEnrollment[]>(`/api/v1/grades/enrollments${qs(params ?? {})}`),
 }
