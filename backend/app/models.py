@@ -107,6 +107,7 @@ class Program(Base):
 
     department = relationship("Department", back_populates="programs")
     courses = relationship("Course", secondary="program_courses", back_populates="programs")
+    plos = relationship("PLO", back_populates="program", cascade="all, delete-orphan")
 
 program_courses = Table('program_courses', Base.metadata,
     Column('program_id', Integer, ForeignKey('programs.id', ondelete='CASCADE'), primary_key=True),
@@ -146,6 +147,7 @@ class Course(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     programs = relationship("Program", secondary="program_courses", back_populates="courses")
+    plos = relationship("CoursePLOMapping", back_populates="course", cascade="all, delete-orphan")
 
 class Cohort(Base):
     """ORM model for cohorts table."""
@@ -280,3 +282,29 @@ class GradeComponent(Base):
 
     enrollment = relationship("Enrollment", back_populates="components")
     component_type = relationship("GradeComponentType")
+
+class PLO(Base):
+    """ORM model for plos table."""
+
+    __tablename__ = "plos"
+    id = Column(Integer, primary_key=True, index=True)
+    program_id = Column(Integer, ForeignKey("programs.id", ondelete="CASCADE"), nullable=False)
+    code = Column(String(50), nullable=False)
+    description = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    program = relationship("Program", back_populates="plos")
+    courses = relationship("CoursePLOMapping", back_populates="plo", cascade="all, delete-orphan")
+
+class CoursePLOMapping(Base):
+    """ORM model for course_plos mapping table."""
+
+    __tablename__ = "course_plos"
+    course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), primary_key=True)
+    plo_id = Column(Integer, ForeignKey("plos.id", ondelete="CASCADE"), primary_key=True)
+    level = Column(SmallInteger, nullable=False, default=1)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    course = relationship("Course", back_populates="plos")
+    plo = relationship("PLO", back_populates="courses")
