@@ -7,11 +7,13 @@ import tempfile
 
 
 def extract_blocks(sql: str, table: str) -> list[str]:
+    """Extract idempotent insert blocks for a table from the seed SQL."""
     pattern = rf"(INSERT INTO {table}\b.*?\nON CONFLICT DO NOTHING;)"
     return re.findall(pattern, sql, flags=re.DOTALL)
 
 
 def main() -> None:
+    """Apply mutable seed fields and grade components to the Docker database."""
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
     seed_path = os.path.join(repo_root, "backend", "db", "init-data.sql")
 

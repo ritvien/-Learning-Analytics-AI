@@ -3,6 +3,7 @@
 import json
 import os
 import re
+from typing import Any
 
 
 def escape_sql(text: str | None) -> str:
@@ -353,7 +354,8 @@ def generate_sql() -> None:
         if stu_items:
             f.write(
                 "INSERT INTO students"
-                " (id, program_id, cohort_id, student_code, full_name, gender, class_code, status, gpa_cumulative, is_active)"
+                " (id, program_id, cohort_id, student_code, full_name, gender, class_code, status,"
+                " gpa_cumulative, is_active)"
                 " VALUES\n"
             )
             f.write(",\n".join(stu_items))

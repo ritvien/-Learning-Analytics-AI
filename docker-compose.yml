@@ -39,6 +39,7 @@ services:
       LLM_MODEL:       ${LLM_MODEL:-gemini-1.5-flash}
       LLM_API_KEY:     ${LLM_API_KEY:-}
       OPENAI_API_KEY:  ${OPENAI_API_KEY:-}
+      RUFF_CACHE_DIR:  /tmp/.ruff_cache
     ports:
       - "8000:8000"
     volumes:
@@ -46,6 +47,8 @@ services:
       # Remove in production.
       - ./backend/app:/app/app
       - ./backend/migrations:/app/migrations
+      - ./backend/tests:/app/tests
+      - ./backend/pyproject.toml:/app/pyproject.toml:ro
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
       interval: 15s

@@ -34,6 +34,7 @@ def _sanitize_query(query: str) -> str:
 
     Raises:
         ValueError: if the query contains forbidden DDL/DML keywords.
+
     """
     query = query.strip().rstrip(";")
     if _FORBIDDEN_KEYWORDS.search(query):
@@ -57,6 +58,7 @@ def sql_query_tool(query: str) -> str:
     Returns:
         JSON string — danh sách dicts nếu thành công,
         hoặc chuỗi bắt đầu bằng "ERROR:" nếu thất bại.
+
     """
     settings = get_settings()
 
@@ -77,7 +79,7 @@ def sql_query_tool(query: str) -> str:
             columns = [desc[0] for desc in cur.description] if cur.description else []
             rows = cur.fetchmany(MAX_ROWS)
 
-        result = [dict(zip(columns, row)) for row in rows]
+        result = [dict(zip(columns, row, strict=True)) for row in rows]
 
         # --- Step 3: Serialize (handle Decimal, date, etc.)
         return json.dumps(result, ensure_ascii=False, default=str)
@@ -85,7 +87,7 @@ def sql_query_tool(query: str) -> str:
     except psycopg2.Error as exc:
         logger.warning("sql_query_tool DB error: %s | query: %s", exc, sanitized)
         return f"ERROR: Lỗi SQL — {exc.pgerror or exc}"
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception("sql_query_tool unexpected error")
         return f"ERROR: Lỗi không xác định — {exc}"
     finally:
