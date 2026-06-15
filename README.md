@@ -1,5 +1,46 @@
 # Starter Code Template — Cohort 2
 
+## Dashboard Analytics — nguyên tắc thiết kế
+
+Dashboard được thiết kế theo **đối tượng cần phân tích**, không bắt đầu từ câu hỏi “dùng biểu đồ gì”.
+Mỗi tầng phải trả lời một nhóm câu hỏi riêng và drill-down xuống tầng kế tiếp:
+
+| Route | Đối tượng chính | Câu hỏi trung tâm | Không nên làm |
+|---|---|---|---|
+| `/manager/analytics` | Toàn trường + bức tranh các ngành | Trường đang vận hành thế nào, ngành nào cần chú ý? | Đi sâu vào từng lớp hoặc lấy cảnh báo làm trung tâm |
+| `/manager/analytics/programs` | Một ngành được chọn | Ngành yếu ở giai đoạn, khóa và nhóm môn nào? | Tiếp tục so sánh hàng loạt ngành |
+| `/manager/analytics/courses` | Một môn học | Môn khó qua các kỳ hay chỉ khó với một số ngành/lớp? | Trộn với phân tích toàn ngành |
+| `/manager/analytics/sections` | Một lớp học phần | Lớp cần hỗ trợ cả lớp hay một nhóm sinh viên? | Chỉ làm công cụ tìm lớp bất thường |
+| `/manager/analytics/students` | Một sinh viên | Sinh viên đang tiến bộ hay có nguy cơ học vụ? | Chỉ hiển thị điểm của một môn |
+
+### Tổng quan toàn trường
+
+- Filter: học kỳ và khoa; không lọc theo môn hoặc lớp học phần.
+- KPI: sinh viên active, số ngành, pass rate toàn trường, GPA tích lũy trung bình, sinh viên nguy cơ.
+- Chart chính: pass rate toàn trường theo học kỳ, bar ngang pass rate theo ngành, heatmap ngành × học kỳ.
+- Bảng chính: `Program Overview Table`, sắp xếp ưu tiên theo sinh viên nguy cơ giảm dần, pass rate tăng dần, GPA tăng dần.
+- Drill-down: mở dashboard của một ngành từ bảng tổng quan.
+
+### Dashboard ngành đào tạo
+
+- Filter ngành là bắt buộc; các metric chỉ tính trên sinh viên thuộc ngành đang chọn.
+- KPI: quy mô ngành, GPA, pass rate, sinh viên nguy cơ và số môn bottleneck.
+- Chart chính: trend pass rate, trend điểm trung bình, pass rate theo nhóm môn, phân bố học lực và heatmap khóa × học kỳ.
+- Bảng chính: `Course Performance in Program`, ưu tiên môn pass rate thấp và có nhiều sinh viên trượt/cận trượt.
+- Dữ liệu hiện chưa có `course_group`; frontend tạm suy luận nhóm môn từ `is_elective` và số tín chỉ. Cần bổ sung trường nhóm môn trong schema để thay thế quy tắc tạm này.
+
+### Metric definitions
+
+| Metric | Định nghĩa MVP |
+|---|---|
+| Pass rate | Enrollment có `is_passed = true` / enrollment có kết quả hợp lệ |
+| GPA tích lũy TB | Trung bình `student.gpa_cumulative` của sinh viên active trong scope |
+| Sinh viên nguy cơ | Sinh viên active có GPA tích lũy `< 2.0` |
+| Môn bottleneck | Môn trong ngành có pass rate `< 70%` |
+| Cận trượt | Enrollment có điểm cuối kỳ từ `4.0` đến dưới `5.0` |
+
+> Data quality: các ngành chưa có sinh viên/điểm không được dùng để so sánh hiệu quả. Heatmap hiển thị `—` khi không đủ dữ liệu, không tự quy đổi thành `0%`.
+
 Empty starter template for AI20K Build Cohort 2 team repositories. Includes pre-configured AI usage logging hooks for Claude Code, Cursor, Codex, Gemini CLI, Antigravity, and GitHub Copilot.
 
 ## Structure

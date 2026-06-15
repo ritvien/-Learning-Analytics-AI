@@ -74,22 +74,22 @@ const data = {
       title: "Phân tích",
       items: [
         {
-          title: "Tổng quan",
+          title: "Tổng quan toàn trường",
           url: "/manager/analytics",
           icon: BarChart3,
         },
         {
-          title: "Theo Khoa",
-          url: "/manager/analytics/departments",
+          title: "Ngành đào tạo",
+          url: "/manager/analytics/programs",
           icon: Building2,
         },
         {
-          title: "Theo Môn học",
+          title: "Môn học",
           url: "/manager/analytics/courses",
           icon: BookMarked,
         },
         {
-          title: "Lớp & SV nguy cơ",
+          title: "Lớp học phần",
           url: "/manager/analytics/sections",
           icon: AlertTriangle,
         },
