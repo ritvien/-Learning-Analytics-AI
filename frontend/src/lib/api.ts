@@ -69,6 +69,19 @@ export interface ApiSemester {
   is_current: boolean
 }
 
+// --- Chat ---
+export interface ChatRequest {
+  message: string
+  context?: Record<string, any>
+}
+
+export interface ChatResponse {
+  response: string
+  intent: string
+  tool_calls: { tool_name: string; tool_input: Record<string, any>; tool_output: string }[]
+  latency_ms: number
+}
+
 async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init)
   const text = await response.text()
@@ -144,4 +157,12 @@ export const api = {
   // --- Semesters ---
   getSemesters: () =>
     fetcher<ApiSemester[]>('/api/v1/semesters'),
+
+  // --- Chat ---
+  chat: (body: ChatRequest) =>
+    fetcher<ChatResponse>("/api/v1/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
 }
