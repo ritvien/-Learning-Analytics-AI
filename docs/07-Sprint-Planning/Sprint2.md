@@ -278,15 +278,20 @@ graph LR
 
 ---
 
-## Eval Evidences — 5 Test Cases Plan
+## Eval Evidences — 10 Test Cases Plan
 
 | # | Input Query | Expected Tool Calls | Pass Criteria |
 |:-:|:------------|:-------------------|:--------------|
-| TC1 | "Top 5 môn có tỷ lệ trượt cao nhất ngành KTPM?" | `sql_query_tool` | Trả về danh sách 5 môn với % trượt, data khớp DB |
-| TC2 | "GPA trung bình khóa K18 ngành KTPM là bao nhiêu?" | `sql_query_tool` | Trả về con số GPA chính xác |
-| TC3 | "So sánh tỷ lệ trượt giữa K17 và K18 ngành CNTT" | `sql_query_tool` (2 lần) | So sánh 2 khóa, có nhận xét xu hướng |
-| TC4 | "Chào bạn, bạn là ai?" | Không gọi tool | Router → fast_response, trả lời nhanh |
-| TC5 | "CLO nào đạt thấp nhất ở môn Toán rời rạc?" | `sql_query_tool` hoặc `clo_calculator_tool` | Trả về CLO cụ thể + tỷ lệ đạt |
+| TC1 | "Top 5 môn trượt cao nhất ngành CNTT?" | `sql_query_tool` | Đúng 5 môn, đúng % |
+| TC2 | "GPA trung bình K21 CNTT?" | `sql_query_tool` | GPA chính xác |
+| TC3 | "So sánh trượt Cơ sở dữ liệu K21 vs K22" | `sql_query_tool` (2 lần) | So sánh 2 khóa |
+| TC4 | "Chào bạn, chức năng chính là gì?" | Không gọi tool | Router → fast_response |
+| TC5 | "CLO thấp nhất môn Tiếng Anh 1?" | `sql_query_tool` | Trả về mã CLO + % |
+| TC6 | "K21 CNTT có bao nhiêu sinh viên?" | `sql_query_tool` | Trả về đúng số SV |
+| TC7 | "3 sinh viên GPA cao nhất ngành TTNT?" | `sql_query_tool` | Tên + GPA top 3 |
+| TC8 | "Tỷ lệ pass Hệ quản trị CSDL?" | `sql_query_tool` | Đúng tỷ lệ % pass |
+| TC9 | "Điểm Toán cao cấp 1: K22 vs K21?" | `sql_query_tool` (2 lần) | So sánh điểm 2 khóa |
+| TC10| "Môn đk nhiều nhất ngành Cơ điện tử?" | `sql_query_tool` | Đúng tên môn + số SV |
 
 > Mỗi test case sẽ được chụp screenshot output thực tế + đánh giá (Pass/Fail/Partial). Lưu trong `docs/09-Evaluation/gate2_eval_evidences.md`.
 
@@ -328,7 +333,7 @@ Tham khảo [DatabaseModernizationPlan.md](../10-References/DatabaseModernizatio
 | G2-2 | Architecture Diagram | 3+ Mermaid diagrams cập nhật trong README, phản ánh đúng code hiện tại | Hoàng | ⬜ |
 | G2-3 | ≥ 10 PR Merged | Đếm trên GitHub, bổ sung nếu thiếu, mỗi PR có description + review | Cả team | ⬜ |
 | G2-4 | README.md | Setup instructions, env vars list, ≥ 3 sample queries | Hoàng | ⬜ |
-| G2-5 | Eval Evidences | 5 test case manual + screenshot output thực tế | Hoàng + Hưng | ⬜ |
+| G2-5 | Eval Evidences | 10 test case manual + screenshot output thực tế | Hoàng + Hưng | ⬜ |
 
 ### Sprint 2 Overall Checklist (Deadline: 24/06)
 
@@ -338,7 +343,7 @@ Tham khảo [DatabaseModernizationPlan.md](../10-References/DatabaseModernizatio
 | **Backend** | CRUD APIs hoạt động, Tree Metrics API, Chat endpoint, SSE streaming | Hưng |
 | **Frontend** | Chat UI + Tree component kết nối API thật, CRUD pages cơ bản | Hiếu |
 | **Data** | Seed data trong PostgreSQL, ≥ 100 students với grades thật | Hoàng + Hưng |
-| **Testing** | ≥ 10 unit tests BE, ≥ 5 FE test suites, 5 eval evidences | Cả team |
+| **Testing** | ≥ 10 unit tests BE, ≥ 5 FE test suites, 10 eval evidences | Cả team |
 | **DevOps** | Docker chạy đầy đủ services, CI/CD pass trên mọi PR | Hưng |
 | **Docs** | README cập nhật, architecture diagrams đúng, Journal + Worklog | Cả team |
 
