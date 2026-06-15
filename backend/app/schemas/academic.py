@@ -100,7 +100,7 @@ class CourseBase(BaseModel):
     code: str = Field(max_length=30)
     name: str = Field(max_length=255)
     name_en: str | None = None
-    credits: int = Field(ge=1)
+    credits: int = Field(ge=0)
     theory_hours: int | None = None
     lab_hours: int | None = None
     description: str | None = None
@@ -120,7 +120,7 @@ class CourseUpdate(BaseModel):
     code: str | None = Field(None, max_length=30)
     name: str | None = Field(None, max_length=255)
     name_en: str | None = None
-    credits: int | None = Field(None, ge=1)
+    credits: int | None = Field(None, ge=0)
     theory_hours: int | None = None
     lab_hours: int | None = None
     description: str | None = None

@@ -151,7 +151,7 @@ export default function OverviewPage() {
           <h1 className="text-2xl font-bold tracking-tight">Tổng quan toàn trường</h1>
           <p className="text-sm text-muted-foreground">Trường Đại học Điện Lực — EPU</p>
         </div>
-        <Select value={semester} onValueChange={setSemester}>
+        <Select value={semester} onValueChange={(val) => setSemester(val || "all")}>
           <SelectTrigger className="w-44">
             <SelectValue />
           </SelectTrigger>

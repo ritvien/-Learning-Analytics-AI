@@ -41,7 +41,7 @@ class Pagination:
     def __init__(self, skip: int = 0, limit: int = 50) -> None:
         """Set skip/limit with safety clamping."""
         self.skip = max(0, skip)
-        self.limit = min(200, max(1, limit))
+        self.limit = min(10000, max(1, limit))
 
 
 PaginationDep = Annotated[Pagination, Depends(Pagination)]
