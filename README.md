@@ -48,9 +48,23 @@ cp .env.example .env       # macOS / Linux / Git Bash
 
 Fill in `AI_LOG_SERVER` and `AI_LOG_API_KEY` (provided by the course).
 
-### 3. Build your project
+### 3. Run the application (Local Environment)
 
-This is an empty starter — pick any language/framework. The hooks are language-agnostic; they only need Python on the host (any of `python3`, `python`, or `py` works).
+To reproduce the full stack locally:
+
+1. **Backend & Database**:
+   ```powershell
+   docker-compose up -d
+   ```
+2. **Frontend (Next.js)**:
+   ```powershell
+   cd frontend
+   npm run dev
+   ```
+3. **Ngrok Tunnel (Optional for Public Access)**:
+   ```powershell
+   ngrok http 3000
+   ```
 
 ## Weekly Journal
 

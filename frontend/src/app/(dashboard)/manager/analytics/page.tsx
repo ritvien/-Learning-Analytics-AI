@@ -167,7 +167,7 @@ export default function OverviewPage() {
             {stats?.currentSem ? `Học kỳ hiện tại: ${stats.currentSem.name}` : "Trường Đại học Điện Lực — EPU"}
           </p>
         </div>
-        <Select value={semester} onValueChange={setSemester}>
+        <Select value={semester} onValueChange={(val) => setSemester(val || "all")}>
           <SelectTrigger className="w-52">
             <SelectValue />
           </SelectTrigger>

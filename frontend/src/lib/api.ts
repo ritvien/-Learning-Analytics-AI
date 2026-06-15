@@ -83,7 +83,13 @@ export interface ChatResponse {
 }
 
 async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(input, init)
+  const customInit = { ...init }
+  customInit.headers = {
+    ...customInit.headers,
+    "ngrok-skip-browser-warning": "true"
+  }
+  
+  const response = await fetch(input, customInit)
   const text = await response.text()
   const contentType = response.headers.get("content-type") || ""
   const data = contentType.includes("application/json") ? JSON.parse(text) : text
@@ -148,6 +154,8 @@ export const api = {
 
   // --- Enrollments ---
   getEnrollments: (params?: { student_id?: number; section_id?: number; limit?: number }) =>
+    fetcher<ApiEnrollment[]>(`/api/v1/grades/enrollments${qs(params ?? {})}`),
+  getGrades: (params?: { student_id?: number; limit?: number; offset?: number }) =>
     fetcher<ApiEnrollment[]>(`/api/v1/grades/enrollments${qs(params ?? {})}`),
 
   // --- Sections ---
