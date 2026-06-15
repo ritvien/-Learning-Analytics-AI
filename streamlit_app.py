@@ -107,13 +107,18 @@ with st.sidebar:
 
     st.divider()
 
-    st.markdown("### 💡 Câu hỏi gợi ý cho Demo 1")
+    st.markdown("### 💡 10 Kịch bản Kiểm thử (Test Cases)")
     tcs = [
-        "TC1: Top 5 môn có tỷ lệ trượt cao nhất ngành KTPM?",
-        "TC2: GPA trung bình khóa K18 ngành KTPM là bao nhiêu?",
-        "TC3: So sánh tỷ lệ trượt giữa K17 và K18 ngành CNTT",
-        "TC4: Chào bạn, bạn là ai?",
-        "TC5: CLO nào đạt thấp nhất ở môn Toán rời rạc?",
+        "TC1: Top 5 môn có tỷ lệ trượt cao nhất ngành Công nghệ thông tin?",
+        "TC2: GPA trung bình khóa K21 ngành Công nghệ thông tin là bao nhiêu?",
+        "TC3: So sánh tỷ lệ trượt môn Cơ sở dữ liệu của K21 và K22?",
+        "TC4: Chào bạn, chức năng chính của bạn là gì?",
+        "TC5: CLO nào đạt thấp nhất ở môn Tiếng Anh 1?",
+        "TC6: Khóa K21 ngành Công nghệ thông tin có bao nhiêu sinh viên?",
+        "TC7: Liệt kê 3 sinh viên có GPA tích lũy cao nhất ngành Trí tuệ nhân tạo.",
+        "TC8: Tỷ lệ qua môn (pass) của môn Hệ quản trị cơ sở dữ liệu là bao nhiêu?",
+        "TC9: Điểm trung bình môn Toán cao cấp 1 của khóa K22 có thấp hơn K21 không?",
+        "TC10: Môn nào có số sinh viên đăng ký nhiều nhất ngành Công nghệ kỹ thuật cơ điện tử?",
     ]
     demo_selected = st.selectbox("Chọn test case:", ["-- Tự nhập câu hỏi --"] + tcs)
 
@@ -346,15 +351,20 @@ with tab_tree:
 # TAB 3: EVAL TEST CASES
 # =====================================================================
 with tab_eval:
-    st.markdown("### 🧪 Danh sách 5 Kịch bản Kiểm thử cho Gate G2")
-    st.caption("Các kịch bản đánh giá chất lượng agent — Sprint 2")
+    st.markdown("### 🧪 Danh sách 10 Kịch bản Kiểm thử (Test Cases)")
+    st.caption("Các kịch bản đánh giá chất lượng agent đã được chuẩn hóa với Seed Data")
 
     eval_df = pd.DataFrame([
-        {"Kịch bản": "TC1", "Câu hỏi": "Top 5 môn có tỷ lệ trượt cao nhất ngành KTPM?", "Tool": "sql_query_tool", "Tiêu chuẩn": "Trả về đúng 5 môn, đúng tỉ lệ %", "Kết quả": "⏳ Chưa chạy"},
-        {"Kịch bản": "TC2", "Câu hỏi": "GPA trung bình khóa K18 ngành KTPM?", "Tool": "sql_query_tool", "Tiêu chuẩn": "GPA chính xác từ DB", "Kết quả": "⏳ Chưa chạy"},
-        {"Kịch bản": "TC3", "Câu hỏi": "So sánh tỷ lệ trượt K17 vs K18 ngành CNTT", "Tool": "sql_query_tool", "Tiêu chuẩn": "So sánh 2 khóa chính xác", "Kết quả": "⏳ Chưa chạy"},
-        {"Kịch bản": "TC4", "Câu hỏi": "Chào bạn, bạn là ai?", "Tool": "Không (Fast Response)", "Tiêu chuẩn": "Router → fast_response, không gọi DB", "Kết quả": "⏳ Chưa chạy"},
-        {"Kịch bản": "TC5", "Câu hỏi": "CLO nào đạt thấp nhất ở môn Toán rời rạc?", "Tool": "sql_query_tool", "Tiêu chuẩn": "Trả về CLO cụ thể với % đạt", "Kết quả": "⏳ Chưa chạy"},
+        {"Kịch bản": "TC1", "Câu hỏi": "Top 5 môn trượt cao nhất ngành CNTT?", "Tool": "sql_query_tool", "Tiêu chuẩn": "Đúng 5 môn, đúng %", "Kết quả": "⏳ Chưa chạy"},
+        {"Kịch bản": "TC2", "Câu hỏi": "GPA trung bình K21 CNTT?", "Tool": "sql_query_tool", "Tiêu chuẩn": "GPA chính xác", "Kết quả": "⏳ Chưa chạy"},
+        {"Kịch bản": "TC3", "Câu hỏi": "So sánh trượt Cơ sở dữ liệu K21 vs K22", "Tool": "sql_query_tool", "Tiêu chuẩn": "So sánh 2 khóa", "Kết quả": "⏳ Chưa chạy"},
+        {"Kịch bản": "TC4", "Câu hỏi": "Chào bạn, chức năng chính là gì?", "Tool": "Không", "Tiêu chuẩn": "Router → fast_response", "Kết quả": "⏳ Chưa chạy"},
+        {"Kịch bản": "TC5", "Câu hỏi": "CLO thấp nhất môn Tiếng Anh 1?", "Tool": "sql_query_tool", "Tiêu chuẩn": "Trả về mã CLO + %", "Kết quả": "⏳ Chưa chạy"},
+        {"Kịch bản": "TC6", "Câu hỏi": "K21 CNTT có bao nhiêu sinh viên?", "Tool": "sql_query_tool", "Tiêu chuẩn": "Trả về đúng số SV", "Kết quả": "⏳ Chưa chạy"},
+        {"Kịch bản": "TC7", "Câu hỏi": "3 sinh viên GPA cao nhất ngành TTNT?", "Tool": "sql_query_tool", "Tiêu chuẩn": "Tên + GPA top 3", "Kết quả": "⏳ Chưa chạy"},
+        {"Kịch bản": "TC8", "Câu hỏi": "Tỷ lệ pass Hệ quản trị CSDL?", "Tool": "sql_query_tool", "Tiêu chuẩn": "Đúng tỷ lệ % pass", "Kết quả": "⏳ Chưa chạy"},
+        {"Kịch bản": "TC9", "Câu hỏi": "Điểm Toán cao cấp 1: K22 vs K21?", "Tool": "sql_query_tool", "Tiêu chuẩn": "So sánh điểm 2 khóa", "Kết quả": "⏳ Chưa chạy"},
+        {"Kịch bản": "TC10", "Câu hỏi": "Môn đk nhiều nhất ngành Cơ điện tử?", "Tool": "sql_query_tool", "Tiêu chuẩn": "Đúng tên môn + số SV", "Kết quả": "⏳ Chưa chạy"},
     ])
     st.table(eval_df)
     st.info("ℹ️ Chạy từng test case tại Tab 'AI Agent Chat' để kiểm chứng kết quả thực tế.")
