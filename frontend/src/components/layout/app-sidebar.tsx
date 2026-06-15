@@ -8,7 +8,10 @@ import {
   MessageSquare,
   FileText,
   FileUp,
-  Layers,
+  BarChart3,
+  Building2,
+  BookMarked,
+  AlertTriangle,
 } from "lucide-react"
 
 import {
@@ -64,6 +67,31 @@ const data = {
           title: "Khoa & Ngành",
           url: "/manager/departments",
           icon: Settings,
+        },
+      ],
+    },
+    {
+      title: "Phân tích",
+      items: [
+        {
+          title: "Tổng quan",
+          url: "/manager/analytics",
+          icon: BarChart3,
+        },
+        {
+          title: "Theo Khoa",
+          url: "/manager/analytics/departments",
+          icon: Building2,
+        },
+        {
+          title: "Theo Môn học",
+          url: "/manager/analytics/courses",
+          icon: BookMarked,
+        },
+        {
+          title: "Lớp & SV nguy cơ",
+          url: "/manager/analytics/sections",
+          icon: AlertTriangle,
         },
       ],
     },
