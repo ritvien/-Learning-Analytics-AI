@@ -214,7 +214,7 @@ export default function CourseAnalyticsPage() {
           <div className="flex flex-wrap gap-3 items-center">
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground w-4">1</span>
-              <Select value={selDept} onValueChange={v => { setSelDept(v); setSelProg("all"); setSelCourse("all") }}>
+              <Select value={selDept} onValueChange={v => { setSelDept(v ?? "all"); setSelProg("all"); setSelCourse("all") }}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Chọn Khoa" />
                 </SelectTrigger>
@@ -227,7 +227,7 @@ export default function CourseAnalyticsPage() {
 
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground w-4">2</span>
-              <Select value={selProg} onValueChange={v => { setSelProg(v); setSelCourse("all") }} disabled={selDept === "all"}>
+              <Select value={selProg} onValueChange={v => { setSelProg(v ?? "all"); setSelCourse("all") }} disabled={selDept === "all"}>
                 <SelectTrigger className="w-52">
                   <SelectValue placeholder="Chọn Ngành" />
                 </SelectTrigger>
@@ -240,7 +240,7 @@ export default function CourseAnalyticsPage() {
 
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground w-4">3</span>
-              <Select value={selCourse} onValueChange={setSelCourse}>
+              <Select value={selCourse} onValueChange={value => setSelCourse(value ?? "all")}>
                 <SelectTrigger className="w-64">
                   <SelectValue placeholder="Chọn Môn học" />
                 </SelectTrigger>

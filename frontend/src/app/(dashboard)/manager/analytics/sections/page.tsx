@@ -251,7 +251,7 @@ export default function SectionsRiskPage() {
           <div className="flex flex-wrap gap-3 items-center">
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground w-4">1</span>
-              <Select value={selSem} onValueChange={v => { setSelSem(v); setSelCourse("all"); setSelSection("all") }}>
+              <Select value={selSem} onValueChange={v => { setSelSem(v ?? "all"); setSelCourse("all"); setSelSection("all") }}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Chọn Học kỳ" />
                 </SelectTrigger>
@@ -264,7 +264,7 @@ export default function SectionsRiskPage() {
 
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground w-4">2</span>
-              <Select value={selCourse} onValueChange={v => { setSelCourse(v); setSelSection("all") }}>
+              <Select value={selCourse} onValueChange={v => { setSelCourse(v ?? "all"); setSelSection("all") }}>
                 <SelectTrigger className="w-64">
                   <SelectValue placeholder="Chọn Môn học" />
                 </SelectTrigger>
@@ -277,7 +277,7 @@ export default function SectionsRiskPage() {
 
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground w-4">3</span>
-              <Select value={selSection} onValueChange={setSelSection} disabled={selCourse === "all"}>
+              <Select value={selSection} onValueChange={value => setSelSection(value ?? "all")} disabled={selCourse === "all"}>
                 <SelectTrigger className="w-52">
                   <SelectValue placeholder="Chọn Lớp học phần" />
                 </SelectTrigger>

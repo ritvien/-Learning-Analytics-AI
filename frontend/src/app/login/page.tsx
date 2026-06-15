@@ -1,6 +1,7 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -46,9 +47,9 @@ export default function LoginPage() {
           </div>
         </CardContent>
         <CardFooter>
-          <Button className="w-full" type="button" onClick={() => window.location.href='/manager'}>
+          <Link href="/manager" className={buttonVariants({ className: "w-full" })}>
             Đăng nhập
-          </Button>
+          </Link>
         </CardFooter>
       </Card>
     </div>

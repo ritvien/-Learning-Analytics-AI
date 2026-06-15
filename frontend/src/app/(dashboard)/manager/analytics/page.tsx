@@ -177,14 +177,14 @@ export default function SchoolOverviewPage() {
           <p className="text-sm text-muted-foreground">Trường đang vận hành thế nào, ngành nào nổi bật và ngành nào cần mở ra xem sâu?</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Select value={department} onValueChange={setDepartment}>
+          <Select value={department} onValueChange={value => setDepartment(value ?? "all")}>
             <SelectTrigger className="w-56"><SelectValue placeholder="Khoa" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả khoa</SelectItem>
               {raw?.departments.map(item => <SelectItem key={item.id} value={String(item.id)}>{item.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={semester} onValueChange={setSemester}>
+          <Select value={semester} onValueChange={value => setSemester(value ?? "current")}>
             <SelectTrigger className="w-52"><SelectValue placeholder="Học kỳ" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="current">Học kỳ hiện tại</SelectItem>

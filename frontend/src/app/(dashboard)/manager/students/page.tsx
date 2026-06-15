@@ -91,58 +91,24 @@ export default function StudentsPage() {
   // CREATE
   const handleCreate = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const fd = new FormData(e.currentTarget)
-    api.createStudent({
-      student_code: fd.get("mssv") as string,
-      full_name: fd.get("hoTen") as string,
-      gender: fd.get("gioiTinh") as string,
-      class_code: fd.get("lop") as string,
-      program_id: 1,
-      cohort_id: 1,
-      status: "active",
-    }).then((s) => {
-      setStudents((prev) => [...prev, {
-        id: String(s.id), mssv: s.student_code, hoTen: s.full_name,
-        gioiTinh: (s.gender as Student["gioiTinh"]) ?? "Nam",
-        ngayVaoTruong: "", khoa: "", bacDaoTao: "Đại học - Tín chỉ", loaiHinh: "Chính quy",
-        nganh: "Công nghệ thông tin", chuyenNganh: "", khoaQuanLy: "Công nghệ thông tin",
-        lop: s.class_code ?? "", trangThai: "Đang học", coVanHocTap: "",
-        soDienThoaiCVHT: "", tongTCTichLuy: 0, diemTBTichLuy: 0, tongTCNo: 0, soMonNo: 0,
-      }])
-      setIsCreateOpen(false)
-    })
+    alert("Hiện tại chưa có quyền để thực hiện sửa db (Thêm sinh viên).")
+    setIsCreateOpen(false)
   }
 
   // UPDATE
   const handleUpdate = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!editStudent) return
-    const fd = new FormData(e.currentTarget)
-    const trangThai = fd.get("trangThai") as Student["trangThai"]
-    api.updateStudent(Number(editStudent.id), {
-      full_name: fd.get("hoTen") as string,
-      gender: fd.get("gioiTinh") as string,
-      class_code: fd.get("lop") as string,
-      status: STATUS_EN[trangThai] ?? "active",
-    }).then(() => {
-      setStudents(students.map((s) =>
-        s.id === editStudent.id
-          ? { ...editStudent, hoTen: fd.get("hoTen") as string, gioiTinh: fd.get("gioiTinh") as Student["gioiTinh"],
-              lop: fd.get("lop") as string, trangThai }
-          : s
-      ))
-      setEditStudent(null)
-    })
+    alert("Hiện tại chưa có quyền để thực hiện sửa db (Cập nhật sinh viên).")
+    setEditStudent(null)
   }
 
   // DELETE
   const handleDelete = () => {
     if (!deleteTarget) return
-    api.deleteStudent(Number(deleteTarget.id)).then(() => {
-      setStudents(students.filter((s) => s.id !== deleteTarget.id))
-      setDeleteTarget(null)
-      setIsDeleteOpen(false)
-    })
+    alert("Hiện tại chưa có quyền để thực hiện sửa db (Xóa sinh viên).")
+    setDeleteTarget(null)
+    setIsDeleteOpen(false)
   }
 
   const columns: ColumnDef<Student>[] = [
