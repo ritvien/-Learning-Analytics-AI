@@ -1,0 +1,72 @@
+[
+  {
+    "tc": "TC1",
+    "input": "Top 5 môn có tỷ lệ trượt cao nhất ngành Công nghệ thông tin?",
+    "response": "HTTP Error 500: Internal Server Error",
+    "intent": "Error",
+    "status": "Fail"
+  },
+  {
+    "tc": "TC2",
+    "input": "GPA trung bình khóa K21 ngành Công nghệ thông tin là bao nhiêu?",
+    "response": "Thầy/cô hỏi **GPA trung bình khóa K21 ngành Công nghệ thông tin**. Kết quả từ dữ liệu hiện có cho thấy:\n\n| Khóa | Ngành (chương trình) | GPA trung bình (cumulative) |\n|---|---|---:|\n| K21 | Công nghệ thông tin | 2.275 |\n\n> 💡 **Nhận xét:** GPA trung bình khóa K21 ngành Công nghệ thông tin hiện ở mức khoảng **2.275**. Nếu thầy/cô muốn, tôi có thể tách theo **học kỳ** hoặc theo **lớp (class_code)** để nhìn rõ hơn.",
+    "intent": "core_agent",
+    "status": "Pass"
+  },
+  {
+    "tc": "TC3",
+    "input": "So sánh tỷ lệ trượt môn Cơ sở dữ liệu của K21 và K22?",
+    "response": "Thầy/cô yêu cầu so sánh tỷ lệ trượt **môn Cơ sở dữ liệu** giữa **K21** và **K22**. Tôi lấy trên các **enrollments có `status = 'completed'`**.\n\n| Khóa | Số SV trượt (fail_count) | Tổng đăng ký (enrollment_count) | Tỷ lệ trượt (%) |\n|---|---:|---:|---:|\n| K21 | 66 | 207 | 31.88% |\n| K22 | 34 | 109 | 31.19% |\n\n**So sánh nhanh:** Tỷ lệ trượt K21 cao hơn K22 khoảng **0.69 điểm %**.\n\n> 💡 **Nhận xét:** Hai khóa có tỷ lệ trượt gần như tương đương (~31%), chênh lệch không lớn. Nếu thầy/cô muốn, tôi có thể tách theo **học kỳ** hoặc theo **từng lớp/phần giảng (section)** để tìm nguyên nhân chênh lệch.",
+    "intent": "core_agent",
+    "status": "Pass"
+  },
+  {
+    "tc": "TC4",
+    "input": "Chào bạn, chức năng chính của bạn là gì?",
+    "response": "Chào bạn! Tôi là EduInsight AI của EPU, hỗ trợ phân tích học vụ và trả lời các câu hỏi giao tiếp đơn giản. Nếu bạn cần, tôi có thể giúp bạn diễn giải thông tin học tập theo hướng dẫn chung và gợi ý cách đặt câu hỏi để tìm đúng dữ liệu. Bạn muốn hỏi về vấn đề học vụ nào cụ thể (ví dụ điểm, môn học, đăng ký, học phí, kế hoạch học)?",
+    "intent": "fast_response",
+    "status": "Pass"
+  },
+  {
+    "tc": "TC5",
+    "input": "CLO nào đạt thấp nhất ở môn Tiếng Anh 1?",
+    "response": "Thầy/cô ơi, tôi vừa truy vấn nhưng **không tìm thấy dữ liệu CLO/PLO gắn với môn “Tiếng Anh 1”** trong hệ thống (kết quả rỗng).  \n\nGợi ý thầy/cô kiểm tra giúp:\n- Tên môn trong dữ liệu có thể **không đúng “Tiếng Anh 1”** (ví dụ: “English 1”, “Tiếng Anh 1 (….)”, hoặc mã môn khác).\n- Hoặc dữ liệu **`student_clo_achievements`** chưa được ghi cho lớp/môn này.\n\nNếu thầy/cô cho tôi **mã môn** hoặc **tên chính xác** theo dữ liệu, tôi sẽ truy xuất lại và xác định **CLO đạt thấp nhất** ngay.  \n\n> 💡 **Nhận xét:** Hiện không có bản ghi CLO achievement cho “Tiếng Anh 1” (dữ liệu truy vấn trả về rỗng), nên chưa thể kết luận CLO thấp nhất.",
+    "intent": "core_agent",
+    "status": "Pass"
+  },
+  {
+    "tc": "TC6",
+    "input": "Khóa K21 ngành Công nghệ thông tin có bao nhiêu sinh viên?",
+    "response": "Thầy/cô hỏi **Khóa K21 – Ngành Công nghệ thông tin** có **100 sinh viên**.\n\n> 💡 **Nhận xét:** Con số được tính theo **COUNT(DISTINCT s.id)** trên bảng `students` với điều kiện `cohorts.code = 'K21'` và `programs.name ILIKE '%Công nghệ thông tin%'`.",
+    "intent": "core_agent",
+    "status": "Pass"
+  },
+  {
+    "tc": "TC7",
+    "input": "Liệt kê 3 sinh viên có GPA tích lũy cao nhất ngành Trí tuệ nhân tạo.",
+    "response": "Thầy/cô yêu cầu 3 sinh viên có GPA tích lũy cao nhất ngành **Trí tuệ nhân tạo**. Hiện dữ liệu trong hệ thống chỉ tìm thấy **1 sinh viên** thuộc ngành này, nên tôi liệt kê toàn bộ 1 sinh viên có GPA cao nhất.\n\n| STT | Mã SV | Họ tên | Lớp | GPA tích lũy |\n|---:|---|---|---|---:|\n| 1 | 25810460057 | AN VIẾT TÙNG | D20TTNTTNL | 2.68 |\n\n> 💡 **Nhận xét:** Do `students` trong ngành *Trí tuệ nhân tạo* chỉ có 1 bản ghi, hệ thống không đủ dữ liệu để lấy “Top 3”. Nếu thầy/cô muốn, tôi có thể kiểm tra thêm theo **tên chương trình/tiêu đề ngành** gần đúng khác (ví dụ có thể được lưu là “AI”/“Trí tuệ nhân tạo ứng dụng”…).",
+    "intent": "core_agent",
+    "status": "Pass"
+  },
+  {
+    "tc": "TC8",
+    "input": "Tỷ lệ qua môn (pass) của môn Hệ quản trị cơ sở dữ liệu là bao nhiêu?",
+    "response": "Thầy/cô hỏi tỷ lệ qua môn (pass) của môn **Hệ quản trị cơ sở dữ liệu**. Kết quả trên dữ liệu enrollment đã hoàn thành cho thấy:\n\n| Mã môn | Tên môn | Tín chỉ | Sĩ số (completed) | Số qua môn | Tỷ lệ pass |\n|---|---|---:|---:|---:|---:|\n| CRS0101 | Hệ quản trị cơ sở dữ liệu | 3 | 109 | 58 | **53.21%** |\n\n> 💡 **Nhận xét:** Tỷ lệ pass của môn này là **53.21%** (58/109) trên các lần đăng ký có trạng thái **completed**.",
+    "intent": "core_agent",
+    "status": "Pass"
+  },
+  {
+    "tc": "TC9",
+    "input": "Điểm trung bình môn Toán cao cấp 1 của khóa K22 có thấp hơn K21 không?",
+    "response": "Dạ thầy/cô, có.\n\n| Khóa | Điểm trung bình (grade_4) của *Toán cao cấp 1* |\n|---|---:|\n| K21 | 2.8558 |\n| K22 | 2.0314 |\n\n=> So với K21, **khóa K22 thấp hơn** (giảm khoảng **0.8244** điểm grade_4).\n\n> 💡 **Nhận xét:** Kết quả cho thấy chất lượng học phần *Toán cao cấp 1* của K22 thấp hơn K21 rõ rệt.",
+    "intent": "core_agent",
+    "status": "Pass"
+  },
+  {
+    "tc": "TC10",
+    "input": "Môn nào có số sinh viên đăng ký nhiều nhất ngành Công nghệ kỹ thuật cơ điện tử?",
+    "response": "Thầy/cô hỏi: *“Môn nào có số sinh viên đăng ký nhiều nhất ngành Công nghệ kỹ thuật cơ điện tử?”*.\n\nKết quả:  \n\n| Mã môn | Tên môn | Tổng số sinh viên (theo thống kê trong các học kỳ) |\n|---|---|---:|\n| CRS0056 | Hệ thống sản xuất tự động | 3 |\n\n> 💡 **Nhận xét:** Môn có tổng số sinh viên đăng ký cao nhất trong ngành *Công nghệ kỹ thuật cơ điện tử* là **Hệ thống sản xuất tự động (CRS0056)** với **3 sinh viên**. Nếu thầy/cô muốn “theo từng học kỳ” hoặc “lấy theo năm/cohort”, tôi có thể truy xuất chi tiết thêm.",
+    "intent": "core_agent",
+    "status": "Pass"
+  }
+]
