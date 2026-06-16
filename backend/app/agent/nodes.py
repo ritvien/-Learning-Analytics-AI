@@ -42,11 +42,10 @@ def get_model(model_name: str, temperature: float = 0):
         from langchain_google_genai import ChatGoogleGenerativeAI
         # Map models if they are configured as openai format
         actual_model = settings.llm_model if "gemini" in settings.llm_model else "gemini-1.5-flash"
-        return ChatGoogleGenerativeAI(
-            model=actual_model,
-            google_api_key=settings.llm_api_key,
-            temperature=temperature,
-        )
+        kwargs = {"model": actual_model, "temperature": temperature}
+        if settings.llm_api_key:
+            kwargs["google_api_key"] = settings.llm_api_key
+        return ChatGoogleGenerativeAI(**kwargs)
     else:
         return ChatOpenAI(
             model=model_name,

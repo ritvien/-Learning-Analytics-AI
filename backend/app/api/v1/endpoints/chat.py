@@ -10,6 +10,7 @@ import time
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from pydantic import BaseModel, Field
 
@@ -107,3 +108,51 @@ async def chat(payload: ChatRequest) -> ChatResponse:
         tool_calls=tool_calls_info,
         latency_ms=elapsed_ms,
     )
+
+
+@router.post("/stream")
+async def chat_stream(payload: ChatRequest):
+    """Invoke the agent and stream the response via SSE."""
+    import json
+    
+    async def event_generator():
+        start = time.perf_counter()
+        try:
+            async for event in _agent.astream_events(
+                {
+                    "messages": [HumanMessage(content=payload.message)],
+                    "context": payload.context
+                },
+                version="v2",
+            ):
+                kind = event["event"]
+                name = event["name"]
+                node_name = event.get("metadata", {}).get("langgraph_node")
+
+                if kind == "on_chain_end" and name == "router":
+                    output = event["data"].get("output", {})
+                    if isinstance(output, dict):
+                        intent = output.get("context", {}).get("intent", "unknown")
+                        yield f"data: {json.dumps({'type': 'router', 'intent': intent})}\n\n"
+
+                elif kind == "on_tool_start":
+                    yield f"data: {json.dumps({'type': 'tool_call', 'tool': name, 'input': event['data'].get('input')})}\n\n"
+
+                elif kind == "on_tool_end":
+                    output = event['data'].get('output')
+                    output_str = str(output)[:500] if output else ""
+                    yield f"data: {json.dumps({'type': 'tool_result', 'output': output_str})}\n\n"
+
+                elif kind == "on_chat_model_stream":
+                    if node_name in ("core_agent", "fast_response"):
+                        chunk = event["data"]["chunk"]
+                        if hasattr(chunk, "content") and chunk.content and isinstance(chunk.content, str):
+                            yield f"data: {json.dumps({'type': 'token', 'content': chunk.content})}\n\n"
+
+            elapsed_ms = int((time.perf_counter() - start) * 1000)
+            yield f"data: {json.dumps({'type': 'done', 'latency_ms': elapsed_ms})}\n\n"
+        except Exception as exc:
+            logger.exception("Agent stream failed")
+            yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
