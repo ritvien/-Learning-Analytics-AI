@@ -192,4 +192,70 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
+
+  /**
+   * SSE streaming chat — calls POST /api/v1/chat/stream
+   * and yields parsed SSE events as they arrive.
+   */
+  chatStream: async function* (body: ChatRequest): AsyncGenerator<
+    | { type: "token"; content: string }
+    | { type: "done"; intent: string; latency_ms: number }
+    | { type: "error"; message: string }
+  > {
+    const response = await fetch("/api/v1/chat/stream", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!response.ok) {
+      yield { type: "error", message: `API ${response.status}: ${response.statusText}` }
+      return
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) {
+      yield { type: "error", message: "No response body" }
+      return
+    }
+
+    const decoder = new TextDecoder()
+    let buffer = ""
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split("\n")
+      buffer = lines.pop() || ""
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          try {
+            const event = JSON.parse(line.slice(6))
+            yield event
+          } catch {
+            // skip malformed events
+          }
+        }
+      }
+    }
+  },
+
+  // --- Auth ---
+  login: async (email: string, password: string): Promise<{ access_token: string; token_type: string }> => {
+    const formData = new URLSearchParams()
+    formData.append("username", email)
+    formData.append("password", password)
+
+    return fetcher<{ access_token: string; token_type: string }>("/api/v1/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: formData.toString(),
+    })
+  },
 }

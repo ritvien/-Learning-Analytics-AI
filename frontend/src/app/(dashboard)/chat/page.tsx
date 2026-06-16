@@ -117,27 +117,54 @@ export default function ChatPage() {
     setInput("")
     setIsLoading(true)
 
-    // Call Real API
     const assistantMsgId = `a-${Date.now()}`
-    
-    // Add empty loading message
+
+    // Add empty streaming message
     setMessages(prev => [...prev, {
       id: assistantMsgId,
       role: "assistant",
-      content: "Đang phân tích...",
+      content: "",
       timestamp: new Date(),
       isStreaming: true,
     }])
 
     try {
-      const result = await api.chat({ message: text.trim() })
+      // Use SSE streaming for typewriter effect
+      let fullContent = ""
+      for await (const event of api.chatStream({ message: text.trim() })) {
+        if (event.type === "token") {
+          fullContent += event.content
+          const snapshot = fullContent
+          setMessages(prev => prev.map(m =>
+            m.id === assistantMsgId ? { ...m, content: snapshot, isStreaming: true } : m
+          ))
+        } else if (event.type === "done") {
+          setMessages(prev => prev.map(m =>
+            m.id === assistantMsgId ? { ...m, content: fullContent, isStreaming: false } : m
+          ))
+        } else if (event.type === "error") {
+          setMessages(prev => prev.map(m =>
+            m.id === assistantMsgId ? { ...m, content: `**Lỗi:** ${event.message}`, isStreaming: false } : m
+          ))
+        }
+      }
+
+      // If stream ended without a "done" event, mark as completed
       setMessages(prev => prev.map(m =>
-        m.id === assistantMsgId ? { ...m, content: result.response, isStreaming: false } : m
+        m.id === assistantMsgId && m.isStreaming ? { ...m, isStreaming: false } : m
       ))
     } catch (error: any) {
-      setMessages(prev => prev.map(m =>
-        m.id === assistantMsgId ? { ...m, content: `**Lỗi hệ thống:** Không thể kết nối với Agent. \n\nChi tiết: ${error.message}`, isStreaming: false } : m
-      ))
+      // Fallback: try non-streaming API
+      try {
+        const result = await api.chat({ message: text.trim() })
+        setMessages(prev => prev.map(m =>
+          m.id === assistantMsgId ? { ...m, content: result.response, isStreaming: false } : m
+        ))
+      } catch (fallbackError: any) {
+        setMessages(prev => prev.map(m =>
+          m.id === assistantMsgId ? { ...m, content: `**Lỗi hệ thống:** Không thể kết nối với Agent. \n\nChi tiết: ${fallbackError.message}`, isStreaming: false } : m
+        ))
+      }
     }
     setIsLoading(false)
     inputRef.current?.focus()
@@ -195,9 +222,18 @@ export default function ChatPage() {
                   <p className="text-sm">{msg.content}</p>
                 ) : (
                   <div className="space-y-1">
-                    {renderContent(msg.content)}
-                    {msg.isStreaming && (
-                      <span className="inline-block w-1 h-4 bg-primary animate-pulse ml-1 rounded" />
+                    {msg.content ? renderContent(msg.content) : (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <div className="flex gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:0ms]"></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:150ms]"></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:300ms]"></span>
+                        </div>
+                        Đang phân tích...
+                      </div>
+                    )}
+                    {msg.isStreaming && msg.content && (
+                      <span className="inline-block w-0.5 h-4 bg-primary animate-pulse ml-0.5 rounded" />
                     )}
                   </div>
                 )}
