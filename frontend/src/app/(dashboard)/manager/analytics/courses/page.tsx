@@ -82,6 +82,59 @@ export default function CourseAnalyticsPage() {
     return raw.enrollments.filter(e => sectionsForCourse.has(e.section_id))
   }, [raw, maps, selCourse])
 
+  const courseRanking = React.useMemo(() => {
+    if (!raw || !maps) return []
+    const allowed = new Set(filteredCourses.map(course => course.id))
+    const stats = new Map<number, {
+      total: number
+      failed: number
+      gradeSum: number
+      gradeCount: number
+      sections: Map<number, { total: number; passed: number }>
+    }>()
+
+    for (const enrollment of raw.enrollments) {
+      if (enrollment.is_passed === null) continue
+      const section = maps.secMap.get(enrollment.section_id)
+      if (!section || !allowed.has(section.course_id)) continue
+      const item = stats.get(section.course_id) ?? {
+        total: 0, failed: 0, gradeSum: 0, gradeCount: 0, sections: new Map(),
+      }
+      item.total++
+      if (!enrollment.is_passed) item.failed++
+      if (enrollment.final_grade !== null) {
+        item.gradeSum += enrollment.final_grade
+        item.gradeCount++
+      }
+      const sectionStat = item.sections.get(section.id) ?? { total: 0, passed: 0 }
+      sectionStat.total++
+      if (enrollment.is_passed) sectionStat.passed++
+      item.sections.set(section.id, sectionStat)
+      stats.set(section.course_id, item)
+    }
+
+    return [...stats.entries()]
+      .filter(([, item]) => item.total >= 5)
+      .map(([courseId, item]) => {
+        const course = raw.courses.find(candidate => candidate.id === courseId)!
+        const passRate = (item.total - item.failed) / item.total * 100
+        const anomalies = [...item.sections.values()].filter(section =>
+          section.total >= 5 && section.passed / section.total * 100 < passRate - 15
+        ).length
+        return {
+          id: courseId,
+          code: course.code,
+          name: course.name,
+          total: item.total,
+          failed: item.failed,
+          failRate: item.failed / item.total * 100,
+          avgGrade: item.gradeCount ? item.gradeSum / item.gradeCount : 0,
+          anomalies,
+        }
+      })
+      .sort((a, b) => b.failed - a.failed || b.failRate - a.failRate)
+  }, [raw, maps, filteredCourses])
+
   const courseStats = React.useMemo(() => {
     if (!raw || !maps || !courseEnrollments || selCourse === "all") return null
     const { secMap, semMap } = maps
@@ -161,7 +214,7 @@ export default function CourseAnalyticsPage() {
           <div className="flex flex-wrap gap-3 items-center">
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground w-4">1</span>
-              <Select value={selDept} onValueChange={v => { setSelDept(v); setSelProg("all"); setSelCourse("all") }}>
+              <Select value={selDept} onValueChange={v => { setSelDept(v ?? "all"); setSelProg("all"); setSelCourse("all") }}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Chọn Khoa" />
                 </SelectTrigger>
@@ -174,7 +227,7 @@ export default function CourseAnalyticsPage() {
 
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground w-4">2</span>
-              <Select value={selProg} onValueChange={v => { setSelProg(v); setSelCourse("all") }} disabled={selDept === "all"}>
+              <Select value={selProg} onValueChange={v => { setSelProg(v ?? "all"); setSelCourse("all") }} disabled={selDept === "all"}>
                 <SelectTrigger className="w-52">
                   <SelectValue placeholder="Chọn Ngành" />
                 </SelectTrigger>
@@ -187,7 +240,7 @@ export default function CourseAnalyticsPage() {
 
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground w-4">3</span>
-              <Select value={selCourse} onValueChange={setSelCourse}>
+              <Select value={selCourse} onValueChange={value => setSelCourse(value ?? "all")}>
                 <SelectTrigger className="w-64">
                   <SelectValue placeholder="Chọn Môn học" />
                 </SelectTrigger>
@@ -204,10 +257,63 @@ export default function CourseAnalyticsPage() {
       </Card>
 
       {selCourse === "all" ? (
-        <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-2">
-          <BookOpen className="h-10 w-10 opacity-30" />
-          <p className="text-sm">Chọn Khoa → Ngành → Môn học để xem phân tích</p>
-        </div>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Xếp hạng môn học cần ưu tiên</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Xếp theo số lượt trượt để phản ánh mức ảnh hưởng thực tế. Chọn một môn để phân tích chi tiết.
+            </p>
+          </CardHeader>
+          <CardContent className="p-0">
+            {!courseRanking.length ? (
+              <p className="px-6 py-10 text-center text-sm text-muted-foreground">
+                Chưa có dữ liệu điểm học phần cho bộ lọc này.
+              </p>
+            ) : (
+              <div className="max-h-[560px] overflow-auto">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-background">
+                    <tr className="border-b bg-muted/40">
+                      <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">#</th>
+                      <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Môn học</th>
+                      <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">Lượt học</th>
+                      <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">Trượt</th>
+                      <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">Fail rate</th>
+                      <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">Điểm TB</th>
+                      <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">Lớp bất thường</th>
+                      <th className="px-4 py-2.5 text-right font-medium text-muted-foreground">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {courseRanking.slice(0, 100).map((course, index) => (
+                      <tr key={course.id} className="hover:bg-muted/20">
+                        <td className="px-4 py-2.5 font-semibold text-muted-foreground">{index + 1}</td>
+                        <td className="px-3 py-2.5">
+                          <p className="font-medium">{course.code}</p>
+                          <p className="max-w-[360px] truncate text-muted-foreground" title={course.name}>{course.name}</p>
+                        </td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">{course.total}</td>
+                        <td className="px-3 py-2.5 text-right font-semibold text-destructive tabular-nums">{course.failed}</td>
+                        <td className="px-3 py-2.5 text-right">
+                          <Badge variant={course.failRate >= 40 ? "destructive" : "outline"} className="text-[10px]">
+                            {course.failRate.toFixed(1)}%
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">{course.avgGrade.toFixed(2)}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">{course.anomalies}</td>
+                        <td className="px-4 py-2.5 text-right">
+                          <button className="font-medium text-primary hover:underline" onClick={() => setSelCourse(String(course.id))}>
+                            Phân tích
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       ) : (
         <>
           <div>

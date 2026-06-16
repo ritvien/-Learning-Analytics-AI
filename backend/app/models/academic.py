@@ -129,4 +129,4 @@ class Course(TimestampMixin, Base):
 
 
 # Deferred import to avoid circular dependency at top level
-from app.models.assessment import CLO, PLO  # noqa: E402
+from app.models.assessment import CLO, PLO, CoursePLOMapping  # noqa: E402

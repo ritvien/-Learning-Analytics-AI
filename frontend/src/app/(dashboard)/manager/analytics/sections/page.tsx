@@ -85,11 +85,84 @@ export default function SectionsRiskPage() {
     }).sort((a, b) => a.section_code.localeCompare(b.section_code))
   }, [raw, selSem, selCourse])
 
+  const sectionFinder = React.useMemo(() => {
+    if (!raw || !maps) return []
+    const courseTotals = new Map<number, { total: number; passed: number }>()
+    const sectionTotals = new Map<number, {
+      total: number
+      passed: number
+      gradeSum: number
+      gradeCount: number
+      nearFail: number
+      watch: number
+    }>()
+    for (const enrollment of raw.enrollments) {
+      if (enrollment.is_passed === null) continue
+      const section = maps.secMap.get(enrollment.section_id)
+      if (!section) continue
+      const item = courseTotals.get(section.course_id) ?? { total: 0, passed: 0 }
+      item.total++
+      if (enrollment.is_passed) item.passed++
+      courseTotals.set(section.course_id, item)
+
+      const sectionItem = sectionTotals.get(section.id) ?? {
+        total: 0, passed: 0, gradeSum: 0, gradeCount: 0, nearFail: 0, watch: 0,
+      }
+      sectionItem.total++
+      if (enrollment.is_passed) sectionItem.passed++
+      if (enrollment.final_grade !== null) {
+        sectionItem.gradeSum += enrollment.final_grade
+        sectionItem.gradeCount++
+        if (enrollment.final_grade >= 4 && enrollment.final_grade < 5) sectionItem.nearFail++
+        if (enrollment.final_grade >= 5 && enrollment.final_grade < 5.5) sectionItem.watch++
+      }
+      sectionTotals.set(section.id, sectionItem)
+    }
+
+    return sectionsForFilter.map(section => {
+      const item = sectionTotals.get(section.id) ?? {
+        total: 0, passed: 0, gradeSum: 0, gradeCount: 0, nearFail: 0, watch: 0,
+      }
+      const failed = item.total - item.passed
+      const passRate = item.total ? item.passed / item.total * 100 : 0
+      const courseTotal = courseTotals.get(section.course_id)
+      const benchmark = courseTotal?.total ? courseTotal.passed / courseTotal.total * 100 : 0
+      const difference = passRate - benchmark
+      const avgGrade = item.gradeCount ? item.gradeSum / item.gradeCount : 0
+      const nearFailPct = item.total ? item.nearFail / item.total * 100 : 0
+      const watchPct = item.total ? item.watch / item.total * 100 : 0
+      const risk = difference <= -15 || (item.total > 0 && failed / item.total >= 0.4)
+        ? "high"
+        : passRate < 70 || nearFailPct > 15
+          ? "medium"
+          : watchPct > 20 ? "watch" : "normal"
+      return {
+        id: section.id,
+        code: section.section_code,
+        course: maps.courseMap.get(section.course_id)?.name ?? `Môn ${section.course_id}`,
+        semester: maps.semMap.get(section.semester_id)?.name ?? "—",
+        total: item.total,
+        passRate,
+        benchmark,
+        difference,
+        avgGrade,
+        failed,
+        nearFail: item.nearFail,
+        risk,
+      }
+    })
+      .filter(section => section.total >= 5)
+      .sort((a, b) => {
+        const severity: Record<string, number> = { high: 3, medium: 2, watch: 1, normal: 0 }
+        return severity[b.risk] - severity[a.risk] || a.difference - b.difference || b.failed - a.failed
+      })
+  }, [raw, maps, sectionsForFilter])
+
   // Analytics for selected section
   const sectionStats = React.useMemo(() => {
     if (!raw || !maps || selSection === "all") return null
     const secId = Number(selSection)
-    const { studentMap, courseMap, secMap } = maps
+    const { studentMap, secMap } = maps
 
     const secEnrolls = raw.enrollments.filter(e => e.section_id === secId)
     const withGrade  = secEnrolls.filter(e => e.final_grade !== null)
@@ -178,7 +251,7 @@ export default function SectionsRiskPage() {
           <div className="flex flex-wrap gap-3 items-center">
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground w-4">1</span>
-              <Select value={selSem} onValueChange={v => { setSelSem(v); setSelCourse("all"); setSelSection("all") }}>
+              <Select value={selSem} onValueChange={v => { setSelSem(v ?? "all"); setSelCourse("all"); setSelSection("all") }}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Chọn Học kỳ" />
                 </SelectTrigger>
@@ -191,7 +264,7 @@ export default function SectionsRiskPage() {
 
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground w-4">2</span>
-              <Select value={selCourse} onValueChange={v => { setSelCourse(v); setSelSection("all") }}>
+              <Select value={selCourse} onValueChange={v => { setSelCourse(v ?? "all"); setSelSection("all") }}>
                 <SelectTrigger className="w-64">
                   <SelectValue placeholder="Chọn Môn học" />
                 </SelectTrigger>
@@ -204,7 +277,7 @@ export default function SectionsRiskPage() {
 
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground w-4">3</span>
-              <Select value={selSection} onValueChange={setSelSection} disabled={selCourse === "all"}>
+              <Select value={selSection} onValueChange={value => setSelSection(value ?? "all")} disabled={selCourse === "all"}>
                 <SelectTrigger className="w-52">
                   <SelectValue placeholder="Chọn Lớp học phần" />
                 </SelectTrigger>
@@ -219,10 +292,67 @@ export default function SectionsRiskPage() {
       </Card>
 
       {selSection === "all" ? (
-        <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-2">
-          <AlertTriangle className="h-10 w-10 opacity-30" />
-          <p className="text-sm">Chọn Học kỳ → Môn học → Lớp học phần để xem phân tích rủi ro</p>
-        </div>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Section Finder — lớp cần can thiệp</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Tự động ưu tiên lớp lệch chuẩn môn, có fail rate cao hoặc nhiều sinh viên cận trượt.
+            </p>
+          </CardHeader>
+          <CardContent className="p-0">
+            {!sectionFinder.length ? (
+              <p className="px-6 py-10 text-center text-sm text-muted-foreground">
+                Chưa có lớp đạt ngưỡng tối thiểu 5 lượt học cho bộ lọc này.
+              </p>
+            ) : (
+              <div className="max-h-[600px] overflow-auto">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-background">
+                    <tr className="border-b bg-muted/40">
+                      <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Rủi ro</th>
+                      <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Lớp / Môn</th>
+                      <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Học kỳ</th>
+                      <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">SV</th>
+                      <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">Pass rate</th>
+                      <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">So TB môn</th>
+                      <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">Trượt</th>
+                      <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">Cận trượt</th>
+                      <th className="px-4 py-2.5 text-right font-medium text-muted-foreground">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {sectionFinder.slice(0, 150).map(section => (
+                      <tr key={section.id} className="hover:bg-muted/20">
+                        <td className="px-4 py-2.5">
+                          <Badge variant={section.risk === "high" ? "destructive" : "outline"} className="text-[10px] capitalize">
+                            {section.risk}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <p className="font-mono font-medium">{section.code}</p>
+                          <p className="max-w-[300px] truncate text-muted-foreground" title={section.course}>{section.course}</p>
+                        </td>
+                        <td className="px-3 py-2.5 text-muted-foreground">{section.semester}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums">{section.total}</td>
+                        <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{section.passRate.toFixed(1)}%</td>
+                        <td className={`px-3 py-2.5 text-right font-medium tabular-nums ${section.difference <= -15 ? "text-destructive" : "text-muted-foreground"}`}>
+                          {section.difference > 0 ? "+" : ""}{section.difference.toFixed(1)}%
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-destructive tabular-nums">{section.failed}</td>
+                        <td className="px-3 py-2.5 text-right text-orange-600 tabular-nums">{section.nearFail}</td>
+                        <td className="px-4 py-2.5 text-right">
+                          <button className="font-medium text-primary hover:underline" onClick={() => setSelSection(String(section.id))}>
+                            Mở lớp
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       ) : (
         <>
           {/* 5 KPIs */}

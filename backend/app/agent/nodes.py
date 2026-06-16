@@ -95,7 +95,7 @@ async def core_agent_node(state: AgentState) -> dict:
     # Inject system prompt only on the first call (no SystemMessage yet)
     has_system = any(isinstance(m, SystemMessage) for m in messages)
     if not has_system:
-        messages = [SystemMessage(content=CORE_AGENT_SYSTEM_PROMPT)] + messages
+        messages = [SystemMessage(content=CORE_AGENT_SYSTEM_PROMPT), *messages]
 
     response = await llm_with_tools.ainvoke(messages)
 
@@ -131,7 +131,7 @@ async def fast_response_node(state: AgentState) -> dict:
         response = await llm.ainvoke(eval_messages)
         return {"messages": [response]}
 
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("fast_response_node LLM call failed, using static fallback")
         fallback = AIMessage(content=FAST_RESPONSE_SYSTEM_PROMPT)
         return {"messages": [fallback]}
