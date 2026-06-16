@@ -1,8 +1,0 @@
-fastapi
-uvicorn
-langgraph
-pydantic
-pydantic-settings
-python-dotenv
-pytest
-ruff

@@ -114,6 +114,7 @@ async def chat(payload: ChatRequest) -> ChatResponse:
 async def chat_stream(payload: ChatRequest):
     """Invoke the agent and stream the response via SSE."""
     import json
+    import asyncio
     
     async def event_generator():
         start = time.perf_counter()
@@ -148,6 +149,7 @@ async def chat_stream(payload: ChatRequest):
                         chunk = event["data"]["chunk"]
                         if hasattr(chunk, "content") and chunk.content and isinstance(chunk.content, str):
                             yield f"data: {json.dumps({'type': 'token', 'content': chunk.content})}\n\n"
+                            await asyncio.sleep(0)  # force flush
 
             elapsed_ms = int((time.perf_counter() - start) * 1000)
             yield f"data: {json.dumps({'type': 'done', 'latency_ms': elapsed_ms})}\n\n"
@@ -155,4 +157,12 @@ async def chat_stream(payload: ChatRequest):
             logger.exception("Agent stream failed")
             yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

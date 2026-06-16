@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Send, Bot, User, Sparkles, BarChart2, BookOpen, AlertTriangle } from "lucide-react"
-import { api } from "@/lib/api"
+import { chatStream, SSEEvent } from "@/lib/api"
 
 interface Message {
   id: string
@@ -15,6 +15,8 @@ interface Message {
   content: string
   timestamp: Date
   isStreaming?: boolean
+  intent?: string
+  latencyMs?: number
 }
 
 const SUGGESTED_PROMPTS = [
@@ -117,26 +119,100 @@ export default function ChatPage() {
     setInput("")
     setIsLoading(true)
 
-    // Call Real API
     const assistantMsgId = `a-${Date.now()}`
-    
-    // Add empty loading message
+
+    // Add empty streaming placeholder
     setMessages(prev => [...prev, {
       id: assistantMsgId,
       role: "assistant",
-      content: "Đang phân tích...",
+      content: "",
       timestamp: new Date(),
       isStreaming: true,
+      statuses: ["🔍 Đang phân tích yêu cầu..."]
     }])
 
     try {
-      const result = await api.chat({ message: text.trim() })
+      let fullContent = ""
+      let hasStartedAnswering = false
+
+      for await (const event of chatStream({ message: text.trim() })) {
+        switch (event.type) {
+          case "router":
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMsgId ? { 
+                ...m, 
+                intent: event.intent,
+                statuses: [...(m.statuses || []), `🧠 Định tuyến xử lý: ${event.intent === 'core_agent' ? 'Suy luận phức tạp' : 'Suy luận đơn giản'}`]
+              } : m
+            ))
+            break
+
+          case "tool_call": {
+            const toolNameMap: Record<string, string> = {
+              "sql_query_tool": "Truy vấn Cơ sở dữ liệu học vụ",
+            }
+            const displayToolName = toolNameMap[event.tool] || event.tool
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMsgId ? { 
+                ...m, 
+                statuses: [...(m.statuses || []), `⚙️ Đang thao tác: ${displayToolName}`]
+              } : m
+            ))
+            break
+          }
+
+          case "tool_result":
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMsgId ? { 
+                ...m, 
+                statuses: [...(m.statuses || []), `💾 Đã nhận dữ liệu, đang xử lý...`]
+              } : m
+            ))
+            break
+
+          case "token":
+            if (!hasStartedAnswering) {
+              hasStartedAnswering = true
+              setMessages(prev => prev.map(m =>
+                m.id === assistantMsgId ? { 
+                  ...m, 
+                  statuses: [...(m.statuses || []), `✍️ Đang tổng hợp câu trả lời...`]
+                } : m
+              ))
+            }
+            fullContent += event.content
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMsgId ? { ...m, content: fullContent } : m
+            ))
+            break
+
+          case "done":
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMsgId
+                ? { ...m, content: fullContent, isStreaming: false, latencyMs: event.latency_ms }
+                : m
+            ))
+            break
+
+          case "error":
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMsgId
+                ? { ...m, content: `**Lỗi hệ thống:** ${event.message}`, isStreaming: false }
+                : m
+            ))
+            break
+        }
+      }
+
+      // Ensure streaming flag is off
       setMessages(prev => prev.map(m =>
-        m.id === assistantMsgId ? { ...m, content: result.response, isStreaming: false } : m
+        m.id === assistantMsgId ? { ...m, isStreaming: false } : m
       ))
     } catch (error: any) {
       setMessages(prev => prev.map(m =>
-        m.id === assistantMsgId ? { ...m, content: `**Lỗi hệ thống:** Không thể kết nối với Agent. \n\nChi tiết: ${error.message}`, isStreaming: false } : m
+        m.id === assistantMsgId
+          ? { ...m, content: `**Lỗi hệ thống:** Không thể kết nối với Agent.\n\nChi tiết: ${error.message}`, isStreaming: false }
+          : m
       ))
     }
     setIsLoading(false)
@@ -195,6 +271,29 @@ export default function ChatPage() {
                   <p className="text-sm">{msg.content}</p>
                 ) : (
                   <div className="space-y-1">
+                    {/* Agent Statuses / State */}
+                    {msg.statuses && msg.statuses.length > 0 && (
+                      <div className="flex flex-col gap-1.5 mb-3 mt-1">
+                        {msg.statuses.map((status, idx) => {
+                          const isLast = idx === msg.statuses!.length - 1
+                          const isActive = isLast && msg.isStreaming
+                          return (
+                            <div key={idx} className="flex items-center gap-2 text-xs text-muted-foreground bg-background/50 rounded-md py-1.5 px-2.5 border border-border/50 w-fit max-w-full">
+                              {isActive ? (
+                                <span className="relative flex h-2 w-2 shrink-0">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                                </span>
+                              ) : (
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                              )}
+                              <span className="truncate font-medium">{status}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                    
                     {renderContent(msg.content)}
                     {msg.isStreaming && (
                       <span className="inline-block w-1 h-4 bg-primary animate-pulse ml-1 rounded" />
