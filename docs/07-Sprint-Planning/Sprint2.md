@@ -72,6 +72,7 @@
 | H22 | Metric Engine — Health Score | Build logic tính Health Score tổng hợp (GPA, Fail Rate, CLO) cho từng node (Khoa/Ngành/Môn) | 20/06 | ⬜ |
 | H23 | Vector Search Tool (RAG) | Implement `vector_search_tool` dùng pgvector để tra cứu đề cương môn học | 22/06 | ⬜ |
 | H24 | Auto-Analysis Feature | Khi user click node trên Academic Tree → agent tự động phân tích và đưa ra insights | 24/06 | ⬜ |
+| H27 | Cấu hình Ngrok Public Tunnel | Cấu hình ngrok tunnel cho local, bypass cảnh báo trình duyệt phục vụ truy cập Demo 1 và Gate G2 | 14/06 | ✅ |
 
 **Tổng: 14 task · Trọng tâm: LangGraph Agent end-to-end + Gate G2 deliverables + Metric Engine**
 
@@ -105,6 +106,7 @@
 | T20 | pgvector Setup + Syllabus Embedding | Enable pgvector extension, tạo table embeddings, script embed đề cương môn học | 22/06 | ⬜ |
 | T21 | Docker-compose Update | Thêm services: Streamlit container, pgvector-enabled PostgreSQL. Cập nhật docker-compose.yml | 22/06 | ⬜ |
 | T22 | Integration Tests | Tests end-to-end: API → Agent → DB → Response. Chạy trên CI | 24/06 | ⬜ |
+| T27 | Overview KPI Dashboard | Xây dựng UI (Frontend) và API (Backend) hiển thị Dashboard tổng quan metric sức khỏe đào tạo trước khi vào Tree | 20/06 | ✅ |
 
 **Tổng: 12 task · Trọng tâm: Backend APIs + DB setup + DevOps + Testing**
 

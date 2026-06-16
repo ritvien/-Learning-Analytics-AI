@@ -54,17 +54,21 @@ To reproduce the full stack locally:
 
 1. **Backend & Database**:
    ```powershell
+   # Run at project root directory
    docker-compose up -d
    ```
 2. **Frontend (Next.js)**:
    ```powershell
    cd frontend
-   npm run dev
+   # Note for Windows users: if PowerShell blocks npm script execution, use npm.cmd
+   npm.cmd run dev   # or "npm run dev" on macOS/Linux
    ```
-3. **Ngrok Tunnel (Optional for Public Access)**:
+3. **Ngrok Tunnel (Public Server Access)**:
    ```powershell
-   ngrok http 3000
+   # Run at project root directory to use the local ngrok executable
+   .\ngrok_dir\ngrok.exe http 3000
    ```
+   **Public Server URL:** [https://spectrum-dullness-ambiguous.ngrok-free.dev](https://spectrum-dullness-ambiguous.ngrok-free.dev)
 
 ## Weekly Journal
 
