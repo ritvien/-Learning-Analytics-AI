@@ -7,146 +7,139 @@
 
 | TC | Input | Result | Status | Screenshot |
 |----|-------|--------|--------|------------|
-| TC1 | "Top 5 môn có tỷ lệ trượt cao nhất ngành Công nghệ thông tin?" | Lỗi HTTP 500 (Internal Server Error) | Fail | Bỏ qua |
-| TC2 | "GPA trung bình khóa K21 ngành Công nghệ thông tin là bao nhiêu?" | GPA là 2.275 | Pass | Bỏ qua |
-| TC3 | "So sánh tỷ lệ trượt môn Cơ sở dữ liệu của K21 và K22?" | Tỷ lệ trượt K21 (31.88%) cao hơn K22 (31.19%) | Pass | Bỏ qua |
+| TC1 | "Top 5 môn có tỷ lệ trượt cao nhất ngành Công nghệ thông tin?" | Đã xử lý đúng điều kiện ngành CNTT | Pass | Bỏ qua |
+| TC2 | "GPA trung bình khóa K21 ngành Công nghệ thông tin là bao nhiêu?" | GPA là ~2.27 (không chia theo status) | Pass | Bỏ qua |
+| TC3 | "So sánh tỷ lệ trượt môn Cơ sở dữ liệu của K21 và K22?" | Nhận diện đúng môn học (CSDL -> Cơ sở dữ liệu) | Pass | Bỏ qua |
 | TC4 | "Chào bạn, chức năng chính của bạn là gì?" | Phân loại Fast Response thành công | Pass | Bỏ qua |
-| TC5 | "CLO nào đạt thấp nhất ở môn Tiếng Anh 1?" | Không tìm thấy dữ liệu CLO (xử lý graceful) | Pass | Bỏ qua |
-| TC6 | "Khóa K21 ngành Công nghệ thông tin có bao nhiêu sinh viên?" | Đếm được 100 sinh viên | Pass | Bỏ qua |
+| TC5 | "CLO nào đạt thấp nhất ở môn Tiếng Anh 1?" | Không tìm thấy dữ liệu (Không rò rỉ schema) | Pass | Bỏ qua |
+| TC6 | "Khóa K21 ngành Công nghệ thông tin có bao nhiêu sinh viên?" | Đếm được 100 sinh viên (Không rò rỉ schema) | Pass | Bỏ qua |
 | TC7 | "Liệt kê 3 sinh viên có GPA tích lũy cao nhất ngành Trí tuệ nhân tạo." | Trả về 1 SV vì ngành chỉ có 1 bản ghi | Pass | Bỏ qua |
 | TC8 | "Tỷ lệ qua môn (pass) của môn Hệ quản trị cơ sở dữ liệu là bao nhiêu?" | Tính được tỷ lệ pass 53.21% | Pass | Bỏ qua |
-| TC9 | "Điểm trung bình môn Toán cao cấp 1 của khóa K22 có thấp hơn K21 không?" | Suy luận chính xác: Có (K22 2.03 < K21 2.85) | Pass | Bỏ qua |
-| TC10 | "Môn nào có số sinh viên đăng ký nhiều nhất ngành Công nghệ kỹ thuật cơ điện tử?" | Môn Hệ thống sản xuất tự động (3 SV) | Pass | Bỏ qua |
+| TC9 | "Điểm trung bình môn Toán cao cấp 1 của khóa K22 có thấp hơn K21 không?" | Suy luận chính xác: Có | Pass | Bỏ qua |
+| TC10 | "Môn nào có số sinh viên đăng ký nhiều nhất ngành Công nghệ kỹ thuật cơ điện tử?" | Môn Toán cao cấp 2 (729 SV) | Pass | Bỏ qua |
 
 ## Chi tiết Test Cases
 
-### TC1: Lọc + Aggregation
+### TC1
 - **Input:** "Top 5 môn có tỷ lệ trượt cao nhất ngành Công nghệ thông tin?"
-- **Kỳ vọng:** Trả về danh sách 5 môn với % trượt.
-- **Evidence:** `Lỗi HTTP 500 (Internal Server Error) từ Agent API.`
+- **Evidence:** 
+```text
+Thầy/cô muốn “tỷ lệ trượt” theo ngành **Công nghệ thông tin**, tôi tổng hợp theo dữ liệu các lớp học phần có **tổng số lần đăng ký từ 5 trở lên**. Kết quả **Top 5 môn có tỷ lệ trượt cao nhất** như sau:
 
-### TC2: Cohort + Aggregation
+| STT | Mã học phần | Tên học phần | Số SV/HT (n) | Số trượt | Tỷ lệ trượt (%) |
+|---:|---|---|---:|---:|---:|
+| 1 | CRS0330 | Những Nguyên lý cơ bản của chủ nghĩa Mác – Lênin 1 | 5 | 4 | 80.00 |
+| 2 | CRS0259 | Hành chính điện tử | 20 | 10 | 50.00 |
+| 3 | CRS0017 | Vẽ kỹ thuật 1 | 69 | 34 | 49.28 |
+| 4 | CRS0101 | Hệ quản trị cơ sở dữ liệu | 109 | 51 | 46.79 |
+| 5 | CRS0024 | Toán cao cấp 3 | 64 | 29 | 45.31 |
+
+> 💡 **Nhận xét:** “Hệ quản trị cơ sở dữ liệu” và “Toán cao cấp 3” là các môn có **quy mô đăng ký lớn**, nên tỷ lệ trượt cao của chúng ảnh hưởng đáng kể; nếu thầy/cô cần, tôi có thể báo thêm theo **từng học kỳ** hoặc theo **khoa/lớp tín chỉ/giảng viên** để khoanh vùng nguyên nhân.
+```
+
+### TC2
 - **Input:** "GPA trung bình khóa K21 ngành Công nghệ thông tin là bao nhiêu?"
-- **Kỳ vọng:** Trả về con số GPA chính xác.
 - **Evidence:** 
 ```text
-Thầy/cô hỏi **GPA trung bình khóa K21 ngành Công nghệ thông tin**. Kết quả từ dữ liệu hiện có cho thấy:
+Theo dữ liệu hệ thống, **GPA trung bình của khóa K21 ngành Công nghệ thông tin** là **2.275** (xấp xỉ **2.27**).
 
-| Khóa | Ngành (chương trình) | GPA trung bình (cumulative) |
-|---|---|---:|
-| K21 | Công nghệ thông tin | 2.275 |
-
-> 💡 **Nhận xét:** GPA trung bình khóa K21 ngành Công nghệ thông tin hiện ở mức khoảng **2.275**. Nếu thầy/cô muốn, tôi có thể tách theo **học kỳ** hoặc theo **lớp (class_code)** để nhìn rõ hơn.
+> 💡 **Nhận xét:** Nếu thầy/cô muốn, tôi có thể bổ sung thêm số lượng sinh viên K21 ngành CNTT đang có dữ liệu GPA để đối chiếu độ tin cậy.
 ```
 
-### TC3: So sánh 2 đối tượng
+### TC3
 - **Input:** "So sánh tỷ lệ trượt môn Cơ sở dữ liệu của K21 và K22?"
-- **Kỳ vọng:** Có 2 số liệu so sánh + nhận xét xu hướng.
 - **Evidence:** 
 ```text
-Thầy/cô yêu cầu so sánh tỷ lệ trượt **môn Cơ sở dữ liệu** giữa **K21** và **K22**. Tôi lấy trên các **enrollments có `status = 'completed'`**.
+Thầy/cô yêu cầu so sánh tỷ lệ trượt học phần **Cơ sở dữ liệu** giữa **K21** và **K22**. Theo dữ liệu hệ thống (chỉ tính ghi nhận hoàn thành), kết quả như sau:
 
-| Khóa | Số SV trượt (fail_count) | Tổng đăng ký (enrollment_count) | Tỷ lệ trượt (%) |
+| Khóa | Sĩ số (hoàn thành) | Số trượt | Tỷ lệ trượt |
 |---|---:|---:|---:|
-| K21 | 66 | 207 | 31.88% |
-| K22 | 34 | 109 | 31.19% |
+| K21 | 207 | 66 | 31.88% |
+| K22 | 109 | 34 | 31.19% |
 
-**So sánh nhanh:** Tỷ lệ trượt K21 cao hơn K22 khoảng **0.69 điểm %**.
+**So sánh nhanh:** K21 trượt **cao hơn khoảng 0.69 điểm %** so với K22.
 
-> 💡 **Nhận xét:** Hai khóa có tỷ lệ trượt gần như tương đương (~31%), chênh lệch không lớn. Nếu thầy/cô muốn, tôi có thể tách theo **học kỳ** hoặc theo **từng lớp/phần giảng (section)** để tìm nguyên nhân chênh lệch.
+> 💡 **Nhận xét:** Tỷ lệ trượt của K21 và K22 đối với nhóm “Cơ sở dữ liệu” là khá tương đồng; chênh lệch nhỏ (< 1%). Nếu thầy/cô muốn, tôi có thể tách theo **từng học kỳ** hoặc **từng học phần con** (ví dụ “Hệ quản trị CSDL” và “Cơ sở dữ liệu”).
 ```
 
-### TC4: Fast response
+### TC4
 - **Input:** "Chào bạn, chức năng chính của bạn là gì?"
-- **Kỳ vọng:** Trả lời nhanh, không gọi SQL.
 - **Evidence:** 
 ```text
-Chào bạn! Tôi là EduInsight AI của EPU, hỗ trợ phân tích học vụ và trả lời các câu hỏi giao tiếp đơn giản. Nếu bạn cần, tôi có thể giúp bạn diễn giải thông tin học tập theo hướng dẫn chung và gợi ý cách đặt câu hỏi để tìm đúng dữ liệu. Bạn muốn hỏi về vấn đề học vụ nào cụ thể (ví dụ điểm, môn học, đăng ký, học phí, kế hoạch học)?
+Chào bạn! Tôi là EduInsight AI của EPU, có nhiệm vụ hỗ trợ bạn bằng các câu trả lời/giải thích học vụ theo cách ngắn gọn, rõ ràng—ví dụ hướng dẫn cách đặt câu hỏi, giải thích khái niệm hoặc gợi ý cách tìm thông tin liên quan học tập. Bạn muốn hỏi về mảng nào: chương trình học, môn học, hay quy trình đăng ký?
 ```
 
-### TC5: JOIN phức tạp (CLO)
+### TC5
 - **Input:** "CLO nào đạt thấp nhất ở môn Tiếng Anh 1?"
-- **Kỳ vọng:** Trả về CLO cụ thể từ CSDL.
 - **Evidence:** 
 ```text
-Thầy/cô ơi, tôi vừa truy vấn nhưng **không tìm thấy dữ liệu CLO/PLO gắn với môn “Tiếng Anh 1”** trong hệ thống (kết quả rỗng).  
+Thầy/cô vui lòng kiểm tra lại giúp tôi: trong dữ liệu hiện có **không tìm thấy bản ghi CLO gắn với kết quả học phần “Tiếng Anh 1”** (ít nhất không đủ để xác định CLO đạt thấp nhất theo điểm achievement).
 
-Gợi ý thầy/cô kiểm tra giúp:
-- Tên môn trong dữ liệu có thể **không đúng “Tiếng Anh 1”** (ví dụ: “English 1”, “Tiếng Anh 1 (….)”, hoặc mã môn khác).
-- Hoặc dữ liệu **`student_clo_achievements`** chưa được ghi cho lớp/môn này.
+Trong “Tiếng Anh 1” có **688** lượt hoàn thành, nhưng phần **CLO/Phiếu minh chứng ([dữ liệu hệ thống])** chưa cho ra kết quả phù hợp để xếp hạng CLO.
 
-Nếu thầy/cô cho tôi **mã môn** hoặc **tên chính xác** theo dữ liệu, tôi sẽ truy xuất lại và xác định **CLO đạt thấp nhất** ngay.  
-
-> 💡 **Nhận xét:** Hiện không có bản ghi CLO achievement cho “Tiếng Anh 1” (dữ liệu truy vấn trả về rỗng), nên chưa thể kết luận CLO thấp nhất.
+> 💡 **Nhận xét:** Nếu thầy/cô cho tôi thêm tên biến thể môn (ví dụ “English 1” hay mã học phần), hoặc xác nhận “Tiếng Anh 1” đang được hệ thống đặt đúng chính xác tên đó, tôi sẽ truy xuất lại để tìm CLO đạt thấp nhất.
 ```
 
-### TC6: Hàm COUNT
+### TC6
 - **Input:** "Khóa K21 ngành Công nghệ thông tin có bao nhiêu sinh viên?"
-- **Kỳ vọng:** Đếm số lượng sinh viên chính xác.
 - **Evidence:** 
 ```text
-Thầy/cô hỏi **Khóa K21 – Ngành Công nghệ thông tin** có **100 sinh viên**.
+Theo dữ liệu hệ thống, **khóa K21 ngành Công nghệ thông tin** có **100 sinh viên**.
 
-> 💡 **Nhận xét:** Con số được tính theo **COUNT(DISTINCT s.id)** trên bảng `students` với điều kiện `cohorts.code = 'K21'` và `programs.name ILIKE '%Công nghệ thông tin%'`.
+> 💡 **Nhận xét:** Nếu thầy/cô cần thêm cơ cấu theo **trạng thái** (đang học/ thôi học/ bảo lưu…) hoặc theo **lớp** (class_code), tôi có thể thống kê tiếp.
 ```
 
-### TC7: Top N + ORDER BY
+### TC7
 - **Input:** "Liệt kê 3 sinh viên có GPA tích lũy cao nhất ngành Trí tuệ nhân tạo."
-- **Kỳ vọng:** Trả về 3 sinh viên cùng thông tin GPA.
 - **Evidence:** 
 ```text
-Thầy/cô yêu cầu 3 sinh viên có GPA tích lũy cao nhất ngành **Trí tuệ nhân tạo**. Hiện dữ liệu trong hệ thống chỉ tìm thấy **1 sinh viên** thuộc ngành này, nên tôi liệt kê toàn bộ 1 sinh viên có GPA cao nhất.
+Thầy/cô yêu cầu danh sách **3 sinh viên có GPA tích lũy cao nhất** thuộc **ngành Trí tuệ nhân tạo**. Theo dữ liệu hiện có, **chỉ tìm thấy 1 sinh viên** phù hợp, nên tôi liệt kê được 1/3 như sau:
 
-| STT | Mã SV | Họ tên | Lớp | GPA tích lũy |
+| STT | Mã SV | Họ và tên | Lớp | GPA tích lũy |
 |---:|---|---|---|---:|
 | 1 | 25810460057 | AN VIẾT TÙNG | D20TTNTTNL | 2.68 |
 
-> 💡 **Nhận xét:** Do `students` trong ngành *Trí tuệ nhân tạo* chỉ có 1 bản ghi, hệ thống không đủ dữ liệu để lấy “Top 3”. Nếu thầy/cô muốn, tôi có thể kiểm tra thêm theo **tên chương trình/tiêu đề ngành** gần đúng khác (ví dụ có thể được lưu là “AI”/“Trí tuệ nhân tạo ứng dụng”…).
+> 💡 **Nhận xét:** Hiện hệ thống chỉ có dữ liệu sinh viên gắn với ngành “Trí tuệ nhân tạo” thỏa điều kiện tìm kiếm, nên chưa đủ để lấy top 3. Nếu thầy/cô muốn, tôi có thể kiểm tra lại theo các biến thể tên ngành (ví dụ “AI”, “Trí tuệ nhân tạo”, hoặc tên chương trình gần tương tự) để mở rộng phạm vi.
 ```
 
-### TC8: Tính tỷ lệ boolean/enum
+### TC8
 - **Input:** "Tỷ lệ qua môn (pass) của môn Hệ quản trị cơ sở dữ liệu là bao nhiêu?"
-- **Kỳ vọng:** Tính toán % dựa trên field status.
 - **Evidence:** 
 ```text
-Thầy/cô hỏi tỷ lệ qua môn (pass) của môn **Hệ quản trị cơ sở dữ liệu**. Kết quả trên dữ liệu enrollment đã hoàn thành cho thấy:
+Theo dữ liệu hiện có, **tỷ lệ qua môn (pass)** của học phần **“Hệ quản trị cơ sở dữ liệu”** là:
 
-| Mã môn | Tên môn | Tín chỉ | Sĩ số (completed) | Số qua môn | Tỷ lệ pass |
-|---|---|---:|---:|---:|---:|
-| CRS0101 | Hệ quản trị cơ sở dữ liệu | 3 | 109 | 58 | **53.21%** |
+- **Pass rate:** **53.21%**
 
-> 💡 **Nhận xét:** Tỷ lệ pass của môn này là **53.21%** (58/109) trên các lần đăng ký có trạng thái **completed**.
+> 💡 **Nhận xét:** Nếu thầy/cô muốn, tôi có thể tách thêm **theo từng học kỳ** để xem pass rate biến động ra sao.
 ```
 
-### TC9: Suy luận Yes/No
+### TC9
 - **Input:** "Điểm trung bình môn Toán cao cấp 1 của khóa K22 có thấp hơn K21 không?"
-- **Kỳ vọng:** So sánh 2 điểm và trả lời Yes/No kèm số liệu.
 - **Evidence:** 
 ```text
-Dạ thầy/cô, có.
+Thưa thầy/cô, theo dữ liệu hệ thống, **điểm trung bình môn “Toán cao cấp 1” của khóa K22 thấp hơn K21**.
 
-| Khóa | Điểm trung bình (grade_4) của *Toán cao cấp 1* |
+| Khóa | Điểm trung bình (gộp theo môn, hệ số theo grade_4) |
 |---|---:|
-| K21 | 2.8558 |
-| K22 | 2.0314 |
+| K21 | 2.856 |
+| K22 | 2.031 |
 
-=> So với K21, **khóa K22 thấp hơn** (giảm khoảng **0.8244** điểm grade_4).
+Kết luận: **K22 (2.031) < K21 (2.856)**.
 
-> 💡 **Nhận xét:** Kết quả cho thấy chất lượng học phần *Toán cao cấp 1* của K22 thấp hơn K21 rõ rệt.
+> 💡 **Nhận xét:** Chênh lệch trung bình khoảng **0.825 điểm**, cho thấy K22 học môn này đạt mức thấp hơn đáng kể so với K21.
 ```
 
-### TC10: Đếm theo Enrollment
+### TC10
 - **Input:** "Môn nào có số sinh viên đăng ký nhiều nhất ngành Công nghệ kỹ thuật cơ điện tử?"
-- **Kỳ vọng:** Query join với bảng enrollment để lấy max count.
 - **Evidence:** 
 ```text
-Thầy/cô hỏi: *“Môn nào có số sinh viên đăng ký nhiều nhất ngành Công nghệ kỹ thuật cơ điện tử?”*.
+Thầy/cô hỏi: **môn nào có số sinh viên đăng ký nhiều nhất** thuộc **ngành Công nghệ kỹ thuật cơ điện tử**.
 
-Kết quả:  
-
-| Mã môn | Tên môn | Tổng số sinh viên (theo thống kê trong các học kỳ) |
+Kết quả theo dữ liệu hệ thống:
+| Mã môn | Tên môn | Số SV đăng ký (tổng cộng) |
 |---|---|---:|
-| CRS0056 | Hệ thống sản xuất tự động | 3 |
+| CRS0013 | Toán cao cấp 2 | 729 |
 
-> 💡 **Nhận xét:** Môn có tổng số sinh viên đăng ký cao nhất trong ngành *Công nghệ kỹ thuật cơ điện tử* là **Hệ thống sản xuất tự động (CRS0056)** với **3 sinh viên**. Nếu thầy/cô muốn “theo từng học kỳ” hoặc “lấy theo năm/cohort”, tôi có thể truy xuất chi tiết thêm.
+> 💡 **Nhận xét:** “Toán cao cấp 2” đang là học phần có quy mô đăng ký lớn nhất trong chương trình ngành Công nghệ kỹ thuật cơ điện tử theo số liệu hiện có. Nếu thầy/cô muốn, tôi có thể thống kê thêm Top 5 học phần có số đăng ký cao nhất.
 ```
+

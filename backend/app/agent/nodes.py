@@ -1,6 +1,7 @@
 """LangGraph nodes for the EduInsight Agent."""
 
 import logging
+import re
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
@@ -16,6 +17,23 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
+_SCHEMA_PATTERNS = re.compile(
+    r'(?:'
+    r'`?(?:students|enrollments|sections|courses|programs|cohorts|'
+    r'departments|universities|teachers|clos|plos|semesters|'
+    r'student_clo_achievements|program_courses|vw_\w+)`?'
+    r'(?:\.\w+)?'  # table.column
+    r'|ILIKE|JOIN|WHERE|GROUP BY|SELECT|FROM|COUNT\(|SUM\(|AVG\('
+    r'|status\s*=\s*[\'"]completed[\'"]'
+    r')',
+    re.IGNORECASE
+)
+
+def _sanitize_response(text: str) -> str:
+    """Remove any leaked DB schema references from agent output."""
+    if not text:
+        return text
+    return _SCHEMA_PATTERNS.sub('[dữ liệu hệ thống]', text)
 
 def get_model(model_name: str, temperature: float = 0):
     """Factory helper to build ChatOpenAI or ChatGoogleGenerativeAI model."""
@@ -96,6 +114,10 @@ async def core_agent_node(state: AgentState) -> dict:
         messages = [SystemMessage(content=CORE_AGENT_SYSTEM_PROMPT), *messages]
 
     response = await llm_with_tools.ainvoke(messages)
+
+    # Sanitize the output if it's the final answer
+    if hasattr(response, "tool_calls") and not response.tool_calls and isinstance(response.content, str):
+        response.content = _sanitize_response(response.content)
 
     return {"messages": [response]}
 

@@ -10,7 +10,7 @@
 
 > **"Nhìn tổng thể — Drill-down chi tiết — Hỏi bằng ngôn ngữ tự nhiên"**
 
-Thay vì tách biệt Dashboard và AI Chat thành 2 trang riêng, EduInsight hợp nhất chúng thành một trải nghiệm liền mạch: **Navigate → See → Ask → Act**.
+EduInsight kết hợp **Overview KPI Dashboard** (nhìn toàn cảnh các chỉ số sức khỏe của trường/khoa) với **Academic Tree** và **AI Chat** thành một trải nghiệm liền mạch: **Overview → Navigate → See → Ask → Act**. Lãnh đạo có thể xem nhanh tình hình chung qua Dashboard 4 trang phân tích (Analytics) trước khi đi sâu vào từng nhánh cụ thể của Academic Tree.
 
 ---
 
@@ -70,6 +70,7 @@ graph LR
 
 | Feature | Mô tả | Độc lập? | Priority |
 |:--------|:-------|:--------:|:--------:|
+| Overview KPI Dashboard | Dashboard 4 trang phân tích tổng quan các metric sức khỏe đào tạo ở cấp độ trường/khoa/ngành/môn trước khi drill-down | Cần M3 | P0 |
 | Tree Rendering | Hiển thị cây phân cấp dạng collapsible tree hoặc treemap, expand/collapse từng nhánh | ✅ | P0 |
 | Health Badge | Mỗi node hiển thị badge màu (🟢🟡🔴) dựa trên composite score từ Module 3 | Cần M3 | P0 |
 | Node Detail Panel | Click node → mở panel bên phải hiển thị metric cards tóm tắt (GPA avg, tỷ lệ trượt, CLO achievement %) | Cần M3 | P0 |
@@ -291,6 +292,7 @@ graph TB
 | **Vector Store** | pgvector (PostgreSQL extension) | Hybrid search, kiến trúc đơn giản |
 | **Monitoring** | Langfuse | Open-source, unlimited |
 | **Deploy** | Vercel (FE) + Render (BE) | Free tier |
+| **Local Tunnel** | Ngrok | Expose local services phục vụ quá trình Demo và Gate G2 đánh giá public |
 | **CI/CD** | GitHub Actions | Ruff + pytest + Docker build |
 
 ### 2.3 Data Model (Core Entities)
