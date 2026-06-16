@@ -139,7 +139,6 @@ export default function GradesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Quản lý Điểm</h1>
-          <p className="text-muted-foreground">Nhập, sửa điểm số sinh viên và xuất báo cáo Excel.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleExportExcel}>

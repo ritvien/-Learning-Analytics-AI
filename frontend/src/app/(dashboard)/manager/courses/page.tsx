@@ -142,7 +142,6 @@ export default function CoursesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Quản lý Môn học</h1>
-          <p className="text-muted-foreground">Thêm, sửa, xóa học phần trong chương trình đào tạo.</p>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger render={<Button />}>

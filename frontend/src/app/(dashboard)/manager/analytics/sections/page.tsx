@@ -245,7 +245,6 @@ export default function SectionRiskAnalyticsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Phân tích Lớp học phần & Cảnh báo</h1>
-          <p className="text-sm text-muted-foreground">Theo dõi kết quả lớp học phần, tìm sinh viên cần can thiệp hỗ trợ sớm</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {/* Semester Filter */}

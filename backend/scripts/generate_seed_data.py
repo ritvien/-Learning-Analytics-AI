@@ -3,6 +3,7 @@
 import json
 import os
 import re
+from typing import Any
 
 
 def escape_sql(text: str | None) -> str:
@@ -45,8 +46,12 @@ def parse_semester_code(text: str) -> tuple[str, int, int]:
 
 
 def clean_grade_letter(text: str) -> str | None:
-    """Strip brackets and dashes from '[A  - ]' format."""
-    cleaned = text.replace("[", "").replace("]", "").replace("-", "").strip()
+    """Extract letter grade (e.g. '[A  - Giỏi]' -> 'A', '[B+ - ]' -> 'B+')."""
+    if not text:
+        return None
+    text = text.replace("[", "").replace("]", "").strip()
+    parts = text.split("-")
+    cleaned = parts[0].strip()
     return cleaned if cleaned else None
 
 
@@ -66,6 +71,7 @@ def generate_sql() -> None:
     """Read crawled JSON and write SQL INSERT statements to init-data.sql."""
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
     candidates = [
+        os.path.join(repo_root, "..", "crawl", "epu_data_batch.json"),
         os.path.join(repo_root, "crawl", "epu_data_batch.json"),
         os.path.join(repo_root, "epu_data.json"),
     ]
@@ -93,6 +99,9 @@ def generate_sql() -> None:
     enrollments: dict[tuple[int, int], int] = {}
     # grade component type key: (section_id, comp_name) -> gct_id
     section_gcts: dict[tuple[int, str], int] = {}
+    
+    student_records: dict[int, dict[str, Any]] = {}
+    student_gpa_data: dict[int, dict[str, float]] = {}
 
     uni_id = 1
     dept_id = 1
@@ -172,11 +181,16 @@ def generate_sql() -> None:
                 "Thôi học": "withdrawn",
             }
             stu_status = status_map.get(trang_thai, "active")
-            stu_items.append(
-                f"({stu_id}, {p_id}, {c_id}, {escape_sql(mssv)}, "
-                f"{escape_sql(name)}, {escape_sql(gender)}, {escape_sql(class_code)}, "
-                f"'{stu_status}', TRUE)"
-            )
+            student_records[stu_id] = {
+                "p_id": p_id,
+                "c_id": c_id,
+                "mssv": mssv,
+                "name": name,
+                "gender": gender,
+                "class_code": class_code,
+                "status": stu_status,
+            }
+            student_gpa_data[stu_id] = {"total_points": 0.0, "total_credits": 0.0}
             stu_id += 1
 
         s_id = students[mssv]
@@ -232,8 +246,21 @@ def generate_sql() -> None:
                 fg = parse_float(final_grade_str)
                 ip = parse_bool(final_grade_str)
                 gl = escape_sql(grade_letter)
+                
+                # Calculate grade_4
+                grade_4_map = {
+                    "A+": "4.0", "A": "4.0", "B+": "3.5", "B": "3.0",
+                    "C+": "2.5", "C": "2.0", "D+": "1.5", "D": "1.0", "F": "0.0"
+                }
+                g4_val = grade_4_map.get(grade_letter, "NULL")
+                
+                # Accumulate for student GPA
+                if g4_val != "NULL":
+                    student_gpa_data[s_id]["total_points"] += float(g4_val) * tc
+                    student_gpa_data[s_id]["total_credits"] += tc
+                
                 enr_items.append(
-                    f"({enr_id}, {s_id}, {sc_id}, {fg}, {gl}, {ip}, 1, 'completed')"
+                    f"({enr_id}, {s_id}, {sc_id}, {fg}, {gl}, {g4_val}, {ip}, 1, 'completed')"
                 )
                 enr_id += 1
             e_id = enrollments[enr_key]
@@ -257,6 +284,21 @@ def generate_sql() -> None:
 
                 gc_items.append(f"({gc_id}, {e_id}, {gct_val_id}, {score}, 10.0, FALSE)")
                 gc_id += 1
+
+    # Build stu_items now that GPA is computed
+    for sid, rec in student_records.items():
+        gpa_info = student_gpa_data[sid]
+        if gpa_info["total_credits"] > 0:
+            gpa_cum = round(gpa_info["total_points"] / gpa_info["total_credits"], 2)
+            gpa_str = str(gpa_cum)
+        else:
+            gpa_str = "NULL"
+            
+        stu_items.append(
+            f"({sid}, {rec['p_id']}, {rec['c_id']}, {escape_sql(rec['mssv'])}, "
+            f"{escape_sql(rec['name'])}, {escape_sql(rec['gender'])}, {escape_sql(rec['class_code'])}, "
+            f"'{rec['status']}', {gpa_str}, TRUE)"
+        )
 
     print(f"Writing to {sql_path}...")
     os.makedirs(os.path.dirname(sql_path), exist_ok=True)
@@ -312,7 +354,8 @@ def generate_sql() -> None:
         if stu_items:
             f.write(
                 "INSERT INTO students"
-                " (id, program_id, cohort_id, student_code, full_name, gender, class_code, status, is_active)"
+                " (id, program_id, cohort_id, student_code, full_name, gender, class_code, status,"
+                " gpa_cumulative, is_active)"
                 " VALUES\n"
             )
             f.write(",\n".join(stu_items))
@@ -330,7 +373,7 @@ def generate_sql() -> None:
             batch = enr_items[i : i + batch_size]
             f.write(
                 "INSERT INTO enrollments"
-                " (id, student_id, section_id, final_grade, grade_letter,"
+                " (id, student_id, section_id, final_grade, grade_letter, grade_4,"
                 " is_passed, attempt_number, status)"
                 " VALUES\n"
             )

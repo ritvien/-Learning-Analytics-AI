@@ -121,7 +121,6 @@ export default function DepartmentsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Quản lý Khoa & Ngành</h1>
-          <p className="text-muted-foreground">Tổ chức cấu trúc Khoa - Ngành đào tạo.</p>
         </div>
         <Dialog open={isCreateDeptOpen} onOpenChange={setIsCreateDeptOpen}>
           <DialogTrigger render={<Button />}>

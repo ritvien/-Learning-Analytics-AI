@@ -20,9 +20,16 @@ export default function DashboardLayout({
           <div className="flex items-center gap-2">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
-            {/* Breadcrumb can go here */}
+            {/* Breadcrumb */}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground/80 hidden sm:inline-block">Đại học Điện Lực</span>
+              <span className="hidden sm:inline-block">/</span>
+              <span>Hệ thống Quản lý</span>
+            </div>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+          </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4">
           {children}

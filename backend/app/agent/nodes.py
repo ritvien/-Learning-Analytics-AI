@@ -17,6 +17,26 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
+def get_model(model_name: str, temperature: float = 0):
+    """Factory helper to build ChatOpenAI or ChatGoogleGenerativeAI model."""
+    provider = settings.llm_provider.lower().strip()
+    if provider == "gemini":
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        # Map models if they are configured as openai format
+        actual_model = settings.llm_model if "gemini" in settings.llm_model else "gemini-1.5-flash"
+        return ChatGoogleGenerativeAI(
+            model=actual_model,
+            google_api_key=settings.llm_api_key,
+            temperature=temperature,
+        )
+    else:
+        return ChatOpenAI(
+            model=model_name,
+            api_key=settings.llm_api_key or None,
+            temperature=temperature,
+        )
+
+
 # ─────────────────────────────────────────────────────── Router Node (H12)
 async def router_node(state: AgentState) -> dict:
     """Classify the intent of the latest user message.
@@ -24,11 +44,7 @@ async def router_node(state: AgentState) -> dict:
     Sets ``context["intent"]`` to either ``"core_agent"`` or ``"fast_response"``.
     Does NOT add messages to the conversation history.
     """
-    llm = ChatOpenAI(
-        model=settings.agent_router_model,
-        api_key=settings.llm_api_key or None,
-        temperature=0,
-    )
+    llm = get_model(settings.agent_router_model, temperature=0)
 
     messages = state.get("messages", [])
     if not messages:
@@ -77,7 +93,7 @@ async def core_agent_node(state: AgentState) -> dict:
     # Inject system prompt only on the first call (no SystemMessage yet)
     has_system = any(isinstance(m, SystemMessage) for m in messages)
     if not has_system:
-        messages = [SystemMessage(content=CORE_AGENT_SYSTEM_PROMPT)] + messages
+        messages = [SystemMessage(content=CORE_AGENT_SYSTEM_PROMPT), *messages]
 
     response = await llm_with_tools.ainvoke(messages)
 
@@ -109,7 +125,7 @@ async def fast_response_node(state: AgentState) -> dict:
         response = await llm.ainvoke(eval_messages)
         return {"messages": [response]}
 
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("fast_response_node LLM call failed, using static fallback")
         fallback = AIMessage(content=FAST_RESPONSE_SYSTEM_PROMPT)
         return {"messages": [fallback]}

@@ -275,7 +275,6 @@ export default function DepartmentsAnalyticsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Phân tích Khoa & Ngành</h1>
-          <p className="text-sm text-muted-foreground">So sánh hiệu quả đào tạo, theo dõi xu hướng, và drill-down chi tiết</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {/* Semester Filter */}

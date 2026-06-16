@@ -115,9 +115,6 @@ export default function ProgramsPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Chương trình đào tạo (RAG)</h1>
-        <p className="text-muted-foreground">
-          Upload file PDF chương trình đào tạo để AI có thể tra cứu thông tin ngành, môn học, chuẩn đầu ra.
-        </p>
       </div>
 
       {/* Stats */}

@@ -302,9 +302,6 @@ export default function OverviewPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Tổng quan toàn trường</h1>
-        <p className="text-sm text-muted-foreground">
-          Thông tin tổng hợp hiệu quả đào tạo và cảnh báo sớm học kỳ hiện tại
-        </p>
       </div>
 
       {/* KPI Row */}

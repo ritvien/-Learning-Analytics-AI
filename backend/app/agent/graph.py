@@ -16,6 +16,7 @@ Error handling (3-tier as per LangGraphAgent.md §4.9):
 import logging
 
 from langgraph.graph import END, START, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.types import RetryPolicy
 
@@ -38,6 +39,7 @@ def should_continue(state: AgentState) -> str:
     Returns:
         "tools"  — if the LLM wants to call a tool (ReAct continues).
         END      — if the LLM produced a final answer (ReAct terminates).
+
     """
     messages = state.get("messages", [])
     if not messages:
@@ -50,12 +52,13 @@ def should_continue(state: AgentState) -> str:
 
 
 # ── Graph builder ───────────────────────────────────────────────────────
-def create_agent():
+def create_agent() -> CompiledStateGraph:
     """Build and compile the EduInsight LangGraph agent.
 
     Returns:
         A compiled LangGraph ``CompiledGraph`` ready for ``.invoke()``
         or ``.ainvoke()`` calls.
+
     """
     graph = StateGraph(AgentState)
 

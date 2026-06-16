@@ -32,12 +32,14 @@ services:
     environment:
       APP_ENV:         development
       DATABASE_URL:    postgresql+asyncpg://${POSTGRES_USER:-eduinsight}:${POSTGRES_PASSWORD:-eduinsight_dev}@db:5432/${POSTGRES_DB:-eduinsight}
+      AGENT_DB_URL:    postgresql://${POSTGRES_USER:-eduinsight}:${POSTGRES_PASSWORD:-eduinsight_dev}@db:5432/${POSTGRES_DB:-eduinsight}
       SECRET_KEY:      ${SECRET_KEY:-change-me-in-production}
       CORS_ORIGINS:    ${CORS_ORIGINS:-http://localhost:3000}
       LLM_PROVIDER:    ${LLM_PROVIDER:-gemini}
       LLM_MODEL:       ${LLM_MODEL:-gemini-1.5-flash}
       LLM_API_KEY:     ${LLM_API_KEY:-}
       OPENAI_API_KEY:  ${OPENAI_API_KEY:-}
+      RUFF_CACHE_DIR:  /tmp/.ruff_cache
     ports:
       - "8000:8000"
     volumes:
@@ -45,6 +47,8 @@ services:
       # Remove in production.
       - ./backend/app:/app/app
       - ./backend/migrations:/app/migrations
+      - ./backend/tests:/app/tests
+      - ./backend/pyproject.toml:/app/pyproject.toml:ro
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
       interval: 15s

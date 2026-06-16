@@ -1,11 +1,13 @@
 "use client"
 
 import * as React from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Send, Bot, User, Sparkles, BarChart2, BookOpen, AlertTriangle } from "lucide-react"
+import { api } from "@/lib/api"
 
 interface Message {
   id: string
@@ -22,8 +24,7 @@ const SUGGESTED_PROMPTS = [
   { icon: Sparkles, text: "GPA trung bình khóa 2022 so với khóa 2021 như thế nào?" },
 ]
 
-const MOCK_RESPONSES: Record<string, string> = {
-  default: `Xin chào! Tôi là **EPU AI Analytics Assistant** 🎓
+const WELCOME_MESSAGE = `Xin chào! Tôi là **EPU AI Analytics Assistant** 🎓
 
 Tôi có thể giúp bạn:
 - 📊 **Phân tích điểm số** — Xem xu hướng GPA, tỷ lệ trượt theo khóa/ngành/môn
@@ -31,69 +32,7 @@ Tôi có thể giúp bạn:
 - ⚠️ **Cảnh báo sớm** — Danh sách sinh viên có nguy cơ học vụ
 - 📄 **Sinh báo cáo** — Tóm tắt tình hình đào tạo cho ban quản lý
 
-Hãy đặt câu hỏi bằng tiếng Việt tự nhiên!`,
-  "môn nào có tỷ lệ trượt cao nhất": `Dựa trên dữ liệu học kỳ HK1 2023-2024, **top 5 môn có tỷ lệ trượt cao nhất** là:
-
-| # | Môn học | Mã HP | Tỷ lệ trượt |
-|---|---------|-------|-------------|
-| 1 | Giải tích 1 | MATH101 | **28.5%** |
-| 2 | Vật lý đại cương | PHY101 | **22.1%** |
-| 3 | Mạng máy tính | CS301 | **18.4%** |
-| 4 | Lập trình C | CS101 | **15.2%** |
-| 5 | Mạch điện 1 | EE201 | **12.0%** |
-
-> 💡 **Đề xuất:** Giải tích 1 và Vật lý đại cương cần xem xét điều chỉnh phương pháp giảng dạy hoặc bổ sung lớp học bổ trợ.`,
-  "gpa trung bình": `Xu hướng GPA trung bình theo khóa học:
-
-**Khóa 2022:** GPA = **2.85** ↗ (+0.05 so với HK trước)
-**Khóa 2021:** GPA = **2.78** → (ổn định)
-**Khóa 2020:** GPA = **2.91** ✅ (năm cuối, đã cải thiện)
-
-Nhận xét: Sinh viên năm cuối (khóa 2020) có GPA cao hơn do đã qua các môn đại cương khó, tập trung vào chuyên ngành.`,
-  "sinh viên nào đang có nguy cơ": `Danh sách **sinh viên có nguy cơ học vụ** (GPA < 2.0 hoặc tín chỉ nợ ≥ 12):
-
-| MSSV | Họ tên | GPA TL | TC Nợ | Tình trạng |
-|------|--------|--------|-------|------------|
-| 23810340010 | Trần Quốc Bảo | 2.65 | 9 TC | ⚠️ Cảnh báo |
-| 21810220015 | Lê Thị Mai | 3.05 | 6 TC | ⚠️ Theo dõi |
-
-> 📌 **Khuyến nghị:** Liên hệ cố vấn học tập để tư vấn kế hoạch học tập cho 2 sinh viên trên.`,
-  "ngành công nghệ thông tin": `**Ngành Công nghệ Thông tin** — Khoa CNTT, Trường ĐH Điện Lực
-
-📋 **Thông tin chung:**
-- Mã ngành: 7480201
-- Thời gian đào tạo: 4 năm
-- Tổng tín chỉ: 145 TC
-
-📚 **Các môn học bắt buộc (trích):
-- Giải tích 1 & 2 (6 TC)
-- Vật lý đại cương (4 TC)
-- Lập trình C (3 TC)
-- Cơ sở dữ liệu (3 TC)
-- Mạng máy tính (3 TC)
-- Trí tuệ nhân tạo (3 TC)
-- Đồ án tốt nghiệp (10 TC)
-
-> 📄 Nguồn: CTĐT_CNTT_2022.pdf (đã index vào hệ thống RAG)`,
-}
-
-function getResponse(input: string): string {
-  const lower = input.toLowerCase()
-  if (lower.includes("trượt") || lower.includes("rớt")) return MOCK_RESPONSES["môn nào có tỷ lệ trượt cao nhất"]
-  if (lower.includes("gpa") || lower.includes("điểm trung bình")) return MOCK_RESPONSES["gpa trung bình"]
-  if (lower.includes("nguy cơ") || lower.includes("đình chỉ") || lower.includes("cảnh báo")) return MOCK_RESPONSES["sinh viên nào đang có nguy cơ"]
-  if (lower.includes("công nghệ thông tin") || lower.includes("cntt")) return MOCK_RESPONSES["ngành công nghệ thông tin"]
-  return `Cảm ơn bạn đã hỏi! 
-
-Tôi đang phân tích câu hỏi: *"${input}"*
-
-_(Đây là bản demo UI — backend AI sẽ được tích hợp ở bước tiếp theo)_
-
-Hiện tại bạn có thể thử các câu hỏi mẫu như:
-- "Môn nào có tỷ lệ trượt cao nhất?"
-- "GPA trung bình khóa 2022 là bao nhiêu?"
-- "Ngành Công nghệ thông tin có những môn gì?"`
-}
+Hãy đặt câu hỏi bằng tiếng Việt tự nhiên!`
 
 // Simple markdown-like renderer
 function renderContent(text: string) {
@@ -132,11 +71,12 @@ function renderContent(text: string) {
 }
 
 export default function ChatPage() {
+  const searchParams = useSearchParams()
   const [messages, setMessages] = React.useState<Message[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: MOCK_RESPONSES.default,
+      content: WELCOME_MESSAGE,
       timestamp: new Date(),
     }
   ])
@@ -144,12 +84,24 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = React.useState(false)
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
+  const autoSentRef = React.useRef(false)
 
   React.useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [messages])
+
+  // Auto-send message from query param 'q'
+  React.useEffect(() => {
+    const q = searchParams.get("q")
+    if (q && !autoSentRef.current) {
+      autoSentRef.current = true
+      // Small delay to let the component mount fully
+      setTimeout(() => sendMessage(q), 300)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return
@@ -165,33 +117,28 @@ export default function ChatPage() {
     setInput("")
     setIsLoading(true)
 
-    // Simulate streaming delay
+    // Call Real API
     const assistantMsgId = `a-${Date.now()}`
-    const fullResponse = getResponse(text)
-
-    // Add empty streaming message
+    
+    // Add empty loading message
     setMessages(prev => [...prev, {
       id: assistantMsgId,
       role: "assistant",
-      content: "",
+      content: "Đang phân tích...",
       timestamp: new Date(),
       isStreaming: true,
     }])
 
-    // Simulate token-by-token streaming
-    let currentText = ""
-    const words = fullResponse.split(" ")
-    for (let i = 0; i < words.length; i++) {
-      await new Promise(resolve => setTimeout(resolve, 30))
-      currentText += (i === 0 ? "" : " ") + words[i]
+    try {
+      const result = await api.chat({ message: text.trim() })
       setMessages(prev => prev.map(m =>
-        m.id === assistantMsgId ? { ...m, content: currentText } : m
+        m.id === assistantMsgId ? { ...m, content: result.response, isStreaming: false } : m
+      ))
+    } catch (error: any) {
+      setMessages(prev => prev.map(m =>
+        m.id === assistantMsgId ? { ...m, content: `**Lỗi hệ thống:** Không thể kết nối với Agent. \n\nChi tiết: ${error.message}`, isStreaming: false } : m
       ))
     }
-
-    setMessages(prev => prev.map(m =>
-      m.id === assistantMsgId ? { ...m, isStreaming: false } : m
-    ))
     setIsLoading(false)
     inputRef.current?.focus()
   }
@@ -205,7 +152,7 @@ export default function ChatPage() {
     <div className="flex flex-col h-[calc(100vh-5rem)] max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 pb-4 border-b">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#1B3A5C] to-[#2A5280] text-white shadow-sm">
           <Bot className="h-5 w-5" />
         </div>
         <div>
@@ -218,7 +165,7 @@ export default function ChatPage() {
             Online · Powered by LLM + RAG (CTĐT)
           </p>
         </div>
-        <Badge variant="secondary" className="ml-auto">Demo UI</Badge>
+        <Badge variant="secondary" className="ml-auto bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200 shadow-sm">Live Agent</Badge>
       </div>
 
       {/* Messages */}
@@ -232,7 +179,7 @@ export default function ChatPage() {
               {/* Avatar */}
               <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
                 msg.role === "assistant"
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-gradient-to-br from-[#1B3A5C] to-[#2A5280] text-white shadow-sm"
                   : "bg-muted text-muted-foreground"
               }`}>
                 {msg.role === "assistant" ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}

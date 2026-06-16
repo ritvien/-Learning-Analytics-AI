@@ -9,6 +9,7 @@ import {
   FileText,
   FileUp,
   Layers,
+  Zap,
 } from "lucide-react"
 
 import {
@@ -24,7 +25,7 @@ import {
   SidebarGroupLabel,
 } from "@/components/ui/sidebar"
 
-// Dữ liệu mẫu cho navigation (Sẽ thay thế bằng role-based logic sau)
+// Navigation data
 const data = {
   navMain: [
     {
@@ -116,13 +117,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<a href="#" />}>
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <GraduationCap className="size-4" />
+            <SidebarMenuButton size="lg" render={<a href="/manager" />}>
+              {/* EPU Logo Badge */}
+              <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#1B3A5C] to-[#2A5280] text-white shadow-md">
+                <Zap className="size-5" />
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
-                <span className="font-semibold">EPU Analytics</span>
-                <span className="">v1.0.0</span>
+                <span className="font-bold text-sm tracking-tight" style={{ fontFamily: 'var(--font-heading), Montserrat, sans-serif' }}>
+                  ĐH Điện Lực
+                </span>
+                <span className="text-xs text-muted-foreground font-medium">
+                  EPU Analytics
+                </span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -131,14 +137,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         {data.navMain.map((item) => (
           <SidebarGroup key={item.title}>
-            <SidebarGroupLabel>{item.title}</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+              {item.title}
+            </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {item.items.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton render={<a href={item.url} />}>
-                      <item.icon />
-                      <span>{item.title}</span>
+                {item.items.map((subItem) => (
+                  <SidebarMenuItem key={subItem.title}>
+                    <SidebarMenuButton render={<a href={subItem.url} />}>
+                      <subItem.icon className="size-4" />
+                      <span>{subItem.title}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -148,7 +156,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ))}
       </SidebarContent>
       <SidebarFooter>
-         {/* User dropdown will go here */}
+        <div className="px-3 py-2">
+          <div className="flex items-center gap-2 rounded-lg bg-accent/50 px-3 py-2">
+            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs text-muted-foreground font-medium">Hệ thống hoạt động</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground/50 text-center mt-2 font-medium">
+            © 2026 Trường ĐH Điện Lực
+          </p>
+        </div>
       </SidebarFooter>
     </Sidebar>
   )

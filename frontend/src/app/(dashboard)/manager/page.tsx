@@ -1,241 +1,375 @@
 "use client"
 
 import * as React from "react"
-import { useState } from "react"
-import { ChevronDown, ChevronUp, Network, School } from "lucide-react"
-import { mockDepartments } from "@/lib/mock-data"
+import { useState, useEffect, useMemo } from "react"
+import { useRouter } from "next/navigation"
+import { ChevronDown, ChevronUp, Network, School, MessageSquare } from "lucide-react"
+import { api } from "@/lib/api"
+import {
+  mapApiDeptToFeDept,
+  mapApiStudentToFeStudent,
+  mapApiCourseToFeCourse,
+  mapApiEnrollmentToFeGrade
+} from "@/lib/adapters"
+import type { Course, Department, GradeRecord, Student } from "@/types"
+import { DetailPanel } from "@/components/dashboard/detail-panel"
 
 export default function ManagerDashboard() {
+  const router = useRouter()
   const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>({})
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [students, setStudents] = useState<Student[]>([])
+  const [courses, setCourses] = useState<Course[]>([])
+  const [grades, setGrades] = useState<GradeRecord[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [selection, setSelection] = useState<{ id: string; type: "department" | "major" } | null>(null)
+
+  useEffect(() => {
+    let active = true
+    async function loadData() {
+      try {
+        console.log("loadData: start fetching")
+        setIsLoading(true)
+        const [deptsRes, studentsRes, coursesRes, gradesRes, programsRes] = await Promise.all([
+          api.getDepartments({ limit: 100 }),
+          api.getStudents({ limit: 1000 }),
+          api.getCourses({ limit: 500 }),
+          api.getGrades({ limit: 5000 }),
+          api.getPrograms({ limit: 100 }),
+        ])
+        console.log("loadData: fetch success", { deptsRes })
+        if (active) {
+          const feDepartments = deptsRes.map(d => mapApiDeptToFeDept(d, programsRes))
+          const feStudents = studentsRes.map(s => mapApiStudentToFeStudent(s, programsRes, deptsRes))
+          const feCourses = coursesRes.map(c => mapApiCourseToFeCourse(c, programsRes, deptsRes))
+          const feGrades = gradesRes
+
+          setDepartments(feDepartments)
+          setStudents(feStudents)
+          setCourses(feCourses)
+          setGrades(feGrades)
+
+          if (feDepartments.length > 0) {
+            setSelection({ id: feDepartments[0].id, type: "department" })
+            setExpandedDepts({ [feDepartments[0].id]: true })
+          }
+          console.log("loadData: processing complete, hiding spinner")
+          setIsLoading(false)
+        }
+      } catch (err) {
+        console.error("loadData: ERROR", err)
+        if (active) {
+          console.log("loadData: hiding spinner due to error")
+          setIsLoading(false)
+        }
+      }
+    }
+    loadData()
+    return () => { active = false }
+  }, [])
 
   const toggleDept = (id: string) => {
     setExpandedDepts((prev) => ({ ...prev, [id]: !prev[id] }))
+    setSelection({ id, type: "department" })
   }
 
   const toggleAll = (expand: boolean) => {
     const next: Record<string, boolean> = {}
-    if (expand) mockDepartments.forEach((d) => { next[d.id] = true })
+    if (expand) departments.forEach((d) => { next[d.id] = true })
     setExpandedDepts(next)
   }
 
+  const selectedDepartment = useMemo(() => {
+    if (!selection) return undefined
+    return departments.find((item) => item.id === selection.id)
+  }, [selection, departments])
+
+  const selectedMajor = useMemo(() => {
+    if (!selection) return undefined
+    return departments.flatMap((item) => item.nganhs).find((major) => major.id === selection.id)
+  }, [selection, departments])
+
+  const studentIds = useMemo(() => {
+    if (!selection) return []
+    if (selection.type === "major" && selectedMajor) {
+      return students.filter((student) => student.nganh === selectedMajor.tenNganh).map((student) => student.id)
+    }
+    if (selection.type === "department" && selectedDepartment) {
+      return students.filter((student) => student.khoaQuanLy === selectedDepartment.tenKhoa).map((student) => student.id)
+    }
+    return []
+  }, [selection, selectedMajor, selectedDepartment, students])
+
+  const averageGpa = useMemo(() => {
+    const relevantStudents = students.filter((student) => studentIds.includes(student.id))
+    if (relevantStudents.length === 0) return 0
+    return (
+      relevantStudents.reduce((sum, student) => sum + student.diemTBTichLuy, 0) / relevantStudents.length
+    )
+  }, [studentIds, students])
+
+  const failRate = useMemo(() => {
+    const relevantGrades = grades.filter((grade) => studentIds.includes(grade.studentId))
+    if (relevantGrades.length === 0) return 0
+    const failed = relevantGrades.filter((grade) => {
+      return grade.xepLoai === "F" || (grade.diemTongKet !== null && grade.diemTongKet < 5)
+    }).length
+    return (failed / relevantGrades.length) * 100
+  }, [studentIds, grades])
+
+  const courseCount = useMemo(() => {
+    if (!selection) return 0
+    const selectedDepartmentForCourses =
+      selectedMajor
+        ? departments.find((department) => department.nganhs.some((major) => major.id === selectedMajor.id))
+        : selectedDepartment
+
+    if (!selectedDepartmentForCourses) return 0
+    return courses.filter((course) => course.khoaQuanLy === selectedDepartmentForCourses.tenKhoa).length
+  }, [selection, selectedMajor, selectedDepartment, departments, courses])
+
   return (
-    <div className="flex flex-col w-full bg-background text-foreground transition-colors duration-300 rounded-xl border border-border/50 shadow-sm p-4">
-      
-      {/* ── Dashboard Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-3 shrink-0">
-        <div>
-          <h1 className="text-lg font-bold tracking-tight flex items-center gap-2">
-            <Network className="h-4.5 w-4.5 text-primary" />
-            Cơ cấu tổ chức đào tạo
-          </h1>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Sơ đồ hình cây phân cấp khoa và ngành học tại Trường Đại học Điện Lực
-          </p>
-        </div>
-
-        {/* ── Toolbar ── */}
-        <div className="flex items-center gap-1.5 self-start sm:self-center">
-          <button
-            onClick={() => toggleAll(true)}
-            className="px-2.5 py-1.5 text-[10px] font-semibold rounded-md bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm transition-all cursor-pointer"
-          >
-            Mở rộng tất cả
-          </button>
-          <button
-            onClick={() => toggleAll(false)}
-            className="px-2.5 py-1.5 text-[10px] font-semibold rounded-md bg-secondary hover:bg-secondary/80 text-secondary-foreground border border-border shadow-sm transition-all cursor-pointer"
-          >
-            Thu gọn tất cả
-          </button>
-        </div>
-      </div>
-
-      {/* ── Tree View Area ── */}
-      <div className="flex-1 flex flex-col items-center mt-4 w-full overflow-hidden">
-        
-        {/* ── EPU Root Node ── */}
-        <div className="flex flex-col items-center select-none shrink-0">
-          <div
-            className="px-8 py-2 rounded-full font-black text-base tracking-[0.2em] text-white
-                        bg-gradient-to-r from-red-600 via-orange-500 to-amber-500
-                        shadow-[0_2px_10px_rgba(239,68,68,0.2)] border border-white/10 flex items-center gap-1.5"
-          >
-            <School className="h-4 w-4" />
-            EPU
-          </div>
-          <div className="mt-1 text-center">
-            <p className="text-[10px] font-bold text-foreground uppercase tracking-wider">
-              Trường Đại học Điện Lực
-            </p>
+    <div className="space-y-6">
+      {isLoading ? (
+        <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-border bg-muted/20">
+          <div className="text-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto"></div>
+            <p className="mt-2 text-sm text-muted-foreground">Đang tải dữ liệu học thuật...</p>
           </div>
         </div>
+      ) : (
+        <>
+          <div className="flex flex-col w-full bg-background text-foreground transition-colors duration-300 rounded-xl border border-border/50 shadow-sm p-4">
+            {/* ── Dashboard Header ── */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-3 shrink-0">
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight">Cơ cấu tổ chức đào tạo</h1>
+              </div>
 
-        {/* ── Vertical stem from EPU ── */}
-        <div className="w-[1.5px] h-5 bg-gradient-to-b from-orange-500 to-primary/40 shrink-0" />
-
-        {/* ── Columns Wrapper ── */}
-        <div className="relative w-full flex pt-0">
-          {mockDepartments.map((dept, index) => {
-            const isExpanded = !!expandedDepts[dept.id]
-
-            // Status score functions
-            const getMajorValue = (name: string): number => {
-              const lowName = name.toLowerCase();
-              if (
-                lowName === "công nghệ thông tin" ||
-                lowName === "công nghệ kỹ thuật điều khiển và tự động hoá" ||
-                lowName === "công nghệ kỹ thuật cơ điện tử"
-              ) {
-                return 85;
-              }
-              if (
-                lowName === "trí tuệ nhân tạo" ||
-                lowName === "công nghệ kỹ thuật cơ khí" ||
-                lowName === "công nghệ kỹ thuật điện tử - viễn thông" ||
-                lowName === "kiểm toán" ||
-                lowName === "logistics và quản lý chuỗi cung ứng"
-              ) {
-                return 72;
-              }
-              return 58;
-            }
-
-            const getDeptStatus = (majorsList: typeof dept.nganhs) => {
-              if (majorsList.length === 0) {
-                return { percent: 0, colorClass: "bg-card border-border text-muted-foreground", activeColorClass: "bg-card border-primary text-primary", dotClass: "bg-muted" };
-              }
-              const sum = majorsList.reduce((acc, m) => acc + getMajorValue(m.tenNganh), 0);
-              const avg = Math.round(sum / majorsList.length);
-
-              if (avg >= 80) {
-                return {
-                  percent: avg,
-                  colorClass: "bg-emerald-500/5 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:border-emerald-500/60",
-                  activeColorClass: "bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-[0_0_8px_rgba(16,185,129,0.12)] scale-[1.02] font-semibold",
-                  dotClass: "bg-emerald-500",
-                }
-              }
-              if (avg >= 60) {
-                return {
-                  percent: avg,
-                  colorClass: "bg-amber-500/5 border-amber-500/30 text-amber-700 dark:text-amber-400 hover:border-amber-500/60",
-                  activeColorClass: "bg-amber-500/10 border-amber-500 text-amber-700 dark:text-amber-300 shadow-[0_0_8px_rgba(245,158,11,0.12)] scale-[1.02] font-semibold",
-                  dotClass: "bg-amber-500",
-                }
-              }
-              return {
-                percent: avg,
-                colorClass: "bg-rose-500/5 border-rose-500/30 text-rose-700 dark:text-rose-400 hover:border-rose-500/60",
-                activeColorClass: "bg-rose-500/10 border-rose-500 text-rose-700 dark:text-rose-300 shadow-[0_0_8px_rgba(244,63,94,0.12)] scale-[1.02] font-semibold",
-                dotClass: "bg-rose-500",
-              }
-            }
-
-            const deptStatus = getDeptStatus(dept.nganhs)
-
-            return (
-              <div key={dept.id} className="flex-1 flex flex-col items-center px-1 relative min-w-[70px] max-w-[160px]">
-                
-                {/* ── Edge-to-Edge Connecting Line (Zero Gap) ── */}
-                <div className="absolute top-0 left-0 right-0 h-[1.5px] flex">
-                  <div className={`flex-1 ${index === 0 ? "invisible" : "bg-primary/30"}`} />
-                  <div className={`flex-1 ${index === mockDepartments.length - 1 ? "invisible" : "bg-primary/30"}`} />
-                </div>
-
-                {/* Vertical stem to card */}
-                <div className="w-[1.5px] h-4 bg-primary/30 z-10 shrink-0" />
-
-                {/* Department card (clickable) */}
+              {/* ── Toolbar ── */}
+              <div className="flex items-center gap-1.5 self-start sm:self-center">
                 <button
-                  onClick={() => toggleDept(dept.id)}
-                  className={`w-full rounded-lg border p-1.5 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-between min-h-[64px] z-10
-                    ${isExpanded ? deptStatus.activeColorClass : deptStatus.colorClass}`}
+                  onClick={() => toggleAll(true)}
+                  className="px-2.5 py-1.5 text-[10px] font-semibold rounded-md bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm transition-all cursor-pointer"
                 >
-                  <p className="text-[10px] font-bold leading-tight tracking-wide line-clamp-2">
-                    {dept.tenKhoa.replace("Khoa ", "")}
-                  </p>
-                  <div className="flex items-center gap-1 text-[8px] font-medium mt-1">
-                    <span className={`w-1 h-1 rounded-full ${deptStatus.dotClass}`} />
-                    <span>{deptStatus.percent}%</span>
-                  </div>
+                  Mở rộng tất cả
                 </button>
-
-                {/* Stem to majors */}
-                <div
-                  className={`w-[1.5px] bg-primary/20 transition-all duration-200 shrink-0 ${
-                    isExpanded ? "h-3 opacity-100" : "h-0 opacity-0"
-                  }`}
-                />
-
-                {/* Majors list */}
-                <div
-                  className={`w-full flex flex-col gap-1 transition-all duration-200 origin-top z-10 ${
-                    isExpanded
-                      ? "max-h-[350px] opacity-100 scale-y-100 mt-0.5"
-                      : "max-h-0 opacity-0 scale-y-95 overflow-hidden pointer-events-none"
-                  }`}
+                <button
+                  onClick={() => toggleAll(false)}
+                  className="px-2.5 py-1.5 text-[10px] font-semibold rounded-md bg-secondary hover:bg-secondary/80 text-secondary-foreground border border-border shadow-sm transition-all cursor-pointer"
                 >
-                  {dept.nganhs.map((major) => {
-                    // Determine status based on the user's PRD color mapping rules
-                    const getMajorStatus = (name: string) => {
-                      const lowName = name.toLowerCase();
-                      if (
-                        lowName === "công nghệ thông tin" ||
-                        lowName === "công nghệ kỹ thuật điều khiển và tự động hoá" ||
-                        lowName === "công nghệ kỹ thuật cơ điện tử"
-                      ) {
-                        return {
-                          colorClass: "bg-emerald-500/5 dark:bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:border-emerald-500/50",
-                          dotClass: "bg-emerald-500",
-                          percent: "85%",
-                        }
-                      }
-                      if (
-                        lowName === "trí tuệ nhân tạo" ||
-                        lowName === "công nghệ kỹ thuật cơ khí" ||
-                        lowName === "công nghệ kỹ thuật điện tử - viễn thông" ||
-                        lowName === "kiểm toán" ||
-                        lowName === "logistics và quản lý chuỗi cung ứng"
-                      ) {
-                        return {
-                          colorClass: "bg-amber-500/5 dark:bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400 hover:border-amber-500/50",
-                          dotClass: "bg-amber-500",
-                          percent: "72%",
-                        }
-                      }
-                      // Đỏ: Xây dựng, Điện-điện tử, Tài chính - Ngân hàng, Quản trị kinh doanh
+                  Thu gọn tất cả
+                </button>
+              </div>
+            </div>
+
+            {/* ── Tree View Area ── */}
+            <div className="flex-1 flex flex-col items-center mt-4 w-full">
+              {/* ── EPU Root Node ── */}
+              <div className="flex flex-col items-center select-none shrink-0">
+                <div
+                  className="px-8 py-2 rounded-full font-black text-base tracking-[0.2em] text-white
+                              bg-gradient-to-r from-[#1B3A5C] to-[#F5A623]
+                              shadow-[0_2px_10px_rgba(27,58,92,0.3)] border border-white/10 flex items-center gap-1.5"
+                >
+                  <School className="h-4 w-4" />
+                  EPU
+                </div>
+              </div>
+
+              {/* ── Vertical stem from EPU ── */}
+              <div className="w-[1.5px] h-5 bg-gradient-to-b from-[#F5A623] to-primary/40 shrink-0" />
+
+              {/* ── Columns Wrapper ── */}
+              <div className="relative w-full flex pt-0">
+                {departments.map((dept, index) => {
+                  const isExpanded = !!expandedDepts[dept.id]
+                  const isDeptSelected = selection?.type === "department" && selection.id === dept.id
+
+                  const getMajorValue = (name: string): number => {
+                    const lowName = name.toLowerCase();
+                    if (
+                      lowName === "công nghệ thông tin" ||
+                      lowName === "công nghệ kỹ thuật điều khiển và tự động hoá" ||
+                      lowName === "công nghệ kỹ thuật cơ điện tử"
+                    ) return 85;
+                    if (
+                      lowName === "trí tuệ nhân tạo" ||
+                      lowName === "công nghệ kỹ thuật cơ khí" ||
+                      lowName === "công nghệ kỹ thuật điện tử - viễn thông" ||
+                      lowName === "kiểm toán" ||
+                      lowName === "logistics và quản lý chuỗi cung ứng"
+                    ) return 72;
+                    return 58;
+                  }
+
+                  const getDeptStatus = (majorsList: typeof dept.nganhs) => {
+                    if (majorsList.length === 0) {
+                      return { percent: 0, colorClass: "bg-card border-border text-muted-foreground", activeColorClass: "bg-card border-primary text-primary", dotClass: "bg-muted" };
+                    }
+                    const sum = majorsList.reduce((acc, m) => acc + getMajorValue(m.tenNganh), 0);
+                    const avg = Math.round(sum / majorsList.length);
+
+                    if (avg >= 80) {
                       return {
-                        colorClass: "bg-rose-500/5 dark:bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-400 hover:border-rose-500/50",
-                        dotClass: "bg-rose-500",
-                        percent: "58%",
+                        percent: avg,
+                        colorClass: "bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700 shadow-sm",
+                        activeColorClass: "bg-emerald-600 border-white text-white shadow-lg scale-[1.05] ring-2 ring-emerald-500 ring-offset-1 font-bold",
+                        dotClass: "bg-white",
                       }
                     }
+                    if (avg >= 60) {
+                      return {
+                        percent: avg,
+                        colorClass: "bg-amber-500 border-amber-500 text-white hover:bg-amber-600 shadow-sm",
+                        activeColorClass: "bg-amber-500 border-white text-white shadow-lg scale-[1.05] ring-2 ring-amber-400 ring-offset-1 font-bold",
+                        dotClass: "bg-white",
+                      }
+                    }
+                    return {
+                      percent: avg,
+                      colorClass: "bg-rose-600 border-rose-600 text-white hover:bg-rose-700 shadow-sm",
+                      activeColorClass: "bg-rose-600 border-white text-white shadow-lg scale-[1.05] ring-2 ring-rose-500 ring-offset-1 font-bold",
+                      dotClass: "bg-white",
+                    }
+                  }
 
-                    const status = getMajorStatus(major.tenNganh)
+                  const deptStatus = getDeptStatus(dept.nganhs)
 
-                    return (
-                      <div
-                        key={major.id}
-                        className={`w-full px-1.5 py-1 rounded-md border flex flex-col gap-0.5 transition-all duration-150 ${status.colorClass}`}
-                      >
-                        <p className="text-[8.5px] leading-tight font-semibold text-center break-words">
-                          {major.tenNganh}
-                        </p>
-                        <div className="flex items-center justify-center gap-1 text-[8px] opacity-90 font-medium">
-                          <span className={`w-1 h-1 rounded-full ${status.dotClass}`} />
-                          <span>{status.percent}</span>
-                        </div>
+                  return (
+                    <div key={dept.id} className="flex-1 flex flex-col items-center px-1 relative min-w-[120px] max-w-[200px]">
+                      {/* ── Edge-to-Edge Connecting Line (Zero Gap) ── */}
+                      <div className="absolute top-0 left-0 right-0 h-[1.5px] flex">
+                        <div className={`flex-1 ${index === 0 ? "invisible" : "bg-primary/30"}`} />
+                        <div className={`flex-1 ${index === departments.length - 1 ? "invisible" : "bg-primary/30"}`} />
                       </div>
-                    )
-                  })}
-                </div>
 
+                      {/* Vertical stem to card */}
+                      <div className="w-[1.5px] h-4 bg-primary/30 z-10 shrink-0" />
+
+                      {/* Department card (clickable) */}
+                      <button
+                        onClick={() => toggleDept(dept.id)}
+                        className={`w-full rounded-lg border p-1.5 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-between min-h-[64px] z-10
+                          ${isExpanded ? deptStatus.activeColorClass : deptStatus.colorClass}
+                          ${isDeptSelected ? "ring-2 ring-primary ring-offset-2" : ""}`}
+                      >
+                        <p className="text-[10px] font-bold leading-tight tracking-wide line-clamp-2">
+                          {dept.tenKhoa.replace("Khoa ", "")}
+                        </p>
+                        <div className="flex items-center gap-1 text-[8px] font-medium mt-1">
+                          <span className={`w-1 h-1 rounded-full ${deptStatus.dotClass}`} />
+                          <span>{deptStatus.percent}%</span>
+                        </div>
+                      </button>
+
+                      {/* Stem to majors */}
+                      <div
+                        className={`w-[1.5px] bg-primary/20 transition-all duration-200 shrink-0 ${isExpanded ? "h-3 opacity-100" : "h-0 opacity-0"
+                          }`}
+                      />
+
+                      {/* Majors list */}
+                      <div
+                        className={`w-full flex flex-col gap-1 transition-all duration-200 origin-top z-10 ${isExpanded
+                          ? "max-h-[800px] opacity-100 scale-y-100 mt-0.5"
+                          : "max-h-0 opacity-0 scale-y-95 overflow-hidden pointer-events-none"
+                          }`}
+                      >
+                        {dept.nganhs.map((major) => {
+                          const getMajorStatus = (name: string) => {
+                            const lowName = name.toLowerCase();
+                            if (
+                              lowName === "công nghệ thông tin" ||
+                              lowName === "công nghệ kỹ thuật điều khiển và tự động hoá" ||
+                              lowName === "công nghệ kỹ thuật cơ điện tử"
+                            ) {
+                              return {
+                                colorClass: "bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700 shadow-sm",
+                                dotClass: "bg-white",
+                                percent: "85%",
+                              }
+                            }
+                            if (
+                              lowName === "trí tuệ nhân tạo" ||
+                              lowName === "công nghệ kỹ thuật cơ khí" ||
+                              lowName === "công nghệ kỹ thuật điện tử - viễn thông" ||
+                              lowName === "kiểm toán" ||
+                              lowName === "logistics và quản lý chuỗi cung ứng"
+                            ) {
+                              return {
+                                colorClass: "bg-amber-500 border-amber-500 text-white hover:bg-amber-600 shadow-sm",
+                                dotClass: "bg-white",
+                                percent: "72%",
+                              }
+                            }
+                            return {
+                              colorClass: "bg-rose-600 border-rose-600 text-white hover:bg-rose-700 shadow-sm",
+                              dotClass: "bg-white",
+                              percent: "58%",
+                            }
+                          }
+
+                          const status = getMajorStatus(major.tenNganh)
+                          const isMajorSelected = selection?.type === "major" && selection.id === major.id
+
+                          const handleChatNavigate = (e: React.MouseEvent) => {
+                            e.stopPropagation()
+                            const question = `Cho tôi biết thông tin chi tiết về ngành ${major.tenNganh}: chương trình đào tạo, các môn học chính, chuẩn đầu ra và triển vọng nghề nghiệp.`
+                            router.push(`/chat?q=${encodeURIComponent(question)}`)
+                          }
+
+                          return (
+                            <div
+                              key={major.id}
+                              onClick={() => setSelection({ id: major.id, type: "major" })}
+                              className={`group w-full px-1.5 py-1 rounded-md border flex flex-col gap-0.5 transition-all duration-150 cursor-pointer relative
+                                ${status.colorClass}
+                                ${isMajorSelected ? "ring-2 ring-primary ring-offset-1" : ""}`}
+                            >
+                              <p className="text-[8.5px] leading-tight font-semibold text-center break-words">
+                                {major.tenNganh}
+                              </p>
+                              <div className="flex items-center justify-center gap-1 text-[8px] opacity-90 font-medium">
+                                <span className={`w-1 h-1 rounded-full ${status.dotClass}`} />
+                                <span>{status.percent}</span>
+                              </div>
+                              {/* Chat AI button */}
+                              <button
+                                onClick={handleChatNavigate}
+                                title={`Hỏi AI về ngành ${major.tenNganh}`}
+                                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white text-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-lg hover:scale-110 z-20 border border-primary/20"
+                              >
+                                <MessageSquare className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-            )
-          })}
-        </div>
+            </div>
+          </div>
 
-      </div>
+          {/* Detail Panel Area */}
+          <div className="mt-6">
+            <DetailPanel
+              title={selectedMajor ? selectedMajor.tenNganh : selectedDepartment?.tenKhoa ?? "Chưa chọn"}
+              subtitle={selectedMajor ? selectedMajor.moTa : selectedDepartment?.moTa ?? "Chọn một khoa hoặc ngành để xem chi tiết."}
+              studentCount={studentIds.length}
+              averageGpa={averageGpa}
+              failRate={failRate}
+              courseCount={courseCount}
+              topInsights={[
+                "Dữ liệu cập nhật realtime từ database",
+                selection ? `Đang hiển thị cho ${studentIds.length} sinh viên` : "Chưa có dữ liệu"
+              ]}
+            />
+          </div>
+        </>
+      )}
     </div>
   )
 }

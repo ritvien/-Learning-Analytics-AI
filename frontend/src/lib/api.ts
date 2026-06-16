@@ -69,8 +69,27 @@ export interface ApiSemester {
   is_current: boolean
 }
 
+// --- Chat ---
+export interface ChatRequest {
+  message: string
+  context?: Record<string, any>
+}
+
+export interface ChatResponse {
+  response: string
+  intent: string
+  tool_calls: { tool_name: string; tool_input: Record<string, any>; tool_output: string }[]
+  latency_ms: number
+}
+
 async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(input, init)
+  const customInit = { ...init }
+  customInit.headers = {
+    ...customInit.headers,
+    "ngrok-skip-browser-warning": "true"
+  }
+  
+  const response = await fetch(input, customInit)
   const text = await response.text()
   const contentType = response.headers.get("content-type") || ""
   const data = contentType.includes("application/json") ? JSON.parse(text) : text
@@ -133,7 +152,6 @@ export const api = {
   deleteCourse: (id: number) =>
     fetcher<void>(`/api/v1/courses/${id}`, { method: "DELETE" }),
 
-  // --- Enrollments ---
   getEnrollments: (params?: { student_id?: number; section_id?: number; limit?: number }) =>
     fetcher<ApiEnrollment[]>(`/api/v1/grades/enrollments${qs(params ?? {})}`),
   getGrades: async (params?: { limit?: number }) => {
@@ -166,4 +184,12 @@ export const api = {
   // --- Semesters ---
   getSemesters: () =>
     fetcher<ApiSemester[]>('/api/v1/semesters'),
+
+  // --- Chat ---
+  chat: (body: ChatRequest) =>
+    fetcher<ChatResponse>("/api/v1/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
 }
