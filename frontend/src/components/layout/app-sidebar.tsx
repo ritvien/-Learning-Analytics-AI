@@ -31,7 +31,7 @@ const data = {
       title: "Quản lý chung",
       items: [
         {
-          title: "Dashboard",
+          title: "Cơ cấu đào tạo",
           url: "/manager",
           icon: LayoutDashboard,
         },
@@ -44,6 +44,31 @@ const data = {
           title: "Giảng viên",
           url: "/manager/teachers",
           icon: GraduationCap,
+        },
+      ],
+    },
+    {
+      title: "Phân tích",
+      items: [
+        {
+          title: "Tổng quan toàn trường",
+          url: "/manager/analytics",
+          icon: Layers,
+        },
+        {
+          title: "Phân tích khoa/ngành",
+          url: "/manager/analytics/departments",
+          icon: Settings,
+        },
+        {
+          title: "Phân tích môn học",
+          url: "/manager/analytics/courses",
+          icon: BookOpen,
+        },
+        {
+          title: "Phân tích lớp học phần",
+          url: "/manager/analytics/sections",
+          icon: FileText,
         },
       ],
     },

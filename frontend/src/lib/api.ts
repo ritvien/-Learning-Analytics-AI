@@ -136,6 +136,28 @@ export const api = {
   // --- Enrollments ---
   getEnrollments: (params?: { student_id?: number; section_id?: number; limit?: number }) =>
     fetcher<ApiEnrollment[]>(`/api/v1/grades/enrollments${qs(params ?? {})}`),
+  getGrades: async (params?: { limit?: number }) => {
+    const enrolls = await fetcher<ApiEnrollment[]>(`/api/v1/grades/enrollments${qs({ limit: params?.limit ?? 3000 })}`)
+    return enrolls.map(e => ({
+      id: String(e.id),
+      studentId: String(e.student_id),
+      tenMonHoc: "",
+      maLop: "",
+      tinChi: 0,
+      diemTX1: null,
+      diemTX2: null,
+      diemTX3: null,
+      diemTX4: null,
+      tbThuongKy: null,
+      duocDuThi: true,
+      diemThiLan1: null,
+      diemThiLan2: null,
+      diemTongKet: e.final_grade,
+      xepLoai: e.grade_letter ?? (e.is_passed ? "C" : "F"),
+      ghiChu: "",
+      hocKy: "",
+    }))
+  },
 
   // --- Sections ---
   getSections: (params?: { limit?: number; course_id?: number }) =>

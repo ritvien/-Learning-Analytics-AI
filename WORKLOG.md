@@ -44,3 +44,12 @@
   - Verified and passed all vitest frontend tests successfully.
   - Marked Sprint 2 planning tasks `V11` to `V14` as completed.
 
+## 2026-06-15: Complete Dashboard Analytics Frontend & Mappings
+- **Decision**: Built the new 4-page Analytics Dashboard as detailed in the guides, and renamed the legacy organization tree dashboard to "Cơ cấu đào tạo" in the navigation.
+- **Changes**:
+  - Created `/manager/analytics`, `/manager/analytics/departments`, `/manager/analytics/courses`, and `/manager/analytics/sections` pages.
+  - Added Recharts visualization (trends, distributions, compare metrics), interactive filters, custom HSL heatmap tables, and CSV export.
+  - Modified [app-sidebar.tsx](file:///c:/Users/ADMIN/C2-App-056/frontend/src/components/layout/app-sidebar.tsx) navigation and groups.
+  - Fixed TypeScript compiler errors in [academic-tree/page.tsx](file:///c:/Users/ADMIN/C2-App-056/frontend/src/app/(dashboard)/manager/academic-tree/page.tsx) by implementing mappings for raw API models in [api.ts](file:///c:/Users/ADMIN/C2-App-056/frontend/src/lib/api.ts).
+  - Verified production build success (`npm run build`).
+

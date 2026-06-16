@@ -22,20 +22,77 @@ export default function AcademicTreePage() {
     async function loadData() {
       try {
         setIsLoading(true)
-        const [deptsRes, studentsRes, coursesRes, gradesRes] = await Promise.all([
+        const [deptsRes, programsRes, studentsRes, coursesRes, gradesRes] = await Promise.all([
           api.getDepartments(),
+          api.getPrograms(),
           api.getStudents(),
           api.getCourses(),
           api.getGrades(),
         ])
         if (active) {
-          setDepartments(deptsRes)
-          setStudents(studentsRes)
-          setCourses(coursesRes)
+          const mappedDepts: Department[] = deptsRes.map(d => ({
+            id: String(d.id),
+            tenKhoa: d.name,
+            moTa: d.description ?? "",
+            nganhs: programsRes
+              .filter(p => p.department_id === d.id)
+              .map(p => ({
+                id: String(p.id),
+                tenNganh: p.name,
+                khoaId: String(d.id),
+                moTa: p.description ?? ""
+              }))
+          }))
+
+          const mappedStudents: Student[] = studentsRes.map(s => {
+            const prog = programsRes.find(p => p.id === s.program_id)
+            const dept = deptsRes.find(d => d.id === prog?.department_id)
+            return {
+              id: String(s.id),
+              mssv: s.student_code,
+              hoTen: s.full_name,
+              gioiTinh: (s.gender === "Female" || s.gender === "Nữ") ? "Nữ" : "Nam",
+              ngayVaoTruong: "",
+              khoa: "2022",
+              bacDaoTao: "Đại học",
+              loaiHinh: "Chính quy",
+              nganh: prog?.name ?? "",
+              chuyenNganh: "",
+              khoaQuanLy: dept?.name ?? "",
+              lop: s.class_code ?? "",
+              trangThai: s.status === "active" ? "Đang học" : "Thôi học",
+              coVanHocTap: "",
+              soDienThoaiCVHT: "",
+              tongTCTichLuy: 0,
+              diemTBTichLuy: s.gpa_cumulative ?? 0,
+              tongTCNo: 0,
+              soMonNo: 0
+            }
+          })
+
+          const mappedCourses: Course[] = coursesRes.map(c => {
+            const progId = c.program_ids?.[0]
+            const prog = programsRes.find(p => p.id === progId)
+            const dept = deptsRes.find(d => d.id === prog?.department_id)
+            return {
+              id: String(c.id),
+              maHocPhan: c.code,
+              tenMonHoc: c.name,
+              tinChi: c.credits,
+              khoaQuanLy: dept?.name ?? "",
+              moTa: c.description ?? "",
+              trangThai: c.is_active ? "Đang giảng dạy" : "Ngừng giảng dạy"
+            }
+          })
+
+          setDepartments(mappedDepts)
+          setStudents(mappedStudents)
+          setCourses(mappedCourses)
           setGrades(gradesRes)
-          if (deptsRes.length > 0) {
+
+          if (mappedDepts.length > 0) {
             setSelection({
-              id: deptsRes[0].id,
+              id: mappedDepts[0].id,
               type: "department",
             })
           }
