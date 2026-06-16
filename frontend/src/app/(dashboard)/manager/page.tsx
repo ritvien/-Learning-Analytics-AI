@@ -21,6 +21,7 @@ export default function ManagerDashboard() {
   const [students, setStudents] = useState<Student[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [grades, setGrades] = useState<GradeRecord[]>([])
+  const [healthScores, setHealthScores] = useState<Record<string, number>>({})
   const [isLoading, setIsLoading] = useState(true)
   const [selection, setSelection] = useState<{ id: string; type: "department" | "major" } | null>(null)
 
@@ -48,6 +49,33 @@ export default function ManagerDashboard() {
           setStudents(feStudents)
           setCourses(feCourses)
           setGrades(feGrades)
+
+          // Fetch health scores in background without blocking the main UI render
+          const fetchHealth = async () => {
+            const scores: Record<string, number> = {}
+            const promises: Promise<void>[] = []
+            
+            for (const d of deptsRes) {
+              promises.push(
+                api.getDepartmentHealth(d.id)
+                  .then(res => { scores[`dept_${d.id}`] = res.health_score })
+                  .catch(() => { scores[`dept_${d.id}`] = 0 })
+              )
+            }
+            for (const p of programsRes) {
+              promises.push(
+                api.getProgramHealth(p.id)
+                  .then(res => { scores[`prog_${p.id}`] = res.health_score })
+                  .catch(() => { scores[`prog_${p.id}`] = 0 })
+              )
+            }
+            
+            await Promise.allSettled(promises)
+            if (active) {
+              setHealthScores(scores)
+            }
+          }
+          fetchHealth()
 
           if (feDepartments.length > 0) {
             setSelection({ id: feDepartments[0].id, type: "department" })
@@ -186,31 +214,15 @@ export default function ManagerDashboard() {
                   const isExpanded = !!expandedDepts[dept.id]
                   const isDeptSelected = selection?.type === "department" && selection.id === dept.id
 
-                  const getMajorValue = (name: string): number => {
-                    const lowName = name.toLowerCase();
-                    if (
-                      lowName === "công nghệ thông tin" ||
-                      lowName === "công nghệ kỹ thuật điều khiển và tự động hoá" ||
-                      lowName === "công nghệ kỹ thuật cơ điện tử"
-                    ) return 85;
-                    if (
-                      lowName === "trí tuệ nhân tạo" ||
-                      lowName === "công nghệ kỹ thuật cơ khí" ||
-                      lowName === "công nghệ kỹ thuật điện tử - viễn thông" ||
-                      lowName === "kiểm toán" ||
-                      lowName === "logistics và quản lý chuỗi cung ứng"
-                    ) return 72;
-                    return 58;
-                  }
-
-                  const getDeptStatus = (majorsList: typeof dept.nganhs) => {
-                    if (majorsList.length === 0) {
-                      return { percent: 0, colorClass: "bg-card border-border text-muted-foreground", activeColorClass: "bg-card border-primary text-primary", dotClass: "bg-muted" };
+                  const getDeptStatus = (deptId: string) => {
+                    const hScore = healthScores[`dept_${deptId}`]
+                    const avg = hScore !== undefined ? hScore : 0
+                    
+                    if (hScore === undefined) {
+                      return { percent: "...", colorClass: "bg-card border-border text-muted-foreground", activeColorClass: "bg-card border-primary text-primary", dotClass: "bg-muted" };
                     }
-                    const sum = majorsList.reduce((acc, m) => acc + getMajorValue(m.tenNganh), 0);
-                    const avg = Math.round(sum / majorsList.length);
 
-                    if (avg >= 80) {
+                    if (avg >= 70) {
                       return {
                         percent: avg,
                         colorClass: "bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700 shadow-sm",
@@ -218,7 +230,7 @@ export default function ManagerDashboard() {
                         dotClass: "bg-white",
                       }
                     }
-                    if (avg >= 60) {
+                    if (avg >= 40) {
                       return {
                         percent: avg,
                         colorClass: "bg-amber-500 border-amber-500 text-white hover:bg-amber-600 shadow-sm",
@@ -234,7 +246,7 @@ export default function ManagerDashboard() {
                     }
                   }
 
-                  const deptStatus = getDeptStatus(dept.nganhs)
+                  const deptStatus = getDeptStatus(dept.id)
 
                   return (
                     <div key={dept.id} className="flex-1 flex flex-col items-center px-1 relative min-w-[120px] max-w-[200px]">
@@ -259,7 +271,7 @@ export default function ManagerDashboard() {
                         </p>
                         <div className="flex items-center gap-1 text-[8px] font-medium mt-1">
                           <span className={`w-1 h-1 rounded-full ${deptStatus.dotClass}`} />
-                          <span>{deptStatus.percent}%</span>
+                          <span>{deptStatus.percent}{deptStatus.percent !== "..." ? "%" : ""}</span>
                         </div>
                       </button>
 
@@ -277,40 +289,40 @@ export default function ManagerDashboard() {
                           }`}
                       >
                         {dept.nganhs.map((major) => {
-                          const getMajorStatus = (name: string) => {
-                            const lowName = name.toLowerCase();
-                            if (
-                              lowName === "công nghệ thông tin" ||
-                              lowName === "công nghệ kỹ thuật điều khiển và tự động hoá" ||
-                              lowName === "công nghệ kỹ thuật cơ điện tử"
-                            ) {
+                          const getMajorStatus = (majorId: string) => {
+                            const hScore = healthScores[`prog_${majorId}`]
+                            const percent = hScore !== undefined ? hScore : 0
+                            
+                            if (hScore === undefined) {
+                              return {
+                                colorClass: "bg-card border-border text-muted-foreground",
+                                dotClass: "bg-muted",
+                                percent: "...",
+                              }
+                            }
+                            
+                            if (percent >= 70) {
                               return {
                                 colorClass: "bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700 shadow-sm",
                                 dotClass: "bg-white",
-                                percent: "85%",
+                                percent: `${percent}%`,
                               }
                             }
-                            if (
-                              lowName === "trí tuệ nhân tạo" ||
-                              lowName === "công nghệ kỹ thuật cơ khí" ||
-                              lowName === "công nghệ kỹ thuật điện tử - viễn thông" ||
-                              lowName === "kiểm toán" ||
-                              lowName === "logistics và quản lý chuỗi cung ứng"
-                            ) {
+                            if (percent >= 40) {
                               return {
                                 colorClass: "bg-amber-500 border-amber-500 text-white hover:bg-amber-600 shadow-sm",
                                 dotClass: "bg-white",
-                                percent: "72%",
+                                percent: `${percent}%`,
                               }
                             }
                             return {
                               colorClass: "bg-rose-600 border-rose-600 text-white hover:bg-rose-700 shadow-sm",
                               dotClass: "bg-white",
-                              percent: "58%",
+                              percent: `${percent}%`,
                             }
                           }
 
-                          const status = getMajorStatus(major.tenNganh)
+                          const status = getMajorStatus(major.id)
                           const isMajorSelected = selection?.type === "major" && selection.id === major.id
 
                           const handleChatNavigate = (e: React.MouseEvent) => {

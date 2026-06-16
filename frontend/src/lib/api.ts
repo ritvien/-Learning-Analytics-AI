@@ -69,6 +69,18 @@ export interface ApiSemester {
   is_current: boolean
 }
 
+export interface ApiHealthScore {
+  node_id: number
+  node_type: string
+  health_score: number
+  status: string
+  metrics: {
+    gpa_avg: number
+    fail_rate: number
+    clo_attainment_rate: number
+  }
+}
+
 // --- Chat ---
 export interface ChatRequest {
   message: string
@@ -184,6 +196,14 @@ export const api = {
   // --- Semesters ---
   getSemesters: () =>
     fetcher<ApiSemester[]>('/api/v1/semesters'),
+
+  // --- Analytics ---
+  getCourseHealth: (id: number) =>
+    fetcher<ApiHealthScore>(`/api/v1/analytics/health/course/${id}`),
+  getProgramHealth: (id: number) =>
+    fetcher<ApiHealthScore>(`/api/v1/analytics/health/program/${id}`),
+  getDepartmentHealth: (id: number) =>
+    fetcher<ApiHealthScore>(`/api/v1/analytics/health/department/${id}`),
 
   // --- Chat ---
   chat: (body: ChatRequest) =>

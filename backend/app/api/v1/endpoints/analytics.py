@@ -4,6 +4,11 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import text
 
 from app.analytics.etl import refresh_dwh
+from app.analytics.health_score import (
+    get_course_health_score,
+    get_program_health_score,
+    get_department_health_score
+)
 from app.config import get_settings
 from app.dependencies import DBSession
 from app.ml.scoring import aggregate_student_semester_predictions
@@ -199,3 +204,28 @@ async def get_student_semester_prediction(student_id: int, semester_id: int, db:
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prediction not found")
     return dict(row)
+
+
+@router.get("/analytics/health/course/{course_id}", summary="Get Course Health Score")
+async def read_course_health(course_id: int, db: DBSession) -> dict:
+    """Lấy Health Score cho Môn học (dựa trên GPA, Pass Rate và CLO)."""
+    try:
+        return await get_course_health_score(db, course_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/analytics/health/program/{program_id}", summary="Get Program Health Score")
+async def read_program_health(program_id: int, db: DBSession) -> dict:
+    """Lấy Health Score cho Ngành đào tạo."""
+    try:
+        return await get_program_health_score(db, program_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/analytics/health/department/{department_id}", summary="Get Department Health Score")
+async def read_department_health(department_id: int, db: DBSession) -> dict:
+    """Lấy Health Score cho Khoa."""
+    try:
+        return await get_department_health_score(db, department_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
