@@ -84,8 +84,19 @@ export interface ChatResponse {
 
 async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
   const customInit = { ...init }
+  
+  // Attach JWT token if it exists in local storage
+  let authHeader: Record<string, string> = {}
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("access_token")
+    if (token) {
+      authHeader = { Authorization: `Bearer ${token}` }
+    }
+  }
+
   customInit.headers = {
     ...customInit.headers,
+    ...authHeader,
     "ngrok-skip-browser-warning": "true"
   }
   
