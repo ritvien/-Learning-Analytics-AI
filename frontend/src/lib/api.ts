@@ -313,6 +313,14 @@ export const api = {
   getSemesters: () =>
     fetcher<ApiSemester[]>('/api/v1/semesters'),
 
+  // --- Analytics ---
+  getCourseHealth: (id: number) =>
+    fetcher<ApiHealthScore>(`/api/v1/analytics/health/course/${id}`),
+  getProgramHealth: (id: number) =>
+    fetcher<ApiHealthScore>(`/api/v1/analytics/health/program/${id}`),
+  getDepartmentHealth: (id: number) =>
+    fetcher<ApiHealthScore>(`/api/v1/analytics/health/department/${id}`),
+
   // --- Chat ---
   chat: (body: ChatRequest) =>
     fetcher<ChatResponse>("/api/v1/chat", {
