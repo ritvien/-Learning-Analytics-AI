@@ -9,7 +9,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-heading);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -46,75 +46,97 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* EPU Brand Colors */
+  --color-epu-navy: #1B3A5C;
+  --color-epu-navy-light: #2A5280;
+  --color-epu-gold: #F5A623;
+  --color-epu-gold-light: #FBC96B;
 }
 
+/* ═══════════════════════════════════════════════
+   EPU Light Theme — Navy Blue + Gold
+   Trường Đại học Điện Lực Brand Identity
+   ═══════════════════════════════════════════════ */
 :root {
-  --background: oklch(0.99 0.005 240);
-  --foreground: oklch(0.18 0.03 240);
+  --background: oklch(0.985 0.003 230);
+  --foreground: oklch(0.16 0.03 235);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.03 240);
+  --card-foreground: oklch(0.16 0.03 235);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.03 240);
-  --primary: oklch(0.52 0.22 250);
-  --primary-foreground: oklch(0.99 0.005 240);
-  --secondary: oklch(0.95 0.015 240);
-  --secondary-foreground: oklch(0.25 0.06 240);
-  --muted: oklch(0.96 0.01 240);
-  --muted-foreground: oklch(0.55 0.03 240);
-  --accent: oklch(0.94 0.02 240);
-  --accent-foreground: oklch(0.2 0.06 240);
-  --destructive: oklch(0.6 0.18 20);
-  --border: oklch(0.92 0.01 240);
-  --input: oklch(0.92 0.01 240);
-  --ring: oklch(0.52 0.22 250);
-  --chart-1: oklch(0.52 0.22 250);
-  --chart-2: oklch(0.65 0.18 250);
-  --chart-3: oklch(0.75 0.15 240);
-  --chart-4: oklch(0.85 0.1 230);
-  --chart-5: oklch(0.9 0.05 220);
+  --popover-foreground: oklch(0.16 0.03 235);
+  /* Navy Blue primary — EPU brand */
+  --primary: oklch(0.35 0.08 245);
+  --primary-foreground: oklch(0.99 0.002 230);
+  /* Warm secondary with gold undertone */
+  --secondary: oklch(0.95 0.012 80);
+  --secondary-foreground: oklch(0.25 0.04 245);
+  --muted: oklch(0.955 0.008 230);
+  --muted-foreground: oklch(0.50 0.025 235);
+  /* Gold-tinted accent — EPU brand */
+  --accent: oklch(0.94 0.025 80);
+  --accent-foreground: oklch(0.20 0.04 245);
+  --destructive: oklch(0.58 0.20 22);
+  --border: oklch(0.91 0.008 230);
+  --input: oklch(0.91 0.008 230);
+  --ring: oklch(0.35 0.08 245);
+  /* Chart: Navy → Teal → Gold gradient */
+  --chart-1: oklch(0.35 0.08 245);
+  --chart-2: oklch(0.50 0.10 230);
+  --chart-3: oklch(0.62 0.12 180);
+  --chart-4: oklch(0.72 0.14 85);
+  --chart-5: oklch(0.78 0.15 75);
   --radius: 0.75rem;
-  --sidebar: oklch(0.98 0.006 240);
-  --sidebar-foreground: oklch(0.25 0.03 240);
-  --sidebar-primary: oklch(0.52 0.22 250);
-  --sidebar-primary-foreground: oklch(0.99 0.005 240);
-  --sidebar-accent: oklch(0.94 0.02 240);
-  --sidebar-accent-foreground: oklch(0.2 0.06 240);
-  --sidebar-border: oklch(0.92 0.01 240);
-  --sidebar-ring: oklch(0.52 0.22 250);
+  /* Sidebar — Navy tinted */
+  --sidebar: oklch(0.97 0.005 235);
+  --sidebar-foreground: oklch(0.22 0.03 240);
+  --sidebar-primary: oklch(0.35 0.08 245);
+  --sidebar-primary-foreground: oklch(0.99 0.002 230);
+  --sidebar-accent: oklch(0.94 0.02 80);
+  --sidebar-accent-foreground: oklch(0.20 0.04 245);
+  --sidebar-border: oklch(0.90 0.01 230);
+  --sidebar-ring: oklch(0.35 0.08 245);
 }
 
+/* ═══════════════════════════════════════════════
+   EPU Dark Theme — Deep Navy + Warm Gold
+   ═══════════════════════════════════════════════ */
 .dark {
-  --background: oklch(0.12 0.02 245);
-  --foreground: oklch(0.94 0.01 240);
-  --card: oklch(0.16 0.025 245);
-  --card-foreground: oklch(0.94 0.01 240);
-  --popover: oklch(0.14 0.02 245);
-  --popover-foreground: oklch(0.94 0.01 240);
-  --primary: oklch(0.65 0.18 250);
-  --primary-foreground: oklch(0.12 0.02 245);
-  --secondary: oklch(0.22 0.03 245);
-  --secondary-foreground: oklch(0.94 0.01 240);
-  --muted: oklch(0.2 0.025 245);
-  --muted-foreground: oklch(0.65 0.02 240);
-  --accent: oklch(0.22 0.03 245);
-  --accent-foreground: oklch(0.94 0.01 240);
+  --background: oklch(0.13 0.02 240);
+  --foreground: oklch(0.93 0.01 230);
+  --card: oklch(0.17 0.022 240);
+  --card-foreground: oklch(0.93 0.01 230);
+  --popover: oklch(0.15 0.02 240);
+  --popover-foreground: oklch(0.93 0.01 230);
+  /* Brighter navy for dark bg */
+  --primary: oklch(0.62 0.12 230);
+  --primary-foreground: oklch(0.12 0.02 240);
+  /* Warm dark secondary */
+  --secondary: oklch(0.22 0.025 240);
+  --secondary-foreground: oklch(0.93 0.01 230);
+  --muted: oklch(0.20 0.02 240);
+  --muted-foreground: oklch(0.62 0.02 230);
+  /* Gold accent for dark */
+  --accent: oklch(0.24 0.03 80);
+  --accent-foreground: oklch(0.93 0.01 230);
   --destructive: oklch(0.55 0.18 25);
-  --border: oklch(0.22 0.03 245);
-  --input: oklch(0.22 0.03 245);
-  --ring: oklch(0.65 0.18 250);
-  --chart-1: oklch(0.65 0.18 250);
-  --chart-2: oklch(0.75 0.15 240);
-  --chart-3: oklch(0.85 0.1 230);
-  --chart-4: oklch(0.9 0.05 220);
-  --chart-5: oklch(0.95 0.02 210);
-  --sidebar: oklch(0.14 0.02 245);
-  --sidebar-foreground: oklch(0.9 0.01 240);
-  --sidebar-primary: oklch(0.65 0.18 250);
-  --sidebar-primary-foreground: oklch(0.12 0.02 245);
-  --sidebar-accent: oklch(0.20 0.025 245);
-  --sidebar-accent-foreground: oklch(0.94 0.01 240);
-  --sidebar-border: oklch(0.22 0.03 245);
-  --sidebar-ring: oklch(0.65 0.18 250);
+  --border: oklch(0.24 0.025 240);
+  --input: oklch(0.24 0.025 240);
+  --ring: oklch(0.62 0.12 230);
+  /* Charts dark */
+  --chart-1: oklch(0.62 0.12 230);
+  --chart-2: oklch(0.68 0.10 210);
+  --chart-3: oklch(0.72 0.12 180);
+  --chart-4: oklch(0.78 0.14 85);
+  --chart-5: oklch(0.82 0.15 75);
+  /* Sidebar dark */
+  --sidebar: oklch(0.15 0.02 240);
+  --sidebar-foreground: oklch(0.90 0.01 230);
+  --sidebar-primary: oklch(0.62 0.12 230);
+  --sidebar-primary-foreground: oklch(0.12 0.02 240);
+  --sidebar-accent: oklch(0.22 0.025 80);
+  --sidebar-accent-foreground: oklch(0.93 0.01 230);
+  --sidebar-border: oklch(0.24 0.025 240);
+  --sidebar-ring: oklch(0.62 0.12 230);
 }
 
 @layer base {

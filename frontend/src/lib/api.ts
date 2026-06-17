@@ -321,3 +321,57 @@ export const api = {
       body: JSON.stringify(body),
     }),
 }
+
+export type SSEEvent =
+  | { type: "router"; intent: string }
+  | { type: "tool_call"; tool: string; input: unknown }
+  | { type: "tool_result"; output: string }
+  | { type: "token"; content: string }
+  | { type: "done"; latency_ms: number }
+  | { type: "error"; message: string }
+
+export async function* chatStream(
+  body: ChatRequest,
+  signal?: AbortSignal,
+): AsyncGenerator<SSEEvent> {
+  const res = await fetch("/api/v1/chat/stream", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "ngrok-skip-browser-warning": "true",
+    },
+    body: JSON.stringify(body),
+    signal,
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`API ${res.status}: ${text}`)
+  }
+
+  const reader = res.body?.getReader()
+  if (!reader) throw new Error("No response body")
+
+  const decoder = new TextDecoder()
+  let buffer = ""
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split("\n\n")
+    buffer = lines.pop() ?? ""
+
+    for (const block of lines) {
+      for (const line of block.split("\n")) {
+        if (!line.startsWith("data: ")) continue
+        try {
+          yield JSON.parse(line.slice(6)) as SSEEvent
+        } catch {
+          // Ignore malformed SSE chunks.
+        }
+      }
+    }
+  }
+}

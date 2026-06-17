@@ -112,7 +112,7 @@ class Course(TimestampMixin, Base):
     credits: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     theory_hours: Mapped[int | None] = mapped_column(SmallInteger)
     lab_hours: Mapped[int | None] = mapped_column(SmallInteger)
-    prerequisite_note: Mapped[str | None] = mapped_column(Text)
+
     description: Mapped[str | None] = mapped_column(Text)
     is_elective: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -129,4 +129,4 @@ class Course(TimestampMixin, Base):
 
 
 # Deferred import to avoid circular dependency at top level
-from app.models.assessment import CLO, PLO  # noqa: E402
+from app.models.assessment import CLO, PLO, CoursePLOMapping  # noqa: E402

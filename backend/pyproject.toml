@@ -26,6 +26,7 @@ dependencies = [
     "langgraph>=0.2.0",
     "langchain-core>=0.3.0",
     "langchain-openai>=0.2.0",
+    "langchain-google-genai>=1.0.0",
     "psycopg2-binary>=2.9.0",  # Sync PG driver for tools
 ]
 
@@ -55,6 +56,7 @@ select = ["E", "F", "I", "UP", "B", "ANN", "D", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ANN", "D"]
+"app/agent/prompts.py" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -112,7 +112,6 @@ export default function TeachersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Quản lý Giảng viên</h1>
-          <p className="text-muted-foreground">Thêm, sửa, xóa thông tin giảng viên.</p>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger render={<Button />}>

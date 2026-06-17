@@ -210,7 +210,54 @@ All endpoints are prefixed with `/api/v1/`. Full interactive docs at `/api/docs`
 | Teachers | `GET/POST /teachers`, `GET/PATCH/DELETE /teachers/{id}` |
 | Sections | `GET/POST /sections`, `GET/PATCH/DELETE /sections/{id}` |
 | Grades | `GET/POST /grades/enrollments`, `PATCH /grades/enrollments/{id}/grade`, `PUT /grades/components` |
+| AI Chat | `POST /chat` (Dùng cho chatbot AI), `GET /chat/stream` (SSE streaming) |
 | Health | `GET /health` |
+
+---
+
+## Gate G2: AI Agent & LLM Integration (Sprint 2)
+
+EduInsight tích hợp AI Agent sử dụng LangGraph để phân tích dữ liệu học vụ tự động thông qua giao tiếp bằng ngôn ngữ tự nhiên. 
+
+### Setup Instructions
+1. Hãy chắc chắn bạn đã cấu hình `.env` ở thư mục gốc của project.
+2. Để chạy được Agent, hệ thống cần kết nối với PostgreSQL và API Key của LLM.
+3. Nếu muốn dùng **RAG (Retrieval-Augmented Generation)** để đọc tài liệu, bạn cần chạy script embedding trước (chưa bắt buộc ở Gate G2).
+4. Run server: `docker compose up -d backend` hoặc chạy local qua `uvicorn`.
+
+### Environment Variables
+Các biến môi trường sau bắt buộc phải có trong `.env`:
+
+| Biến môi trường | Mục đích | Ví dụ / Mặc định |
+|---|---|---|
+| `LLM_PROVIDER` | Chọn mô hình AI để chạy Agent | `gemini` (mặc định) hoặc `openai` |
+| `GEMINI_API_KEY` | Key của Google AI Studio | `AIzaSy...` |
+| `OPENAI_API_KEY` | Key của OpenAI (nếu dùng OpenAI) | `sk-proj...` |
+| `AGENT_DB_URL` | Chuỗi kết nối DB (PostgreSQL) cho Agent | `postgresql://eduinsight:eduinsight_dev@localhost:5433/eduinsight` |
+
+### Sample Queries & Expected Outputs
+
+Bạn có thể test trực tiếp qua API `/api/v1/chat/stream` hoặc sử dụng giao diện Chatbot. Dưới đây là 5 câu lệnh mẫu khai thác sức mạnh của Agent:
+
+1. **Phân tích tổng quan ngành**
+   - *Query:* "Cho tôi xem top 5 môn trượt nhiều nhất ngành Công nghệ thông tin"
+   - *Expected Output:* Agent tự động tra cứu view `vw_course_stats` lọc theo tên ngành, trả về bảng Markdown danh sách 5 môn có tỷ lệ trượt cao nhất kèm theo nhận xét phân tích nguyên nhân.
+
+2. **Truy vấn sinh viên cụ thể**
+   - *Query:* "Sinh viên 19810310243 học khóa mấy, điểm tích lũy bao nhiêu?"
+   - *Expected Output:* Agent lookup bảng `students`, join `cohorts`, trả ra thông tin khóa, lớp, và GPA.
+
+3. **Tính điểm CLO (Chuẩn đầu ra)**
+   - *Query:* "Hãy tính điểm CLO môn Tiếng Anh 1 của sinh viên SV001"
+   - *Expected Output:* Agent kích hoạt `clo_calculator_tool`, tự động tính toán trọng số các bài kiểm tra chuyên cần/giữa kỳ/cuối kỳ để ra được điểm từng CLO và nhận định ĐẠT/KHÔNG ĐẠT.
+
+4. **So sánh học kỳ**
+   - *Query:* "Tỷ lệ trượt môn Cấu trúc dữ liệu và giải thuật kỳ này so với kỳ trước thế nào?"
+   - *Expected Output:* Bảng so sánh Pass/Fail rate của môn CTDL&GT giữa 2 học kỳ gần nhất.
+
+5. **Entity Auto-Mapping**
+   - *Query:* "KTPM kỳ này có bao nhiêu sinh viên?"
+   - *Expected Output:* Agent tự hiểu KTPM là "Kỹ thuật phần mềm", tìm ngành này trong DB và đếm tổng số enrollment của kỳ hiện tại.
 
 ---
 

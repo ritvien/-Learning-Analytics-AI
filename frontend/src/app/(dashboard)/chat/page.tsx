@@ -1,11 +1,13 @@
 "use client"
 
 import * as React from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Send, Bot, User, Sparkles, BarChart2, BookOpen, AlertTriangle } from "lucide-react"
+import { chatStream, SSEEvent } from "@/lib/api"
 
 interface Message {
   id: string
@@ -13,6 +15,9 @@ interface Message {
   content: string
   timestamp: Date
   isStreaming?: boolean
+  intent?: string
+  latencyMs?: number
+  statuses?: string[]
 }
 
 const SUGGESTED_PROMPTS = [
@@ -22,8 +27,7 @@ const SUGGESTED_PROMPTS = [
   { icon: Sparkles, text: "GPA trung bình khóa 2022 so với khóa 2021 như thế nào?" },
 ]
 
-const MOCK_RESPONSES: Record<string, string> = {
-  default: `Xin chào! Tôi là **EPU AI Analytics Assistant** 🎓
+const WELCOME_MESSAGE = `Xin chào! Tôi là **EPU AI Analytics Assistant** 🎓
 
 Tôi có thể giúp bạn:
 - 📊 **Phân tích điểm số** — Xem xu hướng GPA, tỷ lệ trượt theo khóa/ngành/môn
@@ -31,69 +35,7 @@ Tôi có thể giúp bạn:
 - ⚠️ **Cảnh báo sớm** — Danh sách sinh viên có nguy cơ học vụ
 - 📄 **Sinh báo cáo** — Tóm tắt tình hình đào tạo cho ban quản lý
 
-Hãy đặt câu hỏi bằng tiếng Việt tự nhiên!`,
-  "môn nào có tỷ lệ trượt cao nhất": `Dựa trên dữ liệu học kỳ HK1 2023-2024, **top 5 môn có tỷ lệ trượt cao nhất** là:
-
-| # | Môn học | Mã HP | Tỷ lệ trượt |
-|---|---------|-------|-------------|
-| 1 | Giải tích 1 | MATH101 | **28.5%** |
-| 2 | Vật lý đại cương | PHY101 | **22.1%** |
-| 3 | Mạng máy tính | CS301 | **18.4%** |
-| 4 | Lập trình C | CS101 | **15.2%** |
-| 5 | Mạch điện 1 | EE201 | **12.0%** |
-
-> 💡 **Đề xuất:** Giải tích 1 và Vật lý đại cương cần xem xét điều chỉnh phương pháp giảng dạy hoặc bổ sung lớp học bổ trợ.`,
-  "gpa trung bình": `Xu hướng GPA trung bình theo khóa học:
-
-**Khóa 2022:** GPA = **2.85** ↗ (+0.05 so với HK trước)
-**Khóa 2021:** GPA = **2.78** → (ổn định)
-**Khóa 2020:** GPA = **2.91** ✅ (năm cuối, đã cải thiện)
-
-Nhận xét: Sinh viên năm cuối (khóa 2020) có GPA cao hơn do đã qua các môn đại cương khó, tập trung vào chuyên ngành.`,
-  "sinh viên nào đang có nguy cơ": `Danh sách **sinh viên có nguy cơ học vụ** (GPA < 2.0 hoặc tín chỉ nợ ≥ 12):
-
-| MSSV | Họ tên | GPA TL | TC Nợ | Tình trạng |
-|------|--------|--------|-------|------------|
-| 23810340010 | Trần Quốc Bảo | 2.65 | 9 TC | ⚠️ Cảnh báo |
-| 21810220015 | Lê Thị Mai | 3.05 | 6 TC | ⚠️ Theo dõi |
-
-> 📌 **Khuyến nghị:** Liên hệ cố vấn học tập để tư vấn kế hoạch học tập cho 2 sinh viên trên.`,
-  "ngành công nghệ thông tin": `**Ngành Công nghệ Thông tin** — Khoa CNTT, Trường ĐH Điện Lực
-
-📋 **Thông tin chung:**
-- Mã ngành: 7480201
-- Thời gian đào tạo: 4 năm
-- Tổng tín chỉ: 145 TC
-
-📚 **Các môn học bắt buộc (trích):
-- Giải tích 1 & 2 (6 TC)
-- Vật lý đại cương (4 TC)
-- Lập trình C (3 TC)
-- Cơ sở dữ liệu (3 TC)
-- Mạng máy tính (3 TC)
-- Trí tuệ nhân tạo (3 TC)
-- Đồ án tốt nghiệp (10 TC)
-
-> 📄 Nguồn: CTĐT_CNTT_2022.pdf (đã index vào hệ thống RAG)`,
-}
-
-function getResponse(input: string): string {
-  const lower = input.toLowerCase()
-  if (lower.includes("trượt") || lower.includes("rớt")) return MOCK_RESPONSES["môn nào có tỷ lệ trượt cao nhất"]
-  if (lower.includes("gpa") || lower.includes("điểm trung bình")) return MOCK_RESPONSES["gpa trung bình"]
-  if (lower.includes("nguy cơ") || lower.includes("đình chỉ") || lower.includes("cảnh báo")) return MOCK_RESPONSES["sinh viên nào đang có nguy cơ"]
-  if (lower.includes("công nghệ thông tin") || lower.includes("cntt")) return MOCK_RESPONSES["ngành công nghệ thông tin"]
-  return `Cảm ơn bạn đã hỏi! 
-
-Tôi đang phân tích câu hỏi: *"${input}"*
-
-_(Đây là bản demo UI — backend AI sẽ được tích hợp ở bước tiếp theo)_
-
-Hiện tại bạn có thể thử các câu hỏi mẫu như:
-- "Môn nào có tỷ lệ trượt cao nhất?"
-- "GPA trung bình khóa 2022 là bao nhiêu?"
-- "Ngành Công nghệ thông tin có những môn gì?"`
-}
+Hãy đặt câu hỏi bằng tiếng Việt tự nhiên!`
 
 // Simple markdown-like renderer
 function renderContent(text: string) {
@@ -132,11 +74,12 @@ function renderContent(text: string) {
 }
 
 export default function ChatPage() {
+  const searchParams = useSearchParams()
   const [messages, setMessages] = React.useState<Message[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: MOCK_RESPONSES.default,
+      content: WELCOME_MESSAGE,
       timestamp: new Date(),
     }
   ])
@@ -144,12 +87,24 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = React.useState(false)
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
+  const autoSentRef = React.useRef(false)
 
   React.useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [messages])
+
+  // Auto-send message from query param 'q'
+  React.useEffect(() => {
+    const q = searchParams.get("q")
+    if (q && !autoSentRef.current) {
+      autoSentRef.current = true
+      // Small delay to let the component mount fully
+      setTimeout(() => sendMessage(q), 300)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return
@@ -165,33 +120,102 @@ export default function ChatPage() {
     setInput("")
     setIsLoading(true)
 
-    // Simulate streaming delay
     const assistantMsgId = `a-${Date.now()}`
-    const fullResponse = getResponse(text)
 
-    // Add empty streaming message
+    // Add empty streaming placeholder
     setMessages(prev => [...prev, {
       id: assistantMsgId,
       role: "assistant",
       content: "",
       timestamp: new Date(),
       isStreaming: true,
+      statuses: ["🔍 Đang phân tích yêu cầu..."]
     }])
 
-    // Simulate token-by-token streaming
-    let currentText = ""
-    const words = fullResponse.split(" ")
-    for (let i = 0; i < words.length; i++) {
-      await new Promise(resolve => setTimeout(resolve, 30))
-      currentText += (i === 0 ? "" : " ") + words[i]
+    try {
+      let fullContent = ""
+      let hasStartedAnswering = false
+
+      for await (const event of chatStream({ message: text.trim() })) {
+        switch (event.type) {
+          case "router":
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMsgId ? { 
+                ...m, 
+                intent: event.intent,
+                statuses: [...(m.statuses || []), `🧠 Định tuyến xử lý: ${event.intent === 'core_agent' ? 'Suy luận phức tạp' : 'Suy luận đơn giản'}`]
+              } : m
+            ))
+            break
+
+          case "tool_call": {
+            const toolNameMap: Record<string, string> = {
+              "sql_query_tool": "Truy vấn Cơ sở dữ liệu học vụ",
+            }
+            const displayToolName = toolNameMap[event.tool] || event.tool
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMsgId ? { 
+                ...m, 
+                statuses: [...(m.statuses || []), `⚙️ Đang thao tác: ${displayToolName}`]
+              } : m
+            ))
+            break
+          }
+
+          case "tool_result":
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMsgId ? { 
+                ...m, 
+                statuses: [...(m.statuses || []), `💾 Đã nhận dữ liệu, đang xử lý...`]
+              } : m
+            ))
+            break
+
+          case "token":
+            if (!hasStartedAnswering) {
+              hasStartedAnswering = true
+              setMessages(prev => prev.map(m =>
+                m.id === assistantMsgId ? { 
+                  ...m, 
+                  statuses: [...(m.statuses || []), `✍️ Đang tổng hợp câu trả lời...`]
+                } : m
+              ))
+            }
+            fullContent += event.content
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMsgId ? { ...m, content: fullContent } : m
+            ))
+            break
+
+          case "done":
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMsgId
+                ? { ...m, content: fullContent, isStreaming: false, latencyMs: event.latency_ms }
+                : m
+            ))
+            break
+
+          case "error":
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMsgId
+                ? { ...m, content: `**Lỗi hệ thống:** ${event.message}`, isStreaming: false }
+                : m
+            ))
+            break
+        }
+      }
+
+      // Ensure streaming flag is off
       setMessages(prev => prev.map(m =>
-        m.id === assistantMsgId ? { ...m, content: currentText } : m
+        m.id === assistantMsgId ? { ...m, isStreaming: false } : m
+      ))
+    } catch (error: any) {
+      setMessages(prev => prev.map(m =>
+        m.id === assistantMsgId
+          ? { ...m, content: `**Lỗi hệ thống:** Không thể kết nối với Agent.\n\nChi tiết: ${error.message}`, isStreaming: false }
+          : m
       ))
     }
-
-    setMessages(prev => prev.map(m =>
-      m.id === assistantMsgId ? { ...m, isStreaming: false } : m
-    ))
     setIsLoading(false)
     inputRef.current?.focus()
   }
@@ -205,7 +229,7 @@ export default function ChatPage() {
     <div className="flex flex-col h-[calc(100vh-5rem)] max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 pb-4 border-b">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#1B3A5C] to-[#2A5280] text-white shadow-sm">
           <Bot className="h-5 w-5" />
         </div>
         <div>
@@ -218,7 +242,7 @@ export default function ChatPage() {
             Online · Powered by LLM + RAG (CTĐT)
           </p>
         </div>
-        <Badge variant="secondary" className="ml-auto">Demo UI</Badge>
+        <Badge variant="secondary" className="ml-auto bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200 shadow-sm">Live Agent</Badge>
       </div>
 
       {/* Messages */}
@@ -232,7 +256,7 @@ export default function ChatPage() {
               {/* Avatar */}
               <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
                 msg.role === "assistant"
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-gradient-to-br from-[#1B3A5C] to-[#2A5280] text-white shadow-sm"
                   : "bg-muted text-muted-foreground"
               }`}>
                 {msg.role === "assistant" ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}
@@ -248,6 +272,29 @@ export default function ChatPage() {
                   <p className="text-sm">{msg.content}</p>
                 ) : (
                   <div className="space-y-1">
+                    {/* Agent Statuses / State */}
+                    {msg.statuses && msg.statuses.length > 0 && (
+                      <div className="flex flex-col gap-1.5 mb-3 mt-1">
+                        {msg.statuses.map((status, idx) => {
+                          const isLast = idx === msg.statuses!.length - 1
+                          const isActive = isLast && msg.isStreaming
+                          return (
+                            <div key={idx} className="flex items-center gap-2 text-xs text-muted-foreground bg-background/50 rounded-md py-1.5 px-2.5 border border-border/50 w-fit max-w-full">
+                              {isActive ? (
+                                <span className="relative flex h-2 w-2 shrink-0">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                                </span>
+                              ) : (
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                              )}
+                              <span className="truncate font-medium">{status}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                    
                     {renderContent(msg.content)}
                     {msg.isStreaming && (
                       <span className="inline-block w-1 h-4 bg-primary animate-pulse ml-1 rounded" />

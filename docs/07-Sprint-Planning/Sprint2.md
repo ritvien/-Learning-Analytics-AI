@@ -1,8 +1,9 @@
 # 🏃 Sprint 2 — Core Agent & Demo 1 (Gate G2: First Working Agent MVP)
 
 > **Thời gian:** 11/06 – 24/06 (2 tuần — W3 + W4)
-> **Sprint Goal:** _Xây dựng AI Agent chạy được end-to-end với LLM thực tế, pass Gate G2 (18/06) và Demo 1 (14/06). Agent phải nhận input → xử lý → trả output có ý nghĩa cho ít nhất 1 user flow chính._
+> **Sprint Goal:** _Xây dựng AI Agent chạy được end-to-end với LLM thực tế, pass Gate G2 (18/06) và hoàn thiện Demo 1. Agent phải nhận input → xử lý → trả output có ý nghĩa cho ít nhất 1 user flow chính._
 > **Tham chiếu:** [SprintPlanning.md](./SprintPlanning.md) · [LangGraphAgent.md](../10-References/LangGraphAgent.md) · [AgentFlowDiagram.md](../10-References/AgentFlowDiagram.md)
+> **Cập nhật lần cuối:** 16/06/2026
 
 > [!IMPORTANT]
 > **Gate G2 Deadline: 18/06/2026 (23:59)** — Deliverables bắt buộc:
@@ -13,8 +14,8 @@
 > 5. ✅ Eval evidences — ít nhất 5 test case manual với output thực tế
 
 > [!WARNING]
-> **Demo 1 với đối tác: 14/06** — chỉ 4 ngày từ khi bắt đầu Sprint 2. Ưu tiên tuyệt đối: Agent chạy được trên Streamlit.
-> **Chiến lược 2 giai đoạn:** W3 (11–14/06) tập trung MVP cho Demo 1 + Gate G2. W4 (15–24/06) mở rộng tính năng và tích hợp Next.js.
+> **Demo 1 với đối tác: 14/06** — ĐÃ QUA. MVP Streamlit đã demo thành công.
+> **Chiến lược 3 giai đoạn:** Phase 1 (11–14/06) MVP ✅ Done · Phase 2 (15–18/06) Gate G2 · Phase 3 (16–24/06) **Hoàn thiện Demo 1: Academic Tree + Dashboard + Chat AI**
 
 ---
 
@@ -32,13 +33,17 @@
 
 ## Phân chia Sprint thành 2 Phase
 
-### Phase 1: MVP Sprint (11–14/06) — Demo 1 + Gate G2 Core
+### Phase 1: MVP Sprint (11–14/06) — Demo 1 + Gate G2 Core ✅
 
-> Mục tiêu: Agent chạy end-to-end trên Streamlit, có seed data thật trong DB, demo được 1 user flow hoàn chỉnh.
+> Mục tiêu: Agent chạy end-to-end trên Streamlit, có seed data thật trong DB, demo được 1 user flow hoàn chỉnh. **→ ĐÃ HOÀN THÀNH**
 
-### Phase 2: Expand & Polish (15–24/06) — Hoàn thiện Gate G2 + FE
+### Phase 2: Gate G2 Deliverables (15–18/06) — Video, Eval, PRs, README
 
-> Mục tiêu: Video demo, eval evidences, 10 PRs, README hoàn chỉnh. Bắt đầu tích hợp Next.js.
+> Mục tiêu: Video demo, eval evidences, 10 PRs, README hoàn chỉnh.
+
+### Phase 3: Demo 1 Completion (16–20/06) — Hoàn thiện chức năng chính 🎯
+
+> Mục tiêu: Academic Tree kết hợp Dashboard, click node → Chat AI + tạo báo cáo, SSE streaming, phân quyền login, evaluation chatbot. (Gấp rút hoàn thành trong 16/06 để quay video 17/06)
 
 ---
 
@@ -59,11 +64,11 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status |
 |:-:|:-----|:----------------|:--------:|:------:|
-| H17 | Thêm CLO Calculator Tool | Tool tính toán CLO achievement rate từ DB. Agent có thể trả lời "CLO nào đạt thấp nhất ở môn X?" | 15/06 | ⬜ |
-| H18 | Thêm Chart Generator Tool | Tool sinh chart spec (JSON) từ data. Frontend/Streamlit render thành biểu đồ | 16/06 | ⬜ |
-| H19 | Cập nhật README.md cho Gate G2 | Bổ sung: setup instructions chi tiết, danh sách env vars, 3–5 sample queries với expected output | 16/06 | ⬜ |
-| H20 | Eval Evidences — 5 Test Cases | Tạo 5 test case manual: input query → chụp output thực tế → đánh giá chất lượng. Lưu vào `docs/09-Evaluation/` | 17/06 | ⬜ |
+| H17 | Thêm CLO Calculator Tool | Tool tính toán CLO achievement rate từ DB. Agent có thể trả lời "CLO nào đạt thấp nhất ở môn X?" | 15/06 | ✅ |
+| H19 | Cập nhật README.md cho Gate G2 | Bổ sung: setup instructions chi tiết, danh sách env vars, 3–5 sample queries với expected output | 16/06 | ✅ |
 | H21 | Prompt Tuning + Error Handling | Tinh chỉnh prompt templates theo cấp (Khoa/Ngành/Môn). Kiểm tra error handling 3 tầng hoạt động đúng | 18/06 | ⬜ |
+
+> *Ghi chú: Task H18 (Chart Tool) đã gộp vào T28 (Report Tool), H20 (Eval) đã gộp vào H29 (RAGAS Eval - Phase 3).*
 
 ### Phase 2 mở rộng: W4 (19–24/06)
 
@@ -71,9 +76,22 @@
 |:-:|:-----|:----------------|:--------:|:------:|
 | H22 | Metric Engine — Health Score | Build logic tính Health Score tổng hợp (GPA, Fail Rate, CLO) cho từng node (Khoa/Ngành/Môn) | 20/06 | ⬜ |
 | H23 | Vector Search Tool (RAG) | Implement `vector_search_tool` dùng pgvector để tra cứu đề cương môn học | 22/06 | ⬜ |
-| H24 | Auto-Analysis Feature | Khi user click node trên Academic Tree → agent tự động phân tích và đưa ra insights | 24/06 | ⬜ |
+| H27 | Cấu hình Ngrok Public Tunnel | Cấu hình ngrok tunnel cho local, bypass cảnh báo trình duyệt phục vụ truy cập Demo 1 và Gate G2 | 14/06 | ✅ |
 
-**Tổng: 14 task · Trọng tâm: LangGraph Agent end-to-end + Gate G2 deliverables + Metric Engine**
+> *Ghi chú: Task H24 (Auto-Analysis) đã chuyển cho Hưng (T28, T29 - Phase 3).*
+
+### 🎯 Phase 3: Demo 1 Completion — Hoàng (16–20/06)
+
+| # | Task | Mô tả chi tiết | Deadline | Status | Priority |
+|:-:|:-----|:----------------|:--------:|:------:|:--------:|
+| H28 | SSE Streaming Response | Upgrade `/api/v1/chat` từ JSON → SSE (Server-Sent Events) streaming, token-by-token. Frontend nhận realtime typewriter effect | 16/06 | ⬜ | **P0** |
+| H29 | RAGAS Evaluation Metrics | Implement RAGAS metrics cho chatbot: Faithfulness, Answer Relevancy, Context Recall, Context Precision. Chạy trên ≥10 test cases | 17/06 | ⬜ | **P0** |
+| H30 | Agent Safety & Tools Evaluation | Đánh giá agents có tools: jailbreak resistance, PII detection, bias check. Tạo test suite safety | 20/06 | ⬜ | **P2** |
+
+> [!NOTE]
+> H30 (Agent Safety) là **ưu tiên thấp** — chỉ làm nếu còn kịp thời gian.
+
+**Tổng: 17 task · Trọng tâm: LangGraph Agent end-to-end + Gate G2 deliverables + SSE Streaming + RAGAS Eval**
 
 ---
 
@@ -92,10 +110,11 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status |
 |:-:|:-----|:----------------|:--------:|:------:|
-| T15 | SSE Streaming Endpoint | Upgrade `/api/v1/chat` sang Server-Sent Events streaming. FE nhận token-by-token | 15/06 | ⬜ |
 | T16 | Unit Tests — Backend | Viết unit tests cho CRUD APIs + DB models. Mục tiêu: ≥ 10 test cases, chạy qua CI/CD | 16/06 | ⬜ |
 | T17 | Chốt ORM + Alembic Baseline | Đồng bộ ORM với thiết kế OLTP, tạo migration baseline, seed được database sạch và ghi hướng dẫn rollout | 17/06 | ⬜ |
 | T18 | PR Cleanup — đảm bảo ≥ 10 PRs | Review + merge các PRs tồn đọng. Tạo PRs mới cho các features đã code trực tiếp. Đảm bảo repo có ≥ 10 merged PRs | 18/06 | ⬜ |
+
+> *Ghi chú: Task T15 (SSE Streaming) đã chuyển cho Hoàng (H28 - Phase 3).*
 
 ### Phase 2 mở rộng: W4 (19–24/06)
 
@@ -105,8 +124,21 @@
 | T20 | pgvector Setup + Syllabus Embedding | Enable pgvector extension, tạo table embeddings, script embed đề cương môn học | 22/06 | ⬜ |
 | T21 | Docker-compose Update | Thêm services: Streamlit container, pgvector-enabled PostgreSQL. Cập nhật docker-compose.yml | 22/06 | ⬜ |
 | T22 | Integration Tests | Tests end-to-end: API → Agent → DB → Response. Chạy trên CI | 24/06 | ⬜ |
+| T27 | Overview KPI Dashboard | Xây dựng UI (Frontend) và API (Backend) hiển thị Dashboard tổng quan metric sức khỏe đào tạo trước khi vào Tree | 20/06 | ✅ |
 
-**Tổng: 12 task · Trọng tâm: Backend APIs + DB setup + DevOps + Testing**
+### 🎯 Phase 3: Demo 1 Completion — Hưng (16–20/06)
+
+| # | Task | Mô tả chi tiết | Deadline | Status | Priority |
+|:-:|:-----|:----------------|:--------:|:------:|:--------:|
+| T28 | Report Tool Backend | Implement `report_tool` cho Agent: nhận node context (ngành/khoa) → query DB → sinh báo cáo phân tích tự động | 16/06 | ⬜ | **P0** |
+| T29 | Prompt Engineering Report | Thiết kế prompt templates theo cấp (Khoa/Ngành/Môn) cho auto-report khi click node. Phối hợp Hiếu (UI) + Hoàng (Agent) | 16/06 | ⬜ | **P0** |
+| T30 | Auth Login Backend | `POST /api/v1/auth/login` + `GET /api/v1/auth/me` + JWT token + role-based middleware (manager full / lecturer view-only) | 16/06 | ⬜ | **P0** |
+| T31 | Failure Analysis | Phân tích các case agent fail: collect error logs, document failure patterns, cải thiện error handling + retry logic | 20/06 | ⬜ | **P2** |
+
+> [!NOTE]
+> T31 (Failure Analysis) là **ưu tiên thấp** — để sau, làm nếu còn kịp.
+
+**Tổng: 16 task · Trọng tâm: Backend APIs + Auth + Report Tool + DevOps + Testing**
 
 ---
 
@@ -127,45 +159,54 @@
 |:-:|:-----|:----------------|:--------:|:------:|
 | V15 | Quay Video Demo 3 phút | Quay + edit video MVP Demo cho Gate G2. Show: user mở app → nhập câu hỏi → agent xử lý → trả output. Có voiceover/subtitle | 17/06 | ⬜ |
 | V16 | Academic Tree ↔ Real API | Kết nối Tree component với `/api/v1/tree` thật. Dynamic data, loading states, error handling | 18/06 | ⬜ |
-| V17 | Chat UI ↔ SSE Streaming | Kết nối Chat component với `/api/v1/chat` SSE endpoint. Typewriter effect, hiển thị suggested questions | 18/06 | ⬜ |
 
-### Phase 2 mở rộng: W4 (19–24/06)
+> *Ghi chú: Task V17 (Chat SSE) đã gộp vào V25 (Phase 3).*
 
-| # | Task | Mô tả chi tiết | Deadline | Status |
-|:-:|:-----|:----------------|:--------:|:------:|
-| V18 | CRUD Pages (Courses, Students) | Trang quản lý: danh sách, thêm/sửa/xóa. Dùng shadcn/ui Table + Dialog + Form | 20/06 | ⬜ |
-| V19 | Chart Component | Render biểu đồ từ chart spec (JSON) trả về bởi Agent. Dùng Recharts hoặc Chart.js | 22/06 | ⬜ |
-| V20 | Prediction UI | Hiển thị xác suất pass/trượt từng môn và tổng tín chỉ pass/trượt kỳ vọng | 22/06 | ⬜ |
-| V21 | Responsive + Dark Mode | Đảm bảo layout responsive trên mobile/tablet. Toggle dark mode hoạt động đúng | 24/06 | ⬜ |
-| V22 | FE Unit Tests | Viết tests cho core components: Tree, Chat, DetailPanel. Mục tiêu: ≥ 5 test suites | 24/06 | ⬜ |
+### 🎯 Phase 3: Demo 1 Completion — Hiếu (16–20/06)
 
-**Tổng: 12 task · Trọng tâm: Chat UI + Video Demo + Next.js ↔ API integration**
+| # | Task | Mô tả chi tiết | Deadline | Status | Priority |
+|:-:|:-----|:----------------|:--------:|:------:|:--------:|
+| V24 | Tree Node → Chat AI Navigation | Click 1 node trong Academic Tree → điều hướng tới Chat AI page với context ngành/khoa. Tự động trigger báo cáo về node đó | 16/06 | ⬜ | **P0** |
+| V25 | Chat UI ↔ SSE Streaming | Kết nối Chat component với SSE endpoint từ Hoàng. Typewriter effect, loading states, error handling | 16/06 | ⬜ | **P0** |
+| V26 | Login UI ↔ Auth Backend | Kết nối Login page với `/api/v1/auth/login` từ Hưng. Store JWT token, protected routes, redirect unauthorized | 16/06 | ⬜ | **P0** |
+
+### Phase 2 mở rộng (deprioritized)
+
+| # | Task | Mô tả chi tiết | Deadline | Status | Priority |
+|:-:|:-----|:----------------|:--------:|:------:|:--------:|
+| V18 | CRUD Pages (Courses, Students) | Trang quản lý: danh sách, thêm/sửa/xóa. Dùng shadcn/ui Table + Dialog + Form | 22/06 | ⬜ | P1 |
+| V19 | Chart Component | Render biểu đồ từ chart spec (JSON) trả về bởi Agent. Dùng Recharts hoặc Chart.js | 23/06 | ⬜ | P1 |
+| V20 | Prediction UI | Hiển thị xác suất pass/trượt từng môn và tổng tín chỉ pass/trượt kỳ vọng | 23/06 | ⬜ | P1 |
+| V21 | Responsive + Dark Mode | Đảm bảo layout responsive trên mobile/tablet. Toggle dark mode hoạt động đúng | 24/06 | ⬜ | P1 |
+| V22 | FE Unit Tests | Viết tests cho core components: Tree, Chat, DetailPanel. Mục tiêu: ≥ 5 test suites | 24/06 | ⬜ | P1 |
+
+**Tổng: 15 task · Trọng tâm: Tree→Chat Navigation + SSE + Auth + Video Demo**
 
 ---
 
 ## Timeline trực quan
 
 ```
-Phase 1: MVP Sprint (11–14/06) — ⚡ DEMO 1
+Phase 1: MVP Sprint (11–14/06) — ⚡ DEMO 1 ✅ DONE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
          11(T4)   12(T5)   13(T6)   14(T7)
          ──────   ──────   ──────   ──────
 
-Hoàng    H11      H12,H13  H14,H15  H16
-         Seed     Agent    ReAct    Chat API
+Hoàng    H11 ✅   H12,H13  H14,H15  H16
+         Seed     Agent✅  ReAct✅  Chat API✅
          Data     +Router  +Tools   +Demo
                   +SQL     +Strmlt
 
-Hưng     T11      T12      T13      T14
+Hưng     T11 ✅   T12 ✅   T13 ✅   T14
          DB       ORM      CRUD     Tree
          Migrate  Models   APIs     Metrics
 
-Hiếu     (prep)   V11      V12,V13  V14
+Hiếu     (prep)   V11 ✅   V12,V13  V14 ✅
                    Tree↔    Chat UI  Demo
-                   API      +Strmlt  Prep
+                   API      +Strmlt✅ Prep
 
          ═══════════════════════════════════
-                   🎯 DEMO 1: 14/06
+              ✅ DEMO 1 MVP: 14/06 (DONE)
          ═══════════════════════════════════
 
 Phase 2: Gate G2 Deliverables (15–18/06)
@@ -173,38 +214,42 @@ Phase 2: Gate G2 Deliverables (15–18/06)
          15(CN)   16(T2)   17(T3)   18(T4)
          ──────   ──────   ──────   ──────
 
-Hoàng    H17      H18,H19  H20      H21
-         CLO      Chart    Eval 5   Prompt
-         Tool     +README  Tests    Tuning
+Hoàng    H17      H19      (Buffer) H21
+         CLO      README            Prompt
+         Tool                       Tuning
 
-Hưng     T15      T16      T17      T18
-         SSE      Unit     ORM      PRs
-         Stream   Tests    Baseline ≥ 10
+Hưng     (Buffer) T16      T17      T18
+                  Unit     ORM      PRs
+                  Tests    Baseline ≥ 10
 
-Hiếu     (buffer) V16      V15      V17
-                   Tree↔    Video    Chat↔
-                   Real API Demo 3'  SSE
+Hiếu     (Buffer) V16      V15      (Buffer)
+                  Tree↔    Video
+                  Real API Demo 3'
 
          ═══════════════════════════════════
               🚀 GATE G2 DEADLINE: 18/06
          ═══════════════════════════════════
 
-Phase 2 mở rộng: W4 (19–24/06)
+🎯 Phase 3: Demo 1 Completion (16–20/06) — FAST TRACK
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-         19-20    21-22    23-24
-         ──────   ──────   ──────
+         16(T2)   17(T3)   18-19    20(T7)
+         ──────   ──────   ──────   ──────
 
-Hoàng    H22      H23      H24
-         Metric   RAG      Auto-
-         Engine   Vector   Analysis
+Hoàng    H28      H29      (Buffer) H30
+         SSE      RAGAS             Agent
+         Stream   Eval              Safety(P2)
 
-Hưng     T19      T20,T21  T22
-         CLO/PLO  pgvector Integ.
-         Backend  +Docker  Tests
+Hưng     T28,T29  T14      (Buffer) T31
+         Report   Tree              Failure
+         +Auth(T30)Metrics          Analysis
 
-Hiếu     V18      V19,V20  V21,V22
-         CRUD     Chart+   Responsive
-         Pages    Predict  +Tests
+Hiếu     V24,V25  V15      (Buffer) (Buffer)
+         +V26     Video
+         Tree/Chat Demo 3'
+
+         ═══════════════════════════════════
+           🎯 DEMO 1 COMPLETE: 17/06
+         ═══════════════════════════════════
 ```
 
 ---
@@ -257,36 +302,62 @@ graph LR
         T13 --> V18["V18: CRUD Pages"]
         H18 --> V19["V19: Chart Component"]
     end
+
+    subgraph "Phase 3 — Demo 1 Completion 🎯"
+        H16 --> H28["H28: SSE Streaming"]
+        H28 --> V25["V25: Chat↔SSE"]
+        T14 --> V24["V24: Tree→Chat Nav"]
+        H14 --> T28["T28: Report Tool"]
+        T28 --> T29["T29: Report Prompts"]
+        T29 --> V24
+        T30["T30: Auth Login"] --> V26["V26: Login↔Auth"]
+        H20 --> H29["H29: RAGAS Eval"]
+        H29 -.-> H30["H30: Agent Safety (P2)"]
+        T30 -.-> T31["T31: Failure Analysis (P2)"]
+    end
 ```
 
 ---
 
-## User Flow chính cho Demo 1 & Gate G2
+## User Flow chính cho Demo 1 Completion
 
-> Flow end-to-end tối thiểu cần demo được:
+> Flow end-to-end hoàn thiện cho Demo 1:
+
+```
+1. User đăng nhập (Login page → JWT auth → phân quyền manager/lecturer)
+2. User xem Overview KPI Dashboard (tổng quan sức khỏe đào tạo)
+3. User mở Academic Tree → navigate tới Khoa/Ngành/Môn
+4. User click 1 node (VD: "Ngành Kỹ thuật Phần mềm")
+5. Hệ thống điều hướng tới Chat AI page với context = ngành đã chọn
+6. Agent tự động tạo báo cáo phân tích về ngành đó (report_tool)
+7. Response streaming qua SSE → typewriter effect trên UI
+8. User có thể hỏi thêm câu hỏi follow-up
+9. Hiển thị 3 suggested follow-up questions
+```
+
+> Flow cũ (Streamlit MVP — đã hoàn thành):
 
 ```
 1. User mở Streamlit app
-2. User nhập câu hỏi: "Top 5 môn có tỷ lệ trượt cao nhất ngành KTPM?"
-3. Router Node (GPT-5.4 Nano) → phân loại: complex → Core Agent
-4. Core Agent (GPT-5.4) → reasoning → gọi sql_query_tool
-5. sql_query_tool → query PostgreSQL → trả về data thật
-6. Core Agent → tổng hợp → sinh câu trả lời có ý nghĩa
-7. Streamlit hiển thị output (text + có thể có chart)
-8. Hiển thị 3 suggested follow-up questions
+2. User nhập câu hỏi → Agent xử lý → trả output
 ```
 
 ---
 
-## Eval Evidences — 5 Test Cases Plan
+## Eval Evidences — 10 Test Cases Plan
 
 | # | Input Query | Expected Tool Calls | Pass Criteria |
 |:-:|:------------|:-------------------|:--------------|
-| TC1 | "Top 5 môn có tỷ lệ trượt cao nhất ngành KTPM?" | `sql_query_tool` | Trả về danh sách 5 môn với % trượt, data khớp DB |
-| TC2 | "GPA trung bình khóa K18 ngành KTPM là bao nhiêu?" | `sql_query_tool` | Trả về con số GPA chính xác |
-| TC3 | "So sánh tỷ lệ trượt giữa K17 và K18 ngành CNTT" | `sql_query_tool` (2 lần) | So sánh 2 khóa, có nhận xét xu hướng |
-| TC4 | "Chào bạn, bạn là ai?" | Không gọi tool | Router → fast_response, trả lời nhanh |
-| TC5 | "CLO nào đạt thấp nhất ở môn Toán rời rạc?" | `sql_query_tool` hoặc `clo_calculator_tool` | Trả về CLO cụ thể + tỷ lệ đạt |
+| TC1 | "Top 5 môn trượt cao nhất ngành CNTT?" | `sql_query_tool` | Đúng 5 môn, đúng % |
+| TC2 | "GPA trung bình K21 CNTT?" | `sql_query_tool` | GPA chính xác |
+| TC3 | "So sánh trượt Cơ sở dữ liệu K21 vs K22" | `sql_query_tool` (2 lần) | So sánh 2 khóa |
+| TC4 | "Chào bạn, chức năng chính là gì?" | Không gọi tool | Router → fast_response |
+| TC5 | "CLO thấp nhất môn Tiếng Anh 1?" | `sql_query_tool` | Trả về mã CLO + % |
+| TC6 | "K21 CNTT có bao nhiêu sinh viên?" | `sql_query_tool` | Trả về đúng số SV |
+| TC7 | "3 sinh viên GPA cao nhất ngành TTNT?" | `sql_query_tool` | Tên + GPA top 3 |
+| TC8 | "Tỷ lệ pass Hệ quản trị CSDL?" | `sql_query_tool` | Đúng tỷ lệ % pass |
+| TC9 | "Điểm Toán cao cấp 1: K22 vs K21?" | `sql_query_tool` (2 lần) | So sánh điểm 2 khóa |
+| TC10| "Môn đk nhiều nhất ngành Cơ điện tử?" | `sql_query_tool` | Đúng tên môn + số SV |
 
 > Mỗi test case sẽ được chụp screenshot output thực tế + đánh giá (Pass/Fail/Partial). Lưu trong `docs/09-Evaluation/gate2_eval_evidences.md`.
 
@@ -328,7 +399,7 @@ Tham khảo [DatabaseModernizationPlan.md](../10-References/DatabaseModernizatio
 | G2-2 | Architecture Diagram | 3+ Mermaid diagrams cập nhật trong README, phản ánh đúng code hiện tại | Hoàng | ⬜ |
 | G2-3 | ≥ 10 PR Merged | Đếm trên GitHub, bổ sung nếu thiếu, mỗi PR có description + review | Cả team | ⬜ |
 | G2-4 | README.md | Setup instructions, env vars list, ≥ 3 sample queries | Hoàng | ⬜ |
-| G2-5 | Eval Evidences | 5 test case manual + screenshot output thực tế | Hoàng + Hưng | ⬜ |
+| G2-5 | Eval Evidences | 10 test case manual + screenshot output thực tế | Hoàng + Hưng | ⬜ |
 
 ### Sprint 2 Overall Checklist (Deadline: 24/06)
 
@@ -338,7 +409,7 @@ Tham khảo [DatabaseModernizationPlan.md](../10-References/DatabaseModernizatio
 | **Backend** | CRUD APIs hoạt động, Tree Metrics API, Chat endpoint, SSE streaming | Hưng |
 | **Frontend** | Chat UI + Tree component kết nối API thật, CRUD pages cơ bản | Hiếu |
 | **Data** | Seed data trong PostgreSQL, ≥ 100 students với grades thật | Hoàng + Hưng |
-| **Testing** | ≥ 10 unit tests BE, ≥ 5 FE test suites, 5 eval evidences | Cả team |
+| **Testing** | ≥ 10 unit tests BE, ≥ 5 FE test suites, 10 eval evidences | Cả team |
 | **DevOps** | Docker chạy đầy đủ services, CI/CD pass trên mọi PR | Hưng |
 | **Docs** | README cập nhật, architecture diagrams đúng, Journal + Worklog | Cả team |
 

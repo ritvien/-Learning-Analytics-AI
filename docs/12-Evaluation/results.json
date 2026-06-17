@@ -1,0 +1,72 @@
+[
+  {
+    "tc": "TC1",
+    "input": "Top 5 môn có tỷ lệ trượt cao nhất ngành Công nghệ thông tin?",
+    "response": "Thầy/cô muốn “tỷ lệ trượt” theo ngành **Công nghệ thông tin**, tôi tổng hợp theo dữ liệu các lớp học phần có **tổng số lần đăng ký từ 5 trở lên**. Kết quả **Top 5 môn có tỷ lệ trượt cao nhất** như sau:\n\n| STT | Mã học phần | Tên học phần | Số SV/HT (n) | Số trượt | Tỷ lệ trượt (%) |\n|---:|---|---|---:|---:|---:|\n| 1 | CRS0330 | Những Nguyên lý cơ bản của chủ nghĩa Mác – Lênin 1 | 5 | 4 | 80.00 |\n| 2 | CRS0259 | Hành chính điện tử | 20 | 10 | 50.00 |\n| 3 | CRS0017 | Vẽ kỹ thuật 1 | 69 | 34 | 49.28 |\n| 4 | CRS0101 | Hệ quản trị cơ sở dữ liệu | 109 | 51 | 46.79 |\n| 5 | CRS0024 | Toán cao cấp 3 | 64 | 29 | 45.31 |\n\n> 💡 **Nhận xét:** “Hệ quản trị cơ sở dữ liệu” và “Toán cao cấp 3” là các môn có **quy mô đăng ký lớn**, nên tỷ lệ trượt cao của chúng ảnh hưởng đáng kể; nếu thầy/cô cần, tôi có thể báo thêm theo **từng học kỳ** hoặc theo **khoa/lớp tín chỉ/giảng viên** để khoanh vùng nguyên nhân.",
+    "intent": "core_agent",
+    "status": "Pass"
+  },
+  {
+    "tc": "TC2",
+    "input": "GPA trung bình khóa K21 ngành Công nghệ thông tin là bao nhiêu?",
+    "response": "Theo dữ liệu hệ thống, **GPA trung bình của khóa K21 ngành Công nghệ thông tin** là **2.275** (xấp xỉ **2.27**).\n\n> 💡 **Nhận xét:** Nếu thầy/cô muốn, tôi có thể bổ sung thêm số lượng sinh viên K21 ngành CNTT đang có dữ liệu GPA để đối chiếu độ tin cậy.",
+    "intent": "core_agent",
+    "status": "Pass"
+  },
+  {
+    "tc": "TC3",
+    "input": "So sánh tỷ lệ trượt môn Cơ sở dữ liệu của K21 và K22?",
+    "response": "Thầy/cô yêu cầu so sánh tỷ lệ trượt học phần **Cơ sở dữ liệu** giữa **K21** và **K22**. Theo dữ liệu hệ thống (chỉ tính ghi nhận hoàn thành), kết quả như sau:\n\n| Khóa | Sĩ số (hoàn thành) | Số trượt | Tỷ lệ trượt |\n|---|---:|---:|---:|\n| K21 | 207 | 66 | 31.88% |\n| K22 | 109 | 34 | 31.19% |\n\n**So sánh nhanh:** K21 trượt **cao hơn khoảng 0.69 điểm %** so với K22.\n\n> 💡 **Nhận xét:** Tỷ lệ trượt của K21 và K22 đối với nhóm “Cơ sở dữ liệu” là khá tương đồng; chênh lệch nhỏ (< 1%). Nếu thầy/cô muốn, tôi có thể tách theo **từng học kỳ** hoặc **từng học phần con** (ví dụ “Hệ quản trị CSDL” và “Cơ sở dữ liệu”).",
+    "intent": "core_agent",
+    "status": "Pass"
+  },
+  {
+    "tc": "TC4",
+    "input": "Chào bạn, chức năng chính của bạn là gì?",
+    "response": "Chào bạn! Tôi là EduInsight AI của EPU, có nhiệm vụ hỗ trợ bạn bằng các câu trả lời/giải thích học vụ theo cách ngắn gọn, rõ ràng—ví dụ hướng dẫn cách đặt câu hỏi, giải thích khái niệm hoặc gợi ý cách tìm thông tin liên quan học tập. Bạn muốn hỏi về mảng nào: chương trình học, môn học, hay quy trình đăng ký?",
+    "intent": "fast_response",
+    "status": "Pass"
+  },
+  {
+    "tc": "TC5",
+    "input": "CLO nào đạt thấp nhất ở môn Tiếng Anh 1?",
+    "response": "Thầy/cô vui lòng kiểm tra lại giúp tôi: trong dữ liệu hiện có **không tìm thấy bản ghi CLO gắn với kết quả học phần “Tiếng Anh 1”** (ít nhất không đủ để xác định CLO đạt thấp nhất theo điểm achievement).\n\nTrong “Tiếng Anh 1” có **688** lượt hoàn thành, nhưng phần **CLO/Phiếu minh chứng ([dữ liệu hệ thống])** chưa cho ra kết quả phù hợp để xếp hạng CLO.\n\n> 💡 **Nhận xét:** Nếu thầy/cô cho tôi thêm tên biến thể môn (ví dụ “English 1” hay mã học phần), hoặc xác nhận “Tiếng Anh 1” đang được hệ thống đặt đúng chính xác tên đó, tôi sẽ truy xuất lại để tìm CLO đạt thấp nhất.",
+    "intent": "core_agent",
+    "status": "Pass"
+  },
+  {
+    "tc": "TC6",
+    "input": "Khóa K21 ngành Công nghệ thông tin có bao nhiêu sinh viên?",
+    "response": "Theo dữ liệu hệ thống, **khóa K21 ngành Công nghệ thông tin** có **100 sinh viên**.\n\n> 💡 **Nhận xét:** Nếu thầy/cô cần thêm cơ cấu theo **trạng thái** (đang học/ thôi học/ bảo lưu…) hoặc theo **lớp** (class_code), tôi có thể thống kê tiếp.",
+    "intent": "core_agent",
+    "status": "Pass"
+  },
+  {
+    "tc": "TC7",
+    "input": "Liệt kê 3 sinh viên có GPA tích lũy cao nhất ngành Trí tuệ nhân tạo.",
+    "response": "Thầy/cô yêu cầu danh sách **3 sinh viên có GPA tích lũy cao nhất** thuộc **ngành Trí tuệ nhân tạo**. Theo dữ liệu hiện có, **chỉ tìm thấy 1 sinh viên** phù hợp, nên tôi liệt kê được 1/3 như sau:\n\n| STT | Mã SV | Họ và tên | Lớp | GPA tích lũy |\n|---:|---|---|---|---:|\n| 1 | 25810460057 | AN VIẾT TÙNG | D20TTNTTNL | 2.68 |\n\n> 💡 **Nhận xét:** Hiện hệ thống chỉ có dữ liệu sinh viên gắn với ngành “Trí tuệ nhân tạo” thỏa điều kiện tìm kiếm, nên chưa đủ để lấy top 3. Nếu thầy/cô muốn, tôi có thể kiểm tra lại theo các biến thể tên ngành (ví dụ “AI”, “Trí tuệ nhân tạo”, hoặc tên chương trình gần tương tự) để mở rộng phạm vi.",
+    "intent": "core_agent",
+    "status": "Pass"
+  },
+  {
+    "tc": "TC8",
+    "input": "Tỷ lệ qua môn (pass) của môn Hệ quản trị cơ sở dữ liệu là bao nhiêu?",
+    "response": "Theo dữ liệu hiện có, **tỷ lệ qua môn (pass)** của học phần **“Hệ quản trị cơ sở dữ liệu”** là:\n\n- **Pass rate:** **53.21%**\n\n> 💡 **Nhận xét:** Nếu thầy/cô muốn, tôi có thể tách thêm **theo từng học kỳ** để xem pass rate biến động ra sao.",
+    "intent": "core_agent",
+    "status": "Pass"
+  },
+  {
+    "tc": "TC9",
+    "input": "Điểm trung bình môn Toán cao cấp 1 của khóa K22 có thấp hơn K21 không?",
+    "response": "Thưa thầy/cô, theo dữ liệu hệ thống, **điểm trung bình môn “Toán cao cấp 1” của khóa K22 thấp hơn K21**.\n\n| Khóa | Điểm trung bình (gộp theo môn, hệ số theo grade_4) |\n|---|---:|\n| K21 | 2.856 |\n| K22 | 2.031 |\n\nKết luận: **K22 (2.031) < K21 (2.856)**.\n\n> 💡 **Nhận xét:** Chênh lệch trung bình khoảng **0.825 điểm**, cho thấy K22 học môn này đạt mức thấp hơn đáng kể so với K21.",
+    "intent": "core_agent",
+    "status": "Pass"
+  },
+  {
+    "tc": "TC10",
+    "input": "Môn nào có số sinh viên đăng ký nhiều nhất ngành Công nghệ kỹ thuật cơ điện tử?",
+    "response": "Thầy/cô hỏi: **môn nào có số sinh viên đăng ký nhiều nhất** thuộc **ngành Công nghệ kỹ thuật cơ điện tử**.\n\nKết quả theo dữ liệu hệ thống:\n| Mã môn | Tên môn | Số SV đăng ký (tổng cộng) |\n|---|---|---:|\n| CRS0013 | Toán cao cấp 2 | 729 |\n\n> 💡 **Nhận xét:** “Toán cao cấp 2” đang là học phần có quy mô đăng ký lớn nhất trong chương trình ngành Công nghệ kỹ thuật cơ điện tử theo số liệu hiện có. Nếu thầy/cô muốn, tôi có thể thống kê thêm Top 5 học phần có số đăng ký cao nhất.",
+    "intent": "core_agent",
+    "status": "Pass"
+  }
+]

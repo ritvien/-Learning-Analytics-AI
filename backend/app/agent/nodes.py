@@ -1,9 +1,11 @@
 """LangGraph nodes for the EduInsight Agent."""
 
 import logging
+import re
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
+from typing_extensions import Literal
 
 from app.agent.prompts import (
     CORE_AGENT_SYSTEM_PROMPT,
@@ -11,10 +13,52 @@ from app.agent.prompts import (
     ROUTER_SYSTEM_PROMPT,
 )
 from app.agent.state import AgentState
+from app.agent.tools import execute_sql_query, calculate_student_clo_scores
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+# Single source of truth for all tools available to the LLM
+TOOLS = [execute_sql_query, calculate_student_clo_scores]
+
+_SCHEMA_PATTERNS = re.compile(
+    r'(?:'
+    r'`?(?:students|enrollments|sections|courses|programs|cohorts|'
+    r'departments|universities|teachers|clos|plos|semesters|'
+    r'student_clo_achievements|program_courses|vw_\w+)`?'
+    r'(?:\.\w+)?'  # table.column
+    r'|ILIKE|JOIN|WHERE|GROUP BY|SELECT|FROM|COUNT\(|SUM\(|AVG\('
+    r'|status\s*=\s*[\'"]completed[\'"]'
+    r')',
+    re.IGNORECASE
+)
+
+def _sanitize_response(text: str) -> str:
+    """Remove any leaked DB schema references from agent output."""
+    if not text:
+        return text
+    return _SCHEMA_PATTERNS.sub('[dữ liệu hệ thống]', text)
+
+def get_model(model_name: str, temperature: float = 0):
+    """Factory helper to build ChatOpenAI or ChatGoogleGenerativeAI model."""
+    provider = settings.llm_provider.lower().strip()
+    if provider == "gemini":
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        # Map models if they are configured as openai format
+        import os
+        actual_model = settings.llm_model if "gemini" in settings.llm_model else "gemini-1.5-flash"
+        kwargs = {"model": actual_model, "temperature": temperature}
+        api_key = settings.llm_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        if api_key:
+            kwargs["google_api_key"] = api_key
+        return ChatGoogleGenerativeAI(**kwargs)
+    else:
+        return ChatOpenAI(
+            model=model_name,
+            api_key=settings.llm_api_key or None,
+            temperature=temperature,
+        )
 
 
 # ─────────────────────────────────────────────────────── Router Node (H12)
@@ -24,11 +68,7 @@ async def router_node(state: AgentState) -> dict:
     Sets ``context["intent"]`` to either ``"core_agent"`` or ``"fast_response"``.
     Does NOT add messages to the conversation history.
     """
-    llm = ChatOpenAI(
-        model=settings.agent_router_model,
-        api_key=settings.llm_api_key or None,
-        temperature=0,
-    )
+    llm = get_model(settings.agent_router_model, temperature=0)
 
     messages = state.get("messages", [])
     if not messages:
@@ -77,9 +117,13 @@ async def core_agent_node(state: AgentState) -> dict:
     # Inject system prompt only on the first call (no SystemMessage yet)
     has_system = any(isinstance(m, SystemMessage) for m in messages)
     if not has_system:
-        messages = [SystemMessage(content=CORE_AGENT_SYSTEM_PROMPT)] + messages
+        messages = [SystemMessage(content=CORE_AGENT_SYSTEM_PROMPT), *messages]
 
     response = await llm_with_tools.ainvoke(messages)
+
+    # Sanitize the output if it's the final answer
+    if hasattr(response, "tool_calls") and not response.tool_calls and isinstance(response.content, str):
+        response.content = _sanitize_response(response.content)
 
     return {"messages": [response]}
 
@@ -109,7 +153,7 @@ async def fast_response_node(state: AgentState) -> dict:
         response = await llm.ainvoke(eval_messages)
         return {"messages": [response]}
 
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("fast_response_node LLM call failed, using static fallback")
         fallback = AIMessage(content=FAST_RESPONSE_SYSTEM_PROMPT)
         return {"messages": [fallback]}
