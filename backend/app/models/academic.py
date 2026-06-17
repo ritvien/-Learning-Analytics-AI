@@ -59,6 +59,7 @@ class Department(TimestampMixin, Base):
     university: Mapped[University] = relationship(back_populates="departments")
     programs: Mapped[list[Program]] = relationship(back_populates="department")
     teachers: Mapped[list[Teacher]] = relationship(back_populates="department")
+    courses: Mapped[list[Course]] = relationship(back_populates="department")
 
 
 class Program(TimestampMixin, Base):
@@ -106,6 +107,7 @@ class Course(TimestampMixin, Base):
     __tablename__ = "courses"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    department_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id", ondelete="RESTRICT"), nullable=True)
     code: Mapped[str] = mapped_column(String(30), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     name_en: Mapped[str | None] = mapped_column(String(255))
@@ -117,6 +119,7 @@ class Course(TimestampMixin, Base):
     is_elective: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    department: Mapped[Department] = relationship(back_populates="courses")
     programs: Mapped[list[Program]] = relationship(secondary=program_courses, back_populates="courses")
     clos: Mapped[list[CLO]] = relationship(back_populates="course")  # type: ignore[name-defined]
     plo_mappings: Mapped[list[CoursePLOMapping]] = relationship(back_populates="course") # type: ignore[name-defined]
