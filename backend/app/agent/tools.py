@@ -95,6 +95,9 @@ def execute_sql_query(query: str) -> str:
             conn.close()
 
 
+sql_query_tool = execute_sql_query
+
+
 @tool
 def calculate_student_clo_scores(student_code: str, course_name: str) -> str:
     """Tính toán điểm số Chuẩn đầu ra (CLO) của một sinh viên cụ thể trong một môn học cụ thể.

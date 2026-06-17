@@ -15,7 +15,9 @@ os.environ["DEBUG"] = "false"
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 
 from app.database import Base, get_db
+from app.dependencies import create_access_token, hash_password
 from app.main import app
+from app.models.people import User, UserRole
 
 # In-memory SQLite — no external services needed in CI.
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -45,11 +47,21 @@ async def db_session(test_engine) -> AsyncSession:
 @pytest.fixture
 async def client(db_session: AsyncSession) -> AsyncClient:
     """Async HTTP client with the test DB session injected."""
+    admin = User(
+        id="test-admin",
+        email="admin@example.com",
+        hashed_password=hash_password("password123"),
+        full_name="Test Admin",
+        role=UserRole.admin,
+    )
+    db_session.add(admin)
+    await db_session.flush()
 
     async def _override_get_db():
         yield db_session
 
     app.dependency_overrides[get_db] = _override_get_db
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        c.headers["Authorization"] = f"Bearer {create_access_token(admin.id, admin.role)}"
         yield c
     app.dependency_overrides.clear()

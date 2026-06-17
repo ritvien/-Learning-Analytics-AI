@@ -17,6 +17,7 @@ interface Message {
   isStreaming?: boolean
   intent?: string
   latencyMs?: number
+  statuses?: string[]
 }
 
 const SUGGESTED_PROMPTS = [

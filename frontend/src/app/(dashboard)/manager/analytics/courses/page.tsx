@@ -1,450 +1,353 @@
 "use client"
 
 import * as React from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { BookOpen, CheckCircle2, TrendingUp, HelpCircle, Layers, AlertCircle } from "lucide-react"
-import { api, type ApiSection, type ApiSemester, type ApiStudent, type ApiEnrollment, type ApiCourse, type ApiDepartment, type ApiProgram } from "@/lib/api"
+import { Badge } from "@/components/ui/badge"
+import { BookOpen, TrendingUp, Users, CheckCircle2, AlertTriangle } from "lucide-react"
+import { api, type ApiSection, type ApiSemester } from "@/lib/api"
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Cell,
 } from "recharts"
 
 type Raw = {
-  departments: ApiDepartment[]
-  programs: ApiProgram[]
-  courses: ApiCourse[]
-  semesters: ApiSemester[]
-  sections: ApiSection[]
-  enrollments: ApiEnrollment[]
+  departments: Awaited<ReturnType<typeof api.getDepartments>>
+  programs:    Awaited<ReturnType<typeof api.getPrograms>>
+  courses:     Awaited<ReturnType<typeof api.getCourses>>
+  enrollments: Awaited<ReturnType<typeof api.getEnrollments>>
+  sections:    ApiSection[]
+  semesters:   ApiSemester[]
 }
 
-export default function CourseAnalyticsPage() {
-  const [raw, setRaw] = React.useState<Raw | null>(null)
-  const [loading, setLoading] = React.useState(true)
+const DIST_RANGES = [
+  { label: "0–4",   min: 0,  max: 4,  color: "#ef4444" },
+  { label: "4–5",   min: 4,  max: 5,  color: "#f97316" },
+  { label: "5–6",   min: 5,  max: 6,  color: "#f59e0b" },
+  { label: "6–7",   min: 6,  max: 7,  color: "#84cc16" },
+  { label: "7–8",   min: 7,  max: 8,  color: "#22c55e" },
+  { label: "8–10",  min: 8,  max: 10.1, color: "#10b981" },
+]
 
-  // Filters
-  const [selectedDept, setSelectedDept] = React.useState("all")
-  const [selectedProg, setSelectedProg] = React.useState("all")
-  const [selectedCourseId, setSelectedCourseId] = React.useState<string>("")
+export default function CourseAnalyticsPage() {
+  const [raw, setRaw]         = React.useState<Raw | null>(null)
+  const [selDept, setSelDept] = React.useState("all")
+  const [selProg, setSelProg] = React.useState("all")
+  const [selCourse, setSelCourse] = React.useState("all")
 
   React.useEffect(() => {
     Promise.all([
       api.getDepartments({ limit: 100 }),
       api.getPrograms({ limit: 100 }),
-      api.getCourses({ limit: 200 }),
+      api.getCourses({ limit: 500 }),
+      api.getEnrollments({ limit: 50000 }),
+      api.getSections({ limit: 5000 }),
       api.getSemesters(),
-      api.getSections({ limit: 300 }),
-      api.getEnrollments({ limit: 3000 }),
-    ]).then(([departments, programs, courses, semesters, sections, enrollments]) => {
-      setRaw({ departments, programs, courses, semesters, sections, enrollments })
-      setLoading(false)
-      if (courses.length > 0) {
-        setSelectedCourseId(courses[0].id.toString())
-      }
-    }).catch(err => {
-      console.error(err)
-      setLoading(false)
-    })
+    ]).then(([departments, programs, courses, enrollments, sections, semesters]) =>
+      setRaw({ departments, programs, courses, enrollments, sections, semesters })
+    ).catch(console.error)
   }, [])
 
-  // Auto-select first course when filters change
+  const maps = React.useMemo(() => {
+    if (!raw) return null
+    const secMap  = new Map(raw.sections.map(s => [s.id, s]))
+    const semMap  = new Map(raw.semesters.map(s => [s.id, s]))
+    return { secMap, semMap }
+  }, [raw])
+
+  // Filtered programs by dept
+  const filteredPrograms = React.useMemo(() => {
+    if (!raw) return []
+    if (selDept === "all") return raw.programs
+    return raw.programs.filter(p => p.department_id === Number(selDept))
+  }, [raw, selDept])
+
+  // Filtered courses by program
   const filteredCourses = React.useMemo(() => {
     if (!raw) return []
-    const { courses, programs } = raw
-    let result = courses
+    if (selDept === "all" && selProg === "all") return raw.courses
+    if (selProg !== "all") {
+      return raw.courses.filter(c => c.program_ids?.includes(Number(selProg)))
+    }
+    // by dept: get all programs in dept
+    const deptProgIds = new Set(raw.programs.filter(p => p.department_id === Number(selDept)).map(p => p.id))
+    return raw.courses.filter(c => c.program_ids?.some(pid => deptProgIds.has(pid)))
+  }, [raw, selDept, selProg])
 
-    if (selectedDept !== "all") {
-      const deptId = parseInt(selectedDept)
-      const deptProgIds = new Set(programs.filter(p => p.department_id === deptId).map(p => p.id))
-      result = result.filter(c => c.program_ids.some(pid => deptProgIds.has(pid)))
+  // All enrollments for selected course
+  const courseEnrollments = React.useMemo(() => {
+    if (!raw || !maps || selCourse === "all") return null
+    const courseId = Number(selCourse)
+    const sectionsForCourse = new Set(raw.sections.filter(s => s.course_id === courseId).map(s => s.id))
+    return raw.enrollments.filter(e => sectionsForCourse.has(e.section_id))
+  }, [raw, maps, selCourse])
+
+  const courseStats = React.useMemo(() => {
+    if (!raw || !maps || !courseEnrollments || selCourse === "all") return null
+    const { secMap, semMap } = maps
+
+    const valid = courseEnrollments.filter(e => e.is_passed !== null)
+    const withGrade = courseEnrollments.filter(e => e.final_grade !== null)
+
+    const totalEnrolls = valid.length
+    const passRate     = totalEnrolls ? valid.filter(e => e.is_passed).length / totalEnrolls * 100 : 0
+    const avgGrade     = withGrade.length ? withGrade.reduce((s, e) => s + e.final_grade!, 0) / withGrade.length : 0
+    const sectionIds   = new Set(courseEnrollments.map(e => e.section_id))
+
+    // Fail rate max
+    const semPassMap = new Map<string, { passed: number; total: number; avg: number; cnt: number }>()
+    for (const e of valid) {
+      const sec = secMap.get(e.section_id); if (!sec) continue
+      const sem = semMap.get(sec.semester_id); if (!sem) continue
+      const t = semPassMap.get(sem.code) ?? { passed: 0, total: 0, avg: 0, cnt: 0 }
+      t.total++
+      if (e.is_passed) t.passed++
+      if (e.final_grade !== null) { t.avg += e.final_grade; t.cnt++ }
+      semPassMap.set(sem.code, t)
     }
 
-    if (selectedProg !== "all") {
-      const progId = parseInt(selectedProg)
-      result = result.filter(c => c.program_ids.includes(progId))
+    const trend = [...semPassMap.entries()]
+      .map(([code, t]) => {
+        const sem = raw.semesters.find(s => s.code === code)
+        return {
+          hk: code,
+          order: sem ? `${sem.year}-${sem.term}` : code,
+          passRate: t.total ? +(t.passed / t.total * 100).toFixed(1) : 0,
+          avgGrade: t.cnt ? +(t.avg / t.cnt).toFixed(2) : 0,
+        }
+      })
+      .sort((a, b) => a.order.localeCompare(b.order))
+
+    const maxFailRate = trend.length ? Math.max(...trend.map(t => 100 - t.passRate)) : 0
+
+    // Distribution
+    const dist = DIST_RANGES.map(r => ({
+      label: r.label,
+      count: withGrade.filter(e => e.final_grade! >= r.min && e.final_grade! < r.max).length,
+      color: r.color,
+    }))
+
+    // Per-section table
+    const secTable = new Map<number, { code: string; semLabel: string; total: number; passed: number }>()
+    for (const e of valid) {
+      const sec = secMap.get(e.section_id); if (!sec) continue
+      const sem = semMap.get(sec.semester_id)
+      const s = secTable.get(e.section_id) ?? { code: sec.section_code, semLabel: sem?.name ?? "—", total: 0, passed: 0 }
+      s.total++; if (e.is_passed) s.passed++
+      secTable.set(e.section_id, s)
     }
+    const overallPassRate = passRate
+    const sections = [...secTable.values()]
+      .filter(s => s.total >= 3)
+      .map(s => ({ ...s, rate: +(s.passed / s.total * 100).toFixed(1), diff: +(s.passed / s.total * 100 - overallPassRate).toFixed(1) }))
+      .sort((a, b) => a.rate - b.rate)
 
-    return result
-  }, [raw, selectedDept, selectedProg])
+    return { totalEnrolls, passRate, avgGrade, sectionCount: sectionIds.size, maxFailRate, trend, dist, sections }
+  }, [raw, maps, courseEnrollments, selCourse])
 
-  React.useEffect(() => {
-    if (filteredCourses.length > 0) {
-      // If currently selected course is not in the filtered list, switch to the first one
-      const exists = filteredCourses.some(c => c.id.toString() === selectedCourseId)
-      if (!exists) {
-        setSelectedCourseId(filteredCourses[0].id.toString())
-      }
-    } else {
-      setSelectedCourseId("")
-    }
-  }, [filteredCourses, selectedCourseId])
-
-  const stats = React.useMemo(() => {
-    if (!raw || !selectedCourseId) return null
-    const { courses, semesters, sections, enrollments } = raw
-
-    const courseId = parseInt(selectedCourseId)
-    const currentCourse = courses.find(c => c.id === courseId)
-    if (!currentCourse) return null
-
-    const semMap = new Map(semesters.map(s => [s.id, s]))
-    const secMap = new Map(sections.map(s => [s.id, s]))
-
-    // Find sections belonging to the selected course
-    const courseSections = sections.filter(s => s.course_id === courseId)
-    const courseSectionIds = new Set(courseSections.map(s => s.id))
-
-    // Find enrollments for these sections
-    const courseEnrolls = enrollments.filter(e => courseSectionIds.has(e.section_id))
-    const validEnrolls = courseEnrolls.filter(e => e.is_passed !== null)
-
-    // KPI 1: Tổng lượt học
-    const totalEnrollments = courseEnrolls.length
-
-    // KPI 2: Pass rate tổng hợp
-    const passedEnrolls = validEnrolls.filter(e => e.is_passed)
-    const overallPassRate = validEnrolls.length ? (passedEnrolls.length / validEnrolls.length) * 100 : 0
-
-    // KPI 3: Avg grade
-    const gradedEnrolls = courseEnrolls.filter(e => e.final_grade !== null)
-    const avgGrade = gradedEnrolls.length ? gradedEnrolls.reduce((sum, e) => sum + e.final_grade!, 0) / gradedEnrolls.length : 0
-
-    // KPI 4: Số lớp học phần
-    const totalSectionsCount = courseSections.length
-
-    // KPI 5: Fail rate cao nhất trong 1 học kỳ bất kỳ
-    const semFailRates = semesters.map(sem => {
-      const semSecs = new Set(courseSections.filter(s => s.semester_id === sem.id).map(s => s.id))
-      const semEnrolls = courseEnrolls.filter(e => semSecs.has(e.section_id) && e.is_passed !== null)
-      const failed = semEnrolls.filter(e => !e.is_passed).length
-      const rate = semEnrolls.length ? (failed / semEnrolls.length) * 100 : 0
-      return { semCode: sem.code, rate, total: semEnrolls.length }
-    }).filter(s => s.total > 0)
-
-    const maxFailRate = semFailRates.length ? Math.max(...semFailRates.map(s => s.rate)) : 0
-
-    // Chart 1 & 2: Trend pass rate & GPA theo học kỳ
-    const sortedSemesters = [...semesters].sort((a, b) => a.code.localeCompare(b.code))
-    const semTrendData = sortedSemesters.map(sem => {
-      const semSecs = new Set(courseSections.filter(s => s.semester_id === sem.id).map(s => s.id))
-      const semEnrolls = courseEnrolls.filter(e => semSecs.has(e.section_id))
-      const valid = semEnrolls.filter(e => e.is_passed !== null)
-      const passed = valid.filter(e => e.is_passed).length
-      const rate = valid.length ? (passed / valid.length) * 100 : null
-
-      const graded = semEnrolls.filter(e => e.final_grade !== null)
-      const avg = graded.length ? graded.reduce((sum, e) => sum + e.final_grade!, 0) / graded.length : null
-
-      return {
-        hk: sem.code,
-        passRate: rate !== null ? Math.round(rate * 10) / 10 : null,
-        avgGrade: avg !== null ? Math.round(avg * 100) / 100 : null
-      }
-    }).filter(d => d.passRate !== null || d.avgGrade !== null)
-
-    // Chart 3: Distribution điểm (tổng hợp)
-    // Buckets: 0-4 | 4-5 | 5-6 | 6-7 | 7-8 | 8-10
-    const gradeBuckets = [
-      { range: "0–4", count: 0, color: "#ef4444" },
-      { range: "4–5", count: 0, color: "#f97316" },
-      { range: "5–6", count: 0, color: "#f59e0b" },
-      { range: "6–7", count: 0, color: "#eab308" },
-      { range: "7–8", count: 0, color: "#84cc16" },
-      { range: "8–10", count: 0, color: "#10b981" },
-    ]
-
-    courseEnrolls.forEach(e => {
-      if (e.final_grade === null) return
-      const g = e.final_grade
-      if (g < 4.0) gradeBuckets[0].count++
-      else if (g < 5.0) gradeBuckets[1].count++
-      else if (g < 6.0) gradeBuckets[2].count++
-      else if (g < 7.0) gradeBuckets[3].count++
-      else if (g < 8.0) gradeBuckets[4].count++
-      else gradeBuckets[5].count++
-    })
-
-    // Table: Section details
-    const sectionsDetails = courseSections.map(sec => {
-      const secEnrolls = courseEnrolls.filter(e => e.section_id === sec.id)
-      const validSec = secEnrolls.filter(e => e.is_passed !== null)
-      const passed = validSec.filter(e => e.is_passed).length
-      const rate = validSec.length ? (passed / validSec.length) * 100 : 0
-      const deviation = rate - overallPassRate
-
-      return {
-        code: sec.section_code,
-        semester: semMap.get(sec.semester_id)?.name ?? "Học kỳ",
-        studentCount: secEnrolls.length,
-        passRate: Math.round(rate),
-        deviation: Math.round(deviation)
-      }
-    })
-
-    return {
-      currentCourse,
-      totalEnrollments,
-      overallPassRate,
-      avgGrade,
-      totalSectionsCount,
-      maxFailRate,
-      semTrendData,
-      gradeBuckets,
-      sectionsDetails
-    }
-  }, [raw, selectedCourseId])
-
-  if (loading) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-      </div>
-    )
-  }
-
-  const filteredPrograms = raw ? (selectedDept === "all" ? [] : raw.programs.filter(p => p.department_id === parseInt(selectedDept))) : []
+  const selectedCourseName = raw?.courses.find(c => c.id === Number(selCourse))?.name ?? ""
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Filters Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Phân tích Môn học</h1>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          {/* Department Filter */}
-          <Select value={selectedDept} onValueChange={(val) => setSelectedDept(val || "all")}>
-            <SelectTrigger className="w-[180px] bg-background">
-              <SelectValue placeholder="Chọn khoa" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả khoa</SelectItem>
-              {raw?.departments.map(dept => (
-                <SelectItem key={dept.id} value={dept.id.toString()}>{dept.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Program Filter */}
-          <Select value={selectedProg} onValueChange={(val) => setSelectedProg(val || "all")} disabled={selectedDept === "all"}>
-            <SelectTrigger className="w-[180px] bg-background">
-              <SelectValue placeholder="Chọn ngành" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả ngành</SelectItem>
-              {filteredPrograms.map(prog => (
-                <SelectItem key={prog.id} value={prog.id.toString()}>{prog.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Course Filter */}
-          <Select value={selectedCourseId} onValueChange={(val) => setSelectedCourseId(val || "")} disabled={filteredCourses.length === 0}>
-            <SelectTrigger className="w-[220px] bg-background font-medium border-primary/50">
-              <SelectValue placeholder="Chọn môn học" />
-            </SelectTrigger>
-            <SelectContent>
-              {filteredCourses.map(course => (
-                <SelectItem key={course.id} value={course.id.toString()}>{course.code} — {course.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Phân tích Môn học</h1>
+        <p className="text-sm text-muted-foreground">Phân tích sâu một môn học qua nhiều học kỳ</p>
       </div>
 
-      {stats ? (
+      {/* 3-step filter */}
+      <Card>
+        <CardContent className="pt-4 pb-4">
+          <div className="flex flex-wrap gap-3 items-center">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground w-4">1</span>
+              <Select value={selDept} onValueChange={v => { setSelDept(v ?? "all"); setSelProg("all"); setSelCourse("all") }}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Chọn Khoa" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả khoa</SelectItem>
+                  {raw?.departments.map(d => <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground w-4">2</span>
+              <Select value={selProg} onValueChange={v => { setSelProg(v ?? "all"); setSelCourse("all") }} disabled={selDept === "all"}>
+                <SelectTrigger className="w-52">
+                  <SelectValue placeholder="Chọn Ngành" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả ngành</SelectItem>
+                  {filteredPrograms.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground w-4">3</span>
+              <Select value={selCourse} onValueChange={v => setSelCourse(v ?? "all")}>
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="Chọn Môn học" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">— Chọn môn học —</SelectItem>
+                  {filteredCourses.map(c => (
+                    <SelectItem key={c.id} value={String(c.id)}>{c.code} — {c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {selCourse === "all" ? (
+        <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-2">
+          <BookOpen className="h-10 w-10 opacity-30" />
+          <p className="text-sm">Chọn Khoa → Ngành → Môn học để xem phân tích</p>
+        </div>
+      ) : (
         <>
-          {/* KPI Cards Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">{selectedCourseName}</h2>
+          </div>
+
+          {/* 5 KPIs */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {[
+              { label: "Tổng lượt học", value: courseStats?.totalEnrolls ?? "—", icon: <Users className="h-5 w-5 text-muted-foreground" /> },
+              {
+                label: "Pass rate tổng hợp",
+                value: courseStats ? `${courseStats.passRate.toFixed(1)}%` : "—",
+                icon: <CheckCircle2 className={`h-5 w-5 ${!courseStats || courseStats.passRate >= 70 ? "text-emerald-500" : "text-destructive"}`} />,
+              },
+              { label: "Điểm trung bình", value: courseStats ? courseStats.avgGrade.toFixed(2) : "—", icon: <TrendingUp className="h-5 w-5 text-muted-foreground" /> },
+              { label: "Số lớp học phần", value: courseStats?.sectionCount ?? "—", icon: <BookOpen className="h-5 w-5 text-muted-foreground" /> },
+              {
+                label: "Fail rate cao nhất",
+                value: courseStats ? `${courseStats.maxFailRate.toFixed(0)}%` : "—",
+                icon: <AlertTriangle className={`h-5 w-5 ${courseStats && courseStats.maxFailRate > 40 ? "text-destructive" : "text-muted-foreground"}`} />,
+                alert: courseStats && courseStats.maxFailRate > 40 ? "> 40%" : null,
+              },
+            ].map((k, i) => (
+              <Card key={i}>
+                <CardContent className="pt-5 pb-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground leading-tight">{k.label}</p>
+                      <p className="text-2xl font-bold mt-1 tabular-nums">{k.value}</p>
+                      {"alert" in k && k.alert && (
+                        <Badge variant="destructive" className="mt-1 text-[10px] h-4 px-1.5">{k.alert}</Badge>
+                      )}
+                    </div>
+                    <div className="shrink-0 mt-0.5">{k.icon}</div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* 2 trend lines */}
+          <div className="grid lg:grid-cols-2 gap-4">
             <Card>
-              <CardContent className="p-5 flex justify-between items-center">
-                <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground font-medium">Tổng lượt học</span>
-                  <h3 className="text-2xl font-bold">{stats.totalEnrollments}</h3>
-                </div>
-                <div className="p-2 bg-blue-500/10 rounded-lg text-blue-500">
-                  <Layers className="h-5 w-5" />
-                </div>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Trend pass rate theo học kỳ</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={210}>
+                  <LineChart data={courseStats?.trend ?? []} margin={{ left: 4, right: 16, top: 8, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="hk" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={40} />
+                    <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10 }} />
+                    <Tooltip formatter={(v) => [`${v}%`, "Pass rate"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
+                    <Line type="monotone" dataKey="passRate" stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  </LineChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
 
             <Card>
-              <CardContent className="p-5 flex justify-between items-center">
-                <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground font-medium">Pass rate tổng hợp</span>
-                  <h3 className="text-2xl font-bold">{stats.overallPassRate.toFixed(1)}%</h3>
-                </div>
-                <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500">
-                  <CheckCircle2 className="h-5 w-5" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-5 flex justify-between items-center">
-                <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground font-medium">GPA trung bình</span>
-                  <h3 className="text-2xl font-bold">{stats.avgGrade.toFixed(2)}</h3>
-                </div>
-                <div className="p-2 bg-purple-500/10 rounded-lg text-purple-500">
-                  <TrendingUp className="h-5 w-5" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-5 flex justify-between items-center">
-                <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground font-medium">Số lớp học phần</span>
-                  <h3 className="text-2xl font-bold">{stats.totalSectionsCount}</h3>
-                </div>
-                <div className="p-2 bg-slate-500/10 rounded-lg text-slate-500">
-                  <BookOpen className="h-5 w-5" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className={stats.maxFailRate > 40 ? "border-rose-500 bg-rose-50/20 dark:bg-rose-950/10" : ""}>
-              <CardContent className="p-5 flex justify-between items-center">
-                <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground font-medium">Fail rate cao nhất</span>
-                  <h3 className="text-2xl font-bold">{stats.maxFailRate.toFixed(1)}%</h3>
-                </div>
-                <div className="p-2 bg-rose-500/10 rounded-lg text-rose-500">
-                  <AlertCircle className="h-5 w-5" />
-                </div>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Trend điểm trung bình theo học kỳ</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={210}>
+                  <LineChart data={courseStats?.trend ?? []} margin={{ left: 4, right: 16, top: 8, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="hk" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={40} />
+                    <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
+                    <Tooltip formatter={(v) => [v, "Điểm TB"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
+                    <Line type="monotone" dataKey="avgGrade" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  </LineChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
           </div>
 
-          {/* Charts Row 1: Trends */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="border shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-sm font-semibold">Trend Pass Rate theo học kỳ</CardTitle>
-                <CardDescription className="text-xs">Tiến trình thay đổi tỷ lệ qua môn (%) qua các học kỳ</CardDescription>
+          {/* Distribution + Section table */}
+          <div className="grid lg:grid-cols-5 gap-4">
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Phân bổ điểm (tổng hợp)</CardTitle>
               </CardHeader>
               <CardContent>
-                {stats.semTrendData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={stats.semTrendData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="hk" tick={{ fontSize: 10 }} />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
-                      <Tooltip formatter={(v) => [`${v}%`, "Pass Rate"]} />
-                      <Line type="monotone" dataKey="passRate" name="Pass Rate" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-[220px] flex items-center justify-center text-xs text-muted-foreground">Chưa có dữ liệu xu hướng</div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="border shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-sm font-semibold">Trend GPA theo học kỳ</CardTitle>
-                <CardDescription className="text-xs">Tiến trình thay đổi điểm trung bình học tập (thang 10)</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {stats.semTrendData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={stats.semTrendData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="hk" tick={{ fontSize: 10 }} />
-                      <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
-                      <Tooltip formatter={(v) => [v, "GPA"]} />
-                      <Line type="monotone" dataKey="avgGrade" name="GPA" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-[220px] flex items-center justify-center text-xs text-muted-foreground">Chưa có dữ liệu xu hướng</div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Charts Row 2: Distribution & Table */}
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            {/* Grade Distribution */}
-            <Card className="lg:col-span-2 border shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-sm font-semibold">Phân bổ điểm tổng hợp</CardTitle>
-                <CardDescription className="text-xs">Số lượng sinh viên đạt điểm trong các khoảng</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={stats.gradeBuckets} margin={{ left: -25, right: 10, top: 10, bottom: 0 }}>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={courseStats?.dist ?? []} margin={{ left: 0, right: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="range" tick={{ fontSize: 10 }} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 10 }} />
-                    <Tooltip formatter={(v) => [v, "Số SV"]} />
+                    <Tooltip formatter={(v) => [v, "SV"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
                     <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                      {stats.gradeBuckets.map((entry, idx) => (
-                        <Cell key={idx} fill={entry.color} />
-                      ))}
+                      {(courseStats?.dist ?? []).map((d, i) => <Cell key={i} fill={d.color} />)}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
 
-            {/* Sections Details Table */}
-            <Card className="lg:col-span-3 border shadow-sm">
-              <CardHeader>
+            <Card className="lg:col-span-3">
+              <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold">Chi tiết các lớp học phần</CardTitle>
-                <CardDescription className="text-xs">So sánh pass rate từng lớp so với trung bình môn</CardDescription>
               </CardHeader>
-              <CardContent className="p-0 border-t">
-                <div className="max-h-[280px] overflow-y-auto">
-                  <Table>
-                    <TableHeader className="sticky top-0 bg-background z-10">
-                      <TableRow>
-                        <TableHead className="pl-6">Mã lớp</TableHead>
-                        <TableHead>Học kỳ</TableHead>
-                        <TableHead className="text-center">SV đăng ký</TableHead>
-                        <TableHead className="text-center">Pass rate</TableHead>
-                        <TableHead className="pr-6 text-right">So với TB</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {stats.sectionsDetails.length > 0 ? (
-                        stats.sectionsDetails.map((sec, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell className="pl-6 font-semibold text-xs">{sec.code}</TableCell>
-                            <TableCell className="text-xs">{sec.semester}</TableCell>
-                            <TableCell className="text-center text-xs">{sec.studentCount}</TableCell>
-                            <TableCell className="text-center font-semibold text-xs">{sec.passRate}%</TableCell>
-                            <TableCell className="pr-6 text-right text-xs">
-                              <Badge
-                                variant={sec.deviation < -15 ? "destructive" : sec.deviation >= 0 ? "outline" : "secondary"}
-                                className={`text-[10px] ${sec.deviation >= 0 ? "border-emerald-500 text-emerald-600 dark:text-emerald-400" : ""}`}
-                              >
-                                {sec.deviation >= 0 ? `+${sec.deviation}%` : `${sec.deviation}%`}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center py-6 text-xs text-muted-foreground">
-                            Chưa có thông tin lớp học phần.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto max-h-[260px] overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 bg-background">
+                      <tr className="border-b bg-muted/40">
+                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Mã lớp</th>
+                        <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Học kỳ</th>
+                        <th className="text-right px-3 py-2.5 font-medium text-muted-foreground">SV</th>
+                        <th className="text-right px-3 py-2.5 font-medium text-muted-foreground">Pass rate</th>
+                        <th className="text-right px-4 py-2.5 font-medium text-muted-foreground">So TB</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {(courseStats?.sections ?? []).map((s, i) => (
+                        <tr key={i} className="hover:bg-muted/20">
+                          <td className="px-4 py-2 font-mono text-[11px]">{s.code}</td>
+                          <td className="px-3 py-2">{s.semLabel}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{s.total}</td>
+                          <td className="px-3 py-2 text-right">
+                            <Badge
+                              variant={s.rate >= 70 ? "secondary" : "destructive"}
+                              className="text-[10px]"
+                            >{s.rate}%</Badge>
+                          </td>
+                          <td className={`px-4 py-2 text-right tabular-nums font-medium ${s.diff < -15 ? "text-destructive" : s.diff > 0 ? "text-emerald-600" : "text-muted-foreground"}`}>
+                            {s.diff > 0 ? "+" : ""}{s.diff}%
+                            {s.diff < -15 && " ⚠️"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </CardContent>
             </Card>
           </div>
         </>
-      ) : (
-        <div className="flex h-64 items-center justify-center border border-dashed rounded-xl text-sm text-muted-foreground bg-muted/10">
-          Vui lòng chọn môn học để xem phân tích dữ liệu
-        </div>
       )}
     </div>
   )

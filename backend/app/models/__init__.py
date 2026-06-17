@@ -10,6 +10,7 @@ from app.models.assessment import (
     StudentCLOAchievement,
 )
 from app.models.people import Cohort, Student, Teacher, User, UserRole
+from app.models.report import Report, ReportFeedback
 from app.models.teaching import Enrollment, GradeComponent, GradeComponentType, Section
 
 __all__ = [
@@ -25,6 +26,8 @@ __all__ = [
     "GradeComponentCLOMapping",
     "GradeComponentType",
     "Program",
+    "Report",
+    "ReportFeedback",
     "Section",
     "Semester",
     "Student",
