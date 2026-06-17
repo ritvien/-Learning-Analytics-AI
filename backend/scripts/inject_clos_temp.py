@@ -33,7 +33,7 @@ def inject_clos():
     
     insert_query = """
         INSERT INTO clos (course_id, code, name, description, bloom_level, weight, sort_order, is_active)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (course_id, code) DO NOTHING
     """
     
     for row in src_clos:

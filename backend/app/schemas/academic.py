@@ -106,6 +106,7 @@ class CourseBase(BaseModel):
     description: str | None = None
     is_elective: bool = False
     is_active: bool = True
+    department_id: int | None = None
 
 
 class CourseCreate(CourseBase):

@@ -3,7 +3,7 @@
 import * as React from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { GradeRecord, Student } from "@/types"
-import { mockGrades, mockStudents } from "@/lib/mock-data"
+import { api } from "@/lib/api"
 import { DataTable } from "@/components/crud/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -17,12 +17,47 @@ import { Pencil, Trash2, ArrowUpDown, FileDown } from "lucide-react"
 import * as XLSX from "xlsx"
 
 export default function GradesPage() {
-  const [grades, setGrades] = React.useState<GradeRecord[]>(mockGrades)
+  const [grades, setGrades] = React.useState<GradeRecord[]>([])
+  const [students, setStudents] = React.useState<any[]>([])
   const [editGrade, setEditGrade] = React.useState<GradeRecord | null>(null)
 
+  React.useEffect(() => {
+    Promise.all([
+      api.getEnrollments({ limit: 1000 }),
+      api.getStudents({ limit: 1000 }),
+      api.getSections({ limit: 1000 }),
+      api.getCourses({ limit: 500 })
+    ]).then(([enrolls, apiStudents, apiSections, apiCourses]) => {
+      setStudents(apiStudents)
+      setGrades(enrolls.map(e => {
+        const section = apiSections.find(s => s.id === e.section_id)
+        const course = apiCourses.find(c => c.id === section?.course_id)
+        return {
+          id: String(e.id),
+          studentId: String(e.student_id),
+          tenMonHoc: course?.name || "Chưa có",
+          maLop: section?.section_code || "Chưa có",
+          tinChi: course?.credits || 0,
+          diemTX1: null,
+          diemTX2: null,
+          diemTX3: null,
+          diemTX4: null,
+          tbThuongKy: null,
+          duocDuThi: true,
+          diemThiLan1: null,
+          diemThiLan2: null,
+          diemTongKet: e.final_grade,
+          xepLoai: e.grade_letter ?? (e.is_passed ? "C" : "F"),
+          ghiChu: "",
+          hocKy: "",
+        }
+      }))
+    })
+  }, [])
+
   // Helpers to get student name from ID
-  const getStudentName = (id: string) => mockStudents.find(s => s.id === id)?.hoTen || id
-  const getStudentMSSV = (id: string) => mockStudents.find(s => s.id === id)?.mssv || id
+  const getStudentName = (id: string) => students.find(s => String(s.id) === id)?.full_name || id
+  const getStudentMSSV = (id: string) => students.find(s => String(s.id) === id)?.student_code || id
 
   const handleUpdate = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
