@@ -25,9 +25,9 @@ from app.agent.nodes import (
     fast_response_node,
     route_after_router,
     router_node,
+    TOOLS,
 )
 from app.agent.state import AgentState
-from app.agent.tools import sql_query_tool
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ def create_agent() -> CompiledStateGraph:
 
     # ── Tier 3: ToolNode with automatic error handling ──────────────
     tool_node = ToolNode(
-        tools=[sql_query_tool],
+        tools=TOOLS,
         handle_tool_errors=True,
     )
 
