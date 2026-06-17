@@ -1,14 +1,19 @@
 """FastAPI shared dependencies (auth, pagination, db session re-export)."""
 
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
+import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import get_db
+from app.models.people import User, UserRole
 
 settings = get_settings()
 
@@ -17,6 +22,28 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 # Convenience type aliases for endpoint signatures.
 DBSession = Annotated[AsyncSession, Depends(get_db)]
 TokenStr = Annotated[str, Depends(oauth2_scheme)]
+
+WRITE_ROLES = {UserRole.superadmin, UserRole.admin, UserRole.manager}
+ADMIN_ROLES = {UserRole.superadmin, UserRole.admin}
+
+
+def hash_password(password: str) -> str:
+    """Return a bcrypt hash for a plaintext password."""
+    password_bytes = password.encode("utf-8")[:72]
+    return bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_password(password: str, hashed_password: str) -> bool:
+    """Verify a plaintext password against a stored bcrypt hash."""
+    password_bytes = password.encode("utf-8")[:72]
+    return bcrypt.checkpw(password_bytes, hashed_password.encode("utf-8"))
+
+
+def create_access_token(subject: str, role: UserRole, expires_delta: timedelta | None = None) -> str:
+    """Create a signed JWT access token."""
+    expire = datetime.now(UTC) + (expires_delta or timedelta(minutes=settings.access_token_expire_minutes))
+    payload = {"sub": subject, "role": role.value, "exp": expire}
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
 
 def decode_token(token: str) -> dict:
@@ -33,6 +60,55 @@ def decode_token(token: str) -> dict:
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
     return payload
+
+
+async def get_current_user(db: DBSession, token: TokenStr) -> User:
+    """Return the active user represented by the bearer token."""
+    payload = decode_token(token)
+    user_id = payload.get("sub")
+    if not isinstance(user_id, str):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    result = await db.execute(select(User).where(User.id == user_id, User.is_active == True))  # noqa: E712
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+
+
+CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+def require_roles(*roles: UserRole) -> Callable[[CurrentUser], Awaitable[User]]:
+    """Build a dependency that allows only the given roles."""
+
+    async def _require_roles(current_user: CurrentUser) -> User:
+        if current_user.role not in roles:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        return current_user
+
+    return _require_roles
+
+
+async def require_write_access(current_user: CurrentUser) -> User:
+    """Allow only roles that can mutate CRUD resources."""
+    if current_user.role not in WRITE_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    return current_user
+
+
+async def require_admin_access(current_user: CurrentUser) -> User:
+    """Allow only roles that can manage accounts and permissions."""
+    if current_user.role not in ADMIN_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    return current_user
 
 
 class Pagination:

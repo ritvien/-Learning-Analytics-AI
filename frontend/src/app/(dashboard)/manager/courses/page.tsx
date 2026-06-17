@@ -3,7 +3,7 @@
 import * as React from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { Course } from "@/types"
-import { api } from "@/lib/api"
+import { api, type ApiHealthScore } from "@/lib/api"
 import { DataTable } from "@/components/crud/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -18,22 +18,47 @@ import {
 } from "@/components/ui/select"
 import { Plus, Pencil, Trash2, ArrowUpDown } from "lucide-react"
 
+type CourseWithHealth = Course & { health?: ApiHealthScore }
+
 export default function CoursesPage() {
-  const [courses, setCourses] = React.useState<Course[]>([])
+  const [courses, setCourses] = React.useState<CourseWithHealth[]>([])
+  const [isLoadingHealth, setIsLoadingHealth] = React.useState(true)
 
   React.useEffect(() => {
-    api.getCourses({ limit: 500 }).then((apiCourses) => {
-      setCourses(
-        apiCourses.map((c) => ({
+    Promise.all([
+      api.getCourses({ limit: 500 }),
+      api.getPrograms({ limit: 100 }),
+      api.getDepartments({ limit: 100 })
+    ]).then(([apiCourses, programs, departments]) => {
+      const progDeptMap = new Map<number, string>()
+      programs.forEach(p => {
+        const d = departments.find(dept => dept.id === p.department_id)
+        if (d) progDeptMap.set(p.id, d.name)
+      })
+
+      const mapped = apiCourses.map((c) => {
+        const deptName = c.department_id ? departments.find(d => d.id === c.department_id)?.name : null
+        return {
           id: String(c.id),
           maHocPhan: c.code,
           tenMonHoc: c.name,
           tinChi: c.credits,
-          khoaQuanLy: "Khoa CNTT",
+          khoaQuanLy: deptName || "Chưa phân khoa",
           moTa: c.description ?? "",
           trangThai: c.is_active ? "Đang giảng dạy" : "Ngừng giảng dạy",
-        }))
-      )
+        }
+      })
+      setCourses(mapped)
+      
+      // Fetch health scores in batch
+      api.getCourseHealthBatch(apiCourses.map(c => c.id))
+        .then(healthScores => {
+          setCourses(prev => prev.map(course => {
+            const h = healthScores.find(hs => String(hs.node_id) === course.id)
+            return { ...course, health: h }
+          }))
+        })
+        .finally(() => setIsLoadingHealth(false))
     })
   }, [])
   const [editCourse, setEditCourse] = React.useState<Course | null>(null)
@@ -117,6 +142,25 @@ export default function CoursesPage() {
         const status = row.getValue("trangThai") as string
         return <Badge variant={status === "Đang giảng dạy" ? "default" : "secondary"}>{status}</Badge>
       },
+    },
+    {
+      id: "health",
+      header: "Sức khỏe",
+      cell: ({ row }) => {
+        const h = row.original.health
+        if (!h) return <span className="text-muted-foreground text-xs italic">{isLoadingHealth ? "Đang tải..." : "N/A"}</span>
+        const color = h.status === "Healthy" ? "bg-emerald-500" : h.status === "Warning" ? "bg-amber-500" : "bg-rose-500"
+        const textColor = h.status === "Healthy" ? "text-emerald-700" : h.status === "Warning" ? "text-amber-700" : "text-rose-700"
+        const borderColor = h.status === "Healthy" ? "border-emerald-200" : h.status === "Warning" ? "border-amber-200" : "border-rose-200"
+        const bgColor = h.status === "Healthy" ? "bg-emerald-50" : h.status === "Warning" ? "bg-amber-50" : "bg-rose-50"
+        
+        return (
+          <Badge variant="outline" className={`gap-1.5 pr-2.5 ${textColor} ${borderColor} ${bgColor}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${color}`} />
+            {h.health_score} - {h.status}
+          </Badge>
+        )
+      }
     },
     {
       id: "actions",

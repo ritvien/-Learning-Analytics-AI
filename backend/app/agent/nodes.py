@@ -3,8 +3,9 @@
 import logging
 import re
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
+from typing_extensions import Literal
 
 from app.agent.prompts import (
     CORE_AGENT_SYSTEM_PROMPT,
@@ -12,10 +13,14 @@ from app.agent.prompts import (
     ROUTER_SYSTEM_PROMPT,
 )
 from app.agent.state import AgentState
+from app.agent.tools import execute_sql_query, calculate_student_clo_scores
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+# Single source of truth for all tools available to the LLM
+TOOLS = [execute_sql_query, calculate_student_clo_scores]
 
 _SCHEMA_PATTERNS = re.compile(
     r'(?:'
@@ -41,12 +46,13 @@ def get_model(model_name: str, temperature: float = 0):
     if provider == "gemini":
         from langchain_google_genai import ChatGoogleGenerativeAI
         # Map models if they are configured as openai format
+        import os
         actual_model = settings.llm_model if "gemini" in settings.llm_model else "gemini-1.5-flash"
-        return ChatGoogleGenerativeAI(
-            model=actual_model,
-            google_api_key=settings.llm_api_key,
-            temperature=temperature,
-        )
+        kwargs = {"model": actual_model, "temperature": temperature}
+        api_key = settings.llm_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        if api_key:
+            kwargs["google_api_key"] = api_key
+        return ChatGoogleGenerativeAI(**kwargs)
     else:
         return ChatOpenAI(
             model=model_name,

@@ -25,9 +25,9 @@
 |:-:|:--------------------|:-----------|:---------------|:--------:|
 | G2-1 | MVP Demo video 3 phút | ⬜ Chưa có | Hiếu quay + edit, cả team demo | 18/06 |
 | G2-2 | Architecture diagram | ✅ Đã có 3 Mermaid diagrams trong README | Hoàng cập nhật nếu cần | 14/06 |
-| G2-3 | Repo >= 10 PR merged | ⬜ Cần đếm + bổ sung | Cả team tạo PR đúng quy trình | 18/06 |
+| G2-3 | Repo >= 10 PR merged | ✅ Đã có 14 PR merged | Cả team tạo PR đúng quy trình | 18/06 |
 | G2-4 | README.md (setup, env, queries) | 🟡 Có nhưng thiếu setup/env/sample queries | Hoàng bổ sung | 16/06 |
-| G2-5 | Eval evidences (5 test cases) | ⬜ Chưa có | Hoàng + Hưng tạo 5 test cases | 17/06 |
+| G2-5 | Eval evidences (5 test cases) | ✅ Đã có trong thư mục 12-Evaluation | Hoàng + Hưng tạo 5 test cases | 17/06 |
 
 ---
 
@@ -64,9 +64,10 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status |
 |:-:|:-----|:----------------|:--------:|:------:|
-| H17 | Thêm CLO Calculator Tool | Tool tính toán CLO achievement rate từ DB. Agent có thể trả lời "CLO nào đạt thấp nhất ở môn X?" | 15/06 | ⬜ |
-| H19 | Cập nhật README.md cho Gate G2 | Bổ sung: setup instructions chi tiết, danh sách env vars, 3–5 sample queries với expected output | 16/06 | ⬜ |
+| H17 | Thêm CLO Calculator Tool | Tool tính toán CLO achievement rate từ DB. Agent có thể trả lời "CLO nào đạt thấp nhất ở môn X?" | 15/06 | ✅ |
+| H19 | Cập nhật README.md cho Gate G2 | Bổ sung: setup instructions chi tiết, danh sách env vars, 3–5 sample queries với expected output | 16/06 | ✅ |
 | H21 | Prompt Tuning + Error Handling | Tinh chỉnh prompt templates theo cấp (Khoa/Ngành/Môn). Kiểm tra error handling 3 tầng hoạt động đúng | 18/06 | ⬜ |
+| H32 | Kịch bản Video Demo G2 | Viết scripts chi tiết (luồng flow, câu thoại, màn hình) cho Hiếu quay và edit video demo MVP dài 3 phút | 17/06 | ⬜ |
 
 > *Ghi chú: Task H18 (Chart Tool) đã gộp vào T28 (Report Tool), H20 (Eval) đã gộp vào H29 (RAGAS Eval - Phase 3).*
 
@@ -74,9 +75,11 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status |
 |:-:|:-----|:----------------|:--------:|:------:|
-| H22 | Metric Engine — Health Score | Build logic tính Health Score tổng hợp (GPA, Fail Rate, CLO) cho từng node (Khoa/Ngành/Môn) | 20/06 | ⬜ |
+| H22 | Metric Engine — Health Score | Build logic tính Health Score tổng hợp (GPA, Fail Rate, CLO) cho từng node (Khoa/Ngành/Môn) | 20/06 | ✅ |
 | H23 | Vector Search Tool (RAG) | Implement `vector_search_tool` dùng pgvector để tra cứu đề cương môn học | 22/06 | ⬜ |
 | H27 | Cấu hình Ngrok Public Tunnel | Cấu hình ngrok tunnel cho local, bypass cảnh báo trình duyệt phục vụ truy cập Demo 1 và Gate G2 | 14/06 | ✅ |
+| H31 | Health Score UI Integration | Tích hợp gọi Health Score API hiển thị trên Academic Tree Dashboard | 16/06 | ✅ |
+| H33 | Course Health Score UI | Tích hợp biểu diễn đồ hoạ Health Score trên giao diện Phân tích môn học | 17/06 | ⬜ |
 
 > *Ghi chú: Task H24 (Auto-Analysis) đã chuyển cho Hưng (T28, T29 - Phase 3).*
 
@@ -84,7 +87,7 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Priority |
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
-| H28 | SSE Streaming Response | Upgrade `/api/v1/chat` từ JSON → SSE (Server-Sent Events) streaming, token-by-token. Frontend nhận realtime typewriter effect | 16/06 | ⬜ | **P0** |
+| H28 | SSE Streaming Response | Upgrade `/api/v1/chat` từ JSON → SSE (Server-Sent Events) streaming, token-by-token. Frontend nhận realtime typewriter effect | 16/06 | ✅ | **P0** |
 | H29 | RAGAS Evaluation Metrics | Implement RAGAS metrics cho chatbot: Faithfulness, Answer Relevancy, Context Recall, Context Precision. Chạy trên ≥10 test cases | 17/06 | ⬜ | **P0** |
 | H30 | Agent Safety & Tools Evaluation | Đánh giá agents có tools: jailbreak resistance, PII detection, bias check. Tạo test suite safety | 20/06 | ⬜ | **P2** |
 
@@ -158,7 +161,7 @@
 | # | Task | Mô tả chi tiết | Deadline | Status |
 |:-:|:-----|:----------------|:--------:|:------:|
 | V15 | Quay Video Demo 3 phút | Quay + edit video MVP Demo cho Gate G2. Show: user mở app → nhập câu hỏi → agent xử lý → trả output. Có voiceover/subtitle | 17/06 | ⬜ |
-| V16 | Academic Tree ↔ Real API | Kết nối Tree component với `/api/v1/tree` thật. Dynamic data, loading states, error handling | 18/06 | ⬜ |
+| V16 | Academic Tree ↔ Real API | Kết nối Tree component với `/api/v1/tree` thật. Dynamic data, loading states, error handling | 18/06 | ✅ |
 
 > *Ghi chú: Task V17 (Chat SSE) đã gộp vào V25 (Phase 3).*
 
@@ -166,9 +169,9 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Priority |
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
-| V24 | Tree Node → Chat AI Navigation | Click 1 node trong Academic Tree → điều hướng tới Chat AI page với context ngành/khoa. Tự động trigger báo cáo về node đó | 16/06 | ⬜ | **P0** |
-| V25 | Chat UI ↔ SSE Streaming | Kết nối Chat component với SSE endpoint từ Hoàng. Typewriter effect, loading states, error handling | 16/06 | ⬜ | **P0** |
-| V26 | Login UI ↔ Auth Backend | Kết nối Login page với `/api/v1/auth/login` từ Hưng. Store JWT token, protected routes, redirect unauthorized | 16/06 | ⬜ | **P0** |
+| V24 | Tree Node → Chat AI Navigation | Click 1 node trong Academic Tree → điều hướng tới Chat AI page với context ngành/khoa. Tự động trigger báo cáo về node đó | 16/06 | ✅ | **P0** |
+| V25 | Chat UI ↔ SSE Streaming | Kết nối Chat component với SSE endpoint từ Hoàng. Typewriter effect, loading states, error handling | 16/06 | ✅ | **P0** |
+| V26 | Login UI ↔ Auth Backend | Kết nối Login page với `/api/v1/auth/login` từ Hưng. Store JWT token, protected routes, redirect unauthorized | 16/06 | ✅ | **P0** |
 
 ### Phase 2 mở rộng (deprioritized)
 

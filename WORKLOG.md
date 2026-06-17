@@ -53,3 +53,9 @@
   - Fixed TypeScript compiler errors in [academic-tree/page.tsx](file:///c:/Users/ADMIN/C2-App-056/frontend/src/app/(dashboard)/manager/academic-tree/page.tsx) by implementing mappings for raw API models in [api.ts](file:///c:/Users/ADMIN/C2-App-056/frontend/src/lib/api.ts).
   - Verified production build success (`npm run build`).
 
+## 2026-06-16: OBE Metric Engine (Health Score) Weighting Decision
+- **Decision**: Implemented Health Score calculations based on standard Outcome-Based Education (OBE) principles (ABET, AUN-QA), shifting from GPA-centric to Outcome-centric evaluation. The formula uses 40% CLO Attainment Rate, 30% Pass Rate, and 30% GPA.
+- **Why**: Research into institutional quality assurance frameworks indicates that GPA is often influenced by grading standards, while CLO and Pass Rates directly measure mastery of intended curriculum competencies. We explicitly chose to use **CLO Attainment Rate** (% of students scoring >= 4.0) instead of average CLO score to prevent high-performers from skewing the class average, ensuring a true reflection of the majority's competency.
+- **Changes**:
+  - Outlined H22 Implementation Plan to build `get_course_health_score`, `get_program_health_score`, and `get_department_health_score` in `backend/app/analytics/health_score.py`.
+  - Selected to expose these metrics via a REST API Endpoint (`/api/v1/analytics/health/...`) instead of just an internal service to support future frontend Dashboard integration.
