@@ -1,14 +1,34 @@
 "use client"
 
 import * as React from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Users, TrendingUp, AlertTriangle, CheckCircle2, AlertCircle, FileText } from "lucide-react"
-import { api, type ApiSection, type ApiSemester, type ApiStudent, type ApiEnrollment, type ApiCourse, type ApiDepartment, type ApiProgram } from "@/lib/api"
+import Link from "next/link"
+import { AlertTriangle, BookOpen, CheckCircle2, GraduationCap, TrendingUp, Users } from "lucide-react"
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts"
+
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  api,
+  type ApiCourse,
+  type ApiDepartment,
+  type ApiEnrollment,
+  type ApiProgram,
+  type ApiSection,
+  type ApiSemester,
+  type ApiStudent,
+} from "@/lib/api"
 
 type Raw = {
   students: ApiStudent[]
@@ -20,402 +40,320 @@ type Raw = {
   programs: ApiProgram[]
 }
 
+function pct(part: number, total: number) {
+  return total ? +(part / total * 100).toFixed(1) : 0
+}
+
+function avg(values: number[]) {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0
+}
+
+function heatColor(value: number | null) {
+  if (value === null) return "bg-muted text-muted-foreground"
+  if (value >= 75) return "bg-emerald-500 text-white"
+  if (value >= 60) return "bg-amber-400 text-amber-950"
+  return "bg-red-500 text-white"
+}
+
 export default function OverviewPage() {
   const [raw, setRaw] = React.useState<Raw | null>(null)
+  const [semesterCode, setSemesterCode] = React.useState("all")
+  const [departmentId, setDepartmentId] = React.useState("all")
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
     Promise.all([
-      api.getStudents({ limit: 500 }),
-      api.getEnrollments({ limit: 3000 }),
-      api.getCourses({ limit: 200 }),
-      api.getSections({ limit: 300 }),
+      api.getStudents({ limit: 50000 }),
+      api.getEnrollments({ limit: 50000 }),
+      api.getCourses({ limit: 5000 }),
+      api.getSections({ limit: 50000 }),
       api.getSemesters(),
-      api.getDepartments({ limit: 100 }),
-      api.getPrograms({ limit: 100 }),
-    ]).then(([students, enrollments, courses, sections, semesters, departments, programs]) => {
-      setRaw({ students, enrollments, courses, sections, semesters, departments, programs })
-      setLoading(false)
-    }).catch(err => {
-      console.error(err)
-      setLoading(false)
-    })
+      api.getDepartments({ limit: 1000 }),
+      api.getPrograms({ limit: 1000 }),
+    ])
+      .then(([students, enrollments, courses, sections, semesters, departments, programs]) => {
+        setRaw({ students, enrollments, courses, sections, semesters, departments, programs })
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
   }, [])
 
-  const stats = React.useMemo(() => {
+  const data = React.useMemo(() => {
     if (!raw) return null
-    const { students, enrollments, courses, sections, semesters, departments, programs } = raw
-
-    const secMap = new Map(sections.map(s => [s.id, s]))
-    const courseMap = new Map(courses.map(c => [c.id, c]))
-    const semMap = new Map(semesters.map(s => [s.id, s]))
-    const progMap = new Map(programs.map(p => [p.id, p]))
-    const deptMap = new Map(departments.map(d => [d.id, d]))
-
-    // Find current semester
-    const currentSem = semesters.find(s => s.is_current)
-
-    // Filter active students
-    const activeStudents = students.filter(s => s.status === "active")
-
-    // KPI 1: Tổng SV đang học
-    const totalActiveStudents = activeStudents.length
-
-    // KPI 2: Pass rate kỳ hiện tại
-    const currentSecIds = new Set(sections.filter(s => s.semester_id === currentSem?.id).map(s => s.id))
-    const currentEnrolls = enrollments.filter(e => currentSecIds.has(e.section_id) && e.is_passed !== null)
-    const currentPassCount = currentEnrolls.filter(e => e.is_passed).length
-    const currentPassRate = currentEnrolls.length ? (currentPassCount / currentEnrolls.length) * 100 : 0
-
-    // KPI 3: GPA trung bình
-    const withGpa = activeStudents.filter(s => s.gpa_cumulative !== null)
-    const avgGpa = withGpa.length ? withGpa.reduce((s, x) => s + x.gpa_cumulative!, 0) / withGpa.length : 0
-
-    // KPI 4: SV nguy cơ (gpa_cumulative < 2.0)
-    const atRiskCount = activeStudents.filter(s => s.gpa_cumulative !== null && s.gpa_cumulative < 2.0).length
-
-    // Calculate section stats for fail rates
-    const sectionStats = new Map<number, { failed: number; total: number; section_code: string; course_id: number }>()
-    for (const e of enrollments) {
-      if (e.is_passed === null) continue
-      const sec = secMap.get(e.section_id); if (!sec) continue
-      const s = sectionStats.get(e.section_id) ?? { failed: 0, total: 0, section_code: sec.section_code, course_id: sec.course_id }
-      s.total++
-      if (!e.is_passed) s.failed++
-      sectionStats.set(e.section_id, s)
-    }
-
-    // KPI 5: Môn / lớp cảnh báo (fail rate > 40%)
-    let warningSectionsCount = 0
-    sectionStats.forEach(s => {
-      if (s.total > 0 && (s.failed / s.total) > 0.40) {
-        warningSectionsCount++
-      }
+    const { students, enrollments, sections, semesters, departments, programs, courses } = raw
+    const secMap = new Map(sections.map((section) => [section.id, section]))
+    const semMap = new Map(semesters.map((semester) => [semester.id, semester]))
+    const courseMap = new Map(courses.map((course) => [course.id, course]))
+    const deptMap = new Map(departments.map((department) => [department.id, department]))
+    const selectedSemesterId = semesterCode === "all" ? null : semesters.find((semester) => semester.code === semesterCode)?.id ?? null
+    const selectedDepartmentId = departmentId === "all" ? null : Number(departmentId)
+    const scopedPrograms = programs.filter((program) => selectedDepartmentId === null || program.department_id === selectedDepartmentId)
+    const scopedProgramIds = new Set(scopedPrograms.map((program) => program.id))
+    const activeStudents = students.filter((student) => student.status === "active" && scopedProgramIds.has(student.program_id))
+    const activeStudentIds = new Set(activeStudents.map((student) => student.id))
+    const filteredEnrollments = enrollments.filter((enrollment) => {
+      if (!activeStudentIds.has(enrollment.student_id)) return false
+      const section = secMap.get(enrollment.section_id)
+      return selectedSemesterId === null || section?.semester_id === selectedSemesterId
     })
+    const validEnrollments = filteredEnrollments.filter((enrollment) => enrollment.is_passed !== null)
+    const gradedEnrollments = filteredEnrollments.filter((enrollment) => enrollment.final_grade !== null)
+    const avgGpa = avg(activeStudents.flatMap((student) => student.gpa_cumulative === null ? [] : [student.gpa_cumulative]))
+    const atRiskStudents = activeStudents.filter((student) => student.gpa_cumulative !== null && student.gpa_cumulative < 2)
+    const sortedSemesters = [...semesters].sort((a, b) => a.year - b.year || a.term - b.term)
 
-    // Biểu đồ 1 & 2: Trend pass rate & GPA theo học kỳ
-    const sortedSemesters = [...semesters].sort((a, b) => a.code.localeCompare(b.code))
-    const trendData = sortedSemesters.map(sem => {
-      const semSecIds = new Set(sections.filter(s => s.semester_id === sem.id).map(s => s.id))
-      const semEnrolls = enrollments.filter(e => semSecIds.has(e.section_id))
-      
-      const validEnrolls = semEnrolls.filter(e => e.is_passed !== null)
-      const passedCount = validEnrolls.filter(e => e.is_passed).length
-      const passRate = validEnrolls.length ? (passedCount / validEnrolls.length) * 100 : 0
-
-      const gradeEnrolls = semEnrolls.filter(e => e.final_grade !== null)
-      const avgGrade = gradeEnrolls.length ? gradeEnrolls.reduce((sum, e) => sum + e.final_grade!, 0) / gradeEnrolls.length : 0
-
+    const trend = sortedSemesters.map((semester) => {
+      const semEnrollments = enrollments.filter((enrollment) => {
+        if (!activeStudentIds.has(enrollment.student_id)) return false
+        return secMap.get(enrollment.section_id)?.semester_id === semester.id
+      })
+      const valid = semEnrollments.filter((enrollment) => enrollment.is_passed !== null)
+      const grades = semEnrollments.flatMap((enrollment) => enrollment.final_grade === null ? [] : [enrollment.final_grade])
       return {
-        hk: sem.code,
-        passRate: Math.round(passRate * 10) / 10,
-        avgGrade: Math.round(avgGrade * 100) / 100
+        semester: semester.code,
+        passRate: pct(valid.filter((enrollment) => enrollment.is_passed).length, valid.length),
+        avgGrade: +avg(grades).toFixed(2),
+        count: valid.length,
       }
-    })
+    }).filter((item) => item.count > 0)
 
-    // Action Table Auto Alerts Generation
-    const alerts: Array<{ severity: "Cao" | "Trung bình"; unit: string; issue: string; suggestion: string }> = []
-
-    // 1. Cao: Section with fail rate > 40%
-    sectionStats.forEach((s, secId) => {
-      const failRate = s.total > 0 ? (s.failed / s.total) * 100 : 0
-      if (failRate > 40) {
-        const c = courseMap.get(s.course_id)
-        alerts.push({
-          severity: "Cao",
-          unit: `Lớp ${s.section_code} (${c?.name ?? "Môn học"})`,
-          issue: `Tỷ lệ trượt ${Math.round(failRate)}%`,
-          suggestion: "Review đề thi / tăng cường hỗ trợ học tập"
-        })
+    const programRows = scopedPrograms.map((program) => {
+      const programStudents = activeStudents.filter((student) => student.program_id === program.id)
+      const programStudentIds = new Set(programStudents.map((student) => student.id))
+      const programEnrollments = filteredEnrollments.filter((enrollment) => programStudentIds.has(enrollment.student_id))
+      const valid = programEnrollments.filter((enrollment) => enrollment.is_passed !== null)
+      const grades = programEnrollments.flatMap((enrollment) => enrollment.final_grade === null ? [] : [enrollment.final_grade])
+      const sectionIds = new Set(programEnrollments.map((enrollment) => enrollment.section_id))
+      const failedByCourse = new Map<number, number>()
+      for (const enrollment of programEnrollments) {
+        if (enrollment.is_passed !== false) continue
+        const courseId = secMap.get(enrollment.section_id)?.course_id
+        if (courseId) failedByCourse.set(courseId, (failedByCourse.get(courseId) ?? 0) + 1)
       }
-    })
-
-    // 2. Cao: GPA khoa giảm > 0.3 so với kỳ trước
-    // Step A: Calculate GPA per department per semester
-    const deptSemGpa = new Map<string, number>() // key: "deptId-semId"
-    const deptSemCounts = new Map<string, { sum: number; count: number }>()
-
-    for (const e of enrollments) {
-      if (e.final_grade === null) continue
-      const sec = secMap.get(e.section_id); if (!sec) continue
-      const s = students.find(stud => stud.id === e.student_id); if (!s) continue
-      const prog = progMap.get(s.program_id); if (!prog) continue
-      const key = `${prog.department_id}-${sec.semester_id}`
-      const sc = deptSemCounts.get(key) ?? { sum: 0, count: 0 }
-      sc.sum += e.final_grade
-      sc.count++
-      deptSemCounts.set(key, sc)
-    }
-
-    deptSemCounts.forEach((sc, key) => {
-      deptSemGpa.set(key, sc.sum / sc.count)
-    })
-
-    // Step B: Compare consecutive semesters for each department
-    departments.forEach(dept => {
-      for (let i = 1; i < sortedSemesters.length; i++) {
-        const prevSem = sortedSemesters[i - 1]
-        const currSem = sortedSemesters[i]
-        const prevGpa = deptSemGpa.get(`${dept.id}-${prevSem.id}`)
-        const currGpa = deptSemGpa.get(`${dept.id}-${currSem.id}`)
-        if (prevGpa !== undefined && currGpa !== undefined) {
-          // final_grade is on scale 10. Wait, a drop of 0.3 on scale 4?
-          // Since the prompt says "GPA khoa giảm > 0.3 so kỳ trước" and final_grade is scale 10,
-          // let's convert final_grade (scale 10) to scale 4 (by multiplying by 0.4) for GPA comparison, or compare in scale 10.
-          // Let's compare on scale 10: a drop of 0.3 * 2.5 = 0.75, or just compare on scale 4.0 if we normalize to scale 4.
-          const prevGpa4 = prevGpa * 0.4
-          const currGpa4 = currGpa * 0.4
-          if (prevGpa4 - currGpa4 > 0.3) {
-            alerts.push({
-              severity: "Cao",
-              unit: `${dept.name}`,
-              issue: `GPA giảm ${(prevGpa4 - currGpa4).toFixed(2)} so kỳ trước (${currSem.code})`,
-              suggestion: "Kiểm tra nhóm môn nền tảng"
-            })
-          }
-        }
+      const worstCourseEntry = [...failedByCourse.entries()].sort((a, b) => b[1] - a[1])[0]
+      const passRate = pct(valid.filter((enrollment) => enrollment.is_passed).length, valid.length)
+      return {
+        id: program.id,
+        code: program.code,
+        name: program.name,
+        department: deptMap.get(program.department_id)?.name ?? "Chưa rõ khoa",
+        activeStudents: programStudents.length,
+        sections: sectionIds.size,
+        passRate,
+        avgGrade: +avg(grades).toFixed(2),
+        avgGpa: +avg(programStudents.flatMap((student) => student.gpa_cumulative === null ? [] : [student.gpa_cumulative])).toFixed(2),
+        atRisk: programStudents.filter((student) => student.gpa_cumulative !== null && student.gpa_cumulative < 2).length,
+        worstCourse: worstCourseEntry ? courseMap.get(worstCourseEntry[0])?.name ?? "Chưa rõ môn" : "Chưa có dữ liệu",
       }
-    })
+    }).sort((a, b) => b.atRisk - a.atRisk || a.passRate - b.passRate || a.avgGpa - b.avgGpa)
 
-    // 3. Trung bình: SV cận trượt (4.5 - 5.0) > 15% lớp
-    const sectionNearFails = new Map<number, { nearFails: number; total: number; section_code: string }>()
-    for (const e of enrollments) {
-      const sec = secMap.get(e.section_id); if (!sec) continue
-      const s = sectionNearFails.get(e.section_id) ?? { nearFails: 0, total: 0, section_code: sec.section_code }
-      s.total++
-      if (e.final_grade !== null && e.final_grade >= 4.5 && e.final_grade < 5.0) {
-        s.nearFails++
-      }
-      sectionNearFails.set(e.section_id, s)
-    }
-
-    sectionNearFails.forEach((s, secId) => {
-      if (s.total > 0 && (s.nearFails / s.total) > 0.15) {
-        alerts.push({
-          severity: "Trung bình",
-          unit: `Lớp ${s.section_code}`,
-          issue: `${Math.round(s.nearFails / s.total * 100)}% SV cận trượt (4.5–5.0)`,
-          suggestion: "Gửi cảnh báo đến cố vấn học tập"
-        })
-      }
-    })
-
-    // 4. Môn có fail rate tăng 3 kỳ liên tiếp
-    // Step A: Calculate course fail rate per semester
-    const courseSemFailStats = new Map<string, { failed: number; total: number }>() // key: "courseId-semId"
-    for (const e of enrollments) {
-      if (e.is_passed === null) continue
-      const sec = secMap.get(e.section_id); if (!sec) continue
-      const key = `${sec.course_id}-${sec.semester_id}`
-      const stat = courseSemFailStats.get(key) ?? { failed: 0, total: 0 }
-      stat.total++
-      if (!e.is_passed) stat.failed++
-      courseSemFailStats.set(key, stat)
-    }
-
-    courses.forEach(course => {
-      const failRates = sortedSemesters.map(sem => {
-        const stat = courseSemFailStats.get(`${course.id}-${sem.id}`)
-        return stat && stat.total > 0 ? (stat.failed / stat.total) : null
-      }).filter((v): v is number => v !== null)
-
-      // Check for 3 consecutive semesters of increasing fail rate
-      if (failRates.length >= 3) {
-        for (let i = 2; i < failRates.length; i++) {
-          if (failRates[i] > failRates[i - 1] && failRates[i - 1] > failRates[i - 2]) {
-            alerts.push({
-              severity: "Trung bình",
-              unit: `${course.code} - ${course.name}`,
-              issue: `Fail rate tăng 3 kỳ liên tiếp (${(failRates[i - 2] * 100).toFixed(0)}% → ${(failRates[i - 1] * 100).toFixed(0)}% → ${(failRates[i] * 100).toFixed(0)}%)`,
-              suggestion: "Rà soát nội dung + đề kiểm tra"
-            })
-            break // Avoid duplicate alerts for same course
-          }
-        }
+    const heatSemesters = sortedSemesters.slice(-6)
+    const heatmap = programRows.slice(0, 10).map((program) => {
+      const programStudentIds = new Set(students.filter((student) => student.program_id === program.id).map((student) => student.id))
+      return {
+        id: program.id,
+        name: program.name,
+        cells: heatSemesters.map((semester) => {
+          const rows = enrollments.filter((enrollment) => (
+            programStudentIds.has(enrollment.student_id)
+            && enrollment.is_passed !== null
+            && secMap.get(enrollment.section_id)?.semester_id === semester.id
+          ))
+          return rows.length ? Math.round(pct(rows.filter((enrollment) => enrollment.is_passed).length, rows.length)) : null
+        }),
       }
     })
 
     return {
-      totalActiveStudents,
-      currentPassRate,
+      departments,
+      sortedSemesters,
+      heatSemesters,
+      totalActiveStudents: activeStudents.length,
+      programCount: scopedPrograms.length,
+      passRate: pct(validEnrollments.filter((enrollment) => enrollment.is_passed).length, validEnrollments.length),
       avgGpa,
-      atRiskCount,
-      warningSectionsCount,
-      trendData,
-      alerts,
-      currentSem
+      avgGrade: avg(gradedEnrollments.map((enrollment) => enrollment.final_grade!)),
+      atRiskCount: atRiskStudents.length,
+      trend,
+      programRows,
+      heatmap,
     }
-  }, [raw])
+  }, [raw, semesterCode, departmentId])
 
   if (loading) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-      </div>
-    )
+    return <div className="flex h-80 items-center justify-center text-sm text-muted-foreground">Đang tải tổng quan toàn trường...</div>
   }
 
-  const kpiList = [
-    {
-      label: "Tổng SV đang học",
-      value: stats ? stats.totalActiveStudents : 0,
-      description: "Đang học (Active)",
-      icon: <Users className="h-5 w-5 text-blue-500" />,
-      alert: false
-    },
-    {
-      label: "Pass rate kỳ hiện tại",
-      value: stats ? `${stats.currentPassRate.toFixed(1)}%` : "0%",
-      description: `Học kỳ: ${stats?.currentSem?.name ?? "—"}`,
-      icon: <CheckCircle2 className="h-5 w-5 text-emerald-500" />,
-      alert: stats ? stats.currentPassRate < 70 : false,
-      alertMsg: "Dưới ngưỡng 70%"
-    },
-    {
-      label: "GPA trung bình",
-      value: stats ? stats.avgGpa.toFixed(2) : "0.00",
-      description: "Sinh viên active",
-      icon: <TrendingUp className="h-5 w-5 text-purple-500" />,
-      alert: stats ? stats.avgGpa < 2.5 : false,
-      alertMsg: "Dưới 2.5"
-    },
-    {
-      label: "SV nguy cơ",
-      value: stats ? stats.atRiskCount : 0,
-      description: "GPA tích lũy < 2.0",
-      icon: <AlertTriangle className="h-5 w-5 text-amber-500" />,
-      alert: stats ? stats.atRiskCount > 0 : false,
-      alertMsg: "Có sinh viên nguy cơ"
-    },
-    {
-      label: "Môn / lớp cảnh báo",
-      value: stats ? stats.warningSectionsCount : 0,
-      description: "Lớp có fail rate > 40%",
-      icon: <AlertCircle className="h-5 w-5 text-rose-500" />,
-      alert: stats ? stats.warningSectionsCount > 0 : false,
-      alertMsg: "Yêu cầu can thiệp"
-    }
+  if (!raw || !data) {
+    return <div className="text-sm text-muted-foreground">Chưa có dữ liệu phân tích.</div>
+  }
+
+  const kpis = [
+    { label: "SV đang học", value: data.totalActiveStudents, icon: Users, color: "text-blue-500" },
+    { label: "Ngành đào tạo", value: data.programCount, icon: GraduationCap, color: "text-indigo-500" },
+    { label: "Pass rate", value: `${data.passRate}%`, icon: CheckCircle2, color: "text-emerald-500" },
+    { label: "GPA trung bình", value: data.avgGpa.toFixed(2), icon: TrendingUp, color: "text-primary" },
+    { label: "SV nguy cơ", value: data.atRiskCount, icon: AlertTriangle, color: "text-red-500" },
   ]
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Tổng quan toàn trường</h1>
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Tổng quan toàn trường</h1>
+          <p className="text-sm text-muted-foreground">Trường đang vận hành ra sao, ngành nào nổi bật, ngành nào cần mở ra xem sâu hơn?</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Select value={semesterCode} onValueChange={(value) => setSemesterCode(value ?? "all")}>
+            <SelectTrigger className="w-52"><SelectValue placeholder="Học kỳ" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả học kỳ</SelectItem>
+              {data.sortedSemesters.map((semester) => (
+                <SelectItem key={semester.id} value={semester.code}>{semester.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={departmentId} onValueChange={(value) => setDepartmentId(value ?? "all")}>
+            <SelectTrigger className="w-64"><SelectValue placeholder="Khoa" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toàn trường</SelectItem>
+              {data.departments.map((department) => (
+                <SelectItem key={department.id} value={String(department.id)}>{department.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        {kpiList.map((kpi, idx) => (
-          <Card key={idx} className={`relative overflow-hidden ${kpi.alert ? "border-rose-500/50 bg-rose-50/50 dark:bg-rose-950/10" : ""}`}>
-            <CardContent className="p-5">
-              <div className="flex justify-between items-start">
-                <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground font-medium">{kpi.label}</span>
-                  <h3 className="text-2xl font-bold">{kpi.value}</h3>
-                  <p className="text-[10px] text-muted-foreground">{kpi.description}</p>
-                </div>
-                <div className="p-2 bg-background rounded-lg border shadow-sm">
-                  {kpi.icon}
-                </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        {kpis.map((item) => (
+          <Card key={item.label}>
+            <CardContent className="flex items-start justify-between pt-5">
+              <div>
+                <p className="text-xs text-muted-foreground">{item.label}</p>
+                <p className="mt-1 text-2xl font-bold">{item.value}</p>
               </div>
-              {kpi.alert && (
-                <div className="mt-2.5 flex items-center gap-1 text-[10px] text-rose-600 dark:text-rose-400 font-semibold">
-                  <AlertCircle className="h-3 w-3" />
-                  {kpi.alertMsg}
-                </div>
-              )}
+              <item.icon className={`h-5 w-5 ${item.color}`} />
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="shadow-sm border">
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold">Xu hướng Pass Rate theo học kỳ</CardTitle>
-            <CardDescription className="text-xs">Tỷ lệ qua môn (%) toàn trường qua các kỳ</CardDescription>
-          </CardHeader>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Xu hướng pass rate toàn trường</CardTitle></CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={stats?.trendData ?? []} margin={{ left: -10, right: 10, top: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="hk" tick={{ fontSize: 11 }} />
-                <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v) => [`${v}%`, "Pass Rate"]} />
-                <ReferenceLine y={70} stroke="#ef4444" strokeDasharray="3 3" label={{ value: "Ngưỡng 70%", position: "insideBottomLeft", fill: "#ef4444", fontSize: 10 }} />
-                <Line type="monotone" dataKey="passRate" name="Pass Rate" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={data.trend}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="semester" tick={{ fontSize: 10 }} />
+                <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                <Tooltip formatter={(value) => [`${value}%`, "Pass rate"]} />
+                <Line dataKey="passRate" stroke="#16a34a" strokeWidth={2.5} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
-
-        <Card className="shadow-sm border">
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold">Xu hướng GPA theo học kỳ</CardTitle>
-            <CardDescription className="text-xs">Điểm trung bình học kỳ (thang 10) toàn trường</CardDescription>
-          </CardHeader>
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Xu hướng điểm trung bình theo học kỳ</CardTitle></CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={stats?.trendData ?? []} margin={{ left: -15, right: 10, top: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="hk" tick={{ fontSize: 11 }} />
-                <YAxis domain={[0, 10]} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v) => [v, "Điểm TB"]} />
-                <Line type="monotone" dataKey="avgGrade" name="Điểm TB" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={data.trend}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="semester" tick={{ fontSize: 10 }} />
+                <YAxis domain={[0, 10]} />
+                <Tooltip formatter={(value) => [value, "Điểm TB"]} />
+                <Line dataKey="avgGrade" stroke="#4f46e5" strokeWidth={2.5} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
 
-      {/* Action Table */}
-      <Card className="shadow-sm border">
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <div>
-            <CardTitle className="text-sm font-semibold">Vấn đề cần xử lý ngay</CardTitle>
-            <CardDescription className="text-xs">Tự động phát hiện bất thường từ dữ liệu học thuật</CardDescription>
-          </div>
-          <Badge variant="outline" className="text-xs">
-            {stats?.alerts.length ?? 0} cảnh báo
-          </Badge>
+      <Card>
+        <CardHeader><CardTitle className="text-sm">Pass rate theo ngành</CardTitle></CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={Math.max(260, data.programRows.length * 34)}>
+            <BarChart data={[...data.programRows].sort((a, b) => a.passRate - b.passRate)} layout="vertical" margin={{ left: 24, right: 36 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+              <XAxis type="number" domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+              <YAxis type="category" dataKey="name" width={180} tick={{ fontSize: 11 }} />
+              <Tooltip formatter={(value) => [`${value}%`, "Pass rate"]} />
+              <Bar dataKey="passRate" radius={[0, 4, 4, 0]}>
+                {data.programRows.map((row) => (
+                  <Cell key={row.id} fill={row.passRate >= 75 ? "#22c55e" : row.passRate >= 60 ? "#f59e0b" : "#ef4444"} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-sm">Heatmap ngành × học kỳ</CardTitle></CardHeader>
+        <CardContent className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-xs">
+            <thead>
+              <tr>
+                <th className="pb-2 text-left text-muted-foreground">Ngành</th>
+                {data.heatSemesters.map((semester) => <th key={semester.id} className="pb-2 text-center text-muted-foreground">{semester.code}</th>)}
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {data.heatmap.map((row) => (
+                <tr key={row.id}>
+                  <td className="max-w-[260px] truncate py-2 font-medium">{row.name}</td>
+                  {row.cells.map((value, index) => (
+                    <td key={index} className="px-1 py-2 text-center">
+                      <span className={`inline-flex min-w-12 justify-center rounded px-2 py-1 font-medium ${heatColor(value)}`}>
+                        {value === null ? "—" : `${value}%`}
+                      </span>
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Program Overview Table</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[100px] pl-6">Mức độ</TableHead>
-                  <TableHead className="w-[220px]">Đơn vị</TableHead>
-                  <TableHead>Vấn đề</TableHead>
-                  <TableHead className="pr-6">Gợi ý xử lý</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {stats?.alerts && stats.alerts.length > 0 ? (
-                  stats.alerts.map((alert, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="pl-6">
-                        <Badge variant={alert.severity === "Cao" ? "destructive" : "secondary"} className="text-[10px]">
-                          {alert.severity}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-semibold text-xs">{alert.unit}</TableCell>
-                      <TableCell className="text-xs">{alert.issue}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground pr-6">{alert.suggestion}</TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-xs text-muted-foreground">
-                      Không phát hiện vấn đề bất thường nào cần xử lý ngay.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+        <CardContent className="overflow-x-auto p-0">
+          <table className="w-full min-w-[1100px] text-xs">
+            <thead>
+              <tr className="border-b bg-muted/40 text-left text-muted-foreground">
+                {["Ngành", "Khoa quản lý", "SV active", "Section", "Pass rate", "GPA TB", "SV nguy cơ", "Môn kéo xuống", "Action"].map((heading) => (
+                  <th key={heading} className="px-4 py-3 font-medium">{heading}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {data.programRows.map((row) => (
+                <tr key={row.id} className="hover:bg-muted/20">
+                  <td className="px-4 py-3">
+                    <div className="font-medium">{row.name}</div>
+                    <div className="font-mono text-[11px] text-muted-foreground">{row.code}</div>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">{row.department}</td>
+                  <td className="px-4 py-3">{row.activeStudents}</td>
+                  <td className="px-4 py-3">{row.sections}</td>
+                  <td className="px-4 py-3"><Badge variant={row.passRate < 60 ? "destructive" : "secondary"}>{row.passRate}%</Badge></td>
+                  <td className="px-4 py-3">{row.avgGpa.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-red-600">{row.atRisk}</td>
+                  <td className="max-w-[220px] truncate px-4 py-3">{row.worstCourse}</td>
+                  <td className="px-4 py-3">
+                    <Link className="inline-flex items-center gap-1 font-medium text-primary hover:underline" href={`/manager/analytics/programs?program=${row.id}`}>
+                      <BookOpen className="h-3 w-3" />
+                      Xem ngành
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </CardContent>
       </Card>
     </div>

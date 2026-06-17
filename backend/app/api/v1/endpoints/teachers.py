@@ -1,9 +1,9 @@
 """CRUD endpoints for Teacher (Giảng viên)."""
 
-from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.dependencies import DBSession, PaginationDep
+from app.crud import people as crud
+from app.dependencies import DBSession, PaginationDep, require_write_access
 from app.models.people import Teacher
 from app.schemas.people import TeacherCreate, TeacherResponse, TeacherUpdate
 
@@ -17,49 +17,42 @@ async def list_teachers(
     department_id: int | None = None,
 ) -> list[Teacher]:
     """Return teachers, optionally filtered by department."""
-    q = select(Teacher).where(Teacher.is_active == True)  # noqa: E712
-    if department_id is not None:
-        q = q.where(Teacher.department_id == department_id)
-    result = await db.execute(q.offset(pagination.skip).limit(pagination.limit))
-    return list(result.scalars().all())
+    return await crud.list_teachers(db, pagination.skip, pagination.limit, department_id)
 
 
 @router.get("/{teacher_id}", response_model=TeacherResponse)
 async def get_teacher(teacher_id: int, db: DBSession) -> Teacher:
     """Retrieve a teacher by ID."""
-    obj = await db.get(Teacher, teacher_id)
+    obj = await crud.get_teacher(db, teacher_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found")
     return obj
 
 
-@router.post("", response_model=TeacherResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=TeacherResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_write_access)],
+)
 async def create_teacher(payload: TeacherCreate, db: DBSession) -> Teacher:
     """Create a new teacher."""
-    obj = Teacher(**payload.model_dump())
-    db.add(obj)
-    await db.flush()
-    await db.refresh(obj)
-    return obj
+    return await crud.create_teacher(db, payload.model_dump())
 
 
-@router.patch("/{teacher_id}", response_model=TeacherResponse)
+@router.patch("/{teacher_id}", response_model=TeacherResponse, dependencies=[Depends(require_write_access)])
 async def update_teacher(teacher_id: int, payload: TeacherUpdate, db: DBSession) -> Teacher:
     """Apply a partial update to a teacher."""
-    obj = await db.get(Teacher, teacher_id)
+    obj = await crud.get_teacher(db, teacher_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found")
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(obj, field, value)
-    await db.flush()
-    await db.refresh(obj)
-    return obj
+    return await crud.update_teacher(db, obj, payload.model_dump(exclude_unset=True))
 
 
-@router.delete("/{teacher_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{teacher_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_write_access)])
 async def delete_teacher(teacher_id: int, db: DBSession) -> None:
     """Soft-delete a teacher."""
-    obj = await db.get(Teacher, teacher_id)
+    obj = await crud.get_teacher(db, teacher_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found")
-    obj.is_active = False
+    await crud.delete_teacher(db, obj)
