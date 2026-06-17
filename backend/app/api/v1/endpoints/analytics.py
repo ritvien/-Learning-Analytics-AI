@@ -7,7 +7,8 @@ from app.analytics.etl import refresh_dwh
 from app.analytics.health_score import (
     get_course_health_score,
     get_program_health_score,
-    get_department_health_score
+    get_department_health_score,
+    get_course_health_batch
 )
 from app.config import get_settings
 from app.dependencies import DBSession
@@ -211,6 +212,18 @@ async def read_course_health(course_id: int, db: DBSession) -> dict:
     """Lấy Health Score cho Môn học (dựa trên GPA, Pass Rate và CLO)."""
     try:
         return await get_course_health_score(db, course_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+from fastapi import Query
+@router.get("/analytics/health/courses/batch", summary="Get Multiple Course Health Scores")
+async def read_course_health_batch(
+    db: DBSession,
+    course_ids: list[int] | None = Query(None)
+) -> list[dict]:
+    """Lấy Health Score cho nhiều Môn học."""
+    try:
+        return await get_course_health_batch(db, course_ids or [])
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

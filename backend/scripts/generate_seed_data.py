@@ -85,6 +85,13 @@ def generate_sql() -> None:
     with open(json_path, encoding="utf-8") as f:
         data = json.load(f)
 
+    # Load course departments mapping
+    dept_mapping_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "course_departments.json"))
+    course_depts = {}
+    if os.path.exists(dept_mapping_path):
+        with open(dept_mapping_path, encoding="utf-8") as f:
+            course_depts = json.load(f)
+
     # --- Lookup maps (natural key -> integer id) ---
     universities: dict[str, int] = {}
     departments: dict[str, int] = {}
@@ -223,7 +230,25 @@ def generate_sql() -> None:
                     tc = int(credits_str)
                 except (ValueError, TypeError):
                     tc = 0
-                crs_items.append(f"({crs_id}, {escape_sql(c_code)}, {escape_sql(course_name)}, {tc}, FALSE, TRUE)")
+                
+                # Determine department_id from mapping or fallback to student's dept
+                dept_name = course_depts.get(course_name)
+                if dept_name and dept_name in departments:
+                    c_dept_id = departments[dept_name]
+                else:
+                    # Fallback to the first department if mapping is missing or department not yet created
+                    # Actually, if dept_name is not in departments but is in the mapping (e.g. Khoa Cơ bản),
+                    # we should create it!
+                    if dept_name and dept_name not in departments:
+                        departments[dept_name] = dept_id
+                        code = f"DEPT{dept_id:02d}"
+                        dept_items.append(f"({dept_id}, {uni_id}, {escape_sql(code)}, {escape_sql(dept_name)}, TRUE)")
+                        c_dept_id = dept_id
+                        dept_id += 1
+                    else:
+                        c_dept_id = departments.get(khoa, 1)
+
+                crs_items.append(f"({crs_id}, {c_dept_id}, {escape_sql(c_code)}, {escape_sql(course_name)}, {tc}, FALSE, TRUE)")
                 crs_id += 1
             cr_id = courses[course_name]
 
@@ -340,7 +365,7 @@ def generate_sql() -> None:
 
         # Courses
         if crs_items:
-            f.write("INSERT INTO courses (id, code, name, credits, is_elective, is_active) VALUES\n")
+            f.write("INSERT INTO courses (id, department_id, code, name, credits, is_elective, is_active) VALUES\n")
             f.write(",\n".join(crs_items))
             f.write("\nON CONFLICT DO NOTHING;\n\n")
 

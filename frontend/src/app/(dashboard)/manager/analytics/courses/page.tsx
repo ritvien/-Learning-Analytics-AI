@@ -8,7 +8,7 @@ import { BookOpen, TrendingUp, Users, CheckCircle2, AlertTriangle } from "lucide
 import { api, type ApiSection, type ApiSemester } from "@/lib/api"
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell,
+  ResponsiveContainer, Cell, ScatterChart, Scatter, ZAxis
 } from "recharts"
 
 type Raw = {
@@ -18,6 +18,7 @@ type Raw = {
   enrollments: Awaited<ReturnType<typeof api.getEnrollments>>
   sections:    ApiSection[]
   semesters:   ApiSemester[]
+  healths:     Awaited<ReturnType<typeof api.getCourseHealthBatch>>
 }
 
 const DIST_RANGES = [
@@ -43,9 +44,10 @@ export default function CourseAnalyticsPage() {
       api.getEnrollments({ limit: 50000 }),
       api.getSections({ limit: 5000 }),
       api.getSemesters(),
-    ]).then(([departments, programs, courses, enrollments, sections, semesters]) =>
-      setRaw({ departments, programs, courses, enrollments, sections, semesters })
-    ).catch(console.error)
+    ]).then(async ([departments, programs, courses, enrollments, sections, semesters]) => {
+      const healths = await api.getCourseHealthBatch(courses.map(c => c.id)).catch(() => [])
+      setRaw({ departments, programs, courses, enrollments, sections, semesters, healths })
+    }).catch(console.error)
   }, [])
 
   const maps = React.useMemo(() => {
@@ -145,6 +147,35 @@ export default function CourseAnalyticsPage() {
     return { totalEnrolls, passRate, avgGrade, sectionCount: sectionIds.size, maxFailRate, trend, dist, sections }
   }, [raw, maps, courseEnrollments, selCourse])
 
+  const programOverview = React.useMemo(() => {
+    if (!raw) return null
+    const healthMap = new Map(raw.healths.map(h => [h.node_id, h]))
+    
+    const coursesWithHealth = filteredCourses.map(c => {
+      const h = healthMap.get(c.id)
+      return {
+        id: c.id,
+        code: c.code,
+        name: c.name,
+        health: h?.health_score ?? 0,
+        passRate: h?.metrics?.fail_rate !== undefined ? (1 - h.metrics.fail_rate) * 100 : 0,
+        cloRate: h?.metrics?.clo_attainment_rate !== undefined ? h.metrics.clo_attainment_rate * 100 : 0,
+        status: h?.status ?? "Unknown"
+      }
+    })
+
+    const scatterData = coursesWithHealth.map(c => ({
+      ...c,
+      fill: c.status === "Healthy" ? "#22c55e" : c.status === "Warning" ? "#f59e0b" : c.status === "Critical" ? "#ef4444" : "#94a3b8"
+    }))
+
+    const sorted = [...coursesWithHealth].filter(c => c.health > 0).sort((a, b) => b.health - a.health)
+    const top5 = sorted.slice(0, 5)
+    const bottom5 = [...sorted].sort((a, b) => a.health - b.health).slice(0, 5)
+
+    return { scatterData, top5, bottom5 }
+  }, [raw, selProg, filteredCourses])
+
   const selectedCourseName = raw?.courses.find(c => c.id === Number(selCourse))?.name ?? ""
 
   return (
@@ -204,10 +235,107 @@ export default function CourseAnalyticsPage() {
       </Card>
 
       {selCourse === "all" ? (
-        <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-2">
-          <BookOpen className="h-10 w-10 opacity-30" />
-          <p className="text-sm">Chọn Khoa → Ngành → Môn học để xem phân tích</p>
-        </div>
+        programOverview && filteredCourses.length > 0 ? (
+          <div className="flex flex-col gap-6 animate-in fade-in duration-500">
+            <div>
+              <h2 className="text-lg font-semibold">
+                Tổng quan {selProg !== "all" ? `Ngành: ${raw?.programs.find(p => p.id === Number(selProg))?.name}` : selDept !== "all" ? `Khoa: ${raw?.departments.find(d => d.id === Number(selDept))?.name}` : "Toàn trường"}
+              </h2>
+              <p className="text-sm text-muted-foreground">Phân tích tương quan {filteredCourses.length} môn học</p>
+            </div>
+            <div className="grid lg:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold">Tương quan Pass Rate & CLO</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: -20 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" dataKey="passRate" name="Pass Rate" unit="%" domain={[0, 100]} tick={{fontSize: 10}} />
+                      <YAxis type="number" dataKey="cloRate" name="CLO" unit="%" domain={[0, 100]} tick={{fontSize: 10}} />
+                      <ZAxis type="number" range={[60, 60]} />
+                      <Tooltip 
+                        cursor={{ strokeDasharray: '3 3' }}
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            return (
+                              <div className="bg-background border rounded-md shadow-md p-3 text-sm">
+                                <p className="font-semibold">{data.code} - {data.name}</p>
+                                <p className="text-muted-foreground mt-1">Health: <span className="font-medium text-foreground">{data.health}</span></p>
+                                <p className="text-muted-foreground">Pass Rate: <span className="font-medium text-foreground">{data.passRate.toFixed(1)}%</span></p>
+                                <p className="text-muted-foreground">CLO: <span className="font-medium text-foreground">{data.cloRate.toFixed(1)}%</span></p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Scatter data={programOverview.scatterData} fill="#8884d8">
+                        {programOverview.scatterData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Scatter>
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <div className="flex flex-col gap-4">
+                <Card className="flex-1 border-emerald-200/50 bg-emerald-50/10">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-emerald-800">Top 5 Môn học tốt nhất</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <table className="w-full text-xs">
+                      <tbody className="divide-y">
+                        {programOverview.top5.map((c) => (
+                          <tr key={c.id} className="hover:bg-muted/20">
+                            <td className="px-4 py-2.5 font-medium">{c.code}</td>
+                            <td className="px-2 py-2.5 truncate max-w-[150px]">{c.name}</td>
+                            <td className="px-4 py-2.5 text-right font-semibold text-emerald-600">{c.health}</td>
+                          </tr>
+                        ))}
+                        {programOverview.top5.length === 0 && (
+                          <tr><td colSpan={3} className="text-center py-4 text-muted-foreground italic">Chưa có dữ liệu</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </CardContent>
+                </Card>
+
+                <Card className="flex-1 border-rose-200/50 bg-rose-50/10">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-rose-800">Cảnh báo: Top 5 Môn học cần chú ý</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <table className="w-full text-xs">
+                      <tbody className="divide-y divide-rose-100/50">
+                        {programOverview.bottom5.map((c) => (
+                          <tr key={c.id} className="hover:bg-rose-100/20">
+                            <td className="px-4 py-2.5 font-medium">{c.code}</td>
+                            <td className="px-2 py-2.5 truncate max-w-[150px]">{c.name}</td>
+                            <td className="px-4 py-2.5 text-right font-semibold text-rose-600">{c.health}</td>
+                          </tr>
+                        ))}
+                        {programOverview.bottom5.length === 0 && (
+                          <tr><td colSpan={3} className="text-center py-4 text-muted-foreground italic">Chưa có dữ liệu</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-2">
+            <BookOpen className="h-10 w-10 opacity-30" />
+            <p className="text-sm">Chọn Khoa → Ngành → Môn học để xem phân tích chi tiết</p>
+            {selProg === "all" && <p className="text-xs opacity-70">Bạn cũng có thể chọn Ngành để xem biểu đồ Tổng quan</p>}
+          </div>
+        )
       ) : (
         <>
           <div>

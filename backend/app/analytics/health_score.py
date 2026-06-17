@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Dict, Any, Optional
 from sqlalchemy import text
@@ -161,6 +162,27 @@ async def get_course_health_score(db: AsyncSession, course_id: int) -> dict:
     
     # 3. Compute final
     return _compute_final(gpa_avg, fail_rate, clo_rate, "course", course_id)
+
+async def get_course_health_batch(db: AsyncSession, course_ids: list[int]) -> list[dict]:
+    if not course_ids:
+        query = "SELECT course_id, gpa_avg, fail_rate_avg FROM vw_course_stats"
+        res = await db.execute(text(query))
+    else:
+        query = "SELECT course_id, gpa_avg, fail_rate_avg FROM vw_course_stats WHERE course_id = ANY(:course_ids)"
+        res = await db.execute(text(query), {"course_ids": course_ids})
+        
+    rows = res.fetchall()
+    
+    async def _process(row):
+        c_id, gpa_avg, fail_rate = row[0], row[1], row[2]
+        clo_rate = await _calculate_clo_attainment(db, "course", c_id)
+        return _compute_final(gpa_avg, fail_rate, clo_rate, "course", c_id)
+        
+    tasks = [_process(r) for r in rows]
+    if tasks:
+        return await asyncio.gather(*tasks)
+    return []
+
 
 async def get_program_health_score(db: AsyncSession, program_id: int) -> dict:
     query = "SELECT gpa_avg, fail_rate_avg FROM vw_program_stats WHERE program_id = :node_id"
