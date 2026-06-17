@@ -56,7 +56,19 @@ export interface ApiSection {
   semester_id: number
   teacher_id: number | null
   room: string | null
+  schedule: string | null
   max_students: number | null
+  is_active: boolean
+}
+
+export interface ApiTeacher {
+  id: number
+  code: string | null
+  full_name: string
+  email: string | null
+  academic_title: string | null
+  specialization: string | null
+  department_id: number
   is_active: boolean
 }
 
@@ -69,8 +81,74 @@ export interface ApiSemester {
   is_current: boolean
 }
 
+export type ApiUserRole = "superadmin" | "admin" | "manager" | "lecturer" | "viewer"
+
+export interface ApiUser {
+  id: string
+  email: string
+  full_name: string
+  role: ApiUserRole
+  department_id: number | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface LoginResponse {
+  access_token: string
+  token_type: "bearer"
+}
+
+export type ApiReportType = "school_overview" | "program_health" | "section_intervention"
+
+export interface ApiReportFeedback {
+  id: number
+  report_id: string
+  user_id: string | null
+  rating: number | null
+  is_helpful: boolean | null
+  comment: string | null
+  created_at: string
+}
+
+export interface ApiReport {
+  id: string
+  report_type: string
+  actor_role: string
+  scope_type: string | null
+  scope_id: string | null
+  title: string
+  summary: string
+  status: string
+  metrics_json: Record<string, unknown>
+  content_markdown: string
+  generated_by: string | null
+  created_at: string
+  feedback_items: ApiReportFeedback[]
+}
+
+// --- Chat ---
+export interface ChatRequest {
+  message: string
+  context?: Record<string, unknown>
+}
+
+export interface ChatResponse {
+  response: string
+  intent: string
+  tool_calls: { tool_name: string; tool_input: Record<string, unknown>; tool_output: string }[]
+  latency_ms: number
+}
+
 async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(input, init)
+  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null
+  const customInit = { ...init }
+  customInit.headers = {
+    ...customInit.headers,
+    "ngrok-skip-browser-warning": "true",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
+
+  const response = await fetch(input, customInit)
   const text = await response.text()
   const contentType = response.headers.get("content-type") || ""
   const data = contentType.includes("application/json") ? JSON.parse(text) : text
@@ -84,6 +162,18 @@ async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
   return data as T
 }
 
+export function saveAccessToken(token: string) {
+  localStorage.setItem("access_token", token)
+}
+
+export function clearAccessToken() {
+  localStorage.removeItem("access_token")
+}
+
+export function getAccessToken() {
+  return typeof window !== "undefined" ? localStorage.getItem("access_token") : null
+}
+
 function qs(params: Record<string, string | number | undefined>): string {
   const q = Object.entries(params)
     .filter(([, v]) => v !== undefined)
@@ -93,6 +183,59 @@ function qs(params: Record<string, string | number | undefined>): string {
 }
 
 export const api = {
+  // --- Auth ---
+  login: async (body: { email: string; password: string }) => {
+    const form = new URLSearchParams()
+    form.set("username", body.email)
+    form.set("password", body.password)
+    const result = await fetcher<LoginResponse>("/api/v1/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: form.toString(),
+    })
+    saveAccessToken(result.access_token)
+    return result
+  },
+  me: () => fetcher<ApiUser>("/api/v1/auth/me"),
+  getUsers: (params?: { limit?: number; skip?: number }) =>
+    fetcher<ApiUser[]>(`/api/v1/auth/users${qs({ limit: params?.limit, skip: params?.skip })}`),
+  createUser: (body: {
+    email: string
+    password: string
+    full_name: string
+    role: ApiUserRole
+    department_id?: number | null
+  }) =>
+    fetcher<ApiUser>("/api/v1/auth/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  updateUser: (id: string, body: Partial<Pick<ApiUser, "full_name" | "role" | "department_id" | "is_active">>) =>
+    fetcher<ApiUser>(`/api/v1/auth/users/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+
+  // --- Reports ---
+  getReports: (params?: { limit?: number }) =>
+    fetcher<ApiReport[]>(`/api/v1/reports${qs({ limit: params?.limit })}`),
+  getReport: (id: string) =>
+    fetcher<ApiReport>(`/api/v1/reports/${id}`),
+  generateReport: (body: { report_type: ApiReportType; actor_role?: string; scope_type?: string; scope_id?: string }) =>
+    fetcher<ApiReport>("/api/v1/reports", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  createReportFeedback: (id: string, body: { rating?: number; is_helpful?: boolean; comment?: string }) =>
+    fetcher<ApiReportFeedback>(`/api/v1/reports/${id}/feedback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+
   // --- Students ---
   getStudents: (params?: { limit?: number; offset?: number; program_id?: number; cohort_id?: number }) =>
     fetcher<ApiStudent[]>(`/api/v1/students${qs(params ?? {})}`),
@@ -133,15 +276,48 @@ export const api = {
   deleteCourse: (id: number) =>
     fetcher<void>(`/api/v1/courses/${id}`, { method: "DELETE" }),
 
-  // --- Enrollments ---
   getEnrollments: (params?: { student_id?: number; section_id?: number; limit?: number }) =>
     fetcher<ApiEnrollment[]>(`/api/v1/grades/enrollments${qs(params ?? {})}`),
+  getGrades: async (params?: { limit?: number }) => {
+    const enrolls = await fetcher<ApiEnrollment[]>(`/api/v1/grades/enrollments${qs({ limit: params?.limit ?? 3000 })}`)
+    return enrolls.map(e => ({
+      id: String(e.id),
+      studentId: String(e.student_id),
+      tenMonHoc: "",
+      maLop: "",
+      tinChi: 0,
+      diemTX1: null,
+      diemTX2: null,
+      diemTX3: null,
+      diemTX4: null,
+      tbThuongKy: null,
+      duocDuThi: true,
+      diemThiLan1: null,
+      diemThiLan2: null,
+      diemTongKet: e.final_grade,
+      xepLoai: e.grade_letter ?? (e.is_passed ? "C" : "F"),
+      ghiChu: "",
+      hocKy: "",
+    }))
+  },
 
   // --- Sections ---
-  getSections: (params?: { limit?: number; course_id?: number }) =>
+  getSections: (params?: { limit?: number; course_id?: number; semester_id?: number; teacher_id?: number }) =>
     fetcher<ApiSection[]>(`/api/v1/sections${qs(params ?? {})}`),
+
+  // --- Teachers ---
+  getTeachers: (params?: { limit?: number; department_id?: number }) =>
+    fetcher<ApiTeacher[]>(`/api/v1/teachers${qs(params ?? {})}`),
 
   // --- Semesters ---
   getSemesters: () =>
     fetcher<ApiSemester[]>('/api/v1/semesters'),
+
+  // --- Chat ---
+  chat: (body: ChatRequest) =>
+    fetcher<ChatResponse>("/api/v1/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
 }

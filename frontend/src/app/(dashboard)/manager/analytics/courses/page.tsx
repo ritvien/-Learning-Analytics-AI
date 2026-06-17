@@ -161,7 +161,7 @@ export default function CourseAnalyticsPage() {
           <div className="flex flex-wrap gap-3 items-center">
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground w-4">1</span>
-              <Select value={selDept} onValueChange={v => { setSelDept(v); setSelProg("all"); setSelCourse("all") }}>
+              <Select value={selDept} onValueChange={v => { setSelDept(v ?? "all"); setSelProg("all"); setSelCourse("all") }}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Chọn Khoa" />
                 </SelectTrigger>
@@ -174,7 +174,7 @@ export default function CourseAnalyticsPage() {
 
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground w-4">2</span>
-              <Select value={selProg} onValueChange={v => { setSelProg(v); setSelCourse("all") }} disabled={selDept === "all"}>
+              <Select value={selProg} onValueChange={v => { setSelProg(v ?? "all"); setSelCourse("all") }} disabled={selDept === "all"}>
                 <SelectTrigger className="w-52">
                   <SelectValue placeholder="Chọn Ngành" />
                 </SelectTrigger>
@@ -187,7 +187,7 @@ export default function CourseAnalyticsPage() {
 
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground w-4">3</span>
-              <Select value={selCourse} onValueChange={setSelCourse}>
+              <Select value={selCourse} onValueChange={v => setSelCourse(v ?? "all")}>
                 <SelectTrigger className="w-64">
                   <SelectValue placeholder="Chọn Môn học" />
                 </SelectTrigger>
@@ -261,7 +261,7 @@ export default function CourseAnalyticsPage() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="hk" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={40} />
                     <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10 }} />
-                    <Tooltip formatter={(v: number) => [`${v}%`, "Pass rate"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
+                    <Tooltip formatter={(v) => [`${v}%`, "Pass rate"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
                     <Line type="monotone" dataKey="passRate" stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -278,7 +278,7 @@ export default function CourseAnalyticsPage() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="hk" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={40} />
                     <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
-                    <Tooltip formatter={(v: number) => [v, "Điểm TB"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
+                    <Tooltip formatter={(v) => [v, "Điểm TB"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
                     <Line type="monotone" dataKey="avgGrade" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -298,7 +298,7 @@ export default function CourseAnalyticsPage() {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 10 }} />
-                    <Tooltip formatter={(v: number) => [v, "SV"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
+                    <Tooltip formatter={(v) => [v, "SV"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
                     <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                       {(courseStats?.dist ?? []).map((d, i) => <Cell key={i} fill={d.color} />)}
                     </Bar>

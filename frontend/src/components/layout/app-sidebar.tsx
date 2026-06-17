@@ -1,113 +1,67 @@
 import * as React from "react"
 import {
   BookOpen,
-  LayoutDashboard,
-  Users,
-  GraduationCap,
-  Settings,
-  MessageSquare,
   FileText,
   FileUp,
-  BarChart3,
-  Building2,
-  BookMarked,
-  AlertTriangle,
+  GraduationCap,
+  LayoutDashboard,
+  Layers,
+  MessageSquare,
+  Settings,
+  ShieldCheck,
+  UserRound,
+  Users,
+  Zap,
 } from "lucide-react"
 
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
 } from "@/components/ui/sidebar"
 
-// Dữ liệu mẫu cho navigation (Sẽ thay thế bằng role-based logic sau)
 const data = {
   navMain: [
     {
       title: "Quản lý chung",
       items: [
-        {
-          title: "Dashboard",
-          url: "/manager",
-          icon: LayoutDashboard,
-        },
-        {
-          title: "Sinh viên",
-          url: "/manager/students",
-          icon: Users,
-        },
-        {
-          title: "Giảng viên",
-          url: "/manager/teachers",
-          icon: GraduationCap,
-        },
-      ],
-    },
-    {
-      title: "Đào tạo",
-      items: [
-        {
-          title: "Môn học",
-          url: "/manager/courses",
-          icon: BookOpen,
-        },
-        {
-          title: "Điểm số",
-          url: "/manager/grades",
-          icon: FileText,
-        },
-        {
-          title: "Khoa & Ngành",
-          url: "/manager/departments",
-          icon: Settings,
-        },
+        { title: "Cơ cấu đào tạo", url: "/manager", icon: LayoutDashboard },
+        { title: "Sinh viên", url: "/manager/students", icon: Users },
+        { title: "Giảng viên", url: "/manager/teachers", icon: GraduationCap },
       ],
     },
     {
       title: "Phân tích",
       items: [
-        {
-          title: "Tổng quan",
-          url: "/manager/analytics",
-          icon: BarChart3,
-        },
-        {
-          title: "Theo Khoa",
-          url: "/manager/analytics/departments",
-          icon: Building2,
-        },
-        {
-          title: "Theo Môn học",
-          url: "/manager/analytics/courses",
-          icon: BookMarked,
-        },
-        {
-          title: "Lớp & SV nguy cơ",
-          url: "/manager/analytics/sections",
-          icon: AlertTriangle,
-        },
+        { title: "Tổng quan toàn trường", url: "/manager/analytics", icon: Layers },
+        { title: "Ngành đào tạo", url: "/manager/analytics/programs", icon: Settings },
+        { title: "Môn học", url: "/manager/analytics/courses", icon: BookOpen },
+        { title: "Lớp học phần", url: "/manager/analytics/sections", icon: FileText },
+        { title: "Sinh viên", url: "/manager/analytics/students", icon: UserRound },
+      ],
+    },
+    {
+      title: "Đào tạo",
+      items: [
+        { title: "Môn học", url: "/manager/courses", icon: BookOpen },
+        { title: "Điểm số", url: "/manager/grades", icon: FileText },
+        { title: "Khoa & Ngành", url: "/manager/departments", icon: Settings },
       ],
     },
     {
       title: "Hệ thống",
       items: [
-        {
-          title: "Chat AI",
-          url: "/chat",
-          icon: MessageSquare,
-        },
-        {
-          title: "Upload CTĐT (PDF)",
-          url: "/manager/programs",
-          icon: FileUp,
-        },
+        { title: "Chat AI", url: "/chat", icon: MessageSquare },
+        { title: "Báo cáo", url: "/manager/reports", icon: FileText },
+        { title: "Tài khoản & phân quyền", url: "/manager/users", icon: ShieldCheck },
+        { title: "Upload CTĐT", url: "/manager/programs", icon: FileUp },
       ],
     },
   ],
@@ -119,13 +73,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<a href="#" />}>
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <GraduationCap className="size-4" />
+            <SidebarMenuButton size="lg" render={<a href="/manager" />}>
+              <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-[#1B3A5C] text-white shadow-sm">
+                <Zap className="size-5" />
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
-                <span className="font-semibold">EPU Analytics</span>
-                <span className="">v1.0.0</span>
+                <span className="text-sm font-bold tracking-tight">ĐH Điện Lực</span>
+                <span className="text-xs font-medium text-muted-foreground">EPU Analytics</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -134,14 +88,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         {data.navMain.map((item) => (
           <SidebarGroup key={item.title}>
-            <SidebarGroupLabel>{item.title}</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+              {item.title}
+            </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {item.items.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton render={<a href={item.url} />}>
-                      <item.icon />
-                      <span>{item.title}</span>
+                {item.items.map((subItem) => (
+                  <SidebarMenuItem key={subItem.title}>
+                    <SidebarMenuButton render={<a href={subItem.url} />}>
+                      <subItem.icon className="size-4" />
+                      <span>{subItem.title}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -151,7 +107,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ))}
       </SidebarContent>
       <SidebarFooter>
-         {/* User dropdown will go here */}
+        <div className="px-3 py-2">
+          <div className="flex items-center gap-2 rounded-md bg-accent/50 px-3 py-2">
+            <div className="h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="text-xs font-medium text-muted-foreground">Hệ thống hoạt động</span>
+          </div>
+          <p className="mt-2 text-center text-[10px] font-medium text-muted-foreground/50">
+            © 2026 Trường ĐH Điện Lực
+          </p>
+        </div>
       </SidebarFooter>
     </Sidebar>
   )

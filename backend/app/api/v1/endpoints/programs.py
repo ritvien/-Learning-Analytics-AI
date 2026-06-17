@@ -1,9 +1,9 @@
 """CRUD endpoints for Program (Ngành / Chương trình đào tạo)."""
 
-from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.dependencies import DBSession, PaginationDep
+from app.crud import academic as crud
+from app.dependencies import DBSession, PaginationDep, require_write_access
 from app.models.academic import Program
 from app.schemas.academic import ProgramCreate, ProgramResponse, ProgramUpdate
 
@@ -17,49 +17,42 @@ async def list_programs(
     department_id: int | None = None,
 ) -> list[Program]:
     """Return programs, optionally filtered by department."""
-    q = select(Program).where(Program.is_active == True)  # noqa: E712
-    if department_id is not None:
-        q = q.where(Program.department_id == department_id)
-    result = await db.execute(q.offset(pagination.skip).limit(pagination.limit))
-    return list(result.scalars().all())
+    return await crud.list_programs(db, pagination.skip, pagination.limit, department_id)
 
 
 @router.get("/{program_id}", response_model=ProgramResponse)
 async def get_program(program_id: int, db: DBSession) -> Program:
     """Retrieve a program by ID."""
-    obj = await db.get(Program, program_id)
+    obj = await crud.get_program(db, program_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Program not found")
     return obj
 
 
-@router.post("", response_model=ProgramResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=ProgramResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_write_access)],
+)
 async def create_program(payload: ProgramCreate, db: DBSession) -> Program:
     """Create a new program."""
-    obj = Program(**payload.model_dump())
-    db.add(obj)
-    await db.flush()
-    await db.refresh(obj)
-    return obj
+    return await crud.create_program(db, payload.model_dump())
 
 
-@router.patch("/{program_id}", response_model=ProgramResponse)
+@router.patch("/{program_id}", response_model=ProgramResponse, dependencies=[Depends(require_write_access)])
 async def update_program(program_id: int, payload: ProgramUpdate, db: DBSession) -> Program:
     """Apply a partial update to a program."""
-    obj = await db.get(Program, program_id)
+    obj = await crud.get_program(db, program_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Program not found")
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(obj, field, value)
-    await db.flush()
-    await db.refresh(obj)
-    return obj
+    return await crud.update_program(db, obj, payload.model_dump(exclude_unset=True))
 
 
-@router.delete("/{program_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{program_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_write_access)])
 async def delete_program(program_id: int, db: DBSession) -> None:
     """Soft-delete a program."""
-    obj = await db.get(Program, program_id)
+    obj = await crud.get_program(db, program_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Program not found")
-    obj.is_active = False
+    await crud.delete_program(db, obj)

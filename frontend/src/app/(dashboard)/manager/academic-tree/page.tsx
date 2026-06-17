@@ -22,20 +22,75 @@ export default function AcademicTreePage() {
     async function loadData() {
       try {
         setIsLoading(true)
-        const [deptsRes, studentsRes, coursesRes, gradesRes] = await Promise.all([
+        const [deptsRes, programsRes, studentsRes, coursesRes, gradesRes] = await Promise.all([
           api.getDepartments(),
+          api.getPrograms({ limit: 500 }),
           api.getStudents(),
           api.getCourses(),
           api.getGrades(),
         ])
         if (active) {
-          setDepartments(deptsRes)
-          setStudents(studentsRes)
-          setCourses(coursesRes)
+          const departmentNameById = new Map(deptsRes.map((department) => [department.id, department.name]))
+          const programNameById = new Map(programsRes.map((program) => [program.id, program.name]))
+          const departmentByProgramId = new Map(
+            programsRes.map((program) => [program.id, departmentNameById.get(program.department_id) ?? "Chưa rõ khoa"]),
+          )
+          setDepartments(
+            deptsRes.map((department) => ({
+              id: String(department.id),
+              tenKhoa: department.name,
+              moTa: department.description ?? "",
+              nganhs: programsRes
+                .filter((program) => program.department_id === department.id)
+                .map((program) => ({
+                  id: String(program.id),
+                  tenNganh: program.name,
+                  khoaId: String(department.id),
+                  moTa: program.description ?? program.code,
+                })),
+            })),
+          )
+          setStudents(
+            studentsRes.map((student) => ({
+              id: String(student.id),
+              mssv: student.student_code,
+              hoTen: student.full_name,
+              gioiTinh: student.gender === "Nữ" ? "Nữ" : "Nam",
+              ngayVaoTruong: "",
+              khoa: String(student.cohort_id),
+              bacDaoTao: "",
+              loaiHinh: "",
+              nganh: programNameById.get(student.program_id) ?? "Chưa rõ ngành",
+              chuyenNganh: "",
+              khoaQuanLy: departmentByProgramId.get(student.program_id) ?? "Chưa rõ khoa",
+              lop: student.class_code ?? "",
+              trangThai: student.status === "active" ? "Đang học" : "Thôi học",
+              coVanHocTap: "",
+              soDienThoaiCVHT: "",
+              tongTCTichLuy: 0,
+              diemTBTichLuy: student.gpa_cumulative ?? 0,
+              tongTCNo: 0,
+              soMonNo: 0,
+            })),
+          )
+          setCourses(
+            coursesRes.map((course) => {
+              const programId = course.program_ids[0]
+              return {
+                id: String(course.id),
+                maHocPhan: course.code,
+                tenMonHoc: course.name,
+                tinChi: course.credits,
+                khoaQuanLy: programId ? departmentByProgramId.get(programId) ?? "Chưa rõ khoa" : "Chưa rõ khoa",
+                moTa: course.description ?? "",
+                trangThai: course.is_active ? "Đang giảng dạy" : "Ngừng giảng dạy",
+              }
+            }),
+          )
           setGrades(gradesRes)
           if (deptsRes.length > 0) {
             setSelection({
-              id: deptsRes[0].id,
+              id: String(deptsRes[0].id),
               type: "department",
             })
           }

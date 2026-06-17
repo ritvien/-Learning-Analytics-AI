@@ -228,7 +228,7 @@ export default function DepartmentsAnalyticsPage() {
           <p className="text-sm text-muted-foreground">So sánh hiệu quả đào tạo giữa các khoa theo thời gian</p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Select value={selSem} onValueChange={setSelSem}>
+          <Select value={selSem} onValueChange={v => setSelSem(v ?? "all")}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Học kỳ" />
             </SelectTrigger>
@@ -238,7 +238,7 @@ export default function DepartmentsAnalyticsPage() {
             </SelectContent>
           </Select>
 
-          <Select value={selDept} onValueChange={v => { setSelDept(v); setSelProg("all") }}>
+          <Select value={selDept} onValueChange={v => { setSelDept(v ?? "all"); setSelProg("all") }}>
             <SelectTrigger className="w-52">
               <SelectValue placeholder="Khoa" />
             </SelectTrigger>
@@ -248,7 +248,7 @@ export default function DepartmentsAnalyticsPage() {
             </SelectContent>
           </Select>
 
-          <Select value={selProg} onValueChange={setSelProg} disabled={selDept === "all"}>
+          <Select value={selProg} onValueChange={v => setSelProg(v ?? "all")} disabled={selDept === "all"}>
             <SelectTrigger className="w-52">
               <SelectValue placeholder="Ngành" />
             </SelectTrigger>
@@ -294,7 +294,7 @@ export default function DepartmentsAnalyticsPage() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="shortName" tick={{ fontSize: 9 }} />
                 <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(v: number) => [`${v}%`, "Pass rate"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
+                <Tooltip formatter={(v) => [`${v}%`, "Pass rate"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
                 <Bar dataKey="passRate" radius={[4, 4, 0, 0]}>
                   {(deptStats ?? []).map((d, i) => (
                     <Cell key={i} fill={d.passRate >= 75 ? "#22c55e" : d.passRate >= 60 ? "#f59e0b" : "#ef4444"} />
@@ -315,7 +315,7 @@ export default function DepartmentsAnalyticsPage() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="shortName" tick={{ fontSize: 9 }} />
                 <YAxis domain={[0, 4]} tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(v: number) => [v, "GPA"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
+                <Tooltip formatter={(v) => [v, "GPA"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
                 <Bar dataKey="avgGpa" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -332,7 +332,7 @@ export default function DepartmentsAnalyticsPage() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="shortName" tick={{ fontSize: 9 }} />
                 <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(v: number) => [v, "SV nguy cơ"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
+                <Tooltip formatter={(v) => [v, "SV nguy cơ"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
                 <Bar dataKey="atRisk" fill="#ef4444" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
