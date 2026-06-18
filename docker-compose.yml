@@ -48,6 +48,7 @@ services:
       # Hot-reload: mount source so code changes take effect without rebuild.
       # Remove in production.
       - ./backend/app:/app/app
+      - ./backend/scripts:/app/scripts
       - ./backend/migrations:/app/migrations
       - ./backend/tests:/app/tests
       - ./backend/pyproject.toml:/app/pyproject.toml:ro

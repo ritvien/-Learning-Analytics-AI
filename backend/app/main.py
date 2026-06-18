@@ -15,7 +15,22 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler — startup and shutdown logic."""
-    # Startup: nothing needed; Alembic handles schema migrations.
+    # Startup: seed default users if they don't exist.
+    import sys
+    from pathlib import Path
+    
+    # Add root to sys.path if not there, to allow importing scripts
+    root_dir = Path(__file__).parent.parent
+    if str(root_dir) not in sys.path:
+        sys.path.insert(0, str(root_dir))
+        
+    try:
+        from scripts.seed_users import seed_default_users
+        await seed_default_users()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Failed to seed users on startup: {e}")
+
     yield
     # Shutdown: dispose engine connections.
     from app.database import engine

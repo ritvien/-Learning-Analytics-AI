@@ -89,7 +89,6 @@
 | # | Task | Mô tả chi tiết | Deadline | Status | Priority |
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
 | H28 | SSE Streaming Response | Upgrade `/api/v1/chat` từ JSON → SSE (Server-Sent Events) streaming, token-by-token. Frontend nhận realtime typewriter effect | 16/06 | ✅ | **P0** |
-| H29 | RAGAS Evaluation Metrics | Implement RAGAS metrics cho chatbot: Faithfulness, Answer Relevancy, Context Recall, Context Precision. Chạy trên ≥10 test cases | 17/06 | ⬜ | **P0** |
 | H30 | Agent Safety & Tools Evaluation | Đánh giá agents có tools: jailbreak resistance, PII detection, bias check. Tạo test suite safety | 20/06 | ⬜ | **P2** |
 
 > [!NOTE]
@@ -100,15 +99,15 @@
 | # | Task | Mô tả chi tiết | Deadline | Status | Priority |
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
 | H35 | Thêm session lưu lịch sử chat | Implement session management lưu lịch sử chat: tạo/load/list sessions, persist messages theo thread_id vào DB, UI hiển thị sidebar danh sách sessions cũ | 18/06 | ⬜ | **P0** |
-| H36 | Unit Tests — API Endpoints | Viết unit tests cho các API endpoints chính (chat, health, tree, auth) theo pattern trong Test.md: conftest.py fixtures, AsyncClient, mock LLM. Mục tiêu: ≥ 10 test cases, coverage ≥ 60% | 20/06 | ⬜ | **P1** |
-| H37 | Unit Tests — Agent Nodes & Routing | Viết tests cho từng LangGraph node (router, core_agent, format_response) và conditional routing logic. Dùng parametrize cho nhiều intent cases | 21/06 | ⬜ | **P1** |
+| H36 | Unit Tests — API Endpoints | Viết unit tests cho các API endpoints chính (chat, health, tree, auth) theo pattern trong Test.md: conftest.py fixtures, AsyncClient, mock LLM. Mục tiêu: ≥ 10 test cases, coverage ≥ 60% | 18/06 | ⬜ | **P0** |
+| H37 | Unit Tests — Agent Nodes & Routing | Viết tests cho từng LangGraph node (router, core_agent, format_response) và conditional routing logic. Dùng parametrize cho nhiều intent cases | 19/06 | ⬜ | **P0** |
 | H38 | RAGAS Evaluation — 10 Test Cases | Chạy RAGAS evaluation (Faithfulness, Answer Relevancy, Context Precision, Context Recall) trên ≥ 10 test cases thực tế từ domain đào tạo. Tạo eval dataset JSON | 22/06 | ⬜ | **P1** |
 | H39 | Evaluation Evidence Report | Tạo báo cáo Evaluation Evidence hoàn chỉnh: pytest output + coverage, RAGAS metrics table, performance metrics, code traceability. Lưu trong `docs/12-Evaluation/` | 23/06 | ⬜ | **P1** |
 
 > [!NOTE]
 > H36-H39 dựa trên hướng dẫn chi tiết trong [Test.md](../10-References/Test.md): testing pyramid, API testing patterns, agent testing, RAGAS framework, evaluation evidence format.
 
-**Tổng: 22 task · Trọng tâm: LangGraph Agent e2e + Gate G2 + SSE + RAGAS Eval + Chat Session + Testing Suite**
+**Tổng: 21 task · Trọng tâm: LangGraph Agent e2e + Gate G2 + SSE + RAGAS Eval + Chat Session + Testing Suite**
 
 ---
 

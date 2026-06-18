@@ -11,6 +11,7 @@ from app.models.assessment import (
 )
 from app.models.people import Cohort, Student, Teacher, User, UserRole
 from app.models.report import Report, ReportFeedback
+from app.models.chat import ChatSession
 from app.models.teaching import Enrollment, GradeComponent, GradeComponentType, Section
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
     "Cohort",
     "Course",
     "CoursePLOMapping",
+    "ChatSession",
     "Department",
     "Enrollment",
     "GradeComponent",
