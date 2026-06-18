@@ -3,7 +3,7 @@
 > **Thời gian:** 11/06 – 24/06 (2 tuần — W3 + W4)
 > **Sprint Goal:** _Xây dựng AI Agent chạy được end-to-end với LLM thực tế, pass Gate G2 (18/06) và hoàn thiện Demo 1. Agent phải nhận input → xử lý → trả output có ý nghĩa cho ít nhất 1 user flow chính._
 > **Tham chiếu:** [SprintPlanning.md](./SprintPlanning.md) · [LangGraphAgent.md](../10-References/LangGraphAgent.md) · [AgentFlowDiagram.md](../10-References/AgentFlowDiagram.md)
-> **Cập nhật lần cuối:** 16/06/2026
+> **Cập nhật lần cuối:** 18/06/2026
 
 > [!IMPORTANT]
 > **Gate G2 Deadline: 18/06/2026 (23:59)** — Deliverables bắt buộc:
@@ -79,7 +79,8 @@
 | H23 | Vector Search Tool (RAG) | Implement `vector_search_tool` dùng pgvector để tra cứu đề cương môn học | 22/06 | ⬜ |
 | H27 | Cấu hình Ngrok Public Tunnel | Cấu hình ngrok tunnel cho local, bypass cảnh báo trình duyệt phục vụ truy cập Demo 1 và Gate G2 | 14/06 | ✅ |
 | H31 | Health Score UI Integration | Tích hợp gọi Health Score API hiển thị trên Academic Tree Dashboard | 16/06 | ✅ |
-| H33 | Course Health Score UI | Tích hợp biểu diễn đồ hoạ Health Score trên giao diện Phân tích môn học | 17/06 | ⬜ |
+| H33 | Course Health Score UI | Tích hợp biểu diễn đồ hoạ Health Score trên giao diện Phân tích môn học, fix lỗi SQL Views không hiển thị | 17/06 | ✅ |
+| H34 | Chuẩn hóa cấu trúc Khoa - Môn (OBE) | Dùng LLM map tự động 480 môn học vào 12 Khoa, cấu trúc lại DB, views và update Giao diện (thêm department_id) | 17/06 | ✅ |
 
 > *Ghi chú: Task H24 (Auto-Analysis) đã chuyển cho Hưng (T28, T29 - Phase 3).*
 
@@ -94,7 +95,20 @@
 > [!NOTE]
 > H30 (Agent Safety) là **ưu tiên thấp** — chỉ làm nếu còn kịp thời gian.
 
-**Tổng: 17 task · Trọng tâm: LangGraph Agent end-to-end + Gate G2 deliverables + SSE Streaming + RAGAS Eval**
+### 🚀 Phase 4: Sprint 2 Hoàn thiện — Hoàng (18–24/06)
+
+| # | Task | Mô tả chi tiết | Deadline | Status | Priority |
+|:-:|:-----|:----------------|:--------:|:------:|:--------:|
+| H35 | Thêm session lưu lịch sử chat | Implement session management lưu lịch sử chat: tạo/load/list sessions, persist messages theo thread_id vào DB, UI hiển thị sidebar danh sách sessions cũ | 18/06 | ⬜ | **P0** |
+| H36 | Unit Tests — API Endpoints | Viết unit tests cho các API endpoints chính (chat, health, tree, auth) theo pattern trong Test.md: conftest.py fixtures, AsyncClient, mock LLM. Mục tiêu: ≥ 10 test cases, coverage ≥ 60% | 20/06 | ⬜ | **P1** |
+| H37 | Unit Tests — Agent Nodes & Routing | Viết tests cho từng LangGraph node (router, core_agent, format_response) và conditional routing logic. Dùng parametrize cho nhiều intent cases | 21/06 | ⬜ | **P1** |
+| H38 | RAGAS Evaluation — 10 Test Cases | Chạy RAGAS evaluation (Faithfulness, Answer Relevancy, Context Precision, Context Recall) trên ≥ 10 test cases thực tế từ domain đào tạo. Tạo eval dataset JSON | 22/06 | ⬜ | **P1** |
+| H39 | Evaluation Evidence Report | Tạo báo cáo Evaluation Evidence hoàn chỉnh: pytest output + coverage, RAGAS metrics table, performance metrics, code traceability. Lưu trong `docs/12-Evaluation/` | 23/06 | ⬜ | **P1** |
+
+> [!NOTE]
+> H36-H39 dựa trên hướng dẫn chi tiết trong [Test.md](../10-References/Test.md): testing pyramid, API testing patterns, agent testing, RAGAS framework, evaluation evidence format.
+
+**Tổng: 22 task · Trọng tâm: LangGraph Agent e2e + Gate G2 + SSE + RAGAS Eval + Chat Session + Testing Suite**
 
 ---
 
@@ -141,7 +155,13 @@
 > [!NOTE]
 > T31 (Failure Analysis) là **ưu tiên thấp** — để sau, làm nếu còn kịp.
 
-**Tổng: 16 task · Trọng tâm: Backend APIs + Auth + Report Tool + DevOps + Testing**
+### 🚀 Phase 4: Sprint 2 Hoàn thiện — Hưng (18–24/06)
+
+| # | Task | Mô tả chi tiết | Deadline | Status | Priority |
+|:-:|:-----|:----------------|:--------:|:------:|:--------:|
+| T32 | Tool Report CLO — Cải thiện môn học | Implement tool report CLO cho agent: phân tích CLO achievement → đề xuất cải thiện môn học. Direct kết quả tới tab Báo cáo trên frontend. Hiển thị dạng artifact (markdown rendered), có khả năng lưu (persist to DB) và chỉnh sửa (inline edit) | 18/06 | ⬜ | **P0** |
+
+**Tổng: 17 task · Trọng tâm: Backend APIs + Auth + Report Tool + CLO Report Artifact + DevOps + Testing**
 
 ---
 
@@ -160,8 +180,8 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status |
 |:-:|:-----|:----------------|:--------:|:------:|
-| V15 | Quay Video Demo 3 phút | Quay + edit video MVP Demo cho Gate G2. Show: user mở app → nhập câu hỏi → agent xử lý → trả output. Có voiceover/subtitle | 17/06 | ⬜ |
-| V16 | Academic Tree ↔ Real API | Kết nối Tree component với `/api/v1/tree` thật. Dynamic data, loading states, error handling | 18/06 | ⬜ |
+| V15 | Quay Video Demo 3 phút | Quay + edit video MVP Demo cho Gate G2. Show: user mở app → nhập câu hỏi → agent xử lý → trả output. Có voiceover/subtitle | 17/06 | ✅ |
+| V16 | Academic Tree ↔ Real API | Kết nối Tree component với `/api/v1/tree` thật. Dynamic data, loading states, error handling | 18/06 | ✅ |
 
 > *Ghi chú: Task V17 (Chat SSE) đã gộp vào V25 (Phase 3).*
 
@@ -169,9 +189,9 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Priority |
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
-| V24 | Tree Node → Chat AI Navigation | Click 1 node trong Academic Tree → điều hướng tới Chat AI page với context ngành/khoa. Tự động trigger báo cáo về node đó | 16/06 | ⬜ | **P0** |
-| V25 | Chat UI ↔ SSE Streaming | Kết nối Chat component với SSE endpoint từ Hoàng. Typewriter effect, loading states, error handling | 16/06 | ⬜ | **P0** |
-| V26 | Login UI ↔ Auth Backend | Kết nối Login page với `/api/v1/auth/login` từ Hưng. Store JWT token, protected routes, redirect unauthorized | 16/06 | ⬜ | **P0** |
+| V24 | Tree Node → Chat AI Navigation | Click 1 node trong Academic Tree → điều hướng tới Chat AI page với context ngành/khoa. Tự động trigger báo cáo về node đó | 16/06 | ✅ | **P0** |
+| V25 | Chat UI ↔ SSE Streaming | Kết nối Chat component với SSE endpoint từ Hoàng. Typewriter effect, loading states, error handling | 16/06 | ✅ | **P0** |
+| V26 | Login UI ↔ Auth Backend | Kết nối Login page với `/api/v1/auth/login` từ Hưng. Store JWT token, protected routes, redirect unauthorized | 16/06 | ✅ | **P0** |
 
 ### Phase 2 mở rộng (deprioritized)
 
@@ -183,7 +203,16 @@
 | V21 | Responsive + Dark Mode | Đảm bảo layout responsive trên mobile/tablet. Toggle dark mode hoạt động đúng | 24/06 | ⬜ | P1 |
 | V22 | FE Unit Tests | Viết tests cho core components: Tree, Chat, DetailPanel. Mục tiêu: ≥ 5 test suites | 24/06 | ⬜ | P1 |
 
-**Tổng: 15 task · Trọng tâm: Tree→Chat Navigation + SSE + Auth + Video Demo**
+### 🚀 Phase 4: Sprint 2 Hoàn thiện — Hiếu (18–24/06)
+
+| # | Task | Mô tả chi tiết | Deadline | Status | Priority |
+|:-:|:-----|:----------------|:--------:|:------:|:--------:|
+| V27 | Lấy thêm token data sinh viên | Bổ sung token data API về thông tin sinh viên (SV count, demographics, enrollment status) để enrich context cho chatbot và dashboard | 18/06 | ⬜ | **P0** |
+| V28 | Sửa UI Academic Tree — Multi-prompt | Click vào từng ngành/khoa trong Academic Tree sẽ hiển thị danh sách nhiều câu hỏi prompt gợi ý (3-5 câu) để chuyển hướng sang chatbot. Thay vì chỉ 1 câu mẫu, chưa hiển thị khi click | 18/06 | ⬜ | **P0** |
+| V29 | Tạo widget thông tin cho các chỉ số | Thiết kế và implement các widget cards hiển thị KPI chỉ số (Health Score, GPA avg, Fail Rate, CLO Attainment) trên dashboard, với micro-animations và responsive layout | 20/06 | ⬜ | **P1** |
+| V30 | UX hướng dẫn người dùng theo workflow | Implement guided UX flow (onboarding tour / step-by-step wizard) hướng dẫn người dùng mới: Login → Dashboard → Tree → Chat → Báo cáo. Dùng tooltip hoặc overlay guide | 22/06 | ⬜ | **P1** |
+
+**Tổng: 19 task · Trọng tâm: Tree→Chat Navigation + SSE + Auth + Video Demo + Multi-prompt UI + Widget KPI + UX Guide**
 
 ---
 
