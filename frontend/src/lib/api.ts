@@ -373,11 +373,12 @@ export type SSEEvent =
   | { type: "error"; message: string }
   | { type: "session_created"; thread_id: string; title: string }
 
-export async function* chatStream(
+export async function* chatStreamV2(
   body: ChatRequest,
   signal?: AbortSignal,
 ): AsyncGenerator<SSEEvent> {
   const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null
+  console.log("chatStreamV2 called. Token present:", !!token)
   const res = await fetch("/api/v1/chat/stream", {
     method: "POST",
     headers: {

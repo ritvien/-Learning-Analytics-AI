@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Send, Bot, User, Sparkles, BarChart2, BookOpen, AlertTriangle, MessageSquare, Plus, Trash2 } from "lucide-react"
-import { api, chatStream, ChatSessionSummary } from "@/lib/api"
+import { api, chatStreamV2, ChatSessionSummary } from "@/lib/api"
 
 interface Message {
   id: string
@@ -217,7 +217,7 @@ export default function ChatPage() {
       let fullContent = ""
       let hasStartedAnswering = false
 
-      for await (const event of chatStream({ message: text.trim(), thread_id: activeSessionId })) {
+      for await (const event of chatStreamV2({ message: text.trim(), thread_id: activeSessionId })) {
         switch (event.type) {
           case "session_created":
             setActiveSessionId(event.thread_id)

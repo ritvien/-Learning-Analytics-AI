@@ -218,11 +218,15 @@ async def chat(
         )
 
 
+from fastapi import Request
+
 @router.post("/stream")
 async def chat_stream(
+    request: Request,
     payload: ChatRequest,
     current_user: User = Depends(get_current_user),
 ):
+    print("INCOMING HEADERS:", request.headers)
     """Invoke the agent and stream the response via SSE."""
     
     async def event_generator():
