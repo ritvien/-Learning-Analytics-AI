@@ -7,7 +7,7 @@ import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieCh
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { FilterCombobox } from "@/components/ui/filter-combobox"
 import { api, type ApiCourse, type ApiEnrollment, type ApiProgram, type ApiSection, type ApiSemester, type ApiStudent } from "@/lib/api"
 
 type Raw = { students: ApiStudent[]; enrollments: ApiEnrollment[]; courses: ApiCourse[]; sections: ApiSection[]; semesters: ApiSemester[]; programs: ApiProgram[] }
@@ -94,9 +94,28 @@ export default function ProgramAnalyticsPage() {
     <div className="flex flex-col gap-6">
       <div><h1 className="text-2xl font-bold tracking-tight">Ngành đào tạo</h1></div>
       <div className="flex flex-wrap gap-2">
-        <Select value={programId} onValueChange={value => { if (value) setProgramId(value); setCohort("all") }}><SelectTrigger className="w-72"><SelectValue placeholder="Chọn ngành bắt buộc" /></SelectTrigger><SelectContent>{raw.programs.map(item => <SelectItem key={item.id} value={String(item.id)}>{item.name}</SelectItem>)}</SelectContent></Select>
-        <Select value={semester} onValueChange={value => setSemester(value ?? "all")}><SelectTrigger className="w-52"><SelectValue placeholder="Học kỳ" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả học kỳ</SelectItem>{data.sortedSemesters.map(item => <SelectItem key={item.id} value={item.code}>{item.name}</SelectItem>)}</SelectContent></Select>
-        <Select value={cohort} onValueChange={value => setCohort(value ?? "all")}><SelectTrigger className="w-44"><SelectValue placeholder="Khóa sinh viên" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả khóa</SelectItem>{data.cohorts.map(id => <SelectItem key={id} value={String(id)}>Khóa #{id}</SelectItem>)}</SelectContent></Select>
+        <FilterCombobox
+          className="w-72"
+          placeholder="Chọn ngành…"
+          value={programId}
+          onValueChange={v => { if (v) { setProgramId(v); setCohort("all") } }}
+          clearValue=""
+          options={raw.programs.map(item => ({ value: String(item.id), label: item.name, description: item.code }))}
+        />
+        <FilterCombobox
+          className="w-52"
+          placeholder="Tất cả học kỳ"
+          value={semester}
+          onValueChange={v => setSemester(v)}
+          options={data.sortedSemesters.map(item => ({ value: item.code, label: item.name }))}
+        />
+        <FilterCombobox
+          className="w-44"
+          placeholder="Tất cả khóa"
+          value={cohort}
+          onValueChange={v => setCohort(v)}
+          options={data.cohorts.map(id => ({ value: String(id), label: `Khóa #${id}` }))}
+        />
       </div>
       <Card className="border-primary/20 bg-primary/5"><CardContent className="flex items-center gap-3 py-4"><GraduationCap className="h-5 w-5 text-primary" /><div><p className="font-semibold">{data.program.name}</p><p className="text-xs text-muted-foreground">{data.program.code} · Mọi metric bên dưới chỉ tính trên sinh viên của ngành đang chọn.</p></div></CardContent></Card>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">{[

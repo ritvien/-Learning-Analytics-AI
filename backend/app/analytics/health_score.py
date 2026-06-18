@@ -151,7 +151,13 @@ def _compute_final(gpa_avg: Any, fail_rate: Any, clo_rate: float, node_type: str
 
 async def get_course_health_score(db: AsyncSession, course_id: int) -> dict:
     # 1. Fetch GPA & Fail Rate
-    query = "SELECT gpa_avg, fail_rate_avg FROM vw_course_stats WHERE course_id = :node_id"
+    query = """
+        SELECT
+            ROUND(SUM(gpa_avg * total_students) / NULLIF(SUM(total_students), 0), 2) AS gpa_avg,
+            ROUND(SUM(fail_rate_avg * total_students) / NULLIF(SUM(total_students), 0), 4) AS fail_rate_avg
+        FROM vw_course_stats
+        WHERE course_id = :node_id
+    """
     res = await db.execute(text(query), {"node_id": course_id})
     stats = res.fetchone()
     gpa_avg = stats[0] if stats else 0.0
@@ -165,10 +171,25 @@ async def get_course_health_score(db: AsyncSession, course_id: int) -> dict:
 
 async def get_course_health_batch(db: AsyncSession, course_ids: list[int]) -> list[dict]:
     if not course_ids:
-        query = "SELECT course_id, gpa_avg, fail_rate_avg FROM vw_course_stats"
+        query = """
+            SELECT
+                course_id,
+                ROUND(SUM(gpa_avg * total_students) / NULLIF(SUM(total_students), 0), 2) AS gpa_avg,
+                ROUND(SUM(fail_rate_avg * total_students) / NULLIF(SUM(total_students), 0), 4) AS fail_rate_avg
+            FROM vw_course_stats
+            GROUP BY course_id
+        """
         res = await db.execute(text(query))
     else:
-        query = "SELECT course_id, gpa_avg, fail_rate_avg FROM vw_course_stats WHERE course_id = ANY(:course_ids)"
+        query = """
+            SELECT
+                course_id,
+                ROUND(SUM(gpa_avg * total_students) / NULLIF(SUM(total_students), 0), 2) AS gpa_avg,
+                ROUND(SUM(fail_rate_avg * total_students) / NULLIF(SUM(total_students), 0), 4) AS fail_rate_avg
+            FROM vw_course_stats
+            WHERE course_id = ANY(:course_ids)
+            GROUP BY course_id
+        """
         res = await db.execute(text(query), {"course_ids": course_ids})
         
     rows = res.fetchall()
@@ -185,7 +206,13 @@ async def get_course_health_batch(db: AsyncSession, course_ids: list[int]) -> li
 
 
 async def get_program_health_score(db: AsyncSession, program_id: int) -> dict:
-    query = "SELECT gpa_avg, fail_rate_avg FROM vw_program_stats WHERE program_id = :node_id"
+    query = """
+        SELECT
+            ROUND(SUM(gpa_avg * total_students) / NULLIF(SUM(total_students), 0), 2) AS gpa_avg,
+            ROUND(SUM(fail_rate_avg * total_students) / NULLIF(SUM(total_students), 0), 4) AS fail_rate_avg
+        FROM vw_program_stats
+        WHERE program_id = :node_id
+    """
     res = await db.execute(text(query), {"node_id": program_id})
     stats = res.fetchone()
     gpa_avg = stats[0] if stats else 0.0
@@ -195,7 +222,13 @@ async def get_program_health_score(db: AsyncSession, program_id: int) -> dict:
     return _compute_final(gpa_avg, fail_rate, clo_rate, "program", program_id)
 
 async def get_department_health_score(db: AsyncSession, department_id: int) -> dict:
-    query = "SELECT gpa_avg, fail_rate_avg FROM vw_department_stats WHERE department_id = :node_id"
+    query = """
+        SELECT
+            ROUND(SUM(gpa_avg * total_students) / NULLIF(SUM(total_students), 0), 2) AS gpa_avg,
+            ROUND(SUM(fail_rate_avg * total_students) / NULLIF(SUM(total_students), 0), 4) AS fail_rate_avg
+        FROM vw_department_stats
+        WHERE department_id = :node_id
+    """
     res = await db.execute(text(query), {"node_id": department_id})
     stats = res.fetchone()
     gpa_avg = stats[0] if stats else 0.0
