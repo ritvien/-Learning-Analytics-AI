@@ -175,9 +175,12 @@ async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
   }
 
   const response = await fetch(input, customInit)
+  if (response.status === 204) {
+    return null as T
+  }
   const text = await response.text()
   const contentType = response.headers.get("content-type") || ""
-  const data = contentType.includes("application/json") ? JSON.parse(text) : text
+  const data = contentType.includes("application/json") && text ? JSON.parse(text) : text
 
   if (!response.ok) {
     throw new Error(
