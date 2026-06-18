@@ -7,11 +7,11 @@ import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieCh
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { FilterCombobox } from "@/components/ui/filter-combobox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { api, type ApiCourse, type ApiEnrollment, type ApiProgram, type ApiSection, type ApiSemester, type ApiStudent } from "@/lib/api"
 
 type Raw = { students: ApiStudent[]; enrollments: ApiEnrollment[]; courses: ApiCourse[]; sections: ApiSection[]; semesters: ApiSemester[]; programs: ApiProgram[] }
-function groupName(course: ApiCourse) { return course.is_elective ? "Tự chọn" : course.credits <= 2 ? "Đại cương" : "Cơ sở / chuyên ngành" }
+function groupName(course: ApiCourse) { return course.is_elective ? "Tự chọn" : "Bắt buộc" }
 function heatColor(value: number | null) {
   if (value === null) return "bg-muted text-muted-foreground"
   if (value > 75) return "bg-emerald-500 text-white"
@@ -70,7 +70,7 @@ export default function ProgramAnalyticsPage() {
     }).sort((a, b) => a.passRate - b.passRate || b.failed - a.failed)
 
     const groupMap = new Map<string, { total: number; passed: number }>()
-    for (const item of courseStats) { const stat = groupMap.get(item.group) ?? { total: 0, passed: 0 }; stat.total += item.total; stat.passed += Math.round(item.total * item.passRate / 100); groupMap.set(item.group, stat) }
+    for (const item of courseStats) { const stat = groupMap.get(item.group) ?? { total: 0, passed: 0 }; stat.total += item.total; stat.passed += item.total - item.failed; groupMap.set(item.group, stat) }
     const groups = [...groupMap.entries()].map(([name, stat]) => ({ name, passRate: stat.total ? +(stat.passed / stat.total * 100).toFixed(1) : 0 })).sort((a, b) => a.passRate - b.passRate)
     const distribution = [
       { name: "Nguy cơ < 2.0", value: students.filter(item => item.gpa_cumulative !== null && item.gpa_cumulative < 2).length, color: "#ef4444" },
@@ -94,28 +94,9 @@ export default function ProgramAnalyticsPage() {
     <div className="flex flex-col gap-6">
       <div><h1 className="text-2xl font-bold tracking-tight">Ngành đào tạo</h1></div>
       <div className="flex flex-wrap gap-2">
-        <FilterCombobox
-          className="w-72"
-          placeholder="Chọn ngành…"
-          value={programId}
-          onValueChange={v => { if (v) { setProgramId(v); setCohort("all") } }}
-          clearValue=""
-          options={raw.programs.map(item => ({ value: String(item.id), label: item.name, description: item.code }))}
-        />
-        <FilterCombobox
-          className="w-52"
-          placeholder="Tất cả học kỳ"
-          value={semester}
-          onValueChange={v => setSemester(v)}
-          options={data.sortedSemesters.map(item => ({ value: item.code, label: item.name }))}
-        />
-        <FilterCombobox
-          className="w-44"
-          placeholder="Tất cả khóa"
-          value={cohort}
-          onValueChange={v => setCohort(v)}
-          options={data.cohorts.map(id => ({ value: String(id), label: `Khóa #${id}` }))}
-        />
+        <Select value={programId} onValueChange={value => { if (value) setProgramId(value); setCohort("all") }}><SelectTrigger className="w-72"><SelectValue placeholder="Chọn ngành bắt buộc" /></SelectTrigger><SelectContent>{raw.programs.map(item => <SelectItem key={item.id} value={String(item.id)}>{item.name}</SelectItem>)}</SelectContent></Select>
+        <Select value={semester} onValueChange={value => setSemester(value ?? "all")}><SelectTrigger className="w-52"><SelectValue placeholder="Học kỳ" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả học kỳ</SelectItem>{data.sortedSemesters.map(item => <SelectItem key={item.id} value={item.code}>{item.name}</SelectItem>)}</SelectContent></Select>
+        <Select value={cohort} onValueChange={value => setCohort(value ?? "all")}><SelectTrigger className="w-44"><SelectValue placeholder="Khóa sinh viên" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả khóa</SelectItem>{data.cohorts.map(id => <SelectItem key={id} value={String(id)}>Khóa #{id}</SelectItem>)}</SelectContent></Select>
       </div>
       <Card className="border-primary/20 bg-primary/5"><CardContent className="flex items-center gap-3 py-4"><GraduationCap className="h-5 w-5 text-primary" /><div><p className="font-semibold">{data.program.name}</p><p className="text-xs text-muted-foreground">{data.program.code} · Mọi metric bên dưới chỉ tính trên sinh viên của ngành đang chọn.</p></div></CardContent></Card>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">{[
@@ -126,7 +107,7 @@ export default function ProgramAnalyticsPage() {
         <Card><CardHeader><CardTitle className="text-sm">Điểm trung bình của ngành qua học kỳ</CardTitle></CardHeader><CardContent><ResponsiveContainer width="100%" height={240}><LineChart data={data.trend}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="semester" tick={{ fontSize: 10 }} /><YAxis domain={[0, 10]} /><Tooltip formatter={(value: any) => [value, "Điểm TB"]} /><Line dataKey="avgGrade" stroke="#6366f1" strokeWidth={2.5} /></LineChart></ResponsiveContainer></CardContent></Card>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card><CardHeader><CardTitle className="text-sm">Pass rate theo nhóm môn</CardTitle><p className="text-xs text-muted-foreground">Nhóm môn hiện được suy luận tạm từ môn tự chọn và số tín chỉ.</p></CardHeader><CardContent><ResponsiveContainer width="100%" height={240}><BarChart data={data.groups} layout="vertical" margin={{ left: 20, right: 30 }}><CartesianGrid strokeDasharray="3 3" horizontal={false} /><XAxis type="number" domain={[0, 100]} tickFormatter={value => `${value}%`} /><YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 10 }} /><Tooltip formatter={(value: any) => [`${value}%`, "Pass rate"]} /><Bar dataKey="passRate" radius={[0, 4, 4, 0]}>{data.groups.map(item => <Cell key={item.name} fill={item.passRate >= 75 ? "#22c55e" : item.passRate >= 60 ? "#f59e0b" : "#ef4444"} />)}</Bar></BarChart></ResponsiveContainer></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-sm">Pass rate: môn bắt buộc vs tự chọn</CardTitle><p className="text-xs text-muted-foreground">Phân loại theo dữ liệu thật của môn (bắt buộc / tự chọn).</p></CardHeader><CardContent><ResponsiveContainer width="100%" height={240}><BarChart data={data.groups} layout="vertical" margin={{ left: 20, right: 30 }}><CartesianGrid strokeDasharray="3 3" horizontal={false} /><XAxis type="number" domain={[0, 100]} tickFormatter={value => `${value}%`} /><YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 10 }} /><Tooltip formatter={(value: any) => [`${value}%`, "Pass rate"]} /><Bar dataKey="passRate" radius={[0, 4, 4, 0]}>{data.groups.map(item => <Cell key={item.name} fill={item.passRate >= 75 ? "#22c55e" : item.passRate >= 60 ? "#f59e0b" : "#ef4444"} />)}</Bar></BarChart></ResponsiveContainer></CardContent></Card>
         <Card><CardHeader><CardTitle className="text-sm">Phân bố học lực sinh viên trong ngành</CardTitle></CardHeader><CardContent><ResponsiveContainer width="100%" height={280}><PieChart><Pie data={data.distribution} dataKey="value" nameKey="name" cx="50%" cy="43%" outerRadius={90} label={({ name, value }) => `${name}: ${value}`} labelLine>{data.distribution.map(item => <Cell key={item.name} fill={item.color} />)}</Pie><Tooltip formatter={(value: any, name: any) => [`${value} sinh viên`, name]} /><Legend verticalAlign="bottom" /></PieChart></ResponsiveContainer></CardContent></Card>
       </div>
       <Card><CardHeader><CardTitle className="text-sm">Heatmap khóa sinh viên × học kỳ</CardTitle></CardHeader><CardContent className="overflow-x-auto"><table className="w-full min-w-[680px] text-xs"><thead><tr><th className="pb-2 text-left text-muted-foreground">Khóa</th>{data.heatSemesters.map(item => <th key={item.id} className="pb-2 text-center text-muted-foreground">{item.code}</th>)}</tr></thead><tbody className="divide-y">{data.cohortHeatmap.map(row => <tr key={row.id}><td className="py-2 font-medium">Khóa #{row.id}</td>{row.cells.map((value, index) => <td key={index} className="px-1 py-2 text-center"><span className={`inline-flex min-w-12 justify-center rounded px-2 py-1 font-medium ${heatColor(value)}`}>{value === null ? "—" : `${value}%`}</span></td>)}</tr>)}</tbody></table></CardContent></Card>

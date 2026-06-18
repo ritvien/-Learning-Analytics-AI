@@ -297,6 +297,8 @@ Quy tắc:
 
 Agent phục vụ hỏi sâu và báo cáo:
 
+Thiết kế chi tiết cho module báo cáo nằm ở [Report Center](../16-Report-Center/README.md).
+
 - "Vì sao khoa CNTT giảm pass rate?"
 - "Ngành nào cần ưu tiên tuần này?"
 - "Môn nào có fail rate bất thường?"
@@ -1056,6 +1058,8 @@ Deliverables:
 - Generate report.
 - Ask across metrics.
 - Recommend next actions.
+
+Thiết kế chi tiết Report Center nằm ở [Report Center](../16-Report-Center/README.md).
 
 ## 12. Việc cần làm ngay
 

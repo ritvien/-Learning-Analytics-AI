@@ -2,10 +2,10 @@
 
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { BookOpen, TrendingUp, Users, CheckCircle2, AlertTriangle } from "lucide-react"
 import { api, type ApiSection, type ApiSemester } from "@/lib/api"
-import { FilterCombobox } from "@/components/ui/filter-combobox"
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, ScatterChart, Scatter, ZAxis
@@ -64,18 +64,16 @@ export default function CourseAnalyticsPage() {
     return raw.programs.filter(p => p.department_id === Number(selDept))
   }, [raw, selDept])
 
-  // Filtered courses: dept → dept_id direct; dept+prog → intersect both; prog only → program_ids
+  // Filtered courses by program
   const filteredCourses = React.useMemo(() => {
     if (!raw) return []
     if (selDept === "all" && selProg === "all") return raw.courses
-    if (selDept !== "all" && selProg !== "all") {
-      return raw.courses.filter(c =>
-        c.department_id === Number(selDept) &&
-        c.program_ids?.includes(Number(selProg))
-      )
+    if (selProg !== "all") {
+      return raw.courses.filter(c => c.program_ids?.includes(Number(selProg)))
     }
-    if (selProg !== "all") return raw.courses.filter(c => c.program_ids?.includes(Number(selProg)))
-    return raw.courses.filter(c => c.department_id === Number(selDept))
+    // by dept: get all programs in dept
+    const deptProgIds = new Set(raw.programs.filter(p => p.department_id === Number(selDept)).map(p => p.id))
+    return raw.courses.filter(c => c.program_ids?.some(pid => deptProgIds.has(pid)))
   }, [raw, selDept, selProg])
 
   // All enrollments for selected course
@@ -191,39 +189,46 @@ export default function CourseAnalyticsPage() {
       {/* 3-step filter */}
       <Card>
         <CardContent className="pt-4 pb-4">
-          <div className="flex flex-wrap gap-3 items-end">
+          <div className="flex flex-wrap gap-3 items-center">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted-foreground">1. Khoa</span>
-              <FilterCombobox
-                className="w-52"
-                placeholder="Tất cả khoa"
-                value={selDept}
-                onValueChange={v => { setSelDept(v); setSelProg("all"); setSelCourse("all") }}
-                options={(raw?.departments ?? []).map(d => ({ value: String(d.id), label: d.name }))}
-              />
+              <span className="text-xs font-medium text-muted-foreground w-4">1</span>
+              <Select value={selDept} onValueChange={v => { setSelDept(v ?? "all"); setSelProg("all"); setSelCourse("all") }}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Chọn Khoa" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả khoa</SelectItem>
+                  {raw?.departments.map(d => <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted-foreground">2. Ngành</span>
-              <FilterCombobox
-                className="w-56"
-                placeholder="Tất cả ngành"
-                value={selProg}
-                onValueChange={v => { setSelProg(v); setSelCourse("all") }}
-                disabled={selDept === "all"}
-                options={filteredPrograms.map(p => ({ value: String(p.id), label: p.name }))}
-              />
+              <span className="text-xs font-medium text-muted-foreground w-4">2</span>
+              <Select value={selProg} onValueChange={v => { setSelProg(v ?? "all"); setSelCourse("all") }} disabled={selDept === "all"}>
+                <SelectTrigger className="w-52">
+                  <SelectValue placeholder="Chọn Ngành" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả ngành</SelectItem>
+                  {filteredPrograms.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted-foreground">3. Môn học</span>
-              <FilterCombobox
-                className="w-72"
-                placeholder="Tìm môn học (tên hoặc mã)…"
-                value={selCourse}
-                onValueChange={v => setSelCourse(v)}
-                options={filteredCourses.map(c => ({ value: String(c.id), label: c.name, description: c.code }))}
-              />
+              <span className="text-xs font-medium text-muted-foreground w-4">3</span>
+              <Select value={selCourse} onValueChange={v => setSelCourse(v ?? "all")}>
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="Chọn Môn học" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">— Chọn môn học —</SelectItem>
+                  {filteredCourses.map(c => (
+                    <SelectItem key={c.id} value={String(c.id)}>{c.code} — {c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>

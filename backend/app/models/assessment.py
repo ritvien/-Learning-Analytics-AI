@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
-    DateTime,
     ForeignKey,
     Integer,
     Numeric,
@@ -15,7 +13,6 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
-    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -23,7 +20,6 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.models.academic import Course, Program
-    from app.models.people import Student
     from app.models.teaching import GradeComponentType
 
 
@@ -41,7 +37,6 @@ class PLO(Base):
     bloom_level: Mapped[int | None] = mapped_column(SmallInteger)  # 1-6 Bloom's taxonomy
     sort_order: Mapped[int] = mapped_column(SmallInteger, default=0, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     program: Mapped[Program] = relationship(back_populates="plos")
     clo_mappings: Mapped[list[CLOPLOMapping]] = relationship(back_populates="plo")
@@ -63,7 +58,6 @@ class CLO(Base):
     weight: Mapped[float] = mapped_column(Numeric(5, 2), default=1.0, nullable=False)
     sort_order: Mapped[int] = mapped_column(SmallInteger, default=0, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     course: Mapped[Course] = relationship(back_populates="clos")
     plo_mappings: Mapped[list[CLOPLOMapping]] = relationship(back_populates="clo")
@@ -129,24 +123,3 @@ class StudentCLOAchievement(Base):
     is_achieved: Mapped[bool | None] = mapped_column(Boolean)
 
     clo: Mapped[CLO] = relationship(back_populates="student_achievements")
-
-
-class StudentPLOAchievement(Base):
-    """Aggregated PLO attainment per student, computed from CLO achievement evidence."""
-
-    __tablename__ = "student_plo_achievements"
-    __table_args__ = (UniqueConstraint("student_id", "plo_id"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
-    program_id: Mapped[int] = mapped_column(ForeignKey("programs.id", ondelete="CASCADE"), nullable=False)
-    plo_id: Mapped[int] = mapped_column(ForeignKey("plos.id", ondelete="CASCADE"), nullable=False)
-    achievement_score: Mapped[float | None] = mapped_column(Numeric(5, 2))
-    evidence_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    is_achieved: Mapped[bool | None] = mapped_column(Boolean)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-
-    student: Mapped[Student] = relationship()
-    program: Mapped[Program] = relationship()
-    plo: Mapped[PLO] = relationship()

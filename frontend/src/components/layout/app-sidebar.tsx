@@ -1,25 +1,17 @@
 import * as React from "react"
 import {
-  AlertTriangle,
   BookOpen,
-  Building2,
-  ClipboardList,
-  FileBarChart2,
   FileText,
   FileUp,
   GraduationCap,
   LayoutDashboard,
+  Layers,
   MessageSquare,
-  School,
+  Settings,
   ShieldCheck,
-  Users,
   UserRound,
+  Users,
   Zap,
-  BriefcaseBusiness,
-  ListTodo,
-  Database,
-  BarChart3,
-  FlaskConical,
 } from "lucide-react"
 
 import {
@@ -38,48 +30,38 @@ import {
 const data = {
   navMain: [
     {
-      title: "Tổng quan",
+      title: "Quản lý chung",
       items: [
-        { title: "Việc cần làm hôm nay", url: "/manager/daily-brief", icon: LayoutDashboard },
-        { title: "Nhà trường", url: "/manager/analytics", icon: School },
-        { title: "Khoa", url: "/manager/analytics/departments", icon: Building2 },
-        { title: "Ngành", url: "/manager/analytics/programs", icon: BriefcaseBusiness },
-        { title: "Môn học", url: "/manager/analytics/courses", icon: BookOpen },
-        { title: "Lớp học phần", url: "/manager/analytics/sections", icon: ClipboardList },
-        { title: "Sinh viên rủi ro", url: "/manager/analytics/students", icon: UserRound },
-      ],
-    },
-    {
-      title: "Workflow",
-      items: [
-        { title: "Can thiệp & Task", url: "/manager/tasks", icon: ListTodo },
-        { title: "Báo cáo & AI", url: "/manager/reports", icon: FileBarChart2 },
-        { title: "Chat AI", url: "/chat", icon: MessageSquare },
-      ],
-    },
-    {
-      title: "Chuẩn đầu ra",
-      items: [
-        { title: "CLO/PLO (Thử nghiệm)", url: "/manager/analytics/outcomes", icon: FlaskConical },
-      ],
-    },
-    {
-      title: "Quản lý dữ liệu",
-      items: [
+        { title: "Cơ cấu đào tạo", url: "/manager", icon: LayoutDashboard },
         { title: "Sinh viên", url: "/manager/students", icon: Users },
         { title: "Giảng viên", url: "/manager/teachers", icon: GraduationCap },
-        { title: "Khoa & Ngành", url: "/manager/departments", icon: Building2 },
+      ],
+    },
+    {
+      title: "Phân tích",
+      items: [
+        { title: "Tổng quan toàn trường", url: "/manager/analytics", icon: Layers },
+        { title: "Ngành đào tạo", url: "/manager/analytics/programs", icon: Settings },
+        { title: "Môn học", url: "/manager/analytics/courses", icon: BookOpen },
+        { title: "Lớp học phần", url: "/manager/analytics/sections", icon: FileText },
+        { title: "Sinh viên", url: "/manager/analytics/students", icon: UserRound },
+      ],
+    },
+    {
+      title: "Đào tạo",
+      items: [
         { title: "Môn học", url: "/manager/courses", icon: BookOpen },
         { title: "Điểm số", url: "/manager/grades", icon: FileText },
+        { title: "Khoa & Ngành", url: "/manager/departments", icon: Settings },
       ],
     },
     {
       title: "Hệ thống",
       items: [
+        { title: "Chat AI", url: "/chat", icon: MessageSquare },
+        { title: "Báo cáo", url: "/manager/reports", icon: FileText },
         { title: "Tài khoản & phân quyền", url: "/manager/users", icon: ShieldCheck },
         { title: "Upload CTĐT", url: "/manager/programs", icon: FileUp },
-        { title: "Quản trị dữ liệu", url: "/manager/data-quality", icon: Database },
-        { title: "Audit log", url: "/manager/audit", icon: BarChart3 },
       ],
     },
   ],

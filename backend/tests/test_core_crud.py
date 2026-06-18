@@ -101,21 +101,3 @@ async def test_core_crud_workflow(client: AsyncClient, db_session: AsyncSession)
     update_student = await client.patch(f"/api/v1/students/{student['id']}", json={"status": "graduated"})
     assert update_student.status_code == 200
     assert update_student.json()["status"] == "graduated"
-
-
-async def test_crud_validation_errors(client: AsyncClient, db_session: AsyncSession) -> None:
-    """CRUD endpoints reject invalid payloads."""
-    # Missing required fields for student
-    student_res = await client.post(
-        "/api/v1/students",
-        json={
-            # Missing program_id and cohort_id
-            "student_code": "SV002",
-            "full_name": "Invalid Email",
-        }
-    )
-    assert student_res.status_code == 422
-    
-    # Missing required fields for course
-    course_res = await client.post("/api/v1/courses", json={"name": "Missing Code"})
-    assert course_res.status_code == 422

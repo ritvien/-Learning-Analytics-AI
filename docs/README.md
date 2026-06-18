@@ -15,8 +15,6 @@ Trang này giúp team biết tài liệu nào là nguồn chuẩn hiện tại, 
 | Kiến trúc tổng thể | [SystemArchitecture.md](./10-References/SystemArchitecture.md) |
 | Setup, pull, reset và migration | [ProjectSetup.md](./10-References/ProjectSetup.md) |
 | Kế hoạch thực thi hiện tại | [Sprint2.md](./07-Sprint-Planning/Sprint2.md) |
-| Thiết kế AI Learning Analytics theo workflow | [Learning Analytics Workflow](./14-Outcome-Workflow/README.md) |
-| TODO triển khai workflow mới | [Implementation TODO](./15-Implementation-TODO/README.md) |
 
 Khi có mâu thuẫn giữa tài liệu, ưu tiên theo thứ tự:
 

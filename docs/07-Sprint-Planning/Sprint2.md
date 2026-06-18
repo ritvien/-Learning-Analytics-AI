@@ -98,9 +98,9 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Priority |
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
-| H35 | Thêm session lưu lịch sử chat | Implement session management lưu lịch sử chat: tạo/load/list sessions, persist messages theo thread_id vào DB, UI hiển thị sidebar danh sách sessions cũ | 18/06 | ✅ | **P0** |
-| H36 | Unit Tests — API Endpoints | Viết unit tests cho các API endpoints chính (chat, health, tree, auth) theo pattern trong Test.md: conftest.py fixtures, AsyncClient, mock LLM. Mục tiêu: ≥ 10 test cases, coverage ≥ 60% | 18/06 | ✅ | **P0** |
-| H37 | Unit Tests — Agent Nodes & Routing | Viết tests cho từng LangGraph node (router, core_agent, format_response) và conditional routing logic. Dùng parametrize cho nhiều intent cases | 19/06 | ✅ | **P0** |
+| H35 | Thêm session lưu lịch sử chat | Implement session management lưu lịch sử chat: tạo/load/list sessions, persist messages theo thread_id vào DB, UI hiển thị sidebar danh sách sessions cũ | 18/06 | [x] | **P0** |
+| H36 | Unit Tests — API Endpoints | Viết unit tests cho các API endpoints chính (chat, health, tree, auth) theo pattern trong Test.md: conftest.py fixtures, AsyncClient, mock LLM. Mục tiêu: ≥ 10 test cases, coverage ≥ 60% | 18/06 | ⬜ | **P0** |
+| H37 | Unit Tests — Agent Nodes & Routing | Viết tests cho từng LangGraph node (router, core_agent, format_response) và conditional routing logic. Dùng parametrize cho nhiều intent cases | 19/06 | ⬜ | **P0** |
 | H38 | RAGAS Evaluation — 10 Test Cases | Chạy RAGAS evaluation (Faithfulness, Answer Relevancy, Context Precision, Context Recall) trên ≥ 10 test cases thực tế từ domain đào tạo. Tạo eval dataset JSON | 22/06 | ⬜ | **P1** |
 | H39 | Evaluation Evidence Report | Tạo báo cáo Evaluation Evidence hoàn chỉnh: pytest output + coverage, RAGAS metrics table, performance metrics, code traceability. Lưu trong `docs/12-Evaluation/` | 23/06 | ⬜ | **P1** |
 
@@ -146,9 +146,9 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Priority |
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
-| T28 | Report Tool Backend | Implement `report_tool` cho Agent: nhận node context (ngành/khoa) → query DB → sinh báo cáo phân tích tự động | 16/06 | ⬜ | **P0** |
+| T28 | Report Tool Backend | Implement `report_tool` cho Agent: nhận node context (ngành/khoa) → query DB → sinh báo cáo phân tích tự động | 16/06 | ✅ | **P0** |
 | T29 | Prompt Engineering Report | Thiết kế prompt templates theo cấp (Khoa/Ngành/Môn) cho auto-report khi click node. Phối hợp Hiếu (UI) + Hoàng (Agent) | 16/06 | ⬜ | **P0** |
-| T30 | Auth Login Backend | `POST /api/v1/auth/login` + `GET /api/v1/auth/me` + JWT token + role-based middleware (manager full / lecturer view-only) | 16/06 | ⬜ | **P0** |
+| T30 | Auth Login Backend | `POST /api/v1/auth/login` + `GET /api/v1/auth/me` + JWT token + role-based middleware (manager full / lecturer view-only) | 16/06 | ✅ | **P0** |
 | T31 | Failure Analysis | Phân tích các case agent fail: collect error logs, document failure patterns, cải thiện error handling + retry logic | 20/06 | ⬜ | **P2** |
 
 > [!NOTE]
@@ -158,7 +158,7 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Priority |
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
-| T32 | Tool Report CLO — Cải thiện môn học | Implement tool report CLO cho agent: phân tích CLO achievement → đề xuất cải thiện môn học. Direct kết quả tới tab Báo cáo trên frontend. Hiển thị dạng artifact (markdown rendered), có khả năng lưu (persist to DB) và chỉnh sửa (inline edit) | 18/06 | ⬜ | **P0** |
+| T32 | Tool Report CLO — Cải thiện môn học | Implement tool report CLO cho agent: phân tích CLO achievement → đề xuất cải thiện môn học. Direct kết quả tới tab Báo cáo trên frontend. Hiển thị dạng artifact (markdown rendered), có khả năng lưu (persist to DB) và chỉnh sửa (inline edit) | 18/06 | ✅ | **P0** |
 
 **Tổng: 17 task · Trọng tâm: Backend APIs + Auth + Report Tool + CLO Report Artifact + DevOps + Testing**
 
@@ -179,8 +179,8 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status |
 |:-:|:-----|:----------------|:--------:|:------:|
-| V15 | Quay Video Demo 3 phút | Quay + edit video MVP Demo cho Gate G2. Show: user mở app → nhập câu hỏi → agent xử lý → trả output. Có voiceover/subtitle | 17/06 | ✅ |
-| V16 | Academic Tree ↔ Real API | Kết nối Tree component với `/api/v1/tree` thật. Dynamic data, loading states, error handling | 18/06 | ✅ |
+| V15 | Quay Video Demo 3 phút | Quay + edit video MVP Demo cho Gate G2. Show: user mở app → nhập câu hỏi → agent xử lý → trả output. Có voiceover/subtitle | 17/06 | ⬜ |
+| V16 | Academic Tree ↔ Real API | Kết nối Tree component với `/api/v1/tree` thật. Dynamic data, loading states, error handling | 18/06 | ⬜ |
 
 > *Ghi chú: Task V17 (Chat SSE) đã gộp vào V25 (Phase 3).*
 
@@ -188,9 +188,9 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Priority |
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
-| V24 | Tree Node → Chat AI Navigation | Click 1 node trong Academic Tree → điều hướng tới Chat AI page với context ngành/khoa. Tự động trigger báo cáo về node đó | 16/06 | ✅ | **P0** |
-| V25 | Chat UI ↔ SSE Streaming | Kết nối Chat component với SSE endpoint từ Hoàng. Typewriter effect, loading states, error handling | 16/06 | ✅ | **P0** |
-| V26 | Login UI ↔ Auth Backend | Kết nối Login page với `/api/v1/auth/login` từ Hưng. Store JWT token, protected routes, redirect unauthorized | 16/06 | ✅ | **P0** |
+| V24 | Tree Node → Chat AI Navigation | Click 1 node trong Academic Tree → điều hướng tới Chat AI page với context ngành/khoa. Tự động trigger báo cáo về node đó | 16/06 | ⬜ | **P0** |
+| V25 | Chat UI ↔ SSE Streaming | Kết nối Chat component với SSE endpoint từ Hoàng. Typewriter effect, loading states, error handling | 16/06 | ⬜ | **P0** |
+| V26 | Login UI ↔ Auth Backend | Kết nối Login page với `/api/v1/auth/login` từ Hưng. Store JWT token, protected routes, redirect unauthorized | 16/06 | ⬜ | **P0** |
 
 ### Phase 2 mở rộng (deprioritized)
 

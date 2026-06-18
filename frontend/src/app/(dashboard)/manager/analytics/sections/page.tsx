@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { FilterCombobox } from "@/components/ui/filter-combobox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Users, AlertTriangle, CheckCircle2, TrendingDown } from "lucide-react"
 import { api, type ApiSection, type ApiSemester } from "@/lib/api"
@@ -158,6 +158,45 @@ export default function SectionsRiskPage() {
     }
   }, [raw, maps, selSection])
 
+  // Overview when no single section is picked: rank sections in the filtered scope by pass rate.
+  const sectionOverview = React.useMemo(() => {
+    if (!raw || !maps || selSection !== "all") return null
+    const { semMap, courseMap } = maps
+    const filterSecIds = new Set(sectionsForFilter.map(s => s.id))
+    const agg = new Map<number, { total: number; failed: number }>()
+    for (const e of raw.enrollments) {
+      if (e.is_passed === null || !filterSecIds.has(e.section_id)) continue
+      const a = agg.get(e.section_id) ?? { total: 0, failed: 0 }
+      a.total++
+      if (!e.is_passed) a.failed++
+      agg.set(e.section_id, a)
+    }
+    const rows = sectionsForFilter
+      .map(sec => {
+        const a = agg.get(sec.id) ?? { total: 0, failed: 0 }
+        return {
+          id: sec.id,
+          courseId: sec.course_id,
+          code: sec.section_code,
+          course: courseMap.get(sec.course_id)?.name ?? "—",
+          sem: semMap.get(sec.semester_id)?.code ?? "—",
+          total: a.total,
+          failed: a.failed,
+          passRate: a.total ? +(((a.total - a.failed) / a.total) * 100).toFixed(1) : 0,
+        }
+      })
+      .filter(r => r.total > 0)
+    const ranked = [...rows].sort((a, b) => a.passRate - b.passRate || b.failed - a.failed)
+    const worst = ranked.filter(r => r.total >= 3).slice(0, 12).map(r => ({ ...r, label: `${r.code} · ${r.sem}` }))
+    return {
+      ranked,
+      worst,
+      totalSections: rows.length,
+      riskySections: rows.filter(r => r.passRate < 70).length,
+      totalFail: rows.reduce((s, r) => s + r.failed, 0),
+    }
+  }, [raw, maps, sectionsForFilter, selSection])
+
   const LEVEL_LABEL: Record<RiskLevel, string> = {
     fail: "🔴 Trượt",
     nearFail: "🟡 Cận trượt",
@@ -175,49 +214,152 @@ export default function SectionsRiskPage() {
       {/* 3-step filter */}
       <Card>
         <CardContent className="pt-4 pb-4">
-          <div className="flex flex-wrap gap-3 items-end">
+          <div className="flex flex-wrap gap-3 items-center">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted-foreground">1. Học kỳ</span>
-              <FilterCombobox
-                className="w-48"
-                placeholder="Tất cả học kỳ"
-                value={selSem}
-                onValueChange={v => { setSelSem(v); setSelCourse("all"); setSelSection("all") }}
-                options={semestersWithData.map(s => ({ value: s.code, label: s.name }))}
-              />
+              <span className="text-xs font-medium text-muted-foreground w-4">1</span>
+              <Select value={selSem} onValueChange={v => { setSelSem(v ?? "all"); setSelCourse("all"); setSelSection("all") }}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Chọn Học kỳ" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả học kỳ</SelectItem>
+                  {semestersWithData.map(s => <SelectItem key={s.id} value={s.code}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted-foreground">2. Môn học</span>
-              <FilterCombobox
-                className="w-64"
-                placeholder="Tất cả môn"
-                value={selCourse}
-                onValueChange={v => { setSelCourse(v); setSelSection("all") }}
-                options={coursesForSem.map(c => ({ value: String(c.id), label: c.name, description: c.code }))}
-              />
+              <span className="text-xs font-medium text-muted-foreground w-4">2</span>
+              <Select value={selCourse} onValueChange={v => { setSelCourse(v ?? "all"); setSelSection("all") }}>
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="Chọn Môn học" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả môn</SelectItem>
+                  {coursesForSem.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.code} — {c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted-foreground">3. Lớp học phần</span>
-              <FilterCombobox
-                className="w-52"
-                placeholder="Tất cả lớp"
-                value={selSection}
-                onValueChange={v => setSelSection(v)}
-                disabled={selCourse === "all"}
-                options={sectionsForFilter.map(s => ({ value: String(s.id), label: s.section_code }))}
-              />
+              <span className="text-xs font-medium text-muted-foreground w-4">3</span>
+              <Select value={selSection} onValueChange={v => setSelSection(v ?? "all")} disabled={selCourse === "all"}>
+                <SelectTrigger className="w-52">
+                  <SelectValue placeholder="Chọn Lớp học phần" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">— Chọn lớp —</SelectItem>
+                  {sectionsForFilter.map(s => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {s.section_code} · {maps?.semMap.get(s.semester_id)?.code ?? "—"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {selSection === "all" ? (
-        <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-2">
-          <AlertTriangle className="h-10 w-10 opacity-30" />
-          <p className="text-sm">Chọn Học kỳ → Môn học → Lớp học phần để xem phân tích rủi ro</p>
-        </div>
+        sectionOverview && sectionOverview.totalSections > 0 ? (
+          <div className="flex flex-col gap-4">
+            {/* Scope KPIs */}
+            <div className="grid grid-cols-3 gap-4">
+              {[
+                { label: "Số lớp trong phạm vi", value: sectionOverview.totalSections, icon: <Users className="h-5 w-5 text-muted-foreground" /> },
+                { label: "Lớp pass rate < 70%", value: sectionOverview.riskySections, icon: <AlertTriangle className={`h-5 w-5 ${sectionOverview.riskySections > 0 ? "text-destructive" : "text-muted-foreground"}`} /> },
+                { label: "Tổng lượt trượt", value: sectionOverview.totalFail, icon: <TrendingDown className={`h-5 w-5 ${sectionOverview.totalFail > 0 ? "text-orange-500" : "text-muted-foreground"}`} /> },
+              ].map((k, i) => (
+                <Card key={i}>
+                  <CardContent className="pt-5 pb-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground leading-tight">{k.label}</p>
+                        <p className="text-2xl font-bold mt-1 tabular-nums">{k.value}</p>
+                      </div>
+                      <div className="shrink-0 mt-0.5">{k.icon}</div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Worst sections by pass rate */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Lớp có pass rate thấp nhất (≥ 3 SV)</CardTitle>
+                <p className="text-xs text-muted-foreground">Cần can thiệp sớm — bấm một dòng trong bảng dưới để xem chi tiết lớp.</p>
+              </CardHeader>
+              <CardContent>
+                {sectionOverview.worst.length === 0 ? (
+                  <p className="py-10 text-center text-sm text-muted-foreground">Chưa đủ dữ liệu để xếp hạng.</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={Math.max(220, sectionOverview.worst.length * 32)}>
+                    <BarChart data={sectionOverview.worst} layout="vertical" margin={{ left: 8, right: 32 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10 }} />
+                      <YAxis type="category" dataKey="label" width={120} tick={{ fontSize: 10 }} />
+                      <Tooltip formatter={(v) => [`${v}%`, "Pass rate"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
+                      <Bar dataKey="passRate" radius={[0, 4, 4, 0]}>
+                        {sectionOverview.worst.map(r => <Cell key={r.id} fill={r.passRate >= 70 ? "#22c55e" : r.passRate >= 50 ? "#f59e0b" : "#ef4444"} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Ranked sections table */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Tất cả lớp trong phạm vi (xếp theo pass rate)</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 bg-background">
+                      <tr className="border-b bg-muted/40">
+                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Mã lớp</th>
+                        <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Môn</th>
+                        <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Học kỳ</th>
+                        <th className="text-right px-3 py-2.5 font-medium text-muted-foreground">SV</th>
+                        <th className="text-right px-3 py-2.5 font-medium text-muted-foreground">Trượt</th>
+                        <th className="text-right px-4 py-2.5 font-medium text-muted-foreground">Pass rate</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {sectionOverview.ranked.slice(0, 50).map(r => (
+                        <tr
+                          key={r.id}
+                          className="cursor-pointer hover:bg-muted/30"
+                          onClick={() => { setSelSem(r.sem); setSelCourse(String(r.courseId)); setSelSection(String(r.id)) }}
+                        >
+                          <td className="px-4 py-2 font-mono text-[11px]">{r.code}</td>
+                          <td className="px-3 py-2 truncate max-w-[220px]">{r.course}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{r.sem}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{r.total}</td>
+                          <td className={`px-3 py-2 text-right tabular-nums ${r.failed > 0 ? "text-destructive" : ""}`}>{r.failed}</td>
+                          <td className="px-4 py-2 text-right">
+                            <Badge variant={r.passRate >= 70 ? "secondary" : "destructive"} className="text-[10px]">{r.passRate}%</Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {sectionOverview.ranked.length > 50 && (
+                    <p className="px-4 py-2 text-[11px] text-muted-foreground">Hiển thị 50 lớp rủi ro nhất / {sectionOverview.ranked.length} lớp. Lọc theo Học kỳ hoặc Môn để thu hẹp.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-2">
+            <AlertTriangle className="h-10 w-10 opacity-30" />
+            <p className="text-sm">Không có lớp khớp bộ lọc. Chọn Học kỳ / Môn học để xem danh sách lớp nguy cơ.</p>
+          </div>
+        )
       ) : (
         <>
           {/* 5 KPIs */}

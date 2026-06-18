@@ -459,6 +459,9 @@ Việc cần làm:
 | `frontend/src/components/layout/app-sidebar.tsx` | Rebuild navigation theo role/module mới |
 | `frontend/src/lib/api.ts` | Thêm API types cho brief/task/intervention/metric explanation |
 | `backend/app/api/v1/endpoints/analytics.py` | Thêm endpoint brief và explain metric |
+| `backend/app/api/v1/endpoints/report_agent.py` | Thêm Report Agent API riêng cho ask/stream/session/tool confirmation |
+| `backend/app/agent/report_service.py` | Tách prompt, memory, tool audit và fallback deterministic cho agent |
+| `backend/app/models/agent.py` | Lưu long memory, prompt version, session, message, tool call, pending action |
 | `backend/app/models` | Thêm task/intervention/insight models |
 | `backend/migrations/versions` | Migration cho task/intervention/insight |
 | `docs/README.md` | Giữ link workflow 14 và TODO 15 |
@@ -478,3 +481,38 @@ Một màn hình analytics được coi là đạt workflow mới khi:
 - Có thể tạo task từ insight.
 - Có cảnh báo data quality nếu dữ liệu thiếu/sai.
 
+## 13. P0 - Report Agent foundation
+
+Mục tiêu: agent đủ đáng tin để gắn vào Report Center, không trả lời lung tung và có chỗ lưu trữ rõ ràng.
+
+Việc cần làm ngay:
+
+- Tạo DB storage cho agent:
+  - `agent_memories`
+  - `agent_prompt_versions`
+  - `report_agent_sessions`
+  - `report_agent_messages`
+  - `report_agent_tool_calls`
+  - `report_agent_pending_actions`
+- Tạo API:
+  - `GET /api/v1/report-agent/tools`
+  - `POST /api/v1/report-agent/sessions`
+  - `GET /api/v1/report-agent/sessions/{session_id}`
+  - `POST /api/v1/report-agent/ask`
+  - `POST /api/v1/report-agent/stream`
+  - `POST /api/v1/report-agent/tools/confirm/{action_id}`
+- Tạo prompt riêng cho Report Agent, có version.
+- Tạo read-only tools trước:
+  - nạp report snapshot;
+  - giải thích metric;
+  - trace metric;
+  - đề xuất action từ report.
+- Chặn write action bằng pending confirmation.
+- Log toàn bộ tool call để audit.
+
+Chưa làm trong MVP này:
+
+- Chưa thực thi thật `create_task_from_report_action`.
+- Chưa có schedule engine.
+- Chưa có PDF/Excel export pipeline.
+- Chưa có UI side panel cho Ask AI.
