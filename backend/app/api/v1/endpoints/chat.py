@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from langchain_openai import ChatOpenAI
 
 from app.agent import create_agent
-from app.database import get_db, AsyncSessionLocal
+from app.database import get_db
 from app.models.chat import ChatSession
 from app.dependencies import get_current_user
 from app.models.people import User
@@ -142,20 +142,112 @@ async def delete_session(
 async def chat(
     payload: ChatRequest,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> ChatResponse:
     """Invoke the EduInsight LangGraph agent and return the result."""
     start = time.perf_counter()
 
-    async with AsyncSessionLocal() as db:
+    history_msgs = []
+    db_session = None
+
+    if payload.thread_id:
+        db_session = await db.get(ChatSession, uuid.UUID(payload.thread_id))
+        if db_session and db_session.user_id == current_user.id:
+            history_msgs = messages_from_dict(db_session.messages)
+        else:
+            raise HTTPException(status_code=404, detail="Session not found")
+    else:
+        # Generate title and create session
+        title = await generate_title(payload.message)
+        db_session = ChatSession(
+            user_id=current_user.id,
+            title=title,
+            messages=[]
+        )
+        db.add(db_session)
+        await db.commit()
+        await db.refresh(db_session)
+
+    input_messages = history_msgs + [HumanMessage(content=payload.message)]
+
+    try:
+        result = await _agent.ainvoke({
+            "messages": input_messages,
+            "context": payload.context,
+        })
+    except Exception as exc:
+        logger.exception("Agent invocation failed")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Agent error: {exc}") from exc
+
+    # Lấy thông tin
+    messages = result.get("messages", [])
+    context = result.get("context", {})
+    intent = context.get("intent", "unknown")
+
+    final_response = ""
+    for msg in reversed(messages):
+        if isinstance(msg, AIMessage) and msg.content:
+            final_response = msg.content
+            break
+
+    tool_calls_info: list[ToolCallInfo] = []
+    for i, msg in enumerate(messages):
+        if isinstance(msg, AIMessage) and hasattr(msg, "tool_calls") and msg.tool_calls:
+            for tc in msg.tool_calls:
+                tool_output = ""
+                if i + 1 < len(messages) and isinstance(messages[i + 1], ToolMessage):
+                    tool_output = messages[i + 1].content[:500]
+                tool_calls_info.append(ToolCallInfo(
+                    tool_name=tc.get("name", "unknown"),
+                    tool_input=tc.get("args", {}),
+                    tool_output=tool_output,
+                ))
+
+    # Lưu lại messages vào DB
+    db_session.messages = messages_to_dict(messages)
+    await db.commit()
+
+    elapsed_ms = int((time.perf_counter() - start) * 1000)
+
+    return ChatResponse(
+        response=final_response,
+        intent=intent,
+        tool_calls=tool_calls_info,
+        latency_ms=elapsed_ms,
+        thread_id=str(db_session.id)
+    )
+
+
+from fastapi import Request
+
+@router.post("/stream")
+async def chat_stream(
+    request: Request,
+    payload: ChatRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    print("INCOMING HEADERS:", request.headers)
+    """Invoke the agent and stream the response via SSE."""
+    
+    async def event_generator():
+        start = time.perf_counter()
+    
         history_msgs = []
         db_session = None
 
         if payload.thread_id:
-            db_session = await db.get(ChatSession, uuid.UUID(payload.thread_id))
+            try:
+                db_session = await db.get(ChatSession, uuid.UUID(payload.thread_id))
+            except ValueError:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Invalid thread_id'})}\n\n"
+                return
+
             if db_session and db_session.user_id == current_user.id:
                 history_msgs = messages_from_dict(db_session.messages)
             else:
-                raise HTTPException(status_code=404, detail="Session not found")
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Session not found'})}\n\n"
+                return
         else:
             # Generate title and create session
             title = await generate_title(payload.message)
@@ -167,154 +259,62 @@ async def chat(
             db.add(db_session)
             await db.commit()
             await db.refresh(db_session)
+            
+            # Báo cho frontend biết session ID vừa được tạo
+            yield f"data: {json.dumps({'type': 'session_created', 'thread_id': str(db_session.id), 'title': title})}\n\n"
 
         input_messages = history_msgs + [HumanMessage(content=payload.message)]
+        final_state_messages = []
 
         try:
-            result = await _agent.ainvoke({
-                "messages": input_messages,
-                "context": payload.context,
-            })
-        except Exception as exc:
-            logger.exception("Agent invocation failed")
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Agent error: {exc}") from exc
+            async for event in _agent.astream_events(
+                {
+                    "messages": input_messages,
+                    "context": payload.context
+                },
+                version="v2",
+            ):
+                kind = event["event"]
+                name = event["name"]
+                node_name = event.get("metadata", {}).get("langgraph_node")
 
-        # Lấy thông tin
-        messages = result.get("messages", [])
-        context = result.get("context", {})
-        intent = context.get("intent", "unknown")
+                if kind == "on_chain_end" and name == "router":
+                    output = event["data"].get("output", {})
+                    if isinstance(output, dict):
+                        intent = output.get("context", {}).get("intent", "unknown")
+                        yield f"data: {json.dumps({'type': 'router', 'intent': intent})}\n\n"
 
-        final_response = ""
-        for msg in reversed(messages):
-            if isinstance(msg, AIMessage) and msg.content:
-                final_response = msg.content
-                break
+                elif kind == "on_tool_start":
+                    yield f"data: {json.dumps({'type': 'tool_call', 'tool': name, 'input': event['data'].get('input')})}\n\n"
 
-        tool_calls_info: list[ToolCallInfo] = []
-        for i, msg in enumerate(messages):
-            if isinstance(msg, AIMessage) and hasattr(msg, "tool_calls") and msg.tool_calls:
-                for tc in msg.tool_calls:
-                    tool_output = ""
-                    if i + 1 < len(messages) and isinstance(messages[i + 1], ToolMessage):
-                        tool_output = messages[i + 1].content[:500]
-                    tool_calls_info.append(ToolCallInfo(
-                        tool_name=tc.get("name", "unknown"),
-                        tool_input=tc.get("args", {}),
-                        tool_output=tool_output,
-                    ))
+                elif kind == "on_tool_end":
+                    output = event['data'].get('output')
+                    output_str = str(output)[:500] if output else ""
+                    yield f"data: {json.dumps({'type': 'tool_result', 'output': output_str})}\n\n"
 
-        # Lưu lại messages vào DB
-        db_session.messages = messages_to_dict(messages)
-        await db.commit()
+                elif kind == "on_chat_model_stream":
+                    if node_name in ("core_agent", "fast_response"):
+                        chunk = event["data"]["chunk"]
+                        if hasattr(chunk, "content") and chunk.content and isinstance(chunk.content, str):
+                            yield f"data: {json.dumps({'type': 'token', 'content': chunk.content})}\n\n"
+                            await asyncio.sleep(0)  # force flush
+                
+                elif kind == "on_chain_end" and name == "LangGraph": # The top level graph
+                    final_state = event["data"].get("output", {})
+                    if isinstance(final_state, dict) and "messages" in final_state:
+                        final_state_messages = final_state["messages"]
 
-        elapsed_ms = int((time.perf_counter() - start) * 1000)
-
-        return ChatResponse(
-            response=final_response,
-            intent=intent,
-            tool_calls=tool_calls_info,
-            latency_ms=elapsed_ms,
-            thread_id=str(db_session.id)
-        )
-
-
-from fastapi import Request
-
-@router.post("/stream")
-async def chat_stream(
-    request: Request,
-    payload: ChatRequest,
-    current_user: User = Depends(get_current_user),
-):
-    print("INCOMING HEADERS:", request.headers)
-    """Invoke the agent and stream the response via SSE."""
-    
-    async def event_generator():
-        start = time.perf_counter()
-        
-        async with AsyncSessionLocal() as db:
-            history_msgs = []
-            db_session = None
-
-            if payload.thread_id:
-                try:
-                    db_session = await db.get(ChatSession, uuid.UUID(payload.thread_id))
-                except ValueError:
-                    yield f"data: {json.dumps({'type': 'error', 'message': 'Invalid thread_id'})}\n\n"
-                    return
-
-                if db_session and db_session.user_id == current_user.id:
-                    history_msgs = messages_from_dict(db_session.messages)
-                else:
-                    yield f"data: {json.dumps({'type': 'error', 'message': 'Session not found'})}\n\n"
-                    return
-            else:
-                # Generate title and create session
-                title = await generate_title(payload.message)
-                db_session = ChatSession(
-                    user_id=current_user.id,
-                    title=title,
-                    messages=[]
-                )
-                db.add(db_session)
+            elapsed_ms = int((time.perf_counter() - start) * 1000)
+            yield f"data: {json.dumps({'type': 'done', 'latency_ms': elapsed_ms, 'thread_id': str(db_session.id)})}\n\n"
+            
+            # Update DB after streaming finishes
+            if final_state_messages:
+                db_session.messages = messages_to_dict(final_state_messages)
                 await db.commit()
-                await db.refresh(db_session)
-                
-                # Báo cho frontend biết session ID vừa được tạo
-                yield f"data: {json.dumps({'type': 'session_created', 'thread_id': str(db_session.id), 'title': title})}\n\n"
 
-            input_messages = history_msgs + [HumanMessage(content=payload.message)]
-            final_state_messages = []
-
-            try:
-                async for event in _agent.astream_events(
-                    {
-                        "messages": input_messages,
-                        "context": payload.context
-                    },
-                    version="v2",
-                ):
-                    kind = event["event"]
-                    name = event["name"]
-                    node_name = event.get("metadata", {}).get("langgraph_node")
-
-                    if kind == "on_chain_end" and name == "router":
-                        output = event["data"].get("output", {})
-                        if isinstance(output, dict):
-                            intent = output.get("context", {}).get("intent", "unknown")
-                            yield f"data: {json.dumps({'type': 'router', 'intent': intent})}\n\n"
-
-                    elif kind == "on_tool_start":
-                        yield f"data: {json.dumps({'type': 'tool_call', 'tool': name, 'input': event['data'].get('input')})}\n\n"
-
-                    elif kind == "on_tool_end":
-                        output = event['data'].get('output')
-                        output_str = str(output)[:500] if output else ""
-                        yield f"data: {json.dumps({'type': 'tool_result', 'output': output_str})}\n\n"
-
-                    elif kind == "on_chat_model_stream":
-                        if node_name in ("core_agent", "fast_response"):
-                            chunk = event["data"]["chunk"]
-                            if hasattr(chunk, "content") and chunk.content and isinstance(chunk.content, str):
-                                yield f"data: {json.dumps({'type': 'token', 'content': chunk.content})}\n\n"
-                                await asyncio.sleep(0)  # force flush
-                    
-                    elif kind == "on_chain_end" and name == "LangGraph": # The top level graph
-                        final_state = event["data"].get("output", {})
-                        if isinstance(final_state, dict) and "messages" in final_state:
-                            final_state_messages = final_state["messages"]
-
-                elapsed_ms = int((time.perf_counter() - start) * 1000)
-                yield f"data: {json.dumps({'type': 'done', 'latency_ms': elapsed_ms, 'thread_id': str(db_session.id)})}\n\n"
-                
-                # Update DB after streaming finishes
-                if final_state_messages:
-                    db_session.messages = messages_to_dict(final_state_messages)
-                    await db.commit()
-
-            except Exception as exc:
-                logger.exception("Agent stream failed")
-                yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
+        except Exception as exc:
+            logger.exception("Agent stream failed")
+            yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
 
     return StreamingResponse(
         event_generator(),
