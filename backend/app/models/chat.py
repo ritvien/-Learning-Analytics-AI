@@ -2,8 +2,8 @@
 
 import uuid
 
-from sqlalchemy import ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import ForeignKey, String, Text, JSON, Uuid
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -17,7 +17,7 @@ class ChatSession(Base, TimestampMixin):
     __tablename__ = "chat_sessions"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
@@ -25,7 +25,7 @@ class ChatSession(Base, TimestampMixin):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     
     # Store the entire LangGraph state/messages as a JSON array of dicts
-    messages: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, server_default="[]")
+    messages: Mapped[list[dict]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=False, server_default="[]")
 
     # Relationships
     user: Mapped["User"] = relationship()

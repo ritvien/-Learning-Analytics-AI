@@ -18,10 +18,10 @@ from app.analytics.outcomes import (
     recalculate_outcomes,
 )
 from app.config import get_settings
-from app.dependencies import DBSession, require_write_access
+from app.dependencies import DBSession, get_current_user, require_write_access
 from app.ml.scoring import aggregate_student_semester_predictions
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 settings = get_settings()
 
@@ -41,9 +41,9 @@ async def analytics_overview(db: DBSession) -> dict[str, int | float | None]:
                 text(
                     """
                 SELECT
-                    COUNT(*)::INTEGER AS enrollment_count,
-                    COUNT(*) FILTER (WHERE is_passed IS TRUE)::INTEGER AS passed_count,
-                    COUNT(*) FILTER (WHERE is_passed IS FALSE)::INTEGER AS failed_count,
+                    CAST(COUNT(*) AS INTEGER) AS enrollment_count,
+                    CAST(COUNT(*) FILTER (WHERE is_passed IS TRUE) AS INTEGER) AS passed_count,
+                    CAST(COUNT(*) FILTER (WHERE is_passed IS FALSE) AS INTEGER) AS failed_count,
                     ROUND(AVG(final_grade), 2) AS average_grade
                 FROM dwh.fact_enrollment_outcome
                 """
@@ -85,12 +85,12 @@ async def analytics_trends(
             d_sem.code AS semester_code,
             d_sem.year,
             d_sem.term,
-            COUNT(*)::INTEGER AS total_enrollments,
-            COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::INTEGER AS passed_count,
-            COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::INTEGER AS failed_count,
+            CAST(COUNT(*) AS INTEGER) AS total_enrollments,
+            CAST(COUNT(*) FILTER (WHERE f.is_passed IS TRUE) AS INTEGER) AS passed_count,
+            CAST(COUNT(*) FILTER (WHERE f.is_passed IS FALSE) AS INTEGER) AS failed_count,
             ROUND(AVG(f.final_grade), 2) AS avg_grade,
             ROUND(
-                COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL
+                CAST(COUNT(*) FILTER (WHERE f.is_passed IS FALSE) AS DECIMAL)
                 / NULLIF(COUNT(*), 0) * 100, 2
             ) AS fail_rate_pct
         FROM dwh.fact_enrollment_outcome f
@@ -330,7 +330,7 @@ async def get_daily_brief(db: DBSession) -> dict:
                     COUNT(*)           AS total,
                     COUNT(*) FILTER (WHERE f.is_passed IS FALSE) AS failed,
                     ROUND(
-                        COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL
+                        CAST(COUNT(*) FILTER (WHERE f.is_passed IS FALSE) AS DECIMAL)
                         / NULLIF(COUNT(*), 0) * 100, 1
                     ) AS fail_rate
                 FROM dwh.fact_enrollment_outcome f

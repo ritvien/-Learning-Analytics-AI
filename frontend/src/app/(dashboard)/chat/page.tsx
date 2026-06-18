@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Send, Bot, User, Sparkles, BarChart2, BookOpen, AlertTriangle, MessageSquare, Plus, Trash2 } from "lucide-react"
-import { api, chatStream, ChatSessionSummary } from "@/lib/api"
+import { api, chatStreamV2, ChatSessionSummary } from "@/lib/api"
 
 interface Message {
   id: string
@@ -132,18 +132,19 @@ export default function ChatPage() {
       const parsedMsgs: Message[] = []
       let lastId = 0
       for (const m of detail.messages) {
-        if (m.type === "human") {
+        const content = m.data?.content || m.content
+        if (m.type === "human" && content) {
           parsedMsgs.push({
             id: `msg-${lastId++}`,
             role: "user",
-            content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+            content: typeof content === "string" ? content : JSON.stringify(content),
             timestamp: new Date(), // We don't have accurate timestamps in Langchain state by default
           })
-        } else if (m.type === "ai" && m.content) {
+        } else if (m.type === "ai" && content) {
           parsedMsgs.push({
             id: `msg-${lastId++}`,
             role: "assistant",
-            content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+            content: typeof content === "string" ? content : JSON.stringify(content),
             timestamp: new Date(),
           })
         }
@@ -217,7 +218,7 @@ export default function ChatPage() {
       let fullContent = ""
       let hasStartedAnswering = false
 
-      for await (const event of chatStream({ message: text.trim(), thread_id: activeSessionId })) {
+      for await (const event of chatStreamV2({ message: text.trim(), thread_id: activeSessionId })) {
         switch (event.type) {
           case "session_created":
             setActiveSessionId(event.thread_id)
@@ -311,7 +312,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-row h-[calc(100vh-5rem)] max-w-6xl mx-auto border rounded-xl overflow-hidden bg-card/50 shadow-sm mt-4">
+    <div className="flex flex-row h-[calc(100vh-5rem)] w-full max-w-6xl mx-auto border rounded-xl overflow-hidden bg-card/50 shadow-sm mt-4">
       {/* Left Column: Chat Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-background relative">
         <div className="flex items-center gap-3 px-6 py-4 border-b">

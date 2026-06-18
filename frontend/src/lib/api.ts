@@ -374,9 +374,12 @@ async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
   }
 
   const response = await fetch(input, customInit)
+  if (response.status === 204) {
+    return null as T
+  }
   const text = await response.text()
   const contentType = response.headers.get("content-type") || ""
-  const data = contentType.includes("application/json") ? JSON.parse(text) : text
+  const data = contentType.includes("application/json") && text ? JSON.parse(text) : text
 
   if (!response.ok) {
     throw new Error(
@@ -633,11 +636,12 @@ export type SSEEvent =
   | { type: "error"; message: string }
   | { type: "session_created"; thread_id: string; title: string }
 
-export async function* chatStream(
+export async function* chatStreamV2(
   body: ChatRequest,
   signal?: AbortSignal,
 ): AsyncGenerator<SSEEvent> {
   const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null
+  console.log("chatStreamV2 called. Token present:", !!token)
   const res = await fetch("/api/v1/chat/stream", {
     method: "POST",
     headers: {
