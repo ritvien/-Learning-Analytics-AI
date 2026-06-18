@@ -342,6 +342,19 @@ export interface ApiCreateIntervention {
 export interface ChatRequest {
   message: string
   context?: Record<string, unknown>
+  thread_id?: string
+}
+
+export interface ChatSessionSummary {
+  id: string
+  title: string
+  updated_at: string
+}
+
+export interface ChatSessionDetail {
+  id: string
+  title: string
+  messages: any[] // Mảng các LangChain messages
 }
 
 export interface ChatResponse {
@@ -603,6 +616,12 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
+  getChatSessions: () =>
+    fetcher<ChatSessionSummary[]>("/api/v1/chat/sessions"),
+  getChatSessionById: (thread_id: string) =>
+    fetcher<ChatSessionDetail>(`/api/v1/chat/sessions/${thread_id}`),
+  deleteChatSession: (thread_id: string) =>
+    fetcher<void>(`/api/v1/chat/sessions/${thread_id}`, { method: "DELETE" }),
 }
 
 export type SSEEvent =
@@ -610,18 +629,21 @@ export type SSEEvent =
   | { type: "tool_call"; tool: string; input: unknown }
   | { type: "tool_result"; output: string }
   | { type: "token"; content: string }
-  | { type: "done"; latency_ms: number }
+  | { type: "done"; latency_ms: number; thread_id?: string }
   | { type: "error"; message: string }
+  | { type: "session_created"; thread_id: string; title: string }
 
 export async function* chatStream(
   body: ChatRequest,
   signal?: AbortSignal,
 ): AsyncGenerator<SSEEvent> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null
   const res = await fetch("/api/v1/chat/stream", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "ngrok-skip-browser-warning": "true",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(body),
     signal,

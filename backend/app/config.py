@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production-use-openssl-rand-hex-32"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24  # 24 hours
+    seed_password: str = "123456"  # Password for default seeded users
 
     # -------------------------------------------------------------------- cors
     cors_origins: str = "http://localhost:3000"
