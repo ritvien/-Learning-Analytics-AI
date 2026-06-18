@@ -11,10 +11,20 @@ from app.models.assessment import (
 )
 from app.models.people import Cohort, Student, Teacher, User, UserRole
 from app.models.report import Report, ReportFeedback
+from app.models.agent import (
+    AgentMemory,
+    AgentPromptVersion,
+    ReportAgentMessage,
+    ReportAgentPendingAction,
+    ReportAgentSession,
+    ReportAgentToolCall,
+)
 from app.models.chat import ChatSession
 from app.models.teaching import Enrollment, GradeComponent, GradeComponentType, Section
 
 __all__ = [
+    "AgentMemory",
+    "AgentPromptVersion",
     "CLO",
     "PLO",
     "CLOPLOMapping",
@@ -29,6 +39,10 @@ __all__ = [
     "GradeComponentType",
     "Program",
     "Report",
+    "ReportAgentMessage",
+    "ReportAgentPendingAction",
+    "ReportAgentSession",
+    "ReportAgentToolCall",
     "ReportFeedback",
     "Section",
     "Semester",

@@ -13,7 +13,7 @@ from uuid import uuid4
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -26,6 +26,100 @@ from app.models.teaching import Enrollment, Section
 logger = logging.getLogger(__name__)
 
 ReportPayload = dict[str, Any]
+
+# T32 — Course-improvement thresholds (kept consistent with analytics.health_score).
+CLO_ACHIEVED_THRESHOLD = 4.0  # average CLO score counted as "achieved"
+WEAK_CLO_THRESHOLD_PCT = 70.0  # CLO attainment below this needs an improvement action
+
+# Per-CLO attainment for one course. Uses AVG(CASE ...) instead of ::float casts so it
+# stays portable; callers wrap this in try/except because grade-component data may be absent.
+_CLO_BREAKDOWN_SQL = text(
+    """
+    WITH clo_scores AS (
+        SELECT
+            e.id AS enrollment_id,
+            cl.code AS clo_code,
+            cl.name AS clo_name,
+            SUM(gc.score * gccm.weight * gct.weight)
+                / NULLIF(SUM(gccm.weight * gct.weight), 0) AS score
+        FROM enrollments e
+        JOIN sections sec ON e.section_id = sec.id
+        JOIN grade_components gc ON gc.enrollment_id = e.id
+        JOIN grade_component_types gct ON gc.component_type_id = gct.id
+        JOIN grade_component_clo_mappings gccm ON gct.id = gccm.component_type_id
+        JOIN clos cl ON gccm.clo_id = cl.id
+        WHERE sec.course_id = :course_id AND e.status = 'completed'
+        GROUP BY e.id, cl.code, cl.name
+    )
+    SELECT
+        clo_code,
+        clo_name,
+        COUNT(*) AS sample,
+        AVG(score) AS avg_score,
+        AVG(CASE WHEN score >= :threshold THEN 1.0 ELSE 0.0 END) AS attainment_rate
+    FROM clo_scores
+    GROUP BY clo_code, clo_name
+    ORDER BY clo_code
+    """
+)
+
+
+async def _fetch_clo_breakdown(db: AsyncSession, course_id: int) -> list[dict[str, Any]]:
+    """Fetch per-CLO attainment rows for a course (raw, may be empty)."""
+    result = await db.execute(
+        _CLO_BREAKDOWN_SQL, {"course_id": course_id, "threshold": CLO_ACHIEVED_THRESHOLD}
+    )
+    return [dict(row) for row in result.mappings().all()]
+
+
+def _build_clo_enrichment(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Pure transform: per-CLO rows → attainment map + course-improvement suggestions.
+
+    Returns {} when there is no usable CLO data so the report degrades gracefully.
+    """
+    clo_attainment: dict[str, float] = {}
+    weak: list[dict[str, Any]] = []
+    for row in rows:
+        code = str(row.get("clo_code") or "").strip()
+        if not code:
+            continue
+        rate = row.get("attainment_rate")
+        pct = round(float(rate) * 100, 1) if rate is not None else 0.0
+        clo_attainment[code] = pct
+        if pct < WEAK_CLO_THRESHOLD_PCT:
+            weak.append({"code": code, "name": str(row.get("clo_name") or ""), "attainment": pct})
+    if not clo_attainment:
+        return {}
+    weak.sort(key=lambda item: item["attainment"])
+    improvement_issues = [
+        f"{item['code']} chỉ đạt {item['attainment']}% (dưới ngưỡng 70%)." for item in weak
+    ]
+    improvement_actions = [
+        (
+            f"Cải thiện {item['code']}"
+            + (f" ({item['name']})" if item['name'] else "")
+            + f": rà lại rubric và đề của các bài đánh giá gắn với CLO này (hiện đạt {item['attainment']}%), "
+            "bổ sung hoạt động luyện tập bám sát chuẩn đầu ra cho lần dạy sau."
+        )
+        for item in weak
+    ]
+    return {
+        "clo_attainment": clo_attainment,
+        "weak_clos": weak,
+        "improvement_issues": improvement_issues,
+        "improvement_actions": improvement_actions,
+    }
+
+
+def _apply_clo_enrichment(payload: ReportPayload, enrichment: dict[str, Any]) -> ReportPayload:
+    """Merge CLO attainment + improvement suggestions into a section report payload."""
+    metrics = {**payload["metrics_json"]}
+    metrics["clo_attainment"] = enrichment["clo_attainment"]
+    metrics["weak_clo_count"] = len(enrichment["weak_clos"])
+    metrics["issues"] = enrichment["improvement_issues"] + list(metrics.get("issues") or [])
+    metrics["actions"] = enrichment["improvement_actions"] + list(metrics.get("actions") or [])
+    payload["metrics_json"] = metrics
+    return payload
 
 
 def _pct(part: int, total: int) -> float:
@@ -86,8 +180,19 @@ async def generate_report(
         payload = _program_health(data, int(scope_id or 0))
         scope_type = scope_type or "program"
     elif report_type == "section_intervention":
-        payload = _section_intervention(data, int(scope_id or 0))
+        section_id = int(scope_id or 0)
+        payload = _section_intervention(data, section_id)
         scope_type = scope_type or "section"
+        # T32 — enrich with per-CLO attainment + course-improvement suggestions.
+        section = next((item for item in data["sections"] if item.id == section_id), None)
+        if section is not None:
+            try:
+                enrichment = _build_clo_enrichment(await _fetch_clo_breakdown(db, section.course_id))
+            except Exception:
+                logger.exception("CLO breakdown failed; skipping course-improvement enrichment")
+                enrichment = {}
+            if enrichment:
+                payload = _apply_clo_enrichment(payload, enrichment)
     else:
         raise ValueError("Unsupported report type")
 

@@ -126,7 +126,7 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status |
 |:-:|:-----|:----------------|:--------:|:------:|
-| T16 | Unit Tests — Backend | Viết unit tests cho CRUD APIs + DB models. Mục tiêu: ≥ 10 test cases, chạy qua CI/CD | 16/06 | ⬜ |
+| T16 | Unit Tests — Backend | Viết unit tests cho CRUD APIs + DB models. Mục tiêu: ≥ 10 test cases, chạy qua CI/CD | 16/06 | ✅ |
 | T17 | Chốt ORM + Alembic Baseline | Đồng bộ ORM với thiết kế OLTP, tạo migration baseline, seed được database sạch và ghi hướng dẫn rollout | 17/06 | ⬜ |
 | T18 | PR Cleanup — đảm bảo ≥ 10 PRs | Review + merge các PRs tồn đọng. Tạo PRs mới cho các features đã code trực tiếp. Đảm bảo repo có ≥ 10 merged PRs | 18/06 | ⬜ |
 
@@ -146,9 +146,9 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Priority |
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
-| T28 | Report Tool Backend | Implement `report_tool` cho Agent: nhận node context (ngành/khoa) → query DB → sinh báo cáo phân tích tự động | 16/06 | ⬜ | **P0** |
+| T28 | Report Tool Backend | Implement `report_tool` cho Agent: nhận node context (ngành/khoa) → query DB → sinh báo cáo phân tích tự động | 16/06 | ✅ | **P0** |
 | T29 | Prompt Engineering Report | Thiết kế prompt templates theo cấp (Khoa/Ngành/Môn) cho auto-report khi click node. Phối hợp Hiếu (UI) + Hoàng (Agent) | 16/06 | ⬜ | **P0** |
-| T30 | Auth Login Backend | `POST /api/v1/auth/login` + `GET /api/v1/auth/me` + JWT token + role-based middleware (manager full / lecturer view-only) | 16/06 | ⬜ | **P0** |
+| T30 | Auth Login Backend | `POST /api/v1/auth/login` + `GET /api/v1/auth/me` + JWT token + role-based middleware (manager full / lecturer view-only) | 16/06 | ✅ | **P0** |
 | T31 | Failure Analysis | Phân tích các case agent fail: collect error logs, document failure patterns, cải thiện error handling + retry logic | 20/06 | ⬜ | **P2** |
 
 > [!NOTE]
@@ -158,7 +158,7 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Priority |
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
-| T32 | Tool Report CLO — Cải thiện môn học | Implement tool report CLO cho agent: phân tích CLO achievement → đề xuất cải thiện môn học. Direct kết quả tới tab Báo cáo trên frontend. Hiển thị dạng artifact (markdown rendered), có khả năng lưu (persist to DB) và chỉnh sửa (inline edit) | 18/06 | ⬜ | **P0** |
+| T32 | Tool Report CLO — Cải thiện môn học | Implement tool report CLO cho agent: phân tích CLO achievement → đề xuất cải thiện môn học. Direct kết quả tới tab Báo cáo trên frontend. Hiển thị dạng artifact (markdown rendered), có khả năng lưu (persist to DB) và chỉnh sửa (inline edit) | 18/06 | ✅ | **P0** |
 
 **Tổng: 17 task · Trọng tâm: Backend APIs + Auth + Report Tool + CLO Report Artifact + DevOps + Testing**
 
