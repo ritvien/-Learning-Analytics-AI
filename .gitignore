@@ -23,7 +23,11 @@ build/
 # Scratch and Temp files
 scratch_*
 *.log
+*.db
+*.pdf
 
 # Build & Tooling
 node_modules/
 .ruff_cache/
+.coverage
+ngrok_dir/
