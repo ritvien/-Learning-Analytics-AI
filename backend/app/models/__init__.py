@@ -8,13 +8,16 @@ from app.models.assessment import (
     CoursePLOMapping,
     GradeComponentCLOMapping,
     StudentCLOAchievement,
+    StudentPLOAchievement,
 )
 from app.models.people import Cohort, Student, Teacher, User, UserRole
 from app.models.report import Report, ReportFeedback
 from app.models.chat import ChatSession
+from app.models.task import AnalyticsTask, StudentIntervention, TaskComment
 from app.models.teaching import Enrollment, GradeComponent, GradeComponentType, Section
 
 __all__ = [
+    "AnalyticsTask",
     "CLO",
     "PLO",
     "CLOPLOMapping",
@@ -33,7 +36,10 @@ __all__ = [
     "Section",
     "Semester",
     "Student",
+    "StudentIntervention",
     "StudentCLOAchievement",
+    "StudentPLOAchievement",
+    "TaskComment",
     "Teacher",
     "University",
     "User",

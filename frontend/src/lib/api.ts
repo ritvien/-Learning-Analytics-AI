@@ -139,6 +139,205 @@ export interface ApiReport {
   feedback_items: ApiReportFeedback[]
 }
 
+export interface ApiPloAttainment {
+  plo_id: number
+  code: string
+  name: string
+  description: string | null
+  assessed_students: number
+  avg_score: number
+  achieved_students: number
+  attainment_rate: number
+  evidence_count: number
+}
+
+export interface ApiCloAttainment {
+  clo_id: number
+  code: string
+  name: string
+  description: string | null
+  course_id: number
+  assessed_enrollments: number
+  avg_score: number | null
+  achieved_enrollments: number
+  attainment_rate: number | null
+  evidence_count: number
+}
+
+export interface ApiOutcomeGap {
+  scope_type: "plo" | "clo"
+  id: number
+  code: string
+  name: string
+  parent_code: string
+  avg_score: number | null
+  attainment_rate: number | null
+  assessed_count: number
+}
+
+interface ApiOutcomeGapResponse {
+  weak_plos: Array<{
+    plo_id: number
+    code: string
+    name: string
+    avg_score: number | null
+    attainment_rate: number | null
+    assessed_students: number
+  }>
+  weak_clos: Array<{
+    course_id: number
+    course_name: string
+    clo_id: number
+    code: string
+    name: string
+    avg_score: number | null
+    attainment_rate: number | null
+    assessed_enrollments: number
+  }>
+}
+
+export interface ApiStudentOutcomeProfile {
+  student: ApiStudent
+  plos: Array<{
+    plo_id: number
+    plo_code: string
+    plo_name: string
+    achievement_score: number
+    evidence_count: number
+    is_achieved: boolean
+  }>
+  weak_clos: Array<{
+    clo_id: number
+    clo_code: string
+    clo_name: string
+    course_code: string
+    course_name: string
+    achievement_score: number
+    is_achieved: boolean
+  }>
+}
+
+export interface ApiOutcomeRecalculation {
+  threshold: number
+  clo_rows: number
+  plo_rows: number
+}
+
+// --- Metric Explanation ---
+export interface MetricExplainPayload {
+  metricKey: string
+  label: string
+  value: string | number
+  unit?: string
+  formula: string
+  source: string
+  interpretation?: string
+  scope: {
+    level: "school" | "department" | "program" | "course" | "section" | "student" | "outcome"
+    id?: string | number
+    label?: string
+  }
+  filters?: Record<string, string | number | null>
+  sampleSize?: number
+  warnings?: string[]
+  drilldowns?: Array<{ label: string; href: string }>
+}
+
+// --- Daily Brief ---
+export type BriefSeverity = "high" | "medium" | "low"
+export type BriefAction = "drill_down" | "ask_agent" | "create_task" | "dismiss"
+
+export interface ApiBriefItem {
+  id: string
+  severity: BriefSeverity
+  title: string
+  scope_type: string
+  scope_id: number | null
+  scope_label?: string
+  metric_key: string
+  value: number | null
+  delta?: number | null
+  formula?: string
+  sample_size?: number
+  actions: BriefAction[]
+}
+
+export interface ApiDailyBrief {
+  generated_at: string
+  role: string
+  items: ApiBriefItem[]
+}
+
+// --- Tasks ---
+export type ApiTaskStatus = "open" | "assigned" | "in_progress" | "submitted" | "reviewed" | "closed"
+export type ApiTaskType =
+  | "student_intervention"
+  | "section_review"
+  | "course_review"
+  | "data_quality_fix"
+  | "outcome_mapping_review"
+  | "report_request"
+export type ApiTaskPriority = "low" | "medium" | "high" | "critical"
+
+export interface ApiTask {
+  id: number
+  task_type: ApiTaskType
+  priority: ApiTaskPriority
+  scope_type: string
+  scope_id: number | null
+  source_metric?: string | null
+  source_value?: number | null
+  reason: string
+  assignee_id: string | null
+  created_by: string | null
+  deadline?: string | null
+  status: ApiTaskStatus
+  resolution_note?: string | null
+  created_at: string
+  updated_at: string
+  closed_at?: string | null
+}
+
+export interface ApiCreateTask {
+  task_type: ApiTaskType
+  priority: ApiTaskPriority
+  scope_type: string
+  scope_id?: number | null
+  source_metric?: string
+  source_value?: number
+  reason: string
+  assignee_id?: string | null
+  deadline?: string | null
+}
+
+export interface ApiTaskComment {
+  id: number
+  task_id: number
+  user_id: string | null
+  comment: string
+  created_at: string
+}
+
+// --- Interventions ---
+export interface ApiIntervention {
+  id: number
+  student_id: number
+  created_by: string | null
+  action_type: string
+  note: string
+  status: string
+  follow_up_date?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ApiCreateIntervention {
+  student_id: number
+  action_type: string
+  note: string
+  follow_up_date?: string | null
+}
+
 // --- Chat ---
 export interface ChatRequest {
   message: string
@@ -351,6 +550,67 @@ export const api = {
     fetcher<ApiHealthScore>(`/api/v1/analytics/health/program/${id}`),
   getDepartmentHealth: (id: number) =>
     fetcher<ApiHealthScore>(`/api/v1/analytics/health/department/${id}`),
+  recalculateOutcomes: (threshold = 50) =>
+    fetcher<ApiOutcomeRecalculation>(`/api/v1/analytics/outcomes/recalculate${qs({ threshold })}`, {
+      method: "POST",
+    }),
+  getProgramPloAttainment: (programId: number) =>
+    fetcher<ApiPloAttainment[]>(`/api/v1/analytics/outcomes/program/${programId}/plos`),
+  getCourseCloAttainment: (courseId: number, sectionId?: number) =>
+    fetcher<ApiCloAttainment[]>(`/api/v1/analytics/outcomes/course/${courseId}/clos${qs({ section_id: sectionId })}`),
+  getStudentOutcomeProfile: (studentId: number) =>
+    fetcher<ApiStudentOutcomeProfile>(`/api/v1/analytics/outcomes/student/${studentId}`),
+  getOutcomeGaps: async (params?: { program_id?: number; limit?: number }) => {
+    const data = await fetcher<ApiOutcomeGapResponse>(`/api/v1/analytics/outcomes/gaps${qs(params ?? {})}`)
+    return [
+      ...data.weak_plos.map((item) => ({
+        scope_type: "plo" as const,
+        id: item.plo_id,
+        code: item.code,
+        name: item.name,
+        parent_code: "",
+        avg_score: item.avg_score,
+        attainment_rate: item.attainment_rate,
+        assessed_count: item.assessed_students,
+      })),
+      ...data.weak_clos.map((item) => ({
+        scope_type: "clo" as const,
+        id: item.clo_id,
+        code: item.code,
+        name: item.name,
+        parent_code: item.course_name,
+        avg_score: item.avg_score,
+        attainment_rate: item.attainment_rate,
+        assessed_count: item.assessed_enrollments,
+      })),
+    ] satisfies ApiOutcomeGap[]
+  },
+
+  // --- Daily Brief ---
+  getDailyBrief: () =>
+    fetcher<ApiDailyBrief>("/api/v1/analytics/brief"),
+
+  // --- Tasks ---
+  getTasks: (params?: { status?: ApiTaskStatus; assignee_id?: string; scope_type?: string; limit?: number }) =>
+    fetcher<ApiTask[]>(`/api/v1/tasks${qs(params ?? {})}`),
+  createTask: (body: ApiCreateTask) =>
+    fetcher<ApiTask>("/api/v1/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  updateTask: (id: number, body: Partial<Pick<ApiTask, "status" | "assignee_id" | "deadline" | "resolution_note">>) =>
+    fetcher<ApiTask>(`/api/v1/tasks/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  submitTask: (id: number, note: string) =>
+    fetcher<ApiTask>(`/api/v1/tasks/${id}/submit`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ resolution_note: note }) }),
+  closeTask: (id: number, note: string) =>
+    fetcher<ApiTask>(`/api/v1/tasks/${id}/close`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ resolution_note: note }) }),
+  addTaskComment: (id: number, comment: string) =>
+    fetcher<ApiTaskComment>(`/api/v1/tasks/${id}/comments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ comment }) }),
+
+  // --- Interventions ---
+  getInterventions: (params?: { student_id?: number; limit?: number }) =>
+    fetcher<ApiIntervention[]>(`/api/v1/interventions${qs(params ?? {})}`),
+  createIntervention: (body: ApiCreateIntervention) =>
+    fetcher<ApiIntervention>("/api/v1/interventions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  getStudentInterventions: (studentId: number) =>
+    fetcher<ApiIntervention[]>(`/api/v1/students/${studentId}/interventions`),
 
   // --- Chat ---
   chat: (body: ChatRequest) =>

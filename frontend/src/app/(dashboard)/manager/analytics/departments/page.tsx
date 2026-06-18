@@ -1,304 +1,552 @@
 "use client"
 
 import * as React from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { Building2, Users, TrendingUp, CheckCircle2, AlertTriangle } from "lucide-react"
-import { api, type ApiSection, type ApiSemester } from "@/lib/api"
+import Link from "next/link"
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+  AlertTriangle,
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  BookOpen,
+  Building2,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  GraduationCap,
+  TrendingUp,
+  Users,
+} from "lucide-react"
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  ReferenceLine,
+  ResponsiveContainer,
+  Scatter,
+  ScatterChart,
+  Tooltip,
+  XAxis,
+  YAxis,
+  ZAxis,
 } from "recharts"
 
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { FilterCombobox } from "@/components/ui/filter-combobox"
+import {
+  api,
+  type ApiCourse,
+  type ApiDepartment,
+  type ApiEnrollment,
+  type ApiProgram,
+  type ApiSection,
+  type ApiSemester,
+  type ApiStudent,
+} from "@/lib/api"
+
+// ─── GPA tier definitions (4.0 scale) ────────────────────────────────────────
+const GPA_TIERS = [
+  { key: "xuat_sac", label: "Xuất sắc",    min: 3.6, max: 4.1,  color: "#10b981" },
+  { key: "gioi",     label: "Giỏi",         min: 3.2, max: 3.6,  color: "#3b82f6" },
+  { key: "kha",      label: "Khá",          min: 2.5, max: 3.2,  color: "#a3e635" },
+  { key: "tb",       label: "Trung bình",   min: 2.0, max: 2.5,  color: "#f59e0b" },
+  { key: "nguy_co",  label: "Nguy cơ",      min: 0,   max: 2.0,  color: "#ef4444" },
+]
+
+type UnitStat = {
+  id: number
+  name: string
+  shortName: string
+  parentName?: string
+  activeStudents: number
+  totalEnrollments: number
+  passRate: number
+  failRate: number
+  avgGpa: number
+  atRisk: number
+  atRiskPct: number
+  avgGrade: number
+  worstCourse: string
+  gpaTiers: Record<string, number>
+  prevPassRate: number | null
+  trend: "up" | "down" | "stable" | null
+}
+
 type Raw = {
-  departments: Awaited<ReturnType<typeof api.getDepartments>>
-  programs:    Awaited<ReturnType<typeof api.getPrograms>>
-  students:    Awaited<ReturnType<typeof api.getStudents>>
-  enrollments: Awaited<ReturnType<typeof api.getEnrollments>>
-  sections:    ApiSection[]
-  semesters:   ApiSemester[]
-  courses:     Awaited<ReturnType<typeof api.getCourses>>
+  departments: ApiDepartment[]
+  programs: ApiProgram[]
+  students: ApiStudent[]
+  enrollments: ApiEnrollment[]
+  sections: ApiSection[]
+  semesters: ApiSemester[]
+  courses: ApiCourse[]
 }
 
-// Simple heatmap cell color: value 0–100
-function heatColor(value: number): string {
-  if (value >= 80) return "bg-emerald-500"
-  if (value >= 70) return "bg-emerald-300"
-  if (value >= 60) return "bg-yellow-300"
-  if (value >= 50) return "bg-orange-400"
-  return "bg-red-500"
+// ─── helpers ─────────────────────────────────────────────────────────────────
+function pct(a: number, b: number) { return b > 0 ? +(a / b * 100).toFixed(1) : 0 }
+function wavg(arr: number[]) { return arr.length > 0 ? arr.reduce((s, v) => s + v, 0) / arr.length : 0 }
+function passColor(r: number) { return r >= 75 ? "#22c55e" : r >= 60 ? "#f59e0b" : "#ef4444" }
+function gpaColor(g: number) { return g >= 3.2 ? "#22c55e" : g >= 2.5 ? "#3b82f6" : g >= 2.0 ? "#f59e0b" : "#ef4444" }
+function shortLabel(name: string, max = 22) {
+  const s = name.replace(/^(Khoa|Ngành|Bộ môn)\s+/i, "")
+  return s.length > max ? s.slice(0, max) + "…" : s
 }
 
-export default function DepartmentsAnalyticsPage() {
-  const [raw, setRaw]           = React.useState<Raw | null>(null)
-  const [selSem, setSelSem]     = React.useState("all")
-  const [selDept, setSelDept]   = React.useState("all")
-  const [selProg, setSelProg]   = React.useState("all")
+function heatCls(v: number) {
+  if (v >= 80) return "bg-emerald-500 text-white"
+  if (v >= 70) return "bg-emerald-300 text-emerald-900"
+  if (v >= 60) return "bg-yellow-300 text-yellow-900"
+  if (v >= 50) return "bg-orange-400 text-white"
+  return "bg-red-500 text-white"
+}
+
+// ─── page ────────────────────────────────────────────────────────────────────
+export default function DeptComparisonPage() {
+  const [raw, setRaw] = React.useState<Raw | null>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [analysisLevel, setAnalysisLevel] = React.useState<"dept" | "program">("dept")
+  const [selectedSemCode, setSelectedSemCode] = React.useState("all")
+  const [selectedDeptId, setSelectedDeptId] = React.useState("all")
+  const [minEnrollment, setMinEnrollment] = React.useState("5")
+  const [expandedRow, setExpandedRow] = React.useState<number | null>(null)
+  const [sortField, setSortField] = React.useState("passRate")
+  const [sortDir, setSortDir] = React.useState<"asc" | "desc">("asc")
 
   React.useEffect(() => {
     Promise.all([
       api.getDepartments({ limit: 100 }),
-      api.getPrograms({ limit: 100 }),
-      api.getStudents({ limit: 1000 }),
+      api.getPrograms({ limit: 1000 }),
+      api.getStudents({ limit: 50000 }),
       api.getEnrollments({ limit: 50000 }),
-      api.getSections({ limit: 5000 }),
+      api.getSections({ limit: 50000 }),
       api.getSemesters(),
-      api.getCourses({ limit: 500 }),
-    ]).then(([departments, programs, students, enrollments, sections, semesters, courses]) =>
-      setRaw({ departments, programs, students, enrollments, sections, semesters, courses })
-    ).catch(console.error)
+      api.getCourses({ limit: 5000 }),
+    ])
+      .then(([departments, programs, students, enrollments, sections, semesters, courses]) =>
+        setRaw({ departments, programs, students, enrollments, sections, semesters, courses }),
+      )
+      .catch(console.error)
+      .finally(() => setLoading(false))
   }, [])
 
-  // Derived maps
+  // ── static maps ────────────────────────────────────────────────────────────
   const maps = React.useMemo(() => {
     if (!raw) return null
-    const secMap    = new Map(raw.sections.map(s => [s.id, s]))
-    const semMap    = new Map(raw.semesters.map(s => [s.id, s]))
-    const progMap   = new Map(raw.programs.map(p => [p.id, p]))
-    const courseMap = new Map(raw.courses.map(c => [c.id, c]))
-    const studentDept = new Map<number, number>()
-    const studentProg = new Map<number, number>()
-    for (const s of raw.students) {
-      const prog = progMap.get(s.program_id)
-      if (prog) { studentDept.set(s.id, prog.department_id); studentProg.set(s.id, s.program_id) }
-    }
-    return { secMap, semMap, progMap, courseMap, studentDept, studentProg }
+    const secMap = new Map(raw.sections.map((s) => [s.id, s]))
+    const progMap = new Map(raw.programs.map((p) => [p.id, p]))
+    const deptMap = new Map(raw.departments.map((d) => [d.id, d]))
+    const courseMap = new Map(raw.courses.map((c) => [c.id, c]))
+    return { secMap, progMap, deptMap, courseMap }
   }, [raw])
 
-  // Filter enrollments by semester
-  const filteredEnrollments = React.useMemo(() => {
-    if (!raw || !maps) return raw?.enrollments ?? []
-    if (selSem === "all") return raw.enrollments
-    const semId = raw.semesters.find(s => s.code === selSem)?.id
-    if (!semId) return raw.enrollments
-    return raw.enrollments.filter(e => maps.secMap.get(e.section_id)?.semester_id === semId)
-  }, [raw, maps, selSem])
-
-  // Programs scoped to selected dept
-  const filteredPrograms = React.useMemo(() => {
+  // ── sorted semesters ────────────────────────────────────────────────────────
+  const sortedSems = React.useMemo(() => {
     if (!raw) return []
-    if (selDept === "all") return raw.programs
-    return raw.programs.filter(p => p.department_id === Number(selDept))
-  }, [raw, selDept])
+    return [...raw.semesters].sort((a, b) =>
+      a.year !== b.year ? a.year - b.year : a.term - b.term,
+    )
+  }, [raw])
 
-  // Per-department stats
-  const deptStats = React.useMemo(() => {
-    if (!raw || !maps) return null
-    const { studentDept, studentProg } = maps
+  // ── active students ─────────────────────────────────────────────────────────
+  const activeStudents = React.useMemo(
+    () => raw?.students.filter((s) => s.status === "active") ?? [],
+    [raw],
+  )
 
-    return raw.departments.map(dept => {
-      const deptStudents = raw.students.filter(s => {
-        const ok = studentDept.get(s.id) === dept.id
-        if (!ok) return false
-        if (selProg !== "all" && studentProg.get(s.id) !== Number(selProg)) return false
-        return true
-      })
+  // ── semester IDs for trend ──────────────────────────────────────────────────
+  const { currentSemId, prevSemId } = React.useMemo(() => {
+    if (sortedSems.length === 0) return { currentSemId: null, prevSemId: null }
+    if (selectedSemCode === "all") {
+      const n = sortedSems.length
+      return { currentSemId: sortedSems[n - 1]?.id ?? null, prevSemId: sortedSems[n - 2]?.id ?? null }
+    }
+    const idx = sortedSems.findIndex((s) => s.code === selectedSemCode)
+    return {
+      currentSemId: idx >= 0 ? sortedSems[idx].id : null,
+      prevSemId: idx > 0 ? sortedSems[idx - 1].id : null,
+    }
+  }, [sortedSems, selectedSemCode])
 
-      const deptEnrolls = filteredEnrollments.filter(e => {
-        const dId = studentDept.get(e.student_id)
-        if (dId !== dept.id) return false
-        if (selProg !== "all" && studentProg.get(e.student_id) !== Number(selProg)) return false
-        return true
-      })
-
-      const valid    = deptEnrolls.filter(e => e.is_passed !== null)
-      const passRate = valid.length ? valid.filter(e => e.is_passed).length / valid.length * 100 : 0
-      const withGpa  = deptStudents.filter(s => s.gpa_cumulative !== null)
-      const avgGpa   = withGpa.length ? withGpa.reduce((s, x) => s + x.gpa_cumulative!, 0) / withGpa.length : 0
-      const atRisk   = deptStudents.filter(s => s.gpa_cumulative !== null && s.gpa_cumulative < 2.0).length
-      const shortName = dept.name.replace(/^Khoa\s+/i, "").replace(/^Bộ môn\s+/i, "")
-
-      return {
-        id: dept.id,
-        name: dept.name,
-        shortName: shortName.length > 18 ? shortName.slice(0, 18) + "…" : shortName,
-        studentCount: deptStudents.length,
-        passRate: Math.round(passRate * 10) / 10,
-        avgGpa: Math.round(avgGpa * 100) / 100,
-        atRisk,
-      }
-    }).sort((a, b) => b.studentCount - a.studentCount)
-  }, [raw, maps, filteredEnrollments, selProg])
-
-  // Heatmap: dept × semester pass rate (last 8 semesters)
-  const heatmap = React.useMemo(() => {
-    if (!raw || !maps) return null
-    const { secMap, semMap, studentDept } = maps
-    const sems = raw.semesters.slice().sort((a, b) => `${a.year}-${a.term}`.localeCompare(`${b.year}-${b.term}`)).slice(-8)
-
-    const matrix = raw.departments.map(dept => {
-      const cells = sems.map(sem => {
-        const enrolsInSemDept = raw.enrollments.filter(e => {
-          const sec = secMap.get(e.section_id)
-          return sec?.semester_id === sem.id && studentDept.get(e.student_id) === dept.id && e.is_passed !== null
-        })
-        const rate = enrolsInSemDept.length ? enrolsInSemDept.filter(e => e.is_passed).length / enrolsInSemDept.length * 100 : null
-        return rate
-      })
-      const shortName = dept.name.replace(/^Khoa\s+/i, "").replace(/^Bộ môn\s+/i, "")
-      return { dept: shortName.length > 20 ? shortName.slice(0, 20) + "…" : shortName, cells }
+  // ── enrollments for selected semester ──────────────────────────────────────
+  const filteredEnrolls = React.useMemo(() => {
+    if (!raw || !maps) return []
+    const activeIds = new Set(activeStudents.map((s) => s.id))
+    const semId = selectedSemCode === "all"
+      ? null
+      : sortedSems.find((s) => s.code === selectedSemCode)?.id ?? null
+    return raw.enrollments.filter((e) => {
+      if (!activeIds.has(e.student_id)) return false
+      if (semId !== null) return maps.secMap.get(e.section_id)?.semester_id === semId
+      return true
     })
+  }, [raw, maps, activeStudents, selectedSemCode, sortedSems])
 
-    return { sems: sems.map(s => s.code), matrix }
-  }, [raw, maps])
+  // ── enrollments for previous semester (trend) ───────────────────────────────
+  const prevEnrolls = React.useMemo(() => {
+    if (!raw || !maps || !prevSemId) return []
+    const activeIds = new Set(activeStudents.map((s) => s.id))
+    return raw.enrollments.filter(
+      (e) => activeIds.has(e.student_id) && maps.secMap.get(e.section_id)?.semester_id === prevSemId,
+    )
+  }, [raw, maps, activeStudents, prevSemId])
 
-  // Drill-down: top 10 fail courses in selected dept
-  const drillCourseFail = React.useMemo(() => {
-    if (!raw || !maps || selDept === "all") return null
-    const deptId = Number(selDept)
-    const { secMap, semMap, courseMap, studentDept } = maps
-
-    // courses that belong to this department via program_courses
-    const deptProgIds = new Set(raw.programs.filter(p => p.department_id === deptId).map(p => p.id))
-    // enrollments where student is in this dept
-    const courseStatsMap = new Map<number, { total: number; failed: number }>()
-    for (const e of filteredEnrollments) {
-      if (e.is_passed === null) continue
-      if (studentDept.get(e.student_id) !== deptId) continue
-      const sec = secMap.get(e.section_id); if (!sec) continue
-      const s = courseStatsMap.get(sec.course_id) ?? { total: 0, failed: 0 }
-      s.total++; if (!e.is_passed) s.failed++
-      courseStatsMap.set(sec.course_id, s)
+  // ── unit list (departments OR programs) ────────────────────────────────────
+  const units = React.useMemo(() => {
+    if (!raw || !maps) return []
+    if (analysisLevel === "dept") {
+      return raw.departments.map((d) => ({ id: d.id, name: d.name, parentName: undefined as string | undefined }))
     }
+    return raw.programs
+      .filter((p) => selectedDeptId === "all" || p.department_id === Number(selectedDeptId))
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        parentName: maps.deptMap.get(p.department_id)?.name,
+      }))
+  }, [raw, maps, analysisLevel, selectedDeptId])
 
-    return [...courseStatsMap.entries()]
-      .filter(([, s]) => s.total >= 5)
-      .map(([cid, s]) => {
-        const c = courseMap.get(cid)
-        const rate = s.failed / s.total * 100
-        return { name: c ? (c.name.length > 30 ? c.name.slice(0, 30) + "…" : c.name) : `Môn ${cid}`, rate: +rate.toFixed(1), total: s.total, failed: s.failed }
-      })
-      .sort((a, b) => b.rate - a.rate)
-      .slice(0, 10)
-  }, [raw, maps, filteredEnrollments, selDept])
-
-  // Drill-down: top 10 abnormal sections (fail > avg+15pp)
-  const drillSectionAbnormal = React.useMemo(() => {
-    if (!raw || !maps || selDept === "all") return null
-    const deptId = Number(selDept)
-    const { secMap, courseMap, studentDept } = maps
-
-    // pass rate per course (avg) and per section
-    const courseTotal = new Map<number, { passed: number; total: number }>()
-    const secStats    = new Map<number, { passed: number; total: number; courseId: number; code: string }>()
-
-    for (const e of filteredEnrollments) {
-      if (e.is_passed === null) continue
-      if (studentDept.get(e.student_id) !== deptId) continue
-      const sec = secMap.get(e.section_id); if (!sec) continue
-
-      const ct = courseTotal.get(sec.course_id) ?? { passed: 0, total: 0 }
-      ct.total++; if (e.is_passed) ct.passed++
-      courseTotal.set(sec.course_id, ct)
-
-      const ss = secStats.get(e.section_id) ?? { passed: 0, total: 0, courseId: sec.course_id, code: sec.section_code }
-      ss.total++; if (e.is_passed) ss.passed++
-      secStats.set(e.section_id, ss)
+  // ── precompute student sets per unit ────────────────────────────────────────
+  const unitStudentSets = React.useMemo(() => {
+    const result = new Map<number, Set<number>>()
+    if (!raw || !maps) return result
+    for (const unit of units) {
+      const ids = new Set<number>()
+      if (analysisLevel === "dept") {
+        for (const s of activeStudents) {
+          const prog = maps.progMap.get(s.program_id)
+          if (prog?.department_id === unit.id) ids.add(s.id)
+        }
+      } else {
+        for (const s of activeStudents) {
+          if (s.program_id === unit.id) ids.add(s.id)
+        }
+      }
+      result.set(unit.id, ids)
     }
+    return result
+  }, [raw, maps, units, analysisLevel, activeStudents])
 
-    return [...secStats.entries()]
-      .filter(([, s]) => s.total >= 5)
-      .map(([, s]) => {
-        const ct     = courseTotal.get(s.courseId)
-        const c      = courseMap.get(s.courseId)
-        const secFail = (1 - s.passed / s.total) * 100
-        const avgFail = ct ? (1 - ct.passed / ct.total) * 100 : 0
-        const diff    = secFail - avgFail
-        return { code: s.code, courseName: c ? (c.name.length > 25 ? c.name.slice(0, 25) + "…" : c.name) : "—", failRate: +secFail.toFixed(1), avgFail: +avgFail.toFixed(1), diff: +diff.toFixed(1) }
+  // ── compute stats for every unit ───────────────────────────────────────────
+  const unitStats: UnitStat[] = React.useMemo(() => {
+    if (!raw || !maps || units.length === 0) return []
+    const minE = Number(minEnrollment) || 0
+
+    return units.flatMap((unit) => {
+      const studentIds = unitStudentSets.get(unit.id) ?? new Set<number>()
+      const unitStudents = activeStudents.filter((s) => studentIds.has(s.id))
+
+      const enrolls = filteredEnrolls.filter((e) => studentIds.has(e.student_id))
+      const valid = enrolls.filter((e) => e.is_passed !== null)
+      if (valid.length < minE) return []
+
+      const passed = valid.filter((e) => e.is_passed).length
+      const passRate = pct(passed, valid.length)
+      const failRate = pct(valid.length - passed, valid.length)
+
+      const gpas = unitStudents.flatMap((s) => s.gpa_cumulative !== null ? [s.gpa_cumulative] : [])
+      const avgGpa = +wavg(gpas).toFixed(2)
+      const atRisk = gpas.filter((g) => g < 2.0).length
+      const atRiskPct = pct(atRisk, unitStudents.length)
+
+      const grades = enrolls.flatMap((e) => e.final_grade !== null ? [e.final_grade] : [])
+      const avgGrade = +wavg(grades).toFixed(2)
+
+      // GPA tiers (%)
+      const tierCounts = Object.fromEntries(GPA_TIERS.map((t) => [t.key, 0]))
+      for (const g of gpas) {
+        const t = GPA_TIERS.find((t) => g >= t.min && g < t.max)
+        if (t) tierCounts[t.key]++
+      }
+      const gpaTiers = Object.fromEntries(
+        GPA_TIERS.map((t) => [t.key, pct(tierCounts[t.key], gpas.length || 1)]),
+      )
+
+      // Worst course
+      const cfMap = new Map<number, { t: number; f: number }>()
+      for (const e of valid) {
+        const courseId = maps.secMap.get(e.section_id)?.course_id
+        if (!courseId) continue
+        const s = cfMap.get(courseId) ?? { t: 0, f: 0 }
+        s.t++
+        if (!e.is_passed) s.f++
+        cfMap.set(courseId, s)
+      }
+      let worstCourse = "—"
+      let worstRate = 0
+      for (const [cid, s] of cfMap.entries()) {
+        if (s.t < 5) continue
+        const r = s.f / s.t
+        if (r > worstRate) {
+          worstRate = r
+          const c = maps.courseMap.get(cid)
+          worstCourse = c ? (c.name.length > 34 ? c.name.slice(0, 34) + "…" : c.name) : `Môn ${cid}`
+        }
+      }
+
+      // Trend
+      let prevPassRate: number | null = null
+      let trend: "up" | "down" | "stable" | null = null
+      if (prevSemId !== null && prevEnrolls.length > 0) {
+        const prev = prevEnrolls.filter((e) => studentIds.has(e.student_id) && e.is_passed !== null)
+        if (prev.length >= 5) {
+          prevPassRate = pct(prev.filter((e) => e.is_passed).length, prev.length)
+          const diff = passRate - prevPassRate
+          trend = diff > 2 ? "up" : diff < -2 ? "down" : "stable"
+        }
+      }
+
+      return [{
+        id: unit.id,
+        name: unit.name,
+        shortName: shortLabel(unit.name),
+        parentName: unit.parentName,
+        activeStudents: unitStudents.length,
+        totalEnrollments: valid.length,
+        passRate,
+        failRate,
+        avgGpa,
+        atRisk,
+        atRiskPct,
+        avgGrade,
+        worstCourse,
+        gpaTiers,
+        prevPassRate,
+        trend,
+      }]
+    })
+  }, [raw, maps, units, activeStudents, filteredEnrolls, prevEnrolls, prevSemId, minEnrollment, unitStudentSets])
+
+  // ── sort helpers ────────────────────────────────────────────────────────────
+  function toggleSort(field: string) {
+    setSortDir((d) => (sortField === field ? (d === "asc" ? "desc" : "asc") : "asc"))
+    setSortField(field)
+  }
+  function SortArrow({ field }: { field: string }) {
+    if (sortField !== field) return <span className="ml-0.5 text-muted-foreground/40">↕</span>
+    return <span className="ml-0.5">{sortDir === "asc" ? "↑" : "↓"}</span>
+  }
+
+  const tableRows = React.useMemo(() => {
+    return [...unitStats].sort((a, b) => {
+      const va = (a[sortField as keyof UnitStat] ?? 0) as number
+      const vb = (b[sortField as keyof UnitStat] ?? 0) as number
+      return sortDir === "asc" ? va - vb : vb - va
+    })
+  }, [unitStats, sortField, sortDir])
+
+  // ── chart datasets ──────────────────────────────────────────────────────────
+  const barPassData = React.useMemo(
+    () => [...unitStats].filter((u) => u.totalEnrollments > 0).sort((a, b) => a.passRate - b.passRate),
+    [unitStats],
+  )
+  const barGpaData = React.useMemo(
+    () => [...unitStats].filter((u) => u.activeStudents > 0).sort((a, b) => a.avgGpa - b.avgGpa),
+    [unitStats],
+  )
+  const scatterData = React.useMemo(
+    () =>
+      unitStats.map((u) => ({
+        x: u.activeStudents,
+        y: u.passRate,
+        z: Math.max(u.atRisk, 1),
+        name: u.shortName,
+        fullName: u.name,
+        passRate: u.passRate,
+        students: u.activeStudents,
+        atRisk: u.atRisk,
+        avgGpa: u.avgGpa,
+      })),
+    [unitStats],
+  )
+  const stackedGpaData = React.useMemo(
+    () =>
+      [...unitStats]
+        .filter((u) => u.activeStudents >= 5)
+        .sort((a, b) => a.gpaTiers["nguy_co"] - b.gpaTiers["nguy_co"])
+        .map((u) => ({ name: u.shortName, ...u.gpaTiers })),
+    [unitStats],
+  )
+  const heatmapData = React.useMemo(() => {
+    if (!raw || !maps) return null
+    const sems = sortedSems.slice(-8)
+    const activeIds = new Set(activeStudents.map((s) => s.id))
+    const matrix = units.slice(0, 20).map((unit) => {
+      const studentIds = unitStudentSets.get(unit.id) ?? new Set<number>()
+      const cells = sems.map((sem) => {
+        const es = raw.enrollments.filter(
+          (e) =>
+            activeIds.has(e.student_id) &&
+            studentIds.has(e.student_id) &&
+            maps.secMap.get(e.section_id)?.semester_id === sem.id &&
+            e.is_passed !== null,
+        )
+        return es.length >= 5 ? pct(es.filter((e) => e.is_passed).length, es.length) : null
       })
-      .filter(s => s.diff >= 15)
-      .sort((a, b) => b.failRate - a.failRate)
-      .slice(0, 10)
-  }, [raw, maps, filteredEnrollments, selDept])
+      return { name: shortLabel(unit.name, 20), cells }
+    })
+    return { sems: sems.map((s) => s.code), matrix }
+  }, [raw, maps, units, activeStudents, sortedSems, unitStudentSets])
 
-  const totalStudents  = deptStats?.reduce((s, d) => s + d.studentCount, 0) ?? 0
-  const overallPass    = deptStats?.length ? deptStats.reduce((s, d) => s + d.passRate, 0) / deptStats.length : 0
-  const overallGpa     = totalStudents ? (deptStats?.reduce((s, d) => s + d.avgGpa * d.studentCount, 0) ?? 0) / totalStudents : 0
-  const totalAtRisk    = deptStats?.reduce((s, d) => s + d.atRisk, 0) ?? 0
+  // ── KPIs ───────────────────────────────────────────────────────────────────
+  const kpis = React.useMemo(() => {
+    if (unitStats.length === 0) return null
+    const totalStudents = unitStats.reduce((s, u) => s + u.activeStudents, 0)
+    const totalE = unitStats.reduce((s, u) => s + u.totalEnrollments, 0)
+    const totalPassed = unitStats.reduce((s, u) => s + Math.round(u.passRate / 100 * u.totalEnrollments), 0)
+    const weightedPassRate = pct(totalPassed, totalE)
+    const weightedGpa = totalStudents > 0
+      ? +(unitStats.reduce((s, u) => s + u.avgGpa * u.activeStudents, 0) / totalStudents).toFixed(2)
+      : 0
+    const rates = unitStats.filter((u) => u.totalEnrollments >= 10).map((u) => u.passRate)
+    const spread = rates.length >= 2 ? +(Math.max(...rates) - Math.min(...rates)).toFixed(1) : null
+    return { count: unitStats.length, totalStudents, weightedPassRate, weightedGpa, spread }
+  }, [unitStats])
 
-  const semesters      = raw?.semesters.slice().sort((a, b) => `${a.year}-${a.term}`.localeCompare(`${b.year}-${b.term}`)) ?? []
-  const selectedDeptName = raw?.departments.find(d => d.id === Number(selDept))?.name ?? ""
+  // ─── render ────────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex h-80 items-center justify-center text-sm text-muted-foreground">
+        Đang tải dữ liệu so sánh...
+      </div>
+    )
+  }
+
+  const unitLabel = analysisLevel === "dept" ? "khoa" : "ngành"
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Header + Filters */}
-      <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-5">
+      {/* ── Header + filters ─────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Phân tích theo Khoa / Ngành</h1>
-          <p className="text-sm text-muted-foreground">So sánh hiệu quả đào tạo giữa các khoa theo thời gian</p>
+          <h1 className="text-2xl font-bold tracking-tight">So sánh Khoa / Ngành</h1>
+          <p className="text-sm text-muted-foreground">
+            Các đơn vị đào tạo đang chênh lệch như thế nào về pass rate, GPA và sinh viên nguy cơ?
+          </p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Select value={selSem} onValueChange={v => setSelSem(v ?? "all")}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Học kỳ" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả học kỳ</SelectItem>
-              {semesters.map(s => <SelectItem key={s.id} value={s.code}>{s.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
 
-          <Select value={selDept} onValueChange={v => { setSelDept(v ?? "all"); setSelProg("all") }}>
-            <SelectTrigger className="w-52">
-              <SelectValue placeholder="Khoa" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả khoa</SelectItem>
-              {raw?.departments.map(d => <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Cấp phân tích toggle */}
+          <div className="flex overflow-hidden rounded-lg border text-sm">
+            {(["dept", "program"] as const).map((lvl) => (
+              <button
+                key={lvl}
+                className={`px-3 py-1.5 transition-colors ${
+                  analysisLevel === lvl
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-muted/50"
+                }`}
+                onClick={() => { setAnalysisLevel(lvl); setSelectedDeptId("all"); setExpandedRow(null) }}
+              >
+                {lvl === "dept" ? "Khoa" : "Ngành"}
+              </button>
+            ))}
+          </div>
 
-          <Select value={selProg} onValueChange={v => setSelProg(v ?? "all")} disabled={selDept === "all"}>
-            <SelectTrigger className="w-52">
-              <SelectValue placeholder="Ngành" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả ngành</SelectItem>
-              {filteredPrograms.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <FilterCombobox
+            className="w-48"
+            placeholder="Tất cả học kỳ"
+            value={selectedSemCode}
+            onValueChange={(v) => setSelectedSemCode(v)}
+            options={sortedSems.map((s) => ({ value: s.code, label: s.name }))}
+          />
+
+          {analysisLevel === "program" && (
+            <FilterCombobox
+              className="w-60"
+              placeholder="Tất cả khoa"
+              value={selectedDeptId}
+              onValueChange={(v) => setSelectedDeptId(v)}
+              options={(raw?.departments ?? []).map((d) => ({ value: String(d.id), label: d.name }))}
+            />
+          )}
+
+          <FilterCombobox
+            className="w-44"
+            placeholder="Min enroll: Tất cả"
+            value={minEnrollment}
+            onValueChange={(v) => setMinEnrollment(v)}
+            clearValue="0"
+            options={[
+              { value: "5",   label: "Min enroll ≥ 5" },
+              { value: "20",  label: "Min enroll ≥ 20" },
+              { value: "50",  label: "Min enroll ≥ 50" },
+              { value: "100", label: "Min enroll ≥ 100" },
+            ]}
+          />
         </div>
       </div>
 
-      {/* 4 KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "Số khoa",        value: deptStats?.length ?? "—",                  icon: <Building2 className="h-5 w-5 text-muted-foreground" /> },
-          { label: "Tổng sinh viên", value: totalStudents || "—",                       icon: <Users className="h-5 w-5 text-muted-foreground" /> },
-          { label: "Pass rate TB",   value: deptStats ? `${overallPass.toFixed(1)}%` : "—", icon: <CheckCircle2 className="h-5 w-5 text-emerald-500" /> },
-          { label: "SV nguy cơ",     value: totalAtRisk || "—",                         icon: <AlertTriangle className={`h-5 w-5 ${totalAtRisk > 0 ? "text-destructive" : "text-muted-foreground"}`} /> },
-        ].map((k, i) => (
-          <Card key={i}>
-            <CardContent className="pt-5 pb-4">
-              <div className="flex items-start justify-between">
+      {/* ── KPI cards ────────────────────────────────────────────────────── */}
+      {kpis && (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          {[
+            {
+              label: `Số ${unitLabel}`,
+              value: kpis.count,
+              icon: analysisLevel === "dept" ? Building2 : GraduationCap,
+              color: "text-indigo-500",
+            },
+            { label: "Tổng SV active", value: kpis.totalStudents.toLocaleString("vi-VN"), icon: Users, color: "text-blue-500" },
+            { label: "Pass rate TB (weighted)", value: `${kpis.weightedPassRate}%`, icon: CheckCircle2, color: "text-emerald-500" },
+            { label: "GPA TB", value: kpis.weightedGpa.toFixed(2), icon: TrendingUp, color: "text-primary" },
+            {
+              label: "Chênh lệch pass rate",
+              value: kpis.spread !== null ? `${kpis.spread}%` : "—",
+              sub: kpis.spread !== null ? "cao nhất − thấp nhất" : undefined,
+              icon: AlertTriangle,
+              color: (kpis.spread ?? 0) > 20 ? "text-red-500" : "text-amber-500",
+            },
+          ].map((k, i) => (
+            <Card key={i}>
+              <CardContent className="flex items-start justify-between pt-5">
                 <div>
                   <p className="text-xs text-muted-foreground">{k.label}</p>
-                  <p className="text-3xl font-bold mt-1 tabular-nums">{k.value}</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums">{k.value}</p>
+                  {"sub" in k && k.sub && <p className="text-[10px] text-muted-foreground">{k.sub}</p>}
                 </div>
-                {k.icon}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                <k.icon className={`h-5 w-5 ${k.color}`} />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
-      {/* Section A: 3 comparison bar charts */}
-      <div className="grid lg:grid-cols-3 gap-4">
+      {/* ── Row 1: Pass rate bar + GPA bar ───────────────────────────────── */}
+      <div className="grid gap-4 xl:grid-cols-2">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Pass rate theo khoa (%)</CardTitle>
+          <CardHeader>
+            <CardTitle className="text-sm">Pass rate theo {unitLabel}</CardTitle>
+            <p className="text-xs text-muted-foreground">Sắp xếp tăng dần — đơn vị yếu nhất ở trên</p>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={deptStats ?? []} margin={{ left: 0, right: 16 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="shortName" tick={{ fontSize: 9 }} />
-                <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(v) => [`${v}%`, "Pass rate"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
-                <Bar dataKey="passRate" radius={[4, 4, 0, 0]}>
-                  {(deptStats ?? []).map((d, i) => (
-                    <Cell key={i} fill={d.passRate >= 75 ? "#22c55e" : d.passRate >= 60 ? "#f59e0b" : "#ef4444"} />
-                  ))}
+            <ResponsiveContainer width="100%" height={Math.max(200, barPassData.length * 38)}>
+              <BarChart data={barPassData} layout="vertical" margin={{ left: 8, right: 56 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10 }} />
+                <YAxis type="category" dataKey="shortName" width={155} tick={{ fontSize: 10 }} />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null
+                    const d = payload[0].payload as UnitStat
+                    return (
+                      <div className="rounded-lg border bg-background p-2 text-xs shadow-md">
+                        <p className="font-semibold">{d.name}</p>
+                        <p>Pass rate: <strong>{d.passRate}%</strong></p>
+                        <p>Enrollment: {d.totalEnrollments}</p>
+                        <p>SV nguy cơ: {d.atRisk}</p>
+                      </div>
+                    )
+                  }}
+                />
+                <Bar
+                  dataKey="passRate"
+                  radius={[0, 4, 4, 0]}
+                  label={{ position: "right", fontSize: 11, formatter: (v: number) => `${v}%` }}
+                >
+                  {barPassData.map((d, i) => <Cell key={i} fill={passColor(d.passRate)} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -306,68 +554,181 @@ export default function DepartmentsAnalyticsPage() {
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">GPA trung bình theo khoa</CardTitle>
+          <CardHeader>
+            <CardTitle className="text-sm">GPA trung bình theo {unitLabel}</CardTitle>
+            <p className="text-xs text-muted-foreground">Thang 4.0 — đường đỏ = ngưỡng nguy cơ 2.0</p>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={deptStats ?? []} margin={{ left: 0, right: 16 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="shortName" tick={{ fontSize: 9 }} />
-                <YAxis domain={[0, 4]} tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(v) => [v, "GPA"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
-                <Bar dataKey="avgGpa" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Số SV nguy cơ theo khoa</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={deptStats ?? []} margin={{ left: 0, right: 16 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="shortName" tick={{ fontSize: 9 }} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(v) => [v, "SV nguy cơ"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
-                <Bar dataKey="atRisk" fill="#ef4444" radius={[4, 4, 0, 0]} />
+            <ResponsiveContainer width="100%" height={Math.max(200, barGpaData.length * 38)}>
+              <BarChart data={barGpaData} layout="vertical" margin={{ left: 8, right: 56 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" domain={[0, 4]} tick={{ fontSize: 10 }} />
+                <YAxis type="category" dataKey="shortName" width={155} tick={{ fontSize: 10 }} />
+                <ReferenceLine
+                  x={2.0}
+                  stroke="#ef4444"
+                  strokeDasharray="4 2"
+                  label={{ value: "2.0", fill: "#ef4444", fontSize: 10, position: "insideTopLeft" }}
+                />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null
+                    const d = payload[0].payload as UnitStat
+                    return (
+                      <div className="rounded-lg border bg-background p-2 text-xs shadow-md">
+                        <p className="font-semibold">{d.name}</p>
+                        <p>GPA TB: <strong>{d.avgGpa}</strong></p>
+                        <p>SV active: {d.activeStudents}</p>
+                        <p>SV nguy cơ: {d.atRisk} ({d.atRiskPct}%)</p>
+                      </div>
+                    )
+                  }}
+                />
+                <Bar
+                  dataKey="avgGpa"
+                  radius={[0, 4, 4, 0]}
+                  label={{ position: "right", fontSize: 11 }}
+                >
+                  {barGpaData.map((d, i) => <Cell key={i} fill={gpaColor(d.avgGpa)} />)}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
 
-      {/* Heatmap: Khoa × Học kỳ */}
-      {heatmap && (
+      {/* ── Row 2: Bubble scatter + Stacked GPA ─────────────────────────── */}
+      <div className="grid gap-4 xl:grid-cols-2">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">Heatmap Pass rate — Khoa × Học kỳ (%)</CardTitle>
+          <CardHeader>
+            <CardTitle className="text-sm">Quy mô vs Chất lượng</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              X = SV active · Y = pass rate · Kích thước = số SV nguy cơ
+            </p>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <ScatterChart margin={{ top: 10, right: 20, bottom: 28, left: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  type="number"
+                  dataKey="x"
+                  name="SV active"
+                  tick={{ fontSize: 10 }}
+                  label={{ value: "Số SV active", position: "insideBottom", offset: -12, fontSize: 11 }}
+                />
+                <YAxis
+                  type="number"
+                  dataKey="y"
+                  name="Pass rate"
+                  domain={[0, 100]}
+                  tickFormatter={(v) => `${v}%`}
+                  tick={{ fontSize: 10 }}
+                  label={{ value: "Pass rate", angle: -90, position: "insideLeft", fontSize: 11 }}
+                />
+                <ZAxis type="number" dataKey="z" range={[50, 600]} />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null
+                    const d = payload[0].payload
+                    return (
+                      <div className="rounded-lg border bg-background p-2 text-xs shadow-md">
+                        <p className="font-semibold">{d.fullName}</p>
+                        <p>SV active: <strong>{d.students}</strong></p>
+                        <p>Pass rate: <strong>{d.passRate}%</strong></p>
+                        <p>
+                          SV nguy cơ:{" "}
+                          <strong className="text-red-600">{d.atRisk}</strong>
+                        </p>
+                        <p>GPA TB: {d.avgGpa}</p>
+                      </div>
+                    )
+                  }}
+                />
+                <Scatter data={scatterData} fillOpacity={0.7} strokeWidth={1}>
+                  {scatterData.map((d, i) => (
+                    <Cell key={i} fill={passColor(d.y)} stroke={passColor(d.y)} />
+                  ))}
+                </Scatter>
+              </ScatterChart>
+            </ResponsiveContainer>
+            <div className="mt-1 flex flex-wrap gap-3 text-[10px] text-muted-foreground">
+              {[["#ef4444", "Pass <60%"], ["#f59e0b", "60–75%"], ["#22c55e", "≥75%"]].map(([c, l]) => (
+                <span key={l} className="flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 rounded-full" style={{ background: c }} />
+                  {l}
+                </span>
+              ))}
+              <span>Bong bóng lớn hơn = nhiều SV nguy cơ hơn</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Cơ cấu học lực theo {unitLabel}</CardTitle>
+            <p className="text-xs text-muted-foreground">100% stacked — sắp xếp theo % nguy cơ tăng dần</p>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={Math.max(200, stackedGpaData.length * 30)}>
+              <BarChart data={stackedGpaData} layout="vertical" margin={{ left: 8, right: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10 }} />
+                <YAxis type="category" dataKey="name" width={155} tick={{ fontSize: 10 }} />
+                <Tooltip
+                  formatter={(v, name) => [`${v}%`, GPA_TIERS.find((t) => t.key === name)?.label ?? name]}
+                />
+                <Legend
+                  formatter={(v) => GPA_TIERS.find((t) => t.key === v)?.label ?? v}
+                  iconType="circle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: 11 }}
+                />
+                {GPA_TIERS.map((tier) => (
+                  <Bar key={tier.key} dataKey={tier.key} stackId="gpa" fill={tier.color} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Heatmap: unit × semester ──────────────────────────────────────── */}
+      {heatmapData && heatmapData.matrix.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">
+              Pass rate theo {unitLabel} × học kỳ
+            </CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto">
-            <table className="text-xs w-full min-w-[600px]">
+            <table className="w-full min-w-[600px] text-xs">
               <thead>
                 <tr>
-                  <th className="text-left pb-2 pr-3 text-muted-foreground font-medium w-40">Khoa</th>
-                  {heatmap.sems.map(s => (
-                    <th key={s} className="pb-2 px-1 text-center text-muted-foreground font-medium min-w-[64px]">{s}</th>
+                  <th className="w-44 pb-2 pr-3 text-left font-medium text-muted-foreground capitalize">
+                    {unitLabel}
+                  </th>
+                  {heatmapData.sems.map((s) => (
+                    <th key={s} className="min-w-[64px] pb-2 px-1 text-center font-medium text-muted-foreground">
+                      {s}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {heatmap.matrix.map((row, ri) => (
+                {heatmapData.matrix.map((row, ri) => (
                   <tr key={ri}>
-                    <td className="py-1.5 pr-3 font-medium text-[11px] leading-tight">{row.dept}</td>
+                    <td className="py-1.5 pr-3 text-[11px] font-medium leading-tight">{row.name}</td>
                     {row.cells.map((val, ci) => (
                       <td key={ci} className="py-1.5 px-1 text-center">
                         {val !== null ? (
-                          <span className={`inline-flex items-center justify-center rounded px-1.5 py-0.5 text-white font-medium min-w-[48px] ${heatColor(val)}`}>
+                          <span
+                            className={`inline-flex min-w-[48px] items-center justify-center rounded px-1.5 py-0.5 text-[11px] font-medium ${heatCls(val)}`}
+                          >
                             {val.toFixed(0)}%
                           </span>
                         ) : (
-                          <span className="text-muted-foreground">—</span>
+                          <span className="text-[11px] text-muted-foreground">—</span>
                         )}
                       </td>
                     ))}
@@ -375,108 +736,229 @@ export default function DepartmentsAnalyticsPage() {
                 ))}
               </tbody>
             </table>
-            <div className="flex items-center gap-3 mt-3 text-[10px] text-muted-foreground flex-wrap">
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-500 inline-block" /> ≥ 80%</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-300 inline-block" /> 70–79%</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-yellow-300 inline-block" /> 60–69%</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-orange-400 inline-block" /> 50–59%</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-500 inline-block" /> &lt; 50%</span>
+            <div className="mt-3 flex flex-wrap gap-3 text-[10px] text-muted-foreground">
+              {[["bg-emerald-500","≥80%"],["bg-emerald-300","70–79%"],["bg-yellow-300","60–69%"],["bg-orange-400","50–59%"],["bg-red-500","<50%"]].map(([cls, lbl]) => (
+                <span key={lbl} className="flex items-center gap-1">
+                  <span className={`inline-block h-3 w-3 rounded ${cls}`} />
+                  {lbl}
+                </span>
+              ))}
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Section B: Drill-down khi chọn khoa */}
-      {selDept !== "all" && (
-        <div className="flex flex-col gap-4">
-          <h2 className="text-base font-semibold flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-primary" />
-            Drill-down: {selectedDeptName}
-          </h2>
+      {/* ── Comparison table ─────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">
+            Bảng so sánh hiệu quả đào tạo theo {unitLabel}
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Click tiêu đề cột để sắp xếp. Click hàng để xem chi tiết.
+          </p>
+        </CardHeader>
+        <CardContent className="overflow-x-auto p-0">
+          <table className="w-full min-w-[1100px] text-xs">
+            <thead>
+              <tr className="border-b bg-muted/40 text-left text-muted-foreground">
+                <th className="w-6 px-3 py-3" />
+                <th
+                  className="cursor-pointer px-4 py-3 font-medium capitalize hover:text-foreground"
+                  onClick={() => toggleSort("name")}
+                >
+                  {unitLabel}<SortArrow field="name" />
+                </th>
+                {analysisLevel === "program" && (
+                  <th className="px-4 py-3 font-medium">Khoa quản lý</th>
+                )}
+                <th className="cursor-pointer px-3 py-3 text-right font-medium hover:text-foreground" onClick={() => toggleSort("activeStudents")}>SV active<SortArrow field="activeStudents" /></th>
+                <th className="cursor-pointer px-3 py-3 text-right font-medium hover:text-foreground" onClick={() => toggleSort("totalEnrollments")}>Lượt học<SortArrow field="totalEnrollments" /></th>
+                <th className="cursor-pointer px-3 py-3 text-right font-medium hover:text-foreground" onClick={() => toggleSort("passRate")}>Pass rate<SortArrow field="passRate" /></th>
+                <th className="cursor-pointer px-3 py-3 text-right font-medium hover:text-foreground" onClick={() => toggleSort("failRate")}>Fail rate<SortArrow field="failRate" /></th>
+                <th className="cursor-pointer px-3 py-3 text-right font-medium hover:text-foreground" onClick={() => toggleSort("avgGpa")}>GPA TB<SortArrow field="avgGpa" /></th>
+                <th className="cursor-pointer px-3 py-3 text-right font-medium hover:text-foreground" onClick={() => toggleSort("atRisk")}>SV nguy cơ<SortArrow field="atRisk" /></th>
+                <th className="cursor-pointer px-3 py-3 text-right font-medium hover:text-foreground" onClick={() => toggleSort("atRiskPct")}>% nguy cơ<SortArrow field="atRiskPct" /></th>
+                <th className="cursor-pointer px-3 py-3 text-right font-medium hover:text-foreground" onClick={() => toggleSort("avgGrade")}>Điểm TB môn<SortArrow field="avgGrade" /></th>
+                <th className="px-4 py-3 font-medium">Môn trượt nhiều nhất</th>
+                <th className="px-3 py-3 text-center font-medium">Xu hướng</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {tableRows.map((row) => {
+                const isOpen = expandedRow === row.id
+                const colSpan = analysisLevel === "program" ? 15 : 14
+                return (
+                  <React.Fragment key={row.id}>
+                    <tr
+                      className="cursor-pointer transition-colors hover:bg-muted/30"
+                      onClick={() => setExpandedRow(isOpen ? null : row.id)}
+                    >
+                      <td className="px-3 py-3 text-muted-foreground">
+                        {isOpen
+                          ? <ChevronDown className="size-3.5" />
+                          : <ChevronRight className="size-3.5" />}
+                      </td>
+                      <td className="px-4 py-3 font-medium leading-snug">{row.name}</td>
+                      {analysisLevel === "program" && (
+                        <td className="px-4 py-3 text-[11px] text-muted-foreground">{row.parentName}</td>
+                      )}
+                      <td className="px-3 py-3 text-right tabular-nums">{row.activeStudents}</td>
+                      <td className="px-3 py-3 text-right tabular-nums">{row.totalEnrollments}</td>
+                      <td className="px-3 py-3 text-right">
+                        <Badge variant={row.passRate < 60 ? "destructive" : "secondary"}>
+                          {row.passRate}%
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">{row.failRate}%</td>
+                      <td className="px-3 py-3 text-right tabular-nums">
+                        <span className={row.avgGpa < 2.0 ? "font-semibold text-red-600" : row.avgGpa < 2.5 ? "text-amber-600" : ""}>
+                          {row.avgGpa.toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-right tabular-nums">
+                        <span className={row.atRisk > 0 ? "font-semibold text-red-600" : "text-muted-foreground"}>
+                          {row.atRisk}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">{row.atRiskPct}%</td>
+                      <td className="px-3 py-3 text-right tabular-nums">{row.avgGrade.toFixed(2)}</td>
+                      <td className="max-w-[160px] truncate px-4 py-3 text-[11px] text-muted-foreground" title={row.worstCourse}>
+                        {row.worstCourse}
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        {row.trend === "up" && <ArrowUp className="mx-auto size-4 text-emerald-500" />}
+                        {row.trend === "down" && <ArrowDown className="mx-auto size-4 text-red-500" />}
+                        {row.trend === "stable" && <ArrowRight className="mx-auto size-4 text-muted-foreground" />}
+                        {row.trend === null && <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 gap-1 text-xs"
+                          asChild
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Link
+                            href={
+                              analysisLevel === "dept"
+                                ? `/manager/analytics/departments?dept=${row.id}`
+                                : `/manager/analytics/programs?program=${row.id}`
+                            }
+                          >
+                            <BookOpen className="size-3" />
+                            Xem
+                          </Link>
+                        </Button>
+                      </td>
+                    </tr>
 
-          <div className="grid lg:grid-cols-2 gap-4">
-            {/* Top 10 môn trượt */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Top 10 môn trượt cao nhất</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {!drillCourseFail?.length ? (
-                  <p className="text-xs text-muted-foreground py-6 text-center">Không đủ dữ liệu</p>
-                ) : (
-                  <ResponsiveContainer width="100%" height={Math.max(200, drillCourseFail.length * 34)}>
-                    <BarChart data={drillCourseFail} layout="vertical" margin={{ left: 0, right: 40, top: 4, bottom: 4 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                      <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10 }} />
-                      <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 10 }} />
-                      <Tooltip
-                        content={({ active, payload }) => {
-                          if (!active || !payload?.length) return null
-                          const d = payload[0].payload as { name: string; failed: number; total: number; rate: number }
-                          return (
-                            <div className="bg-background border rounded p-2 text-xs shadow-md">
-                              <p className="font-semibold">{d.name}</p>
-                              <p>Trượt: {d.failed}/{d.total} ({d.rate}%)</p>
+                    {/* ── expanded detail ─────────────────────────────── */}
+                    {isOpen && (
+                      <tr className="bg-muted/20">
+                        <td colSpan={colSpan} className="px-6 py-4">
+                          <div className="grid gap-4 sm:grid-cols-4">
+                            {/* GPA mini bar */}
+                            <div>
+                              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                Cơ cấu GPA
+                              </p>
+                              <div className="flex h-3 w-full overflow-hidden rounded">
+                                {GPA_TIERS.map((t) => (
+                                  row.gpaTiers[t.key] > 0 && (
+                                    <div
+                                      key={t.key}
+                                      style={{ width: `${row.gpaTiers[t.key]}%`, background: t.color }}
+                                      title={`${t.label}: ${row.gpaTiers[t.key]}%`}
+                                    />
+                                  )
+                                ))}
+                              </div>
+                              <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5">
+                                {GPA_TIERS.filter((t) => row.gpaTiers[t.key] > 0).map((t) => (
+                                  <span key={t.key} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                    <span className="inline-block h-2 w-2 rounded-sm" style={{ background: t.color }} />
+                                    {t.label}: {row.gpaTiers[t.key]}%
+                                  </span>
+                                ))}
+                              </div>
                             </div>
-                          )
-                        }}
-                      />
-                      <Bar dataKey="rate" radius={[0, 4, 4, 0]}>
-                        {drillCourseFail.map((d, i) => (
-                          <Cell key={i} fill={d.rate >= 40 ? "#ef4444" : d.rate >= 25 ? "#f97316" : "#f59e0b"} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </CardContent>
-            </Card>
 
-            {/* Top 10 lớp bất thường */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Top 10 lớp bất thường (fail &gt; TB môn ≥ 15%)</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                {!drillSectionAbnormal?.length ? (
-                  <p className="text-xs text-muted-foreground py-6 text-center px-4">Không có lớp bất thường</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b bg-muted/40">
-                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Mã lớp</th>
-                          <th className="text-left px-3 py-2 font-medium text-muted-foreground">Môn</th>
-                          <th className="text-right px-3 py-2 font-medium text-muted-foreground">Fail</th>
-                          <th className="text-right px-4 py-2 font-medium text-muted-foreground">Chênh</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {drillSectionAbnormal.map((s, i) => (
-                          <tr key={i} className="hover:bg-muted/20">
-                            <td className="px-4 py-2 font-mono text-[11px]">{s.code}</td>
-                            <td className="px-3 py-2 max-w-[140px] truncate" title={s.courseName}>{s.courseName}</td>
-                            <td className="px-3 py-2 text-right">
-                              <Badge variant="destructive" className="text-[10px]">{s.failRate}%</Badge>
-                            </td>
-                            <td className="px-4 py-2 text-right text-destructive font-medium">+{s.diff}%</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
+                            {/* Trend detail */}
+                            <div>
+                              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                Xu hướng pass rate
+                              </p>
+                              {row.prevPassRate !== null ? (
+                                <p className="text-xs">
+                                  Kỳ trước: <strong>{row.prevPassRate}%</strong>
+                                  {" → Kỳ này: "}
+                                  <strong>{row.passRate}%</strong>
+                                  {" ("}
+                                  <span
+                                    className={
+                                      row.passRate > row.prevPassRate
+                                        ? "text-emerald-600"
+                                        : row.passRate < row.prevPassRate
+                                          ? "text-red-600"
+                                          : "text-muted-foreground"
+                                    }
+                                  >
+                                    {row.passRate > row.prevPassRate ? "+" : ""}
+                                    {(row.passRate - row.prevPassRate).toFixed(1)}%
+                                  </span>
+                                  {")"}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">Chưa đủ dữ liệu so sánh kỳ trước</p>
+                              )}
+                            </div>
 
-      {selDept === "all" && (
-        <p className="text-xs text-muted-foreground text-center py-2">
-          ← Chọn một khoa cụ thể để xem drill-down: Top 10 môn trượt & lớp bất thường
-        </p>
-      )}
+                            {/* Worst course */}
+                            <div>
+                              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                Môn kéo điểm nhiều nhất
+                              </p>
+                              <p className="text-xs">{row.worstCourse}</p>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex flex-col gap-1.5">
+                              <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" asChild>
+                                <Link
+                                  href={
+                                    analysisLevel === "dept"
+                                      ? `/manager/analytics/departments?dept=${row.id}`
+                                      : `/manager/analytics/programs?program=${row.id}`
+                                  }
+                                >
+                                  <BookOpen className="size-3" />
+                                  Xem chi tiết
+                                </Link>
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" asChild>
+                                <Link
+                                  href={`/chat?q=${encodeURIComponent(
+                                    `Phân tích ${row.name}: pass rate ${row.passRate}%, GPA TB ${row.avgGpa}, ${row.atRisk} SV nguy cơ. Nguyên nhân và đề xuất?`,
+                                  )}`}
+                                >
+                                  Hỏi AI nguyên nhân
+                                </Link>
+                              </Button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                )
+              })}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
     </div>
   )
 }

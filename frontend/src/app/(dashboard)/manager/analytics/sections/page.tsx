@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { FilterCombobox } from "@/components/ui/filter-combobox"
 import { Badge } from "@/components/ui/badge"
 import { Users, AlertTriangle, CheckCircle2, TrendingDown } from "lucide-react"
 import { api, type ApiSection, type ApiSemester } from "@/lib/api"
@@ -175,44 +175,39 @@ export default function SectionsRiskPage() {
       {/* 3-step filter */}
       <Card>
         <CardContent className="pt-4 pb-4">
-          <div className="flex flex-wrap gap-3 items-center">
+          <div className="flex flex-wrap gap-3 items-end">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground w-4">1</span>
-              <Select value={selSem} onValueChange={v => { setSelSem(v ?? "all"); setSelCourse("all"); setSelSection("all") }}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Chọn Học kỳ" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả học kỳ</SelectItem>
-                  {semestersWithData.map(s => <SelectItem key={s.id} value={s.code}>{s.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <span className="text-xs font-semibold text-muted-foreground">1. Học kỳ</span>
+              <FilterCombobox
+                className="w-48"
+                placeholder="Tất cả học kỳ"
+                value={selSem}
+                onValueChange={v => { setSelSem(v); setSelCourse("all"); setSelSection("all") }}
+                options={semestersWithData.map(s => ({ value: s.code, label: s.name }))}
+              />
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground w-4">2</span>
-              <Select value={selCourse} onValueChange={v => { setSelCourse(v ?? "all"); setSelSection("all") }}>
-                <SelectTrigger className="w-64">
-                  <SelectValue placeholder="Chọn Môn học" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả môn</SelectItem>
-                  {coursesForSem.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.code} — {c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <span className="text-xs font-semibold text-muted-foreground">2. Môn học</span>
+              <FilterCombobox
+                className="w-64"
+                placeholder="Tất cả môn"
+                value={selCourse}
+                onValueChange={v => { setSelCourse(v); setSelSection("all") }}
+                options={coursesForSem.map(c => ({ value: String(c.id), label: c.name, description: c.code }))}
+              />
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground w-4">3</span>
-              <Select value={selSection} onValueChange={v => setSelSection(v ?? "all")} disabled={selCourse === "all"}>
-                <SelectTrigger className="w-52">
-                  <SelectValue placeholder="Chọn Lớp học phần" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">— Chọn lớp —</SelectItem>
-                  {sectionsForFilter.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.section_code}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <span className="text-xs font-semibold text-muted-foreground">3. Lớp học phần</span>
+              <FilterCombobox
+                className="w-52"
+                placeholder="Tất cả lớp"
+                value={selSection}
+                onValueChange={v => setSelSection(v)}
+                disabled={selCourse === "all"}
+                options={sectionsForFilter.map(s => ({ value: String(s.id), label: s.section_code }))}
+              />
             </div>
           </div>
         </CardContent>
