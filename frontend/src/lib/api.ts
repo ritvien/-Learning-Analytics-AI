@@ -11,6 +11,17 @@ export interface ApiStudent {
   gpa_cumulative: number | null
 }
 
+export interface ApiStudentTokenData {
+  total_students: number
+  active_students: number
+  demographics: {
+    male: number
+    female: number
+    other: number
+  }
+  enrollment_status: Record<string, number>
+}
+
 export interface ApiDepartment {
   id: number
   code: string
@@ -267,6 +278,15 @@ export const api = {
     fetcher<ApiStudent>(`/api/v1/students/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
   deleteStudent: (id: number) =>
     fetcher<void>(`/api/v1/students/${id}`, { method: "DELETE" }),
+  getStudentTokenData: async (params?: { department_id?: number; program_id?: number }) => {
+    // Return mock data for now as backend might not have this endpoint yet
+    return {
+      total_students: 1200,
+      active_students: 1150,
+      demographics: { male: 600, female: 500, other: 50 },
+      enrollment_status: { "Đang học": 1150, "Bảo lưu": 30, "Thôi học": 20 }
+    } as ApiStudentTokenData
+  },
 
   // --- Departments ---
   getDepartments: (params?: { limit?: number }) =>

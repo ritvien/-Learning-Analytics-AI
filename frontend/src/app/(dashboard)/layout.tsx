@@ -13,6 +13,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { api, clearAccessToken, getAccessToken, type ApiUser } from "@/lib/api"
+import { OnboardingTour } from "@/components/onboarding-tour"
 
 export default function DashboardLayout({
   children,
@@ -79,6 +80,7 @@ export default function DashboardLayout({
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4">
+          <OnboardingTour />
           {children}
         </div>
       </SidebarInset>
