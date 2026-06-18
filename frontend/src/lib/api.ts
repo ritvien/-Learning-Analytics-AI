@@ -11,6 +11,14 @@ export interface ApiStudent {
   gpa_cumulative: number | null
 }
 
+export interface ApiCohort {
+  id: number
+  code: string
+  year_start: number
+  year_end: number | null
+  note: string | null
+}
+
 export interface ApiDepartment {
   id: number
   code: string
@@ -137,6 +145,35 @@ export interface ApiReport {
   generated_by: string | null
   created_at: string
   feedback_items: ApiReportFeedback[]
+}
+
+// --- Report Agent ---
+export type ApiReportAgentMode = "explain" | "root_cause" | "narrative" | "action_planning" | "workflow" | "compare"
+
+export interface ApiReportAgentPendingAction {
+  id: string
+  session_id: string
+  action_type: string
+  payload_json: Record<string, unknown>
+  status: string
+  created_at: string
+}
+
+export interface ApiReportAgentAskResponse {
+  response: string
+  session_id: string
+  mode: string
+  prompt_version: string
+  memory_summary: string | null
+  tool_calls: {
+    tool_name: string
+    tool_input: Record<string, unknown>
+    tool_output: Record<string, unknown>
+    status: string
+    latency_ms: number
+  }[]
+  pending_actions: ApiReportAgentPendingAction[]
+  latency_ms: number
 }
 
 // --- Chat ---
@@ -275,6 +312,10 @@ export const api = {
   deleteStudent: (id: number) =>
     fetcher<void>(`/api/v1/students/${id}`, { method: "DELETE" }),
 
+  // --- Cohorts ---
+  getCohorts: (params?: { limit?: number }) =>
+    fetcher<ApiCohort[]>(`/api/v1/cohorts${qs(params ?? {})}`),
+
   // --- Departments ---
   getDepartments: (params?: { limit?: number }) =>
     fetcher<ApiDepartment[]>(`/api/v1/departments${qs(params ?? {})}`),
@@ -365,6 +406,12 @@ export const api = {
     fetcher<ChatSessionDetail>(`/api/v1/chat/sessions/${thread_id}`),
   deleteChatSession: (thread_id: string) =>
     fetcher<void>(`/api/v1/chat/sessions/${thread_id}`, { method: "DELETE" }),
+
+  // --- Report Agent ---
+  askReportAgent: (body: { message: string; session_id?: string; report_id?: string; mode?: ApiReportAgentMode; context?: Record<string, unknown> }) =>
+    fetcher<ApiReportAgentAskResponse>("/api/v1/report-agent/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  confirmReportAgentAction: (id: string, body: { action: "confirm" | "cancel" }) =>
+    fetcher<{ id: string; status: string; result: Record<string, unknown> }>(`/api/v1/report-agent/tools/confirm/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
 }
 
 export type SSEEvent =
