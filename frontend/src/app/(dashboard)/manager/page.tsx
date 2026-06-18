@@ -6,6 +6,15 @@ import { useRouter } from "next/navigation"
 import { ChevronDown, ChevronUp, Network, School, MessageSquare } from "lucide-react"
 import { api } from "@/lib/api"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   mapApiDeptToFeDept,
   mapApiStudentToFeStudent,
   mapApiCourseToFeCourse,
@@ -13,6 +22,7 @@ import {
 } from "@/lib/adapters"
 import type { Course, Department, GradeRecord, Student } from "@/types"
 import { DetailPanel } from "@/components/dashboard/detail-panel"
+import { KpiWidgets } from "@/components/dashboard/kpi-widgets"
 
 export default function ManagerDashboard() {
   const router = useRouter()
@@ -145,6 +155,27 @@ export default function ManagerDashboard() {
     return (failed / relevantGrades.length) * 100
   }, [studentIds, grades])
 
+  // Global KPIs for the widgets
+  const globalHealthScore = useMemo(() => {
+    const scores = Object.values(healthScores).filter(v => v > 0)
+    if (scores.length === 0) return 75 // mock if no data
+    return scores.reduce((a, b) => a + b, 0) / scores.length
+  }, [healthScores])
+
+  const globalGpaAvg = useMemo(() => {
+    if (students.length === 0) return 0
+    return students.reduce((sum, s) => sum + s.diemTBTichLuy, 0) / students.length
+  }, [students])
+
+  const globalFailRate = useMemo(() => {
+    if (grades.length === 0) return 0
+    const failed = grades.filter((g) => g.xepLoai === "F" || (g.diemTongKet !== null && g.diemTongKet < 5)).length
+    return (failed / grades.length) * 100
+  }, [grades])
+
+  const globalCloAttainment = 78.5 // Mock data for now since backend doesn't have global CLO
+
+
   const courseCount = useMemo(() => {
     if (!selection) return 0
     const selectedDepartmentForCourses =
@@ -167,6 +198,13 @@ export default function ManagerDashboard() {
         </div>
       ) : (
         <>
+          <KpiWidgets 
+            healthScore={globalHealthScore}
+            gpaAvg={globalGpaAvg}
+            failRate={globalFailRate}
+            cloAttainment={globalCloAttainment}
+            totalStudents={students.length}
+          />
           <div className="flex flex-col w-full bg-background text-foreground transition-colors duration-300 rounded-xl border border-border/50 shadow-sm p-4">
             {/* ── Dashboard Header ── */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-3 shrink-0">
@@ -192,7 +230,7 @@ export default function ManagerDashboard() {
             </div>
 
             {/* ── Tree View Area ── */}
-            <div className="flex-1 flex flex-col items-center mt-4 w-full">
+            <div id="academic-tree-view" className="flex-1 flex flex-col items-center mt-4 w-full">
               {/* ── EPU Root Node ── */}
               <div className="flex flex-col items-center select-none shrink-0">
                 <div
@@ -249,7 +287,7 @@ export default function ManagerDashboard() {
                   const deptStatus = getDeptStatus(dept.id)
 
                   return (
-                    <div key={dept.id} className="flex-1 flex flex-col items-center px-1 relative min-w-[120px] max-w-[200px]">
+                    <div key={dept.id} className="flex-1 flex flex-col items-center px-[2px] relative min-w-[55px] max-w-[120px] w-full">
                       {/* ── Edge-to-Edge Connecting Line (Zero Gap) ── */}
                       <div className="absolute top-0 left-0 right-0 h-[1.5px] flex">
                         <div className={`flex-1 ${index === 0 ? "invisible" : "bg-primary/30"}`} />
@@ -262,11 +300,11 @@ export default function ManagerDashboard() {
                       {/* Department card (clickable) */}
                       <button
                         onClick={() => toggleDept(dept.id)}
-                        className={`w-full rounded-lg border p-1.5 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-between min-h-[64px] z-10
+                        className={`w-full rounded border px-1 py-1.5 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-between min-h-[56px] z-10
                           ${isExpanded ? deptStatus.activeColorClass : deptStatus.colorClass}
                           ${isDeptSelected ? "ring-2 ring-primary ring-offset-2" : ""}`}
                       >
-                        <p className="text-[10px] font-bold leading-tight tracking-wide line-clamp-2">
+                        <p className="text-[9px] sm:text-[10px] font-bold leading-tight tracking-wide line-clamp-3">
                           {dept.tenKhoa.replace("Khoa ", "")}
                         </p>
                         <div className="flex items-center gap-1 text-[8px] font-medium mt-1">
@@ -274,6 +312,34 @@ export default function ManagerDashboard() {
                           <span>{deptStatus.percent}{deptStatus.percent !== "..." ? "%" : ""}</span>
                         </div>
                       </button>
+
+                      {/* Chat AI dropdown for Department */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          title={`Hỏi AI về khoa ${dept.tenKhoa}`}
+                          className="absolute top-0 right-0 w-5 h-5 rounded-full bg-white text-primary flex items-center justify-center opacity-0 hover:opacity-100 transition-all duration-200 shadow-lg hover:scale-110 z-20 border border-primary/20 cursor-pointer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MessageSquare className="w-2.5 h-2.5" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-64 p-1.5 bg-white border-primary/10 shadow-xl rounded-xl">
+                          <DropdownMenuGroup className="flex flex-col gap-0.5">
+                            {["Đánh giá sức khỏe đào tạo tổng quan của khoa này?", "Các ngành nào trong khoa có tỷ lệ trượt cao nhất?", "Phân tích CLO các môn học thuộc khoa này?"].map((prompt, i) => (
+                              <DropdownMenuItem
+                                key={i}
+                                className="text-xs py-2 px-2.5 rounded-lg cursor-pointer flex items-start gap-2 hover:bg-primary/5 hover:text-primary transition-colors group/item"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  router.push(`/chat?q=${encodeURIComponent(prompt)}`)
+                                }}
+                              >
+                                <MessageSquare className="w-3.5 h-3.5 mt-0.5 shrink-0 opacity-50 group-hover/item:opacity-100" />
+                                <span className="leading-snug">{prompt}</span>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
 
                       {/* Stem to majors */}
                       <div
@@ -334,26 +400,46 @@ export default function ManagerDashboard() {
                           return (
                             <div
                               key={major.id}
+                              id={`major-${major.id}`}
                               onClick={() => setSelection({ id: major.id, type: "major" })}
-                              className={`group w-full px-1.5 py-1 rounded-md border flex flex-col gap-0.5 transition-all duration-150 cursor-pointer relative
+                              className={`major-node-item group w-full px-1 py-1 rounded border flex flex-col gap-0.5 transition-all duration-150 cursor-pointer relative
                                 ${status.colorClass}
                                 ${isMajorSelected ? "ring-2 ring-primary ring-offset-1" : ""}`}
                             >
-                              <p className="text-[8.5px] leading-tight font-semibold text-center break-words">
+                              <p className="text-[7.5px] leading-[1.1] font-semibold text-center break-words line-clamp-3">
                                 {major.tenNganh}
                               </p>
                               <div className="flex items-center justify-center gap-1 text-[8px] opacity-90 font-medium">
                                 <span className={`w-1 h-1 rounded-full ${status.dotClass}`} />
                                 <span>{status.percent}</span>
                               </div>
-                              {/* Chat AI button */}
-                              <button
-                                onClick={handleChatNavigate}
-                                title={`Hỏi AI về ngành ${major.tenNganh}`}
-                                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white text-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-lg hover:scale-110 z-20 border border-primary/20"
-                              >
-                                <MessageSquare className="w-2.5 h-2.5" />
-                              </button>
+                              {/* Chat AI dropdown for Major */}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger
+                                  title={`Hỏi AI về ngành ${major.tenNganh}`}
+                                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white text-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-lg hover:scale-110 z-20 border border-primary/20 cursor-pointer"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <MessageSquare className="w-2.5 h-2.5" />
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-64 p-1.5 bg-white border-primary/10 shadow-xl rounded-xl">
+                                  <DropdownMenuGroup className="flex flex-col gap-0.5">
+                                    {["Điểm trung bình và tỷ lệ qua môn của ngành này?", "Các môn học nào sinh viên ngành này hay gặp khó khăn nhất?", "Gợi ý cải thiện chuẩn đầu ra (PLO) cho ngành này?"].map((prompt, i) => (
+                                      <DropdownMenuItem
+                                        key={i}
+                                        className="text-xs py-2 px-2.5 rounded-lg cursor-pointer flex items-start gap-2 hover:bg-primary/5 hover:text-primary transition-colors group/item"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          router.push(`/chat?q=${encodeURIComponent(prompt)}`)
+                                        }}
+                                      >
+                                        <MessageSquare className="w-3.5 h-3.5 mt-0.5 shrink-0 opacity-50 group-hover/item:opacity-100" />
+                                        <span className="leading-snug">{prompt}</span>
+                                      </DropdownMenuItem>
+                                    ))}
+                                  </DropdownMenuGroup>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           )
                         })}
