@@ -17,7 +17,7 @@ import {
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { FilterCombobox } from "@/components/ui/filter-combobox"
 import {
   api,
   type ApiCourse,
@@ -198,16 +198,18 @@ export default function StudentAnalyticsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Dashboard cá nhân sinh viên</h1>
           <p className="text-sm text-muted-foreground">Sinh viên này đang học ra sao, yếu ở môn nào và có nguy cơ học vụ không?</p>
         </div>
-        <Select value={studentId} onValueChange={(value) => setStudentId(value ?? "")}>
-          <SelectTrigger className="w-full lg:w-[360px]"><SelectValue placeholder="Chọn sinh viên" /></SelectTrigger>
-          <SelectContent>
-            {raw.students.map((student) => (
-              <SelectItem key={student.id} value={String(student.id)}>
-                {student.student_code} - {student.full_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <FilterCombobox
+          className="w-full lg:w-[360px]"
+          placeholder="Tìm sinh viên (tên hoặc mã SV)…"
+          value={studentId}
+          onValueChange={(v) => setStudentId(v)}
+          clearValue=""
+          options={raw.students.map((s) => ({
+            value: String(s.id),
+            label: s.full_name,
+            description: s.student_code,
+          }))}
+        />
       </div>
 
       <Card className="border-primary/20 bg-primary/5">

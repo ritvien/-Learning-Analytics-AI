@@ -15,6 +15,7 @@ from app.api.v1.endpoints import (
     sections,
     semesters,
     students,
+    tasks,
     teachers,
 )
 
@@ -33,3 +34,5 @@ api_router.include_router(semesters.router, prefix="/semesters", tags=["semester
 api_router.include_router(cohorts.router, prefix="/cohorts", tags=["cohorts"])
 api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
+api_router.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
+api_router.include_router(tasks.interventions_router, prefix="/interventions", tags=["interventions"])
