@@ -287,7 +287,7 @@ export default function ManagerDashboard() {
                   const deptStatus = getDeptStatus(dept.id)
 
                   return (
-                    <div key={dept.id} className="flex-1 flex flex-col items-center px-1 relative min-w-[120px] max-w-[200px]">
+                    <div key={dept.id} className="flex-1 flex flex-col items-center px-[2px] relative min-w-[55px] max-w-[120px] w-full">
                       {/* ── Edge-to-Edge Connecting Line (Zero Gap) ── */}
                       <div className="absolute top-0 left-0 right-0 h-[1.5px] flex">
                         <div className={`flex-1 ${index === 0 ? "invisible" : "bg-primary/30"}`} />
@@ -300,11 +300,11 @@ export default function ManagerDashboard() {
                       {/* Department card (clickable) */}
                       <button
                         onClick={() => toggleDept(dept.id)}
-                        className={`w-full rounded-lg border p-1.5 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-between min-h-[64px] z-10
+                        className={`w-full rounded border px-1 py-1.5 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-between min-h-[56px] z-10
                           ${isExpanded ? deptStatus.activeColorClass : deptStatus.colorClass}
                           ${isDeptSelected ? "ring-2 ring-primary ring-offset-2" : ""}`}
                       >
-                        <p className="text-[10px] font-bold leading-tight tracking-wide line-clamp-2">
+                        <p className="text-[9px] sm:text-[10px] font-bold leading-tight tracking-wide line-clamp-3">
                           {dept.tenKhoa.replace("Khoa ", "")}
                         </p>
                         <div className="flex items-center gap-1 text-[8px] font-medium mt-1">
@@ -402,11 +402,11 @@ export default function ManagerDashboard() {
                               key={major.id}
                               id={`major-${major.id}`}
                               onClick={() => setSelection({ id: major.id, type: "major" })}
-                              className={`major-node-item group w-full px-1.5 py-1 rounded-md border flex flex-col gap-0.5 transition-all duration-150 cursor-pointer relative
+                              className={`major-node-item group w-full px-1 py-1 rounded border flex flex-col gap-0.5 transition-all duration-150 cursor-pointer relative
                                 ${status.colorClass}
                                 ${isMajorSelected ? "ring-2 ring-primary ring-offset-1" : ""}`}
                             >
-                              <p className="text-[8.5px] leading-tight font-semibold text-center break-words">
+                              <p className="text-[7.5px] leading-[1.1] font-semibold text-center break-words line-clamp-3">
                                 {major.tenNganh}
                               </p>
                               <div className="flex items-center justify-center gap-1 text-[8px] opacity-90 font-medium">
