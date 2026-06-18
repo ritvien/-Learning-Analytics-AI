@@ -16,10 +16,13 @@ export const maxDuration = 120 // agent queries can take up to 2 min
 export async function POST(request: Request) {
   const body = await request.text()
 
+  const authHeader = request.headers.get("authorization")
+
   const backendRes = await fetch(`${BACKEND_URL}/api/v1/chat/stream`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(authHeader ? { Authorization: authHeader } : {}),
     },
     body,
   })
