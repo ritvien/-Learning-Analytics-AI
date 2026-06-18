@@ -2,9 +2,7 @@ name: Backend Test Suite
 
 on:
   push:
-    branches: [ "main", "develop", "hoang" ]
   pull_request:
-    branches: [ "main", "develop", "hoang" ]
 
 jobs:
   test:
