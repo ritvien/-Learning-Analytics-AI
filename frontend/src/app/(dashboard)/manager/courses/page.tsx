@@ -36,7 +36,7 @@ export default function CoursesPage() {
         if (d) progDeptMap.set(p.id, d.name)
       })
 
-      const mapped = apiCourses.map((c) => {
+      const mapped: CourseWithHealth[] = apiCourses.map((c) => {
         const deptName = c.department_id ? departments.find(d => d.id === c.department_id)?.name : null
         return {
           id: String(c.id),
@@ -45,7 +45,7 @@ export default function CoursesPage() {
           tinChi: c.credits,
           khoaQuanLy: deptName || "Chưa phân khoa",
           moTa: c.description ?? "",
-          trangThai: c.is_active ? "Đang giảng dạy" : "Ngừng giảng dạy",
+          trangThai: c.is_active ? "Đang giảng dạy" as const : "Ngừng giảng dạy" as const,
         }
       })
       setCourses(mapped)
@@ -115,7 +115,7 @@ export default function CoursesPage() {
     })
   }
 
-  const columns: ColumnDef<Course>[] = [
+  const columns: ColumnDef<CourseWithHealth>[] = [
     {
       accessorKey: "maHocPhan",
       header: ({ column }) => (

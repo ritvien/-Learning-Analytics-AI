@@ -1,9 +1,9 @@
 "use client"
 
 import * as React from "react"
+import { useSearchParams } from "next/navigation"
 import {
   AlertTriangle,
-  ArrowLeftRight,
   Bot,
   CalendarClock,
   CheckCircle2,
@@ -12,20 +12,18 @@ import {
   Eye,
   FileBarChart2,
   FileSpreadsheet,
-  FileText,
   Filter,
   Gauge,
   Info,
   Library,
-  ListChecks,
   Loader2,
-  Play,
+  Plus,
   Printer,
   Search,
   ShieldCheck,
   Sparkles,
-  Users,
   Wand2,
+  X,
 } from "lucide-react"
 
 import {
@@ -36,6 +34,7 @@ import {
   type ApiReportAgentAskResponse,
   type ApiReportAgentMode,
   type ApiReportAgentPendingAction,
+  type ApiReportSchedule,
   type ApiReportType,
   type ApiSection,
   type ApiSemester,
@@ -47,158 +46,138 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 
-type TemplateId =
-  | "weekly_class_risk"
-  | "course_clo"
-  | "program_plo"
-  | "faculty_performance"
-  | "school_executive"
-  | "student_outcome"
-  | "accreditation_evidence"
-  | "outcome_gap"
-  | "course_improvement"
+type TemplateId = "section_report" | "program_report" | "school_report"
+type ReportPurpose = "operational" | "end_semester" | "accreditation"
 
 interface ReportTemplate {
   id: TemplateId
   title: string
-  purpose: string
+  emoji: string
+  description: string
   actor: string
   backendType: ApiReportType
   scopeType: "school" | "program" | "section"
-  detail: string
 }
 
 const templates: ReportTemplate[] = [
   {
-    id: "weekly_class_risk",
-    title: "Báo cáo rủi ro lớp hằng tuần",
-    purpose: "Nhìn nhanh lớp nào có rủi ro trong tuần và cần can thiệp.",
-    actor: "Giảng viên, cố vấn",
+    id: "section_report",
+    title: "Lớp học phần",
+    emoji: "🏫",
+    description: "Theo dõi tình hình lớp, sinh viên rủi ro và CLO",
+    actor: "Giảng viên, cố vấn học tập",
     backendType: "section_intervention",
     scopeType: "section",
-    detail: "Danh sách cần chú ý, tỷ lệ đạt, điểm trung bình, hành động theo lớp.",
   },
   {
-    id: "course_clo",
-    title: "Báo cáo CLO học phần",
-    purpose: "Theo dõi CLO học phần và điểm nghẽn đánh giá.",
-    actor: "Giảng viên, trưởng bộ môn",
-    backendType: "section_intervention",
-    scopeType: "section",
-    detail: "CLO yếu, điểm thành phần, đề xuất cải tiến học phần.",
-  },
-  {
-    id: "program_plo",
-    title: "Báo cáo PLO ngành",
-    purpose: "Chốt ảnh chụp chuẩn đầu ra theo ngành.",
-    actor: "Trưởng ngành, quản lý",
+    id: "program_report",
+    title: "Ngành / Khoa",
+    emoji: "📚",
+    description: "Sức khỏe ngành, PLO, học phần bottleneck",
+    actor: "Trưởng ngành, trưởng khoa, quản lý đào tạo",
     backendType: "program_health",
     scopeType: "program",
-    detail: "PLO, học phần nghẽn, rủi ro theo khóa/ngành.",
   },
   {
-    id: "faculty_performance",
-    title: "Báo cáo hiệu quả khoa",
-    purpose: "Tổng hợp sức khỏe học vụ theo khoa.",
-    actor: "Trưởng khoa, quản lý",
-    backendType: "program_health",
-    scopeType: "program",
-    detail: "Bản hiện tại dùng phạm vi ngành làm đại diện trước khi có bộ thu thập dữ liệu cấp khoa.",
-  },
-  {
-    id: "school_executive",
-    title: "Báo cáo điều hành toàn trường",
-    purpose: "Báo cáo toàn trường cho quản trị.",
+    id: "school_report",
+    title: "Toàn trường",
+    emoji: "🏛️",
+    description: "Tổng quan học vụ, khoa/ngành rủi ro, chỉ số cấp trường",
     actor: "Ban giám hiệu, quản lý",
     backendType: "school_overview",
     scopeType: "school",
-    detail: "Tỷ lệ đạt, điểm trung bình, sinh viên nguy cơ, hành động cấp trường.",
-  },
-  {
-    id: "student_outcome",
-    title: "Hồ sơ đầu ra sinh viên",
-    purpose: "Hồ sơ can thiệp cá nhân cho sinh viên.",
-    actor: "Cố vấn, giảng viên",
-    backendType: "section_intervention",
-    scopeType: "section",
-    detail: "Bản hiện tại dùng danh sách lớp cần chú ý trước khi có hồ sơ cá nhân.",
-  },
-  {
-    id: "accreditation_evidence",
-    title: "Báo cáo minh chứng kiểm định",
-    purpose: "Đóng gói bằng chứng kiểm định.",
-    actor: "Đảm bảo chất lượng, phòng đào tạo",
-    backendType: "program_health",
-    scopeType: "program",
-    detail: "Minh chứng, phụ lục dữ liệu, trạng thái phê duyệt.",
-  },
-  {
-    id: "outcome_gap",
-    title: "Báo cáo khoảng cách chuẩn đầu ra",
-    purpose: "Chỉ ra khoảng cách chuẩn đầu ra cần xử lý.",
-    actor: "Quản lý, trưởng ngành",
-    backendType: "program_health",
-    scopeType: "program",
-    detail: "Khoảng cách PLO/CLO, nguyên nhân và danh sách hành động.",
-  },
-  {
-    id: "course_improvement",
-    title: "Báo cáo cải tiến học phần",
-    purpose: "Biến kết quả học phần thành kế hoạch cải tiến.",
-    actor: "Giảng viên, bộ môn",
-    backendType: "section_intervention",
-    scopeType: "section",
-    detail: "Điểm chưa tốt, rủi ro, đề xuất cải tiến lần dạy sau.",
   },
 ]
 
-interface ActorRole {
-  value: string
+interface ReportPurposeOption {
+  id: ReportPurpose
   label: string
   description: string
-  templates: TemplateId[]
+  scopeOnly?: TemplateId[]
 }
 
-const actorRoles: ActorRole[] = [
+const purposes: ReportPurposeOption[] = [
   {
-    value: "lecturer",
-    label: "Giảng viên",
-    description: "Theo dõi lớp học phần đang giảng dạy",
-    templates: ["weekly_class_risk", "course_clo", "student_outcome", "course_improvement"],
+    id: "operational",
+    label: "Theo dõi thường kỳ",
+    description: "Ngắn gọn, tập trung cảnh báo và hành động ngay",
   },
   {
-    value: "advisor",
-    label: "Cố vấn học tập",
-    description: "Theo dõi sinh viên cần can thiệp",
-    templates: ["weekly_class_risk", "student_outcome"],
+    id: "end_semester",
+    label: "Tổng kết cuối kỳ",
+    description: "Đầy đủ, có CLO/PLO, phù hợp lưu trữ và gửi cấp trên",
   },
   {
-    value: "dept_head",
-    label: "Trưởng bộ môn",
-    description: "Quản lý học phần và CLO theo bộ môn",
-    templates: ["course_clo", "program_plo", "faculty_performance", "outcome_gap", "course_improvement"],
+    id: "accreditation",
+    label: "Chuẩn bị kiểm định",
+    description: "Đóng gói minh chứng — chỉ dùng cho cấp Ngành",
+    scopeOnly: ["program_report"],
+  },
+]
+
+const scheduledReportPlans = [
+  {
+    name: "Báo cáo rủi ro lớp hằng tuần",
+    templateId: "section_report" as TemplateId,
+    actor: "Giảng viên, cố vấn học tập",
+    scope: "Lớp học phần",
+    frequency: "Thứ 2 hằng tuần",
+    trigger: "Tự động sau khi có điểm mới hoặc trước 07:00 thứ 2",
+    nextRun: "Thứ 2 kế tiếp",
+    output: "Trang web + PDF",
+    status: "Đang phát triển",
   },
   {
-    value: "manager",
-    label: "Quản lý đào tạo",
-    description: "Theo dõi sức khỏe ngành và tiêu chuẩn",
-    templates: ["program_plo", "faculty_performance", "school_executive", "accreditation_evidence", "outcome_gap"],
+    name: "Báo cáo khoa hằng tháng",
+    templateId: "program_report" as TemplateId,
+    actor: "Trưởng khoa, quản lý đào tạo",
+    scope: "Khoa / các ngành trong khoa",
+    frequency: "Ngày 1 hằng tháng",
+    trigger: "Tổng hợp dữ liệu tháng trước",
+    nextRun: "Ngày 1 tháng tới",
+    output: "Trang web + PDF + phụ lục",
+    status: "Đang phát triển",
   },
   {
-    value: "executive",
-    label: "Ban giám hiệu",
-    description: "Báo cáo tổng hợp toàn trường",
-    templates: ["school_executive", "accreditation_evidence", "program_plo"],
+    name: "Báo cáo giữa kỳ",
+    templateId: "section_report" as TemplateId,
+    actor: "Giảng viên, trưởng bộ môn",
+    scope: "Môn / lớp học phần",
+    frequency: "Tuần giữa kỳ",
+    trigger: "Sau khi điểm giữa kỳ được cập nhật",
+    nextRun: "Theo lịch học kỳ",
+    output: "Trang web",
+    status: "Đang phát triển",
   },
   {
-    value: "qa",
-    label: "Đảm bảo chất lượng",
-    description: "Minh chứng kiểm định và khoảng cách PLO",
-    templates: ["accreditation_evidence", "program_plo", "outcome_gap"],
+    name: "Báo cáo PLO cuối kỳ",
+    templateId: "program_report" as TemplateId,
+    actor: "Trưởng ngành, đảm bảo chất lượng",
+    scope: "Ngành / chương trình đào tạo",
+    frequency: "Cuối học kỳ",
+    trigger: "Sau khi khóa nhập điểm học kỳ",
+    nextRun: "Cuối kỳ hiện tại",
+    output: "Trang web + PDF + Excel",
+    status: "Đang phát triển",
   },
+]
+
+const actorReportViews = [
+  { actor: "Ban giám hiệu", scope: "Toàn trường", reports: "Điều hành toàn trường, rủi ro lớn, PLO dưới mục tiêu", detail: "Tóm tắt" },
+  { actor: "Trưởng khoa", scope: "Khoa", reports: "Hiệu quả khoa, ngành yếu, môn rủi ro, hành động khoa", detail: "Tiêu chuẩn" },
+  { actor: "Trưởng ngành", scope: "Ngành", reports: "PLO, CLO kéo tụt, học phần đóng góp, minh chứng", detail: "Chi tiết" },
+  { actor: "Giảng viên", scope: "Môn / lớp", reports: "CLO học phần, lớp rủi ro, sinh viên cần hỗ trợ", detail: "Chi tiết trong phạm vi lớp" },
+  { actor: "Cố vấn học tập", scope: "Sinh viên phụ trách", reports: "Hồ sơ đầu ra, danh sách nguy cơ, hành động liên hệ", detail: "Giới hạn theo quyền" },
+  { actor: "Đảm bảo chất lượng", scope: "Kiểm định", reports: "Minh chứng PLO/CLO, chất lượng dữ liệu, khoảng cách chuẩn đầu ra", detail: "Chi tiết" },
 ]
 
 const modeLabels: Record<ApiReportAgentMode, string> = {
@@ -208,18 +187,6 @@ const modeLabels: Record<ApiReportAgentMode, string> = {
   action_planning: "Đề xuất hành động",
   workflow: "Tạo luồng công việc",
   compare: "So sánh",
-}
-
-const formatLabels: Record<string, string> = {
-  web: "Trang web",
-  web_pdf: "Trang web + PDF",
-  web_pdf_excel: "Trang web + PDF + Excel",
-}
-
-const detailLabels: Record<string, string> = {
-  summary: "Tóm tắt",
-  standard: "Tiêu chuẩn",
-  detailed: "Chi tiết",
 }
 
 const reportTypeLabels: Record<string, string> = {
@@ -251,6 +218,10 @@ function labelFromMap(value: unknown, map: Record<string, string>, fallback = "C
   return map[key] ?? (key ? key : fallback)
 }
 
+function reportUrl(reportId: string) {
+  return `/manager/reports?report=${encodeURIComponent(reportId)}`
+}
+
 function localizeReportText(value: unknown) {
   return String(value ?? "")
     .replace(/\bpass rate\b/gi, "tỷ lệ đạt")
@@ -268,24 +239,58 @@ function localizeReportText(value: unknown) {
     .replace(/\bcompleted\b/gi, "đã hoàn thành")
 }
 
-function formatDate(value?: string) {
-  return value ? new Date(value).toLocaleString("vi-VN") : "-"
+function renderAgentInline(text: string) {
+  const nodes: React.ReactNode[] = []
+  const pattern = /(\*\*([^*]+)\*\*)|\[([^\]]+)\]\((\/manager\/reports\?report=[^)]+)\)|(\/manager\/reports\?report=[a-zA-Z0-9_-]+)/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = pattern.exec(text))) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index))
+    }
+
+    if (match[2]) {
+      nodes.push(<strong key={`${match.index}-bold`}>{match[2]}</strong>)
+    } else {
+      const label = match[3] ?? match[5]
+      const href = match[4] ?? match[5]
+      nodes.push(
+        <a key={`${match.index}-link`} href={href} className="font-medium text-primary underline underline-offset-2">
+          {label}
+        </a>,
+      )
+    }
+
+    lastIndex = pattern.lastIndex
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex))
+  }
+
+  return nodes
 }
 
-function metricNumber(report: ApiReport | null, key: string) {
-  const value = report?.metrics_json?.[key]
-  return typeof value === "number" ? value : null
+function renderAgentResponse(text: string) {
+  return text.split("\n").map((line, index) =>
+    line.trim() ? (
+      <p key={`${index}-${line.slice(0, 12)}`} className="min-h-5">
+        {renderAgentInline(line)}
+      </p>
+    ) : (
+      <div key={`blank-${index}`} className="h-2" />
+    ),
+  )
+}
+
+function formatDate(value?: string) {
+  return value ? new Date(value).toLocaleString("vi-VN") : "-"
 }
 
 function riskVariant(value: unknown): "destructive" | "secondary" | "outline" {
   if (value === "Cao") return "destructive"
   if (value === "Trung bình") return "secondary"
-  return "outline"
-}
-
-function reportStatusVariant(status: string): "default" | "secondary" | "outline" {
-  if (status === "approved") return "default"
-  if (status === "final") return "secondary"
   return "outline"
 }
 
@@ -383,17 +388,6 @@ function buildSectionLabel(
   return parts.join(" · ")
 }
 
-function downloadReportHtml(report: ApiReport) {
-  const html = buildReportHtml(report)
-  const blob = new Blob([html], { type: "text/html;charset=utf-8" })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement("a")
-  link.href = url
-  link.download = `${report.title.replace(/[^\w-]+/g, "-").toLowerCase() || "bao-cao"}.html`
-  link.click()
-  URL.revokeObjectURL(url)
-}
-
 function printReport(report: ApiReport) {
   const printWindow = window.open("", "_blank", "width=1100,height=900")
   if (!printWindow) return
@@ -403,70 +397,202 @@ function printReport(report: ApiReport) {
   printWindow.print()
 }
 
+function escapeHtml(value: unknown) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+}
+
+function reportHtmlText(value: unknown) {
+  return escapeHtml(localizeReportText(value))
+}
+
+function reportHtmlList(items: string[], empty = "Chưa có nội dung ghi nhận.") {
+  const list = items.length ? items : [empty]
+  return list.map((item) => `<li>${reportHtmlText(item)}</li>`).join("")
+}
+
+function reportHtmlMetricRows(metrics: Record<string, unknown>) {
+  const labels: Record<string, string> = {
+    pass_rate: "Tỷ lệ đạt",
+    avg_gpa: "GPA trung bình",
+    avg_grade: "Điểm trung bình",
+    completed_enrollments: "Lượt học phần hoàn tất",
+    passed_enrollments: "Lượt đạt",
+    failed_enrollments: "Lượt chưa đạt",
+    at_risk_students: "Sinh viên nguy cơ",
+    watchlist_count: "Sinh viên cần chú ý",
+    active_students: "Sinh viên đang học",
+    program_count: "Số chương trình/ngành",
+    evidence_count: "Số minh chứng",
+    risk_level: "Mức rủi ro",
+  }
+
+  const preferredKeys = Object.keys(labels).filter((key) => metrics[key] != null)
+  const extraKeys = Object.keys(metrics)
+    .filter((key) => !preferredKeys.includes(key))
+    .filter((key) => {
+      const value = metrics[key]
+      return !Array.isArray(value) && (value == null || typeof value !== "object")
+    })
+    .slice(0, 10)
+
+  return [...preferredKeys, ...extraKeys]
+    .map((key) => {
+      const label = labels[key] ?? key
+      const value = metrics[key]
+      const display = key.includes("rate") && typeof value === "number" ? `${value}%` : localizeReportText(value)
+      return `<tr><td>${escapeHtml(label)}</td><td>${escapeHtml(display)}</td></tr>`
+    })
+    .join("")
+}
+
 function buildReportHtml(report: ApiReport) {
   const metrics = report.metrics_json ?? {}
   const issues = stringList(metrics.issues)
   const risks = stringList(metrics.risks)
   const actions = stringList(metrics.actions)
   const goodSignals = stringList(metrics.good_signals)
-  const rows = Object.entries(metrics)
-    .filter(([, value]) => !Array.isArray(value) && typeof value !== "object")
-    .map(([key, value]) => `<tr><td>${key}</td><td>${localizeReportText(value)}</td></tr>`)
-    .join("")
+  const passRate = typeof metrics.pass_rate === "number" ? `${metrics.pass_rate}%` : "Chưa có"
+  const atRisk = metrics.at_risk_students ?? metrics.watchlist_count ?? "Chưa có"
+  const confidence = dataConfidence(report)
+  const rows = reportHtmlMetricRows(metrics)
 
   return `<!doctype html>
 <html lang="vi">
 <head>
   <meta charset="utf-8" />
-  <title>${report.title}</title>
+  <title>${escapeHtml(report.title)}</title>
   <style>
-    body { font-family: Inter, Arial, sans-serif; color: #172033; margin: 0; background: #f4f7fb; }
-    main { max-width: 980px; margin: 0 auto; padding: 40px 28px; }
-    .hero { background: #fff; border: 1px solid #d8e1ee; border-radius: 16px; padding: 28px; }
-    h1 { margin: 0; font-size: 30px; } h2 { margin-top: 28px; font-size: 18px; } p { line-height: 1.6; }
-    .meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 20px; }
-    .box { background: #fff; border: 1px solid #d8e1ee; border-radius: 12px; padding: 16px; }
-    .label { font-size: 12px; color: #64748b; } .value { margin-top: 6px; font-size: 24px; font-weight: 700; }
-    ul { padding-left: 20px; line-height: 1.7; }
-    table { width: 100%; border-collapse: collapse; background: #fff; }
-    td { border: 1px solid #d8e1ee; padding: 10px; font-size: 13px; }
-    pre { white-space: pre-wrap; background: #fff; border: 1px solid #d8e1ee; border-radius: 12px; padding: 16px; }
-    @media print { body { background: #fff; } main { padding: 0; } }
+    @page { size: A4; margin: 25mm 20mm 20mm 30mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #eef2f7;
+      color: #111827;
+      font-family: "Times New Roman", Times, serif;
+      font-size: 13pt;
+      line-height: 1.5;
+    }
+    main {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 24px auto;
+      background: #fff;
+      padding: 25mm 20mm 20mm 30mm;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.15);
+    }
+    .topline {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      font-size: 12pt;
+      text-align: center;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .underline { display: inline-block; border-bottom: 1px solid #111827; padding-bottom: 2px; }
+    h1 {
+      margin: 28px 0 8px;
+      text-align: center;
+      text-transform: uppercase;
+      font-size: 18pt;
+      line-height: 1.35;
+    }
+    .subtitle { text-align: center; font-size: 13pt; margin-bottom: 24px; }
+    h2 { margin: 18px 0 8px; font-size: 13.5pt; text-transform: uppercase; }
+    h3 { margin: 12px 0 6px; font-size: 13pt; }
+    p { margin: 6px 0; text-align: justify; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; }
+    th, td { border: 1px solid #111827; padding: 6px 8px; vertical-align: top; }
+    th { background: #f3f4f6; text-align: center; font-weight: 700; }
+    ul { margin: 6px 0 12px 22px; padding: 0; }
+    li { margin: 4px 0; text-align: justify; }
+    .summary { border: 1px solid #111827; padding: 10px 12px; margin: 10px 0 14px; }
+    .signature {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-top: 32px;
+      text-align: center;
+    }
+    .muted { color: #374151; }
+    @media print {
+      body { background: #fff; }
+      main { width: auto; min-height: auto; margin: 0; padding: 0; box-shadow: none; }
+    }
   </style>
 </head>
 <body><main>
-  <section class="hero">
-    <div class="label">${labelFromMap(report.report_type, reportTypeLabels)} · ${formatDate(report.created_at)}</div>
-    <h1>${report.title}</h1><p>${localizeReportText(report.summary)}</p>
-    <div class="meta">
-      <div class="box"><div class="label">Trạng thái</div><div class="value">${labelFromMap(report.status, statusLabels)}</div></div>
-      <div class="box"><div class="label">Rủi ro</div><div class="value">${String(metrics.risk_level ?? "-")}</div></div>
-      <div class="box"><div class="label">Tỷ lệ đạt</div><div class="value">${String(metrics.pass_rate ?? "-")}%</div></div>
-      <div class="box"><div class="label">Cần chú ý</div><div class="value">${String(metrics.at_risk_students ?? metrics.watchlist_count ?? "-")}</div></div>
-    </div>
-  </section>
-  <h2>Tín hiệu tốt</h2><ul>${goodSignals.map((i) => `<li>${localizeReportText(i)}</li>`).join("") || "<li>Chưa có.</li>"}</ul>
-  <h2>Điểm chưa tốt</h2><ul>${issues.map((i) => `<li>${localizeReportText(i)}</li>`).join("") || "<li>Chưa có.</li>"}</ul>
-  <h2>Rủi ro</h2><ul>${risks.map((i) => `<li>${localizeReportText(i)}</li>`).join("") || "<li>Chưa có.</li>"}</ul>
-  <h2>Danh sách hành động</h2><ul>${actions.map((i) => `<li>${localizeReportText(i)}</li>`).join("") || "<li>Chưa có.</li>"}</ul>
-  <h2>Phụ lục chỉ số</h2><table>${rows}</table>
-  <h2>Nội dung báo cáo</h2><pre>${localizeReportText(report.content_markdown)}</pre>
+  <div class="topline">
+    <div>TRƯỜNG ĐẠI HỌC ĐIỆN LỰC<br/><span class="underline">HỆ THỐNG PHÂN TÍCH HỌC TẬP</span></div>
+    <div>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM<br/><span class="underline">Độc lập - Tự do - Hạnh phúc</span></div>
+  </div>
+
+  <h1>${escapeHtml(report.title)}</h1>
+  <div class="subtitle">${escapeHtml(labelFromMap(report.report_type, reportTypeLabels))} · ${escapeHtml(formatDate(report.created_at))}</div>
+
+  <h2>I. Thông tin báo cáo</h2>
+  <table>
+    <tr><td><strong>Loại báo cáo</strong></td><td>${escapeHtml(labelFromMap(report.report_type, reportTypeLabels))}</td></tr>
+    <tr><td><strong>Phạm vi</strong></td><td>${escapeHtml(labelFromMap(report.scope_type, scopeTypeLabels))}${report.scope_id ? ` - ${escapeHtml(report.scope_id)}` : ""}</td></tr>
+    <tr><td><strong>Actor nhận báo cáo</strong></td><td>${escapeHtml(report.actor_role === "lecturer" ? "Giảng viên" : "Quản lý")}</td></tr>
+    <tr><td><strong>Trạng thái</strong></td><td>${escapeHtml(labelFromMap(report.status, statusLabels))}</td></tr>
+    <tr><td><strong>Độ tin cậy dữ liệu</strong></td><td>${confidence}% - ${reportHtmlText(dataConfidenceBasis(report))}</td></tr>
+  </table>
+
+  <h2>II. Tóm tắt điều hành</h2>
+  <div class="summary">${reportHtmlText(report.summary)}</div>
+  <table>
+    <tr><th>Chỉ số</th><th>Giá trị</th></tr>
+    <tr><td>Tỷ lệ đạt</td><td>${escapeHtml(passRate)}</td></tr>
+    <tr><td>Mức rủi ro</td><td>${reportHtmlText(metrics.risk_level ?? "Chưa có")}</td></tr>
+    <tr><td>Đối tượng cần chú ý</td><td>${reportHtmlText(atRisk)}</td></tr>
+  </table>
+
+  <h2>III. Phạm vi và chất lượng dữ liệu</h2>
+  <p>Báo cáo được tổng hợp từ dữ liệu đã lưu trong hệ thống tại thời điểm sinh báo cáo. Các nhận định cần được đọc cùng độ tin cậy dữ liệu và mức đầy đủ của minh chứng.</p>
+  <table><tr><th>Chỉ số</th><th>Giá trị</th></tr>${rows || "<tr><td colspan=\"2\">Chưa có phụ lục chỉ số.</td></tr>"}</table>
+
+  <h2>IV. Kết quả chính</h2>
+  <h3>1. Điểm tốt</h3>
+  <ul>${reportHtmlList(goodSignals, "Chưa có tín hiệu tốt nổi bật.")}</ul>
+  <h3>2. Điểm chưa tốt</h3>
+  <ul>${reportHtmlList(issues, "Chưa có vấn đề nổi bật.")}</ul>
+
+  <h2>V. Rủi ro và nguyên nhân cần theo dõi</h2>
+  <ul>${reportHtmlList(risks, "Chưa có rủi ro rõ ràng trong snapshot.")}</ul>
+
+  <h2>VI. Khuyến nghị và kế hoạch hành động</h2>
+  <ul>${reportHtmlList(actions, "Chưa có hành động đề xuất.")}</ul>
+
+  <h2>VII. Kết luận</h2>
+  <p>Báo cáo này là căn cứ ban đầu để actor phụ trách xem xét, xác minh dữ liệu chi tiết và triển khai hành động cải tiến. Các quyết định chính thức cần đối chiếu với minh chứng học vụ, điểm thành phần và quy định hiện hành của đơn vị.</p>
+
+  <div class="signature">
+    <div><strong>Người lập báo cáo</strong><br/><span class="muted">(Hệ thống phân tích học tập)</span></div>
+    <div><strong>Đơn vị tiếp nhận</strong><br/><span class="muted">(Ký, ghi rõ họ tên nếu in bản giấy)</span></div>
+  </div>
 </main></body></html>`
 }
 
 export default function ReportsPage() {
+  const searchParams = useSearchParams()
   const [reports, setReports] = React.useState<ApiReport[]>([])
+  const [reportSchedules, setReportSchedules] = React.useState<ApiReportSchedule[]>([])
   const [programs, setPrograms] = React.useState<ApiProgram[]>([])
   const [sections, setSections] = React.useState<ApiSection[]>([])
   const [courses, setCourses] = React.useState<ApiCourse[]>([])
   const [semesters, setSemesters] = React.useState<ApiSemester[]>([])
-  const [selectedTemplateId, setSelectedTemplateId] = React.useState<TemplateId>("program_plo")
+  const [selectedTemplateId, setSelectedTemplateId] = React.useState<TemplateId>("program_report")
+  const [selectedPurpose, setSelectedPurpose] = React.useState<ReportPurpose>("operational")
   const [selectedReport, setSelectedReport] = React.useState<ApiReport | null>(null)
   const [selectedProgramId, setSelectedProgramId] = React.useState("")
   const [selectedSectionId, setSelectedSectionId] = React.useState("")
   const [selectedSemesterId, setSelectedSemesterId] = React.useState("")
-  const [detailLevel, setDetailLevel] = React.useState("standard")
-  const [formats, setFormats] = React.useState("web_pdf_excel")
   const [agentMode, setAgentMode] = React.useState<ApiReportAgentMode>("explain")
   const [agentQuestion, setAgentQuestion] = React.useState(
     "Giải thích tỷ lệ đạt của báo cáo này được tính như thế nào và có đáng tin không?",
@@ -477,15 +603,16 @@ export default function ReportsPage() {
   const [isGenerating, setIsGenerating] = React.useState(false)
   const [isAsking, setIsAsking] = React.useState(false)
   const [error, setError] = React.useState("")
-  // Phase 2 — wizard
-  const [wizardMode, setWizardMode] = React.useState(false)
-  const [wizardStep, setWizardStep] = React.useState<1 | 2 | 3>(1)
-  const [wizardActorRole, setWizardActorRole] = React.useState("lecturer")
-  // Phase 2 — library filters
+  // Dialog + floating agent state
+  const [generateOpen, setGenerateOpen] = React.useState(false)
+  const [scheduleOpen, setScheduleOpen] = React.useState(false)
+  const [agentOpen, setAgentOpen] = React.useState(false)
+  // Library filters
   const [librarySearch, setLibrarySearch] = React.useState("")
   const [libraryTypeFilter, setLibraryTypeFilter] = React.useState("all")
-  // Phase 3 — comparison
-  const [compareReportId, setCompareReportId] = React.useState<string | null>(null)
+  // Semester range filter (theo thứ tự năm*10+kỳ); "" = không giới hạn đầu/cuối
+  const [fromSemId, setFromSemId] = React.useState("")
+  const [toSemId, setToSemId] = React.useState("")
 
   const courseMap = React.useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses])
   const semesterMap = React.useMemo(() => new Map(semesters.map((s) => [s.id, s])), [semesters])
@@ -501,29 +628,43 @@ export default function ReportsPage() {
 
   const selectedSection = filteredSections.find((s) => String(s.id) === selectedSectionId)
 
+  // Học kỳ xếp theo thứ tự thời gian (mới nhất trước) để chọn khoảng "từ kỳ → đến kỳ".
+  const orderedSemesters = React.useMemo(
+    () => [...semesters].sort((a, b) => b.year * 10 + b.term - (a.year * 10 + a.term)),
+    [semesters],
+  )
+  const semesterOrderById = React.useMemo(
+    () => new Map(semesters.map((s) => [String(s.id), s.year * 10 + s.term])),
+    [semesters],
+  )
+  const fromOrder = fromSemId ? semesterOrderById.get(fromSemId) ?? null : null
+  const toOrder = toSemId ? semesterOrderById.get(toSemId) ?? null : null
+
   const filteredReports = React.useMemo(() => {
     return reports.filter((r) => {
       const matchType = libraryTypeFilter === "all" || r.report_type === libraryTypeFilter
       const q = librarySearch.toLowerCase()
       const matchSearch =
         !q || r.title.toLowerCase().includes(q) || localizeReportText(r.summary).toLowerCase().includes(q)
-      return matchType && matchSearch
+      // Khoảng học kỳ: dùng semester_order gắn trên báo cáo. Báo cáo không gắn kỳ vẫn hiển thị.
+      const order = typeof r.metrics_json?.semester_order === "number"
+        ? (r.metrics_json.semester_order as number)
+        : null
+      const matchFrom = fromOrder == null || order == null || order >= fromOrder
+      const matchTo = toOrder == null || order == null || order <= toOrder
+      return matchType && matchSearch && matchFrom && matchTo
     })
-  }, [reports, libraryTypeFilter, librarySearch])
+  }, [reports, libraryTypeFilter, librarySearch, fromOrder, toOrder])
 
-  const passRate = metricNumber(selectedReport, "pass_rate")
-  const atRisk = metricNumber(selectedReport, "at_risk_students") ?? metricNumber(selectedReport, "watchlist_count")
-  const risk = selectedReport?.metrics_json?.risk_level ?? "Chưa rõ"
-  const actions = Array.isArray(selectedReport?.metrics_json?.actions)
-    ? (selectedReport!.metrics_json.actions as unknown[])
-    : []
-  const issues = Array.isArray(selectedReport?.metrics_json?.issues)
-    ? (selectedReport!.metrics_json.issues as unknown[])
-    : []
+  const savedScheduleByName = React.useMemo(
+    () => new Map(reportSchedules.map((item) => [item.name, item])),
+    [reportSchedules],
+  )
 
   // Reset section when semester changes and current section no longer exists
   React.useEffect(() => {
     if (selectedSectionId && !filteredSections.find((s) => String(s.id) === selectedSectionId)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedSectionId(filteredSections[0] ? String(filteredSections[0].id) : "")
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -539,14 +680,16 @@ export default function ReportsPage() {
     async function load() {
       setError("")
       try {
-        const [reportList, programList, sectionList, courseList, semesterList] = await Promise.all([
+        const [reportList, scheduleList, programList, sectionList, courseList, semesterList] = await Promise.all([
           api.getReports({ limit: 80 }),
+          api.getReportSchedules({ limit: 80 }),
           api.getPrograms({ limit: 500 }),
           api.getSections({ limit: 1000 }),
           api.getCourses({ limit: 500 }),
           api.getSemesters(),
         ])
         setReports(reportList)
+        setReportSchedules(scheduleList)
         setSelectedReport(reportList[0] ?? null)
         setPrograms(programList)
         setSections(sectionList)
@@ -570,7 +713,19 @@ export default function ReportsPage() {
     load()
   }, [])
 
-  async function handleGenerate(kind: "preview" | "final") {
+  React.useEffect(() => {
+    const reportId = searchParams.get("report")
+    if (!reportId || reports.length === 0) return
+    const linkedReport = reports.find((item) => item.id === reportId)
+    if (linkedReport) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedReport(linkedReport)
+      setAgentAnswer(null)
+      setAgentSessionId(undefined)
+    }
+  }, [reports, searchParams])
+
+  async function handleGenerate() {
     setError("")
     const scopeId =
       selectedTemplate.scopeType === "program"
@@ -590,11 +745,20 @@ export default function ReportsPage() {
         actor_role: selectedTemplate.scopeType === "section" ? "lecturer" : "manager",
         scope_type: selectedTemplate.scopeType,
         scope_id: scopeId,
+        semester_id: selectedSemesterId ? Number(selectedSemesterId) : undefined,
       })
       await refreshReports()
       setSelectedReport(report)
       setAgentAnswer(null)
       setAgentSessionId(undefined)
+      setGenerateOpen(false)
+      setAgentQuestion(
+        selectedPurpose === "accreditation"
+          ? "Báo cáo này đã đủ minh chứng để nộp kiểm định chưa? Còn thiếu phần nào?"
+          : selectedPurpose === "end_semester"
+          ? "Tổng kết kỳ này: điểm tốt, điểm cần cải thiện và hành động ưu tiên cho kỳ sau?"
+          : "Báo cáo này có điểm cảnh báo nào cần xử lý ngay không?",
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tạo được báo cáo.")
     } finally {
@@ -658,15 +822,20 @@ export default function ReportsPage() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Trung tâm báo cáo</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Báo cáo học vụ</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Tạo ảnh chụp báo cáo, rút danh sách hành động và hỏi trợ lý báo cáo dựa trên dữ liệu đã lưu.
+            Báo cáo được hệ thống sinh tự động theo vai trò, lịch học vụ và sự kiện cập nhật điểm. Người dùng chỉ cần mở báo cáo, xuất PDF hoặc hỏi trợ lý khi cần phân tích sâu.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary">Kịch bản v2026-06-18.1</Badge>
-          <Badge variant="outline">Kiểm vết công cụ</Badge>
-          <Badge variant="outline">Bộ nhớ ngắn + dài hạn</Badge>
+          <Button onClick={() => setGenerateOpen(true)}>
+            <Plus className="mr-2 size-4" />
+            Tạo báo cáo
+          </Button>
+          <Button variant="outline" onClick={() => setScheduleOpen(true)}>
+            <CalendarClock className="mr-2 size-4" />
+            Lịch tự động
+          </Button>
         </div>
       </div>
 
@@ -677,281 +846,29 @@ export default function ReportsPage() {
       ) : null}
 
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-        <WorkflowCard icon={FileBarChart2} title="1. Chọn mẫu" detail={selectedTemplate.title} state="active" />
+        <WorkflowCard icon={FileBarChart2} title="Báo cáo mới nhất" detail={selectedReport?.title ?? "Chưa có báo cáo"} state={selectedReport ? "active" : "idle"} />
         <WorkflowCard
           icon={ShieldCheck}
-          title="2. Kiểm dữ liệu"
+          title="Độ tin cậy"
           detail={`${dataConfidence(selectedReport)}% độ tin cậy`}
           state={selectedReport ? "active" : "idle"}
         />
         <WorkflowCard
           icon={Sparkles}
-          title="3. Diễn giải"
-          detail={selectedReport?.metrics_json?.llm_enhanced ? "Có AI diễn giải" : "Diễn giải theo luật"}
+          title="Lịch tự động"
+          detail={`${reportSchedules.filter((item) => item.is_active).length} lịch đang bật`}
           state={selectedReport ? "active" : "idle"}
         />
         <WorkflowCard
           icon={Download}
-          title="4. Xuất báo cáo"
-          detail="Trang web / PDF"
+          title="Định dạng"
+          detail="PDF A4 · Times New Roman"
           state={selectedReport ? "active" : "idle"}
         />
       </div>
 
-      <div className="grid gap-4">
-        <Tabs defaultValue="generate" className="space-y-4">
-          <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-lg p-1">
-            <TabsTrigger value="templates" className="min-w-fit">Mẫu báo cáo</TabsTrigger>
-            <TabsTrigger value="generate" className="min-w-fit">Tạo báo cáo</TabsTrigger>
-            <TabsTrigger value="library" className="min-w-fit">Lịch sử báo cáo</TabsTrigger>
-            <TabsTrigger value="compare" className="min-w-fit">So sánh</TabsTrigger>
-            <TabsTrigger value="scheduled" className="min-w-fit">Lịch hẹn</TabsTrigger>
-            <TabsTrigger value="actions" className="min-w-fit">Hành động</TabsTrigger>
-          </TabsList>
-
-          {/* ── Mẫu báo cáo ── */}
-          <TabsContent value="templates" className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {templates.map((template) => (
-                <button
-                  key={template.id}
-                  onClick={() => {
-                    setSelectedTemplateId(template.id)
-                    setWizardMode(false)
-                  }}
-                  className={`rounded-lg border p-4 text-left transition hover:bg-muted/50 ${
-                    selectedTemplateId === template.id ? "border-primary bg-primary/5" : ""
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <FileBarChart2 className="mt-0.5 size-5 text-primary" />
-                    <Badge variant="outline">{template.actor}</Badge>
-                  </div>
-                  <div className="mt-3 font-semibold">{template.title}</div>
-                  <p className="mt-2 min-h-12 text-sm text-muted-foreground">{template.purpose}</p>
-                  <p className="mt-3 text-xs text-muted-foreground">{template.detail}</p>
-                </button>
-              ))}
-            </div>
-          </TabsContent>
-
-          {/* ── Tạo báo cáo ── */}
-          <TabsContent value="generate" className="space-y-4">
-            <div className="space-y-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                      <CardTitle className="flex items-center gap-2 text-base">
-                        <Wand2 className="size-5" />
-                        Tạo báo cáo
-                      </CardTitle>
-                      <p className="mt-1 text-sm text-muted-foreground">{selectedTemplate.purpose}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">{selectedTemplate.actor}</Badge>
-                      <Button
-                        variant={wizardMode ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => {
-                          setWizardMode(!wizardMode)
-                          setWizardStep(1)
-                        }}
-                      >
-                        <Users className="mr-1 size-4" />
-                        {wizardMode ? "Biểu mẫu nhanh" : "Hướng dẫn"}
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-
-                {wizardMode ? (
-                  <CardContent>
-                    <WizardPanel
-                      step={wizardStep}
-                      setStep={setWizardStep}
-                      actorRole={wizardActorRole}
-                      setActorRole={setWizardActorRole}
-                      selectedTemplateId={selectedTemplateId}
-                      setSelectedTemplateId={setSelectedTemplateId}
-                      selectedProgramId={selectedProgramId}
-                      setSelectedProgramId={setSelectedProgramId}
-                      selectedSectionId={selectedSectionId}
-                      setSelectedSectionId={setSelectedSectionId}
-                      selectedSemesterId={selectedSemesterId}
-                      setSelectedSemesterId={setSelectedSemesterId}
-                      programs={programs}
-                      filteredSections={filteredSections}
-                      semesters={semesters}
-                      courseMap={courseMap}
-                      semesterMap={semesterMap}
-                      isGenerating={isGenerating}
-                      onGenerate={() => handleGenerate("final")}
-                    />
-                  </CardContent>
-                ) : (
-                  <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    {/* Loại báo cáo */}
-                    <div className="space-y-2">
-                      <Label>Loại báo cáo</Label>
-                      <Select
-                        value={selectedTemplateId}
-                        onValueChange={(v) => { if (v) setSelectedTemplateId(v as TemplateId) }}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue>{selectedTemplate.title}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {templates.map((t) => (
-                            <SelectItem key={t.id} value={t.id}>
-                              {t.title}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Học kỳ */}
-                    <div className="space-y-2">
-                      <Label>Học kỳ</Label>
-                      <Select value={selectedSemesterId} onValueChange={(v) => { if (v) setSelectedSemesterId(v) }}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Chọn học kỳ">
-                            {selectedSemester
-                              ? `${selectedSemester.name}${selectedSemester.is_current ? " ✦" : ""}`
-                              : "Chọn học kỳ"}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {semesters.map((s) => (
-                            <SelectItem key={s.id} value={String(s.id)}>
-                              {s.name}
-                              {s.is_current ? " (hiện tại)" : ""}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Phạm vi ngành */}
-                    {selectedTemplate.scopeType === "program" ? (
-                      <div className="space-y-2">
-                        <Label>Phạm vi ngành</Label>
-                        <Select value={selectedProgramId} onValueChange={(v) => { if (v) setSelectedProgramId(v) }}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Chọn ngành">
-                              {selectedProgram
-                                ? `${selectedProgram.code} - ${selectedProgram.name}`
-                                : "Chọn ngành"}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {programs.map((p) => (
-                              <SelectItem key={p.id} value={String(p.id)}>
-                                {p.code} - {p.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ) : null}
-
-                    {/* Phạm vi lớp học phần */}
-                    {selectedTemplate.scopeType === "section" ? (
-                      <div className="space-y-2">
-                        <Label>Lớp học phần</Label>
-                        <Select value={selectedSectionId} onValueChange={(v) => { if (v) setSelectedSectionId(v) }}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Chọn lớp">
-                              {selectedSection
-                                ? buildSectionLabel(selectedSection, courseMap, semesterMap)
-                                : filteredSections.length === 0
-                                  ? "Không có lớp trong học kỳ"
-                                  : "Chọn lớp học phần"}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {filteredSections.map((s) => (
-                              <SelectItem key={s.id} value={String(s.id)}>
-                                {buildSectionLabel(s, courseMap, semesterMap)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ) : null}
-
-                    {/* Định dạng + Chi tiết */}
-                    <div className="grid gap-3 md:col-span-2 md:grid-cols-2 xl:col-span-2">
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                          Định dạng
-                          <Badge variant="secondary" className="text-[10px]">Sắp có</Badge>
-                        </Label>
-                        <Select value={formats} onValueChange={(v) => { if (v) setFormats(v) }} disabled>
-                          <SelectTrigger className="w-full">
-                            <SelectValue>{formatLabels[formats] ?? formats}</SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="web">Trang web</SelectItem>
-                            <SelectItem value="web_pdf">Trang web + PDF</SelectItem>
-                            <SelectItem value="web_pdf_excel">Trang web + PDF + Excel</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">
-                          Hiện xuất trang web / in PDF từ nút trong bản xem trước.
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                          Mức chi tiết
-                          <Badge variant="secondary" className="text-[10px]">Sắp có</Badge>
-                        </Label>
-                        <Select value={detailLevel} onValueChange={(v) => { if (v) setDetailLevel(v) }} disabled>
-                          <SelectTrigger className="w-full">
-                            <SelectValue>{detailLabels[detailLevel] ?? detailLevel}</SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="summary">Tóm tắt</SelectItem>
-                            <SelectItem value="standard">Tiêu chuẩn</SelectItem>
-                            <SelectItem value="detailed">Chi tiết</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    {/* Action buttons */}
-                    <div className="grid gap-2 md:col-span-2 sm:grid-cols-2 xl:col-span-4">
-                      <Button
-                        variant="outline"
-                        onClick={() => handleGenerate("preview")}
-                        disabled={isGenerating}
-                      >
-                        {isGenerating ? (
-                          <Loader2 className="mr-2 size-4 animate-spin" />
-                        ) : (
-                          <Play className="mr-2 size-4" />
-                        )}
-                        Xem trước
-                      </Button>
-                      <Button onClick={() => handleGenerate("final")} disabled={isGenerating}>
-                        <FileText className="mr-2 size-4" />
-                        Chốt bản chính thức
-                      </Button>
-                      <p className="text-xs text-muted-foreground sm:col-span-2 xl:col-span-4">
-                        Tự động hẹn lịch và gửi báo cáo định kỳ đang được phát triển.
-                      </p>
-                    </div>
-                  </CardContent>
-                )}
-              </Card>
-
-              <ReportPreview report={selectedReport} isLoading={isLoading} />
-            </div>
-          </TabsContent>
-
-          {/* ── Thư viện ── */}
-          <TabsContent value="library" className="space-y-3">
+      {/* ── Trang chính: bộ lọc + danh sách + chi tiết báo cáo ── */}
+      <div className="space-y-3">
             <div className="flex flex-col gap-2 sm:flex-row">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -962,6 +879,36 @@ export default function ReportsPage() {
                   className="pl-9"
                 />
               </div>
+              <Select value={fromSemId || "all"} onValueChange={(v) => setFromSemId(v && v !== "all" ? v : "")}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue>
+                    {fromSemId
+                      ? `Từ: ${semesters.find((s) => String(s.id) === fromSemId)?.name ?? fromSemId}`
+                      : "Từ kỳ đầu"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Từ kỳ đầu</SelectItem>
+                  {orderedSemesters.map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={toSemId || "all"} onValueChange={(v) => setToSemId(v && v !== "all" ? v : "")}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue>
+                    {toSemId
+                      ? `Đến: ${semesters.find((s) => String(s.id) === toSemId)?.name ?? toSemId}`
+                      : "Đến kỳ mới nhất"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Đến kỳ mới nhất</SelectItem>
+                  {orderedSemesters.map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Select value={libraryTypeFilter} onValueChange={(v) => { if (v) setLibraryTypeFilter(v) }}>
                 <SelectTrigger className="w-full sm:w-52">
                   <Filter className="mr-2 size-4 shrink-0 text-muted-foreground" />
@@ -979,166 +926,317 @@ export default function ReportsPage() {
                 </SelectContent>
               </Select>
             </div>
-            {filteredReports.length === 0 ? (
-              <div className="rounded-lg border p-8 text-center text-sm text-muted-foreground">
-                {reports.length === 0
-                  ? "Chưa có báo cáo. Tạo báo cáo đầu tiên trong tab Tạo báo cáo."
-                  : "Không tìm thấy báo cáo phù hợp."}
+            <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium">Báo cáo tự động</span>
+                  <span className="text-muted-foreground">{filteredReports.length} bản</span>
+                </div>
+                {filteredReports.length === 0 ? (
+                  <div className="rounded-lg border p-8 text-center text-sm text-muted-foreground">
+                    {reports.length === 0
+                      ? "Chưa có báo cáo tự động trong phạm vi của bạn."
+                      : "Không tìm thấy báo cáo phù hợp."}
+                  </div>
+                ) : (
+                  <div className="max-h-[760px] space-y-2 overflow-y-auto pr-1">
+                    {filteredReports.map((report) => (
+                      <button
+                        key={report.id}
+                        onClick={() => {
+                          setSelectedReport(report)
+                          setAgentAnswer(null)
+                          setAgentSessionId(undefined)
+                        }}
+                        className={`w-full rounded-lg border p-3 text-left hover:bg-muted/50 ${
+                          selectedReport?.id === report.id ? "border-primary bg-primary/5" : ""
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="line-clamp-2 text-sm font-semibold">{report.title}</div>
+                            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                              {localizeReportText(report.summary)}
+                            </p>
+                          </div>
+                          <Badge variant={riskVariant(report.metrics_json?.risk_level)} className="shrink-0 text-[10px]">
+                            {String(report.metrics_json?.risk_level ?? "Ổn")}
+                          </Badge>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                          <span>{labelFromMap(report.report_type, reportTypeLabels)}</span>
+                          <span>{formatDate(report.created_at)}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            ) : null}
-            {filteredReports.map((report) => (
-              <button
-                key={report.id}
-                onClick={() => {
-                  setSelectedReport(report)
-                  setAgentAnswer(null)
-                  setAgentSessionId(undefined)
-                }}
-                className={`w-full rounded-lg border p-4 text-left hover:bg-muted/50 ${
-                  selectedReport?.id === report.id ? "border-primary bg-primary/5" : ""
-                }`}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="font-semibold">{report.title}</div>
-                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                      {localizeReportText(report.summary)}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant={reportStatusVariant(report.status)}>
-                      {labelFromMap(report.status, statusLabels)}
-                    </Badge>
-                    <Badge variant={riskVariant(report.metrics_json?.risk_level)}>
-                      {String(report.metrics_json?.risk_level ?? "Chưa có rủi ro")}
-                    </Badge>
-                  </div>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                  <span>{labelFromMap(report.report_type, reportTypeLabels)}</span>
-                  <span>
-                    {labelFromMap(report.scope_type, scopeTypeLabels)}:{report.scope_id ?? "tất cả"}
-                  </span>
-                  <span>{formatDate(report.created_at)}</span>
-                </div>
-              </button>
-            ))}
-          </TabsContent>
 
-          {/* ── So sánh (Phase 3) ── */}
-          <TabsContent value="compare" className="space-y-4">
-            <ComparePanel
-              reports={reports}
-              leftReport={selectedReport}
-              compareReportId={compareReportId}
-              setCompareReportId={setCompareReportId}
-            />
-          </TabsContent>
+              <ReportPreview report={selectedReport} isLoading={isLoading} />
+            </div>
+          </div>
 
-          {/* ── Lịch hẹn (Phase 3) ── */}
-          <TabsContent value="scheduled" className="space-y-4">
-            <div className="rounded-lg border p-10 text-center">
-              <CalendarClock className="mx-auto size-10 text-muted-foreground" />
-              <h3 className="mt-4 flex items-center justify-center gap-2 text-base font-semibold">
-                Lịch gửi báo cáo tự động
-                <Badge variant="secondary">Sắp có</Badge>
-              </h3>
-              <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                Khi hoàn thiện, bạn sẽ đặt được lịch định kỳ (hằng tuần / hằng tháng / cuối kỳ) và chọn người
-                nhận để hệ thống tự tạo và gửi báo cáo. Hiện tại hãy tạo báo cáo thủ công trong tab Tạo báo cáo.
+      {/* ── Dialog: Tạo báo cáo ── */}
+      <Dialog open={generateOpen} onOpenChange={setGenerateOpen}>
+        <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="size-5" /> Tạo báo cáo
+            </DialogTitle>
+            <DialogDescription>
+              Chọn cấp báo cáo, mục đích và phạm vi. Hệ thống sẽ tính số liệu rồi sinh báo cáo.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            {/* Bước A: cấp báo cáo */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Báo cáo cho cấp nào?</Label>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {templates.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedTemplateId(t.id)
+                      if (t.scopeType !== "program" && selectedPurpose === "accreditation") {
+                        setSelectedPurpose("operational")
+                      }
+                    }}
+                    className={`rounded-lg border p-3 text-left transition hover:bg-muted/50 ${
+                      selectedTemplateId === t.id ? "border-primary bg-primary/5" : ""
+                    }`}
+                  >
+                    <div className="text-2xl">{t.emoji}</div>
+                    <div className="mt-1 font-semibold text-sm">{t.title}</div>
+                    <p className="mt-1 text-xs text-muted-foreground">{t.description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Bước B: mục đích */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Dùng để làm gì?</Label>
+              <div className="flex flex-wrap gap-2">
+                {purposes
+                  .filter((p) => !p.scopeOnly || p.scopeOnly.includes(selectedTemplateId))
+                  .map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setSelectedPurpose(p.id)}
+                      className={`rounded-full border px-4 py-1.5 text-sm transition hover:bg-muted/50 ${
+                        selectedPurpose === p.id
+                          ? "border-primary bg-primary/5 font-medium text-primary"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {purposes.find((p) => p.id === selectedPurpose)?.description}
               </p>
             </div>
-          </TabsContent>
 
-          {/* ── Hành động ── */}
-          <TabsContent value="actions" className="space-y-3">
-            <div className="grid gap-3 md:grid-cols-3">
-              <MetricCard
-                label="Tỷ lệ đạt"
-                value={passRate == null ? "-" : `${passRate}%`}
-                metricKey="pass_rate"
-                onAsk={() =>
-                  askAgent("Giải thích tỷ lệ đạt, công thức, dữ liệu nguồn và điểm cần nghi ngờ.", "explain")
-                }
-              />
-              <MetricCard
-                label="Sinh viên cần chú ý"
-                value={atRisk ?? "-"}
-                metricKey="at_risk_students"
-                onAsk={() =>
-                  askAgent("Danh sách nguy cơ này nên chuyển thành hành động gì?", "action_planning")
-                }
-              />
-              <MetricCard
-                label="Mức rủi ro"
-                value={String(risk)}
-                metricKey="risk_level"
-                onAsk={() =>
-                  askAgent("Truy vết risk_level và giải thích vì sao mức này hợp lý.", "root_cause")
-                }
-              />
+            {/* Bước C: phạm vi cụ thể */}
+            {selectedTemplate.scopeType !== "school" && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Học kỳ</Label>
+                  <Select value={selectedSemesterId} onValueChange={(v) => { if (v) setSelectedSemesterId(v) }}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Chọn học kỳ">
+                        {selectedSemester
+                          ? `${selectedSemester.name}${selectedSemester.is_current ? " ✦" : ""}`
+                          : "Chọn học kỳ"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {semesters.map((s) => (
+                        <SelectItem key={s.id} value={String(s.id)}>
+                          {s.name}{s.is_current ? " (hiện tại)" : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedTemplate.scopeType === "program" && (
+                  <div className="space-y-2">
+                    <Label>Ngành</Label>
+                    <Select value={selectedProgramId} onValueChange={(v) => { if (v) setSelectedProgramId(v) }}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Chọn ngành">
+                          {selectedProgram ? `${selectedProgram.code} - ${selectedProgram.name}` : "Chọn ngành"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {programs.map((p) => (
+                          <SelectItem key={p.id} value={String(p.id)}>
+                            {p.code} - {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {selectedTemplate.scopeType === "section" && (
+                  <div className="space-y-2">
+                    <Label>Lớp học phần</Label>
+                    <Select value={selectedSectionId} onValueChange={(v) => { if (v) setSelectedSectionId(v) }}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Chọn lớp">
+                          {selectedSection
+                            ? buildSectionLabel(selectedSection, courseMap, semesterMap)
+                            : filteredSections.length === 0
+                              ? "Không có lớp trong học kỳ"
+                              : "Chọn lớp học phần"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredSections.map((s) => (
+                          <SelectItem key={s.id} value={String(s.id)}>
+                            {buildSectionLabel(s, courseMap, semesterMap)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Button onClick={() => handleGenerate()} disabled={isGenerating} className="w-full">
+              {isGenerating ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <Sparkles className="mr-2 size-4" />
+              )}
+              Tạo báo cáo
+            </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              Báo cáo sẽ được tính từ dữ liệu hiện tại, lưu vào thư viện và mở ra ngay để bạn xem.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: Lịch tự động ── */}
+      <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+        <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarClock className="size-5" /> Lịch sinh báo cáo tự động
+            </DialogTitle>
+            <DialogDescription>
+              Báo cáo có thể sinh theo tuần, tháng, giữa kỳ, cuối kỳ hoặc sau khi cập nhật điểm. Mỗi actor chỉ thấy báo cáo thuộc phạm vi của mình.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid gap-3 xl:grid-cols-2">
+              {scheduledReportPlans.map((plan) => {
+                const savedSchedule = savedScheduleByName.get(plan.name)
+                return (
+                <Card key={plan.name}>
+                  <CardContent className="p-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <div className="font-semibold">{plan.name}</div>
+                        <p className="mt-1 text-sm text-muted-foreground">{plan.trigger}</p>
+                      </div>
+                      <Badge variant={savedSchedule ? "secondary" : "outline"}>
+                        {savedSchedule ? "Đã lưu lịch" : plan.status}
+                      </Badge>
+                    </div>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                      <div className="rounded-md bg-muted/30 p-3 text-sm">
+                        <div className="text-xs text-muted-foreground">Tần suất</div>
+                        <div className="mt-1 font-medium">{plan.frequency}</div>
+                      </div>
+                      <div className="rounded-md bg-muted/30 p-3 text-sm">
+                        <div className="text-xs text-muted-foreground">Người xem chính</div>
+                        <div className="mt-1 font-medium">{plan.actor}</div>
+                      </div>
+                      <div className="rounded-md bg-muted/30 p-3 text-sm">
+                        <div className="text-xs text-muted-foreground">Phạm vi</div>
+                        <div className="mt-1 font-medium">{plan.scope}</div>
+                      </div>
+                      <div className="rounded-md bg-muted/30 p-3 text-sm">
+                        <div className="text-xs text-muted-foreground">Định dạng</div>
+                        <div className="mt-1 font-medium">{plan.output}</div>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>
+                        Lần chạy kế tiếp:{" "}
+                        {savedSchedule?.next_run_at ? formatDate(savedSchedule.next_run_at) : plan.nextRun}
+                      </span>
+                      {savedSchedule?.last_report_id ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          nativeButton={false}
+                          render={<a href={reportUrl(savedSchedule.last_report_id)} />}
+                        >
+                          Mở báo cáo gần nhất
+                        </Button>
+                      ) : null}
+                      {!savedSchedule ? (
+                        <span className="rounded-md border bg-background px-2 py-1 text-muted-foreground">
+                          Chờ quản trị cấu hình
+                        </span>
+                      ) : null}
+                    </div>
+                  </CardContent>
+                </Card>
+                )
+              })}
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <AlertTriangle className="size-5" />
-                    Vấn đề & rủi ro
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {issues.length ? (
-                    issues.map((item, index) => (
-                      <div key={index} className="rounded-md border p-3 text-sm">
-                        {localizeReportText(item)}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Chưa có vấn đề trong ảnh chụp báo cáo.</p>
-                  )}
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <ListChecks className="size-5" />
-                    Danh sách hành động
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {actions.length ? (
-                    actions.map((item, index) => (
-                      <div
-                        key={index}
-                        className="flex items-start justify-between gap-3 rounded-md border p-3 text-sm"
-                      >
-                        <span>{localizeReportText(item)}</span>
-                        <Badge variant="outline">đề xuất</Badge>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Chưa có hành động trong ảnh chụp báo cáo.</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Ma trận actor và báo cáo được xem</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ReportSimpleTable
+                  columns={["Actor", "Phạm vi dữ liệu", "Báo cáo chính", "Mức chi tiết"]}
+                  rows={actorReportViews.map((item) => [item.actor, item.scope, item.reports, item.detail])}
+                  empty="Chưa có ma trận actor."
+                />
+              </CardContent>
+            </Card>
 
-        <AgentPanel
-          selectedReport={selectedReport}
-          mode={agentMode}
-          setMode={setAgentMode}
-          question={agentQuestion}
-          setQuestion={setAgentQuestion}
-          answer={agentAnswer}
-          isAsking={isAsking}
-          onAsk={() => askAgent()}
-          onQuickAsk={askAgent}
-          onConfirm={confirmPending}
-        />
-      </div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+              <div className="font-semibold">Phần tự động hóa còn lại</div>
+              <p className="mt-1">
+                Backend đã có bảng lịch, API tạo/chạy lịch và log mỗi lần chạy. Bước hạ tầng tiếp theo là gắn worker nền hoặc cron để gọi API này theo tuần, tháng, học kỳ và sau sự kiện cập nhật điểm.
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Trợ lý AI nổi ở góc phải ── */}
+      <FloatingAgent
+        open={agentOpen}
+        setOpen={setAgentOpen}
+        selectedReport={selectedReport}
+        mode={agentMode}
+        setMode={setAgentMode}
+        question={agentQuestion}
+        setQuestion={setAgentQuestion}
+        answer={agentAnswer}
+        isAsking={isAsking}
+        onAsk={() => askAgent()}
+        onQuickAsk={askAgent}
+        onConfirm={confirmPending}
+      />
     </div>
   )
 }
@@ -1169,385 +1267,463 @@ function WorkflowCard({
 
 // ── Phase 2: Wizard ───────────────────────────────────────────────────────────
 
-function WizardPanel({
-  step,
-  setStep,
-  actorRole,
-  setActorRole,
-  selectedTemplateId,
-  setSelectedTemplateId,
-  selectedProgramId,
-  setSelectedProgramId,
-  selectedSectionId,
-  setSelectedSectionId,
-  selectedSemesterId,
-  setSelectedSemesterId,
-  programs,
-  filteredSections,
-  semesters,
-  courseMap,
-  semesterMap,
-  isGenerating,
-  onGenerate,
-}: {
-  step: 1 | 2 | 3
-  setStep: (s: 1 | 2 | 3) => void
-  actorRole: string
-  setActorRole: (r: string) => void
-  selectedTemplateId: TemplateId
-  setSelectedTemplateId: (id: TemplateId) => void
-  selectedProgramId: string
-  setSelectedProgramId: (id: string) => void
-  selectedSectionId: string
-  setSelectedSectionId: (id: string) => void
-  selectedSemesterId: string
-  setSelectedSemesterId: (id: string) => void
-  programs: ApiProgram[]
-  filteredSections: ApiSection[]
-  semesters: ApiSemester[]
-  courseMap: Map<number, ApiCourse>
-  semesterMap: Map<number, ApiSemester>
-  isGenerating: boolean
-  onGenerate: () => void
-}) {
-  const actor = actorRoles.find((a) => a.value === actorRole) ?? actorRoles[0]
-  const availableTemplates = templates.filter((t) => actor.templates.includes(t.id))
-  const selectedTemplate = templates.find((t) => t.id === selectedTemplateId) ?? availableTemplates[0]
-  const selectedSemester = semesters.find((s) => String(s.id) === selectedSemesterId)
-  const currentSection = filteredSections.find((s) => String(s.id) === selectedSectionId)
-  const stepLabels = ["Tôi là...", "Chọn loại báo cáo", "Xác nhận & tạo"]
-
-  return (
-    <div className="space-y-5">
-      {/* Step indicator */}
-      <div className="flex items-center gap-2">
-        {([1, 2, 3] as const).map((s) => (
-          <React.Fragment key={s}>
-            <button
-              onClick={() => {
-                if (s < step) setStep(s)
-              }}
-              className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition ${
-                step === s
-                  ? "bg-primary text-primary-foreground"
-                  : step > s
-                    ? "cursor-pointer bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                    : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {step > s ? "✓" : s}
-            </button>
-            {s < 3 ? (
-              <div className={`h-px flex-1 transition ${step > s ? "bg-emerald-200" : "bg-muted"}`} />
-            ) : null}
-          </React.Fragment>
-        ))}
-        <span className="ml-2 text-sm font-medium">{stepLabels[step - 1]}</span>
-      </div>
-
-      {/* Step 1: Actor */}
-      {step === 1 && (
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {actorRoles.map((role) => (
-            <button
-              key={role.value}
-              onClick={() => {
-                setActorRole(role.value)
-                const first = templates.find((t) => role.templates.includes(t.id))
-                if (first) setSelectedTemplateId(first.id)
-                setStep(2)
-              }}
-              className={`rounded-lg border p-4 text-left transition hover:bg-muted/50 ${
-                actorRole === role.value ? "border-primary bg-primary/5" : ""
-              }`}
-            >
-              <div className="font-medium text-sm">{role.label}</div>
-              <p className="mt-1 text-xs text-muted-foreground">{role.description}</p>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Step 2: Template */}
-      {step === 2 && (
-        <div className="space-y-3">
-          <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
-            Vai của bạn: <span className="font-medium">{actor.label}</span>
-          </div>
-          <div className="grid gap-2 md:grid-cols-2">
-            {availableTemplates.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => {
-                  setSelectedTemplateId(t.id)
-                  setStep(3)
-                }}
-                className={`rounded-lg border p-3 text-left transition hover:bg-muted/50 ${
-                  selectedTemplateId === t.id ? "border-primary bg-primary/5" : ""
-                }`}
-              >
-                <div className="font-medium text-sm">{t.title}</div>
-                <p className="mt-1 text-xs text-muted-foreground">{t.purpose}</p>
-              </button>
-            ))}
-          </div>
-          <Button variant="outline" size="sm" onClick={() => setStep(1)}>
-            ← Quay lại
-          </Button>
-        </div>
-      )}
-
-      {/* Step 3: Scope + generate */}
-      {step === 3 && (
-        <div className="space-y-4">
-          <div className="rounded-md border border-primary/20 bg-primary/5 p-3">
-            <div className="font-medium text-sm">{selectedTemplate?.title}</div>
-            <p className="mt-1 text-xs text-muted-foreground">{selectedTemplate?.purpose}</p>
-          </div>
-
-          {selectedTemplate?.scopeType !== "school" && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Học kỳ</Label>
-                <Select value={selectedSemesterId} onValueChange={(v) => { if (v) setSelectedSemesterId(v) }}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Chọn học kỳ">
-                      {selectedSemester
-                        ? `${selectedSemester.name}${selectedSemester.is_current ? " ✦" : ""}`
-                        : "Chọn học kỳ"}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {semesters.map((s) => (
-                      <SelectItem key={s.id} value={String(s.id)}>
-                        {s.name}
-                        {s.is_current ? " (hiện tại)" : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {selectedTemplate?.scopeType === "program" && (
-                <div className="space-y-2">
-                  <Label>Ngành</Label>
-                  <Select value={selectedProgramId} onValueChange={(v) => { if (v) setSelectedProgramId(v) }}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Chọn ngành" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {programs.map((p) => (
-                        <SelectItem key={p.id} value={String(p.id)}>
-                          {p.code} - {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {selectedTemplate?.scopeType === "section" && (
-                <div className="space-y-2">
-                  <Label>Lớp học phần</Label>
-                  <Select value={selectedSectionId} onValueChange={(v) => { if (v) setSelectedSectionId(v) }}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Chọn lớp">
-                        {currentSection
-                          ? buildSectionLabel(currentSection, courseMap, semesterMap)
-                          : "Chọn lớp học phần"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filteredSections.map((s) => (
-                        <SelectItem key={s.id} value={String(s.id)}>
-                          {buildSectionLabel(s, courseMap, semesterMap)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setStep(2)}>
-              ← Quay lại
-            </Button>
-            <Button onClick={onGenerate} disabled={isGenerating} className="flex-1">
-              {isGenerating ? (
-                <Loader2 className="mr-2 size-4 animate-spin" />
-              ) : (
-                <Sparkles className="mr-2 size-4" />
-              )}
-              Tạo báo cáo
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+// (WizardPanel đã gỡ bỏ — tạo báo cáo nay dùng dialog đơn giản)
 
 // ── Phase 3: Compare ──────────────────────────────────────────────────────────
 
-function ComparePanel({
-  reports,
-  leftReport,
-  compareReportId,
-  setCompareReportId,
+// (ComparePanel/CompareCard đã gỡ bỏ — so sánh kỳ nay do trợ lý AI đảm nhận qua hội thoại)
+
+interface ReportTableRow {
+  label: string
+  value: React.ReactNode
+  note?: React.ReactNode
+}
+
+function metricDisplay(metrics: Record<string, unknown>, key: string, fallback = "Chưa có") {
+  const value = metrics[key]
+  if (value == null || value === "") return fallback
+  return typeof value === "number" ? value.toLocaleString("vi-VN") : localizeReportText(value)
+}
+
+function hasMetric(metrics: Record<string, unknown>, key: string) {
+  const value = metrics[key]
+  return value != null && value !== ""
+}
+
+function percentDisplay(value: unknown) {
+  return typeof value === "number" ? `${value}%` : "Chưa có"
+}
+
+function reportSectionStatus(value: "good" | "watch" | "missing") {
+  const label = value === "good" ? "Đủ dữ liệu" : value === "watch" ? "Cần theo dõi" : "Chưa đủ dữ liệu"
+  return <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">{label}</span>
+}
+
+function ReportSectionBlock({
+  index,
+  title,
+  purpose,
+  status,
+  children,
 }: {
-  reports: ApiReport[]
-  leftReport: ApiReport | null
-  compareReportId: string | null
-  setCompareReportId: (id: string | null) => void
+  index: number
+  title: string
+  purpose: string
+  status: "good" | "watch" | "missing"
+  children: React.ReactNode
 }) {
-  const rightReport = reports.find((r) => r.id === compareReportId) ?? null
-
-  if (reports.length < 2) {
-    return (
-      <div className="rounded-lg border p-10 text-center">
-        <ArrowLeftRight className="mx-auto size-10 text-muted-foreground" />
-        <h3 className="mt-4 text-base font-semibold">Cần ít nhất 2 báo cáo</h3>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Tạo thêm báo cáo trong tab Tạo báo cáo để so sánh.
-        </p>
-      </div>
-    )
-  }
-
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="flex-1 rounded-md border bg-muted/30 px-3 py-2 text-sm">
-          <span className="text-xs text-muted-foreground">Báo cáo A (đang chọn)</span>
-          <div className="mt-0.5 truncate font-medium">{leftReport?.title ?? "Chưa chọn"}</div>
+    <section id={`report-section-${index}`} className="border-t border-slate-900 pt-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-[15px] font-bold uppercase text-slate-950">
+            {index}. {title}
+          </h3>
+          <p className="mt-1 text-[13px] leading-6 text-slate-600">{purpose}</p>
         </div>
-        <ArrowLeftRight className="mx-2 size-5 shrink-0 text-muted-foreground" />
-        <Select value={compareReportId ?? ""} onValueChange={(v) => setCompareReportId(v ?? null)}>
-          <SelectTrigger className="flex-1">
-            <SelectValue placeholder="Chọn báo cáo B">
-              {rightReport?.title ?? "Chọn báo cáo B để so sánh"}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {reports
-              .filter((r) => r.id !== leftReport?.id)
-              .map((r) => (
-                <SelectItem key={r.id} value={r.id}>
-                  {r.title} · {formatDate(r.created_at)}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
+        {reportSectionStatus(status)}
       </div>
+      <div className="mt-4">{children}</div>
+    </section>
+  )
+}
 
-      {leftReport && rightReport ? (
-        <>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <CompareCard report={leftReport} label="A" />
-            <CompareCard report={rightReport} label="B" />
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">So sánh chỉ số chính</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="py-2 font-medium text-muted-foreground">Chỉ số</th>
-                      <th className="py-2 text-center font-medium">A</th>
-                      <th className="py-2 text-center font-medium">B</th>
-                      <th className="py-2 text-center font-medium text-muted-foreground">B − A</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {["pass_rate", "at_risk_students", "watchlist_count", "evidence_count"].flatMap((key) => {
-                      const a = leftReport.metrics_json?.[key]
-                      const b = rightReport.metrics_json?.[key]
-                      if (a == null && b == null) return []
-                      const diff =
-                        typeof a === "number" && typeof b === "number" ? b - a : null
-                      return [
-                        <tr key={key} className="border-b last:border-0">
-                          <td className="py-2 text-muted-foreground">{key}</td>
-                          <td className="py-2 text-center font-medium">{a != null ? String(a) : "—"}</td>
-                          <td className="py-2 text-center font-medium">{b != null ? String(b) : "—"}</td>
-                          <td
-                            className={`py-2 text-center text-xs ${
-                              diff == null
-                                ? "text-muted-foreground"
-                                : diff > 0
-                                  ? "text-emerald-600"
-                                  : diff < 0
-                                    ? "text-red-500"
-                                    : "text-muted-foreground"
-                            }`}
-                          >
-                            {diff != null ? (diff > 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1)) : "—"}
-                          </td>
-                        </tr>,
-                      ]
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </>
-      ) : (
-        <div className="rounded-lg border p-8 text-center text-sm text-muted-foreground">
-          Chọn báo cáo B ở trên để xem so sánh song song.
-        </div>
-      )}
+function ReportKeyValueGrid({ rows }: { rows: ReportTableRow[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-[13px]">
+        <tbody>
+      {rows.map((row) => (
+        <tr key={row.label}>
+          <td className="w-1/3 border border-slate-900 bg-slate-50 px-3 py-2 font-semibold align-top">
+            {row.label}
+          </td>
+          <td className="border border-slate-900 px-3 py-2 align-top">
+            <div className="break-words">{row.value}</div>
+            {row.note ? <div className="mt-1 text-xs text-slate-600">{row.note}</div> : null}
+          </td>
+        </tr>
+      ))}
+        </tbody>
+      </table>
     </div>
   )
 }
 
-function CompareCard({ report, label }: { report: ApiReport; label: string }) {
-  const metrics = report.metrics_json ?? {}
-  const passRate = asPercent(metrics.pass_rate)
-  const risk = String(metrics.risk_level ?? "Chưa rõ")
+function ReportSimpleTable({
+  columns,
+  rows,
+  empty,
+}: {
+  columns: string[]
+  rows: React.ReactNode[][]
+  empty: string
+}) {
+  if (rows.length === 0) {
+    return <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">{empty}</div>
+  }
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-2">
-          <Badge>{label}</Badge>
-          <CardTitle className="truncate text-sm">{report.title}</CardTitle>
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[640px] border-collapse text-[13px]">
+        <thead className="bg-slate-50">
+          <tr>
+            {columns.map((column) => (
+              <th key={column} className="border border-slate-900 px-3 py-2 text-left font-semibold text-slate-950">
+                {column}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, rowIndex) => (
+            <tr key={rowIndex}>
+              {row.map((cell, cellIndex) => (
+                <td key={cellIndex} className="border border-slate-900 px-3 py-2 align-top">
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function buildOutcomeRows(attainment: Record<string, number> | null, target = 75) {
+  if (!attainment) return []
+  return Object.entries(attainment).map(([code, value]) => {
+    const gap = Number((value - target).toFixed(1))
+    const status = gap >= 5 ? "Tốt" : gap >= -5 ? "Theo dõi" : gap >= -15 ? "Cảnh báo" : "Nguy cấp"
+    return [
+      <span key="code" className="font-medium">{code}</span>,
+      `${value}%`,
+      `${target}%`,
+      <span key="gap" className={gap < 0 ? "text-red-600" : "text-emerald-600"}>
+        {gap > 0 ? "+" : ""}{gap}%
+      </span>,
+      status,
+    ]
+  })
+}
+
+function compactRows(rows: ReportTableRow[]) {
+  return rows.filter((row) => row.value != null && row.value !== "")
+}
+
+function ReportStandardDocument({
+  report,
+  metrics,
+  issues,
+  risks,
+  actions,
+  goodSignals,
+  confidence,
+  cloAttainment,
+  ploAttainment,
+  watchlistStudents,
+  coursesAtRisk,
+}: {
+  report: ApiReport
+  metrics: Record<string, unknown>
+  issues: string[]
+  risks: string[]
+  actions: string[]
+  goodSignals: string[]
+  confidence: number
+  cloAttainment: Record<string, number> | null
+  ploAttainment: Record<string, number> | null
+  watchlistStudents: WatchlistEntry[]
+  coursesAtRisk: string[]
+}) {
+  const completed = Number(metrics.completed_enrollments ?? metrics.graded_count ?? 0)
+  const failed = Number(metrics.failed_enrollments ?? 0)
+  const failRate = completed ? Math.round((failed / completed) * 1000) / 10 : null
+  const weakClos = Array.isArray(metrics.weak_clos) ? metrics.weak_clos : []
+  const bottleneckRows = [
+    ...weakClos.slice(0, 4).map((item, index) => {
+      const record = item as Record<string, unknown>
+      return [
+        index + 1,
+        localizeReportText(`${record.code ?? "CLO"} ${record.name ?? ""}`),
+        "CLO yếu",
+        `${record.attainment ?? "?"}%`,
+        "Cần rà soát rubric, đề và hoạt động luyện tập.",
+      ]
+    }),
+    ...coursesAtRisk.slice(0, 4).map((course, index) => [
+      weakClos.length + index + 1,
+      localizeReportText(course),
+      "Học phần",
+      "Cần theo dõi",
+      "Học phần có dấu hiệu kéo kết quả xuống.",
+    ]),
+    ...issues.slice(0, 3).map((issue, index) => [
+      weakClos.length + coursesAtRisk.length + index + 1,
+      localizeReportText(issue),
+      "Vấn đề",
+      "Cần kiểm chứng",
+      "Cần truy vết thêm bằng dữ liệu thành phần.",
+    ]),
+  ]
+
+  const riskRows = risks.length
+    ? risks.map((riskItem, index) => [
+        index + 1,
+        localizeReportText(riskItem),
+        String(metrics.risk_level ?? "Chưa rõ"),
+        index === 0 ? "Xử lý trong tuần" : "Theo dõi",
+      ])
+    : []
+
+  const actionRows = actions.length
+    ? actions.map((action, index) => [
+        index + 1,
+        localizeReportText(action),
+        report.actor_role === "lecturer" ? "Giảng viên" : "Quản lý / trưởng đơn vị",
+        index === 0 ? "7 ngày" : "30 ngày",
+        index === 0 ? "Cao" : "Trung bình",
+      ])
+    : []
+  const cloRows = buildOutcomeRows(cloAttainment)
+  const ploRows = buildOutcomeRows(ploAttainment)
+  const showCloSection = cloRows.length > 0
+  const showPloSection = ploRows.length > 0
+  const scopeRows = compactRows([
+    hasMetric(metrics, "active_students")
+      ? { label: "Sinh viên đang học", value: metricDisplay(metrics, "active_students") }
+      : null,
+    hasMetric(metrics, "student_count")
+      ? { label: "Sinh viên trong lớp", value: metricDisplay(metrics, "student_count") }
+      : null,
+    hasMetric(metrics, "program_count")
+      ? { label: "Ngành / chương trình", value: metricDisplay(metrics, "program_count") }
+      : null,
+    hasMetric(metrics, "completed_enrollments")
+      ? { label: "Lượt học phần hoàn tất", value: metricDisplay(metrics, "completed_enrollments") }
+      : null,
+    hasMetric(metrics, "graded_count")
+      ? { label: "Sinh viên đã có điểm", value: metricDisplay(metrics, "graded_count") }
+      : null,
+    hasMetric(metrics, "evidence_count")
+      ? { label: "Minh chứng", value: metricDisplay(metrics, "evidence_count") }
+      : null,
+    showCloSection || showPloSection
+      ? { label: "Ngưỡng mục tiêu", value: "CLO/PLO mục tiêu 75%" }
+      : null,
+  ].filter(Boolean) as ReportTableRow[])
+  const qualityRows = compactRows([
+    { label: "Độ tin cậy", value: `${confidence}%`, note: dataConfidenceBasis(report) },
+    { label: "Cỡ mẫu", value: confidenceSample(report).toLocaleString("vi-VN") },
+    hasMetric(metrics, "missing_grade_rate")
+      ? { label: "Tỷ lệ thiếu điểm", value: `${metrics.missing_grade_rate}%` }
+      : null,
+    hasMetric(metrics, "mapping_coverage")
+      ? { label: "Mapping CLO/PLO", value: `${metrics.mapping_coverage}%` }
+      : null,
+    showCloSection || showPloSection
+      ? { label: "Độ mạnh minh chứng", value: confidence >= 78 ? "Khá / tốt" : "Cần theo dõi" }
+      : null,
+  ].filter(Boolean) as ReportTableRow[])
+  const outcomeRows = compactRows([
+    hasMetric(metrics, "pass_rate") ? { label: "Tỷ lệ đạt", value: percentDisplay(metrics.pass_rate) } : null,
+    failRate != null ? { label: "Tỷ lệ trượt", value: `${failRate}%` } : null,
+    hasMetric(metrics, "avg_gpa") ? { label: "GPA trung bình", value: metricDisplay(metrics, "avg_gpa") } : null,
+    hasMetric(metrics, "avg_grade") ? { label: "Điểm trung bình", value: metricDisplay(metrics, "avg_grade") } : null,
+    hasMetric(metrics, "passed_enrollments")
+      ? { label: "Lượt đạt", value: metricDisplay(metrics, "passed_enrollments") }
+      : null,
+    hasMetric(metrics, "failed_enrollments")
+      ? { label: "Lượt chưa đạt", value: metricDisplay(metrics, "failed_enrollments") }
+      : null,
+  ].filter(Boolean) as ReportTableRow[])
+  let sectionIndex = 1
+
+  return (
+    <article
+      className="mx-auto max-w-[900px] space-y-5 bg-white px-5 py-6 text-slate-950 shadow-sm ring-1 ring-slate-200 sm:px-8 lg:px-12"
+      style={{ fontFamily: '"Times New Roman", Times, serif' }}
+    >
+      <div className="grid gap-4 text-center text-[13px] font-bold uppercase sm:grid-cols-2">
+        <div>
+          TRƯỜNG ĐẠI HỌC ĐIỆN LỰC
+          <div className="mx-auto mt-1 w-fit border-b border-slate-900 pb-0.5">HỆ THỐNG PHÂN TÍCH HỌC TẬP</div>
         </div>
-        <p className="text-xs text-muted-foreground">{formatDate(report.created_at)}</p>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="grid grid-cols-2 gap-2">
-          <div
-            className={`rounded-md border p-2 ${passRate < 70 ? "border-red-200 bg-red-50" : "border-emerald-200 bg-emerald-50"}`}
-          >
-            <div className="text-xs text-muted-foreground">Tỷ lệ đạt</div>
-            <div className="text-lg font-semibold">
-              {metrics.pass_rate != null ? `${metrics.pass_rate}%` : "—"}
+        <div>
+          CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
+          <div className="mx-auto mt-1 w-fit border-b border-slate-900 pb-0.5">Độc lập - Tự do - Hạnh phúc</div>
+        </div>
+      </div>
+
+      <div className="py-5 text-center">
+        <h2 className="text-[21px] font-bold uppercase leading-snug">{report.title}</h2>
+        <p className="mt-2 text-[14px] text-slate-700">
+          {labelFromMap(report.report_type, reportTypeLabels)} · {formatDate(report.created_at)}
+        </p>
+      </div>
+
+      <ReportSectionBlock
+        index={sectionIndex++}
+        title="Thông tin báo cáo"
+        purpose="Xác định báo cáo đang nói về phạm vi nào, ai xem và dữ liệu được chốt lúc nào."
+        status="good"
+      >
+        <ReportKeyValueGrid
+          rows={[
+            { label: "Tên báo cáo", value: report.title },
+            { label: "Loại báo cáo", value: labelFromMap(report.report_type, reportTypeLabels) },
+            { label: "Phạm vi", value: labelFromMap(report.scope_type, scopeTypeLabels), note: report.scope_id ?? "Tất cả" },
+            { label: "Người tạo", value: report.generated_by ? "Người dùng hệ thống" : "Hệ thống" },
+            { label: "Dữ liệu tính đến", value: formatDate(report.created_at) },
+            { label: "Phiên bản", value: "v1.0" },
+            { label: "Trạng thái", value: labelFromMap(report.status, statusLabels) },
+            { label: "Actor", value: report.actor_role === "lecturer" ? "Giảng viên" : "Quản lý" },
+          ]}
+        />
+      </ReportSectionBlock>
+
+      <ReportSectionBlock
+        index={sectionIndex++}
+        title="Tóm tắt điều hành"
+        purpose="Nêu kết luận chính trước khi người đọc đi vào bảng số liệu."
+        status="good"
+      >
+        <div className="space-y-3">
+          <p className="rounded-md bg-muted/30 p-4 text-sm leading-6 text-justify">
+            {localizeReportText(report.summary)}
+          </p>
+          <div className="grid gap-3 md:grid-cols-3">
+            <NarrativeCard title="Điểm đáng chú ý" items={goodSignals} />
+            <NarrativeCard title="Vấn đề cần xử lý" items={issues} />
+            <NarrativeCard title="Hành động ưu tiên" items={actions} />
+          </div>
+        </div>
+      </ReportSectionBlock>
+
+      <ReportSectionBlock
+        index={sectionIndex++}
+        title="Phạm vi dữ liệu"
+        purpose="Cho biết báo cáo dùng bao nhiêu sinh viên, môn, lớp, lượt học phần và minh chứng."
+        status={completed || metrics.active_students || metrics.student_count ? "good" : "missing"}
+      >
+        <ReportKeyValueGrid
+          rows={scopeRows}
+        />
+      </ReportSectionBlock>
+
+      <ReportSectionBlock
+        index={sectionIndex++}
+        title="Chất lượng dữ liệu"
+        purpose="Chỉ ra độ tin cậy, cỡ mẫu, dữ liệu thiếu và mức mạnh yếu của bằng chứng."
+        status={confidence >= 78 ? "good" : confidence >= 58 ? "watch" : "missing"}
+      >
+        <ReportKeyValueGrid
+          rows={qualityRows}
+        />
+      </ReportSectionBlock>
+
+      <ReportSectionBlock
+        index={sectionIndex++}
+        title="Tổng quan kết quả học tập"
+        purpose="Tổng hợp điểm, tỷ lệ đạt/trượt và xu hướng học vụ trong phạm vi báo cáo."
+        status={completed || metrics.pass_rate != null ? "good" : "missing"}
+      >
+        <ReportKeyValueGrid
+          rows={outcomeRows}
+        />
+      </ReportSectionBlock>
+
+      {showCloSection ? (
+        <ReportSectionBlock
+          index={sectionIndex++}
+          title="Phân tích CLO"
+          purpose="Cho biết CLO nào đạt/chưa đạt, gap so với mục tiêu và bằng chứng đo."
+          status="good"
+        >
+          <ReportSimpleTable
+            columns={["CLO", "Mức đạt", "Mục tiêu", "Gap", "Trạng thái"]}
+            rows={cloRows}
+            empty="Không có dữ liệu CLO trong snapshot."
+          />
+        </ReportSectionBlock>
+      ) : null}
+
+      {showPloSection ? (
+        <ReportSectionBlock
+          index={sectionIndex++}
+          title="Phân tích PLO"
+          purpose="Cho biết PLO nào dưới mục tiêu, có bằng chứng đủ mạnh không và cần drill-down ở đâu."
+          status="good"
+        >
+          <ReportSimpleTable
+            columns={["PLO", "Mức đạt", "Mục tiêu", "Gap", "Trạng thái"]}
+            rows={ploRows}
+            empty="Không có dữ liệu PLO trong snapshot."
+          />
+        </ReportSectionBlock>
+      ) : null}
+
+      <ReportSectionBlock
+        index={sectionIndex++}
+        title="Nguyên nhân / bottleneck"
+        purpose="Không chỉ nêu chuẩn yếu, mà chỉ ra môn, CLO, thành phần điểm hoặc lớp kéo kết quả xuống."
+        status={bottleneckRows.length ? "watch" : "missing"}
+      >
+        <ReportSimpleTable
+          columns={["Hạng", "Điểm nghẽn", "Loại", "Mức ảnh hưởng", "Ghi chú"]}
+          rows={bottleneckRows}
+          empty="Chưa đủ dữ liệu để truy vết bottleneck. Cần có CLO/PLO, điểm thành phần và mapping học phần."
+        />
+      </ReportSectionBlock>
+
+      <ReportSectionBlock
+        index={sectionIndex++}
+        title="Cảnh báo rủi ro"
+        purpose="Chỉ ra nơi cần can thiệp ngay: sinh viên, lớp, môn, PLO hoặc dữ liệu thiếu."
+        status={riskRows.length || watchlistStudents.length ? "watch" : "missing"}
+      >
+        <div className="space-y-3">
+          <ReportSimpleTable
+            columns={["#", "Rủi ro", "Mức độ", "Hành động"]}
+            rows={riskRows}
+            empty="Chưa có cảnh báo rủi ro rõ ràng trong snapshot."
+          />
+          {watchlistStudents.length ? (
+            <div className="rounded-md border bg-amber-50 p-3 text-sm">
+              Có {watchlistStudents.length} sinh viên trong danh sách cần chú ý. Danh sách chi tiết nằm ở phần tương tác bên dưới.
             </div>
-          </div>
-          <div
-            className={`rounded-md border p-2 ${riskVariant(risk) === "destructive" ? "border-red-200 bg-red-50" : "border-slate-100"}`}
-          >
-            <div className="text-xs text-muted-foreground">Rủi ro</div>
-            <div className="text-lg font-semibold">{risk}</div>
-          </div>
+          ) : null}
         </div>
-        <p className="line-clamp-3 text-xs text-muted-foreground">{localizeReportText(report.summary)}</p>
-        <div className="flex flex-wrap gap-1">
-          <Badge variant="outline" className="text-xs">
-            {labelFromMap(report.report_type, reportTypeLabels)}
-          </Badge>
-          <Badge variant="outline" className="text-xs">
-            {labelFromMap(report.scope_type, scopeTypeLabels)}
-          </Badge>
+      </ReportSectionBlock>
+
+      <ReportSectionBlock
+        index={sectionIndex++}
+        title="Khuyến nghị & kế hoạch hành động"
+        purpose="Kết thúc bằng việc rõ ai làm gì, khi nào, ưu tiên ra sao."
+        status={actionRows.length ? "good" : "missing"}
+      >
+        <ReportSimpleTable
+          columns={["#", "Hành động", "Phụ trách", "Hạn", "Ưu tiên"]}
+          rows={actionRows}
+          empty="Chưa có action plan. Có thể hỏi trợ lý báo cáo để đề xuất hành động từ dữ liệu hiện tại."
+        />
+      </ReportSectionBlock>
+
+      <div className="border-t border-slate-900 pt-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="text-[15px] font-bold uppercase">Trợ lý phân tích báo cáo</h3>
+            <p className="mt-1 text-[13px] leading-6 text-slate-600">
+              Dùng liên kết này trong chat hoặc gửi cho actor liên quan để mở đúng snapshot báo cáo.
+            </p>
+          </div>
+          <Button variant="outline" nativeButton={false} render={<a href={reportUrl(report.id)} />}>
+            <Bot className="mr-2 size-4" />
+            Mở báo cáo với trợ lý
+          </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </article>
   )
 }
 
@@ -1567,9 +1743,9 @@ function ReportPreview({ report, isLoading }: { report: ApiReport | null; isLoad
         <CardContent className="grid min-h-[520px] place-items-center p-8 text-center">
           <div className="max-w-sm">
             <Eye className="mx-auto size-10 text-muted-foreground" />
-            <h3 className="mt-4 text-lg font-semibold">Chưa có bản xem trước</h3>
+            <h3 className="mt-4 text-lg font-semibold">Chưa có báo cáo tự động</h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              Chọn mẫu và phạm vi, sau đó bấm Xem trước để tạo bản báo cáo tương tác.
+              Khi lịch báo cáo của actor được kích hoạt, hệ thống sẽ tự sinh báo cáo và hiển thị tại đây.
             </p>
           </div>
         </CardContent>
@@ -1615,7 +1791,7 @@ function ReportPreview({ report, isLoading }: { report: ApiReport | null; isLoad
   return (
     <div className="space-y-4">
       <Card className="overflow-hidden">
-        <div className="border-b bg-gradient-to-r from-slate-50 via-white to-emerald-50 p-6">
+        <div className="border-b bg-slate-50 p-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="max-w-2xl">
               <div className="flex flex-wrap gap-2">
@@ -1625,25 +1801,42 @@ function ReportPreview({ report, isLoading }: { report: ApiReport | null; isLoad
                   {metrics.llm_enhanced ? "Có AI diễn giải" : "Diễn giải theo luật"}
                 </Badge>
               </div>
-              <h2 className="mt-4 text-2xl font-semibold tracking-tight">{report.title}</h2>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              <h2 className="mt-3 text-lg font-semibold tracking-tight">{report.title}</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 {localizeReportText(report.summary)}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => downloadReportHtml(report)}>
-                <Download className="mr-2 size-4" />
-                Tải trang web
-              </Button>
-              <Button variant="outline" onClick={() => printReport(report)}>
+              <Button onClick={() => printReport(report)}>
                 <Printer className="mr-2 size-4" />
-                In PDF
+                Xuất PDF
               </Button>
             </div>
           </div>
         </div>
 
         <CardContent className="space-y-6 p-6">
+          <ReportStandardDocument
+            report={report}
+            metrics={metrics}
+            issues={issues}
+            risks={risks}
+            actions={actions}
+            goodSignals={goodSignals}
+            confidence={confidence}
+            cloAttainment={cloAttainment}
+            ploAttainment={ploAttainment}
+            watchlistStudents={watchlistStudents}
+            coursesAtRisk={coursesAtRisk}
+          />
+
+          <div className="rounded-lg border bg-muted/20 p-4">
+            <h3 className="font-semibold">Phần tương tác chi tiết</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Các bảng dưới đây dùng để drill-down nhanh, kiểm tra số liệu và mở phụ lục kỹ thuật của snapshot.
+            </p>
+          </div>
+
           {/* Main metric cards */}
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <ReportMetricCard
@@ -1856,6 +2049,26 @@ function ReportPreview({ report, isLoading }: { report: ApiReport | null; isLoad
   )
 }
 
+function NarrativeCard({ title, items }: { title: string; items: string[] }) {
+  const visibleItems = items.slice(0, 3)
+  return (
+    <div className="rounded-md border bg-slate-50 p-3">
+      <div className="text-[13px] font-semibold text-slate-950">{title}</div>
+      {visibleItems.length ? (
+        <div className="mt-2 space-y-2 text-[13px] leading-6 text-slate-700">
+          {visibleItems.map((item, index) => (
+            <p key={`${title}-${index}`} className="text-justify">
+              {localizeReportText(item)}
+            </p>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-[13px] leading-6 text-slate-500">Chưa có nhận định nổi bật.</p>
+      )}
+    </div>
+  )
+}
+
 function ReportMetricCard({
   title,
   value,
@@ -1916,33 +2129,30 @@ function ReportListSection({
   )
 }
 
-function MetricCard({
-  label,
-  value,
-  metricKey,
-  onAsk,
+function FloatingAgent({
+  open,
+  setOpen,
+  ...agentProps
 }: {
-  label: string
-  value: React.ReactNode
-  metricKey: string
-  onAsk: () => void
-}) {
+  open: boolean
+  setOpen: (open: boolean) => void
+} & React.ComponentProps<typeof AgentPanel>) {
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-xs text-muted-foreground">{label}</div>
-            <div className="mt-1 text-2xl font-semibold">{value}</div>
-            <div className="mt-2 text-xs text-muted-foreground">Mã chỉ số: {metricKey}</div>
-          </div>
-          <Button size="sm" variant="outline" onClick={onAsk}>
-            <Bot className="mr-1 size-3" />
-            Hỏi
-          </Button>
+    <div className="fixed bottom-6 right-6 z-50 print:hidden">
+      {open ? (
+        <div className="w-[min(420px,calc(100vw-2rem))] max-h-[82vh] overflow-y-auto rounded-2xl border bg-background p-4 shadow-2xl">
+          <AgentPanel {...agentProps} onClose={() => setOpen(false)} />
         </div>
-      </CardContent>
-    </Card>
+      ) : (
+        <Button
+          onClick={() => setOpen(true)}
+          className="size-14 rounded-full shadow-xl"
+          aria-label="Mở trợ lý báo cáo"
+        >
+          <Bot className="size-6" />
+        </Button>
+      )}
+    </div>
   )
 }
 
@@ -1957,6 +2167,7 @@ function AgentPanel({
   onAsk,
   onQuickAsk,
   onConfirm,
+  onClose,
 }: {
   selectedReport: ApiReport | null
   mode: ApiReportAgentMode
@@ -1968,15 +2179,23 @@ function AgentPanel({
   onAsk: () => void
   onQuickAsk: (question: string, mode: ApiReportAgentMode) => void
   onConfirm: (action: ApiReportAgentPendingAction, decision: "confirm" | "cancel") => void
+  onClose?: () => void
 }) {
   return (
     <aside className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Sparkles className="size-5 text-primary" />
-            Trợ lý báo cáo
-          </CardTitle>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Sparkles className="size-5 text-primary" />
+              Trợ lý báo cáo
+            </CardTitle>
+            {onClose ? (
+              <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Đóng trợ lý">
+                <X className="size-4" />
+              </Button>
+            ) : null}
+          </div>
           <p className="text-sm text-muted-foreground">
             Trợ lý chỉ dùng ảnh chụp báo cáo, kết quả công cụ và bộ nhớ đã lưu.
           </p>
@@ -1991,11 +2210,31 @@ function AgentPanel({
                 </Badge>
               </div>
               <div className="mt-1 text-muted-foreground">{selectedReport.title}</div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  nativeButton={false}
+                  render={<a href={reportUrl(selectedReport.id)} />}
+                >
+                  Mở báo cáo
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const url = `${window.location.origin}${reportUrl(selectedReport.id)}`
+                    void navigator.clipboard?.writeText(url)
+                  }}
+                >
+                  Sao chép link
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="flex items-start gap-2 rounded-md border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
               <Info className="mt-0.5 size-4 shrink-0" />
-              Chọn một báo cáo (ở tab Tạo báo cáo hoặc Lịch sử báo cáo) để bắt đầu hỏi trợ lý.
+              Chọn một báo cáo ở danh sách bên trái để bắt đầu hỏi trợ lý.
             </div>
           )}
 
@@ -2079,8 +2318,8 @@ function AgentPanel({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm leading-6">
-              {answer.response}
+            <div className="space-y-1 rounded-md bg-muted/40 p-3 text-sm leading-6">
+              {renderAgentResponse(answer.response)}
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
               <Badge variant="outline">phiên {answer.session_id.slice(0, 8)}</Badge>

@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.access_control import can_view_report, can_view_report_scope
 from app.agent.report_prompts import REPORT_AGENT_PROMPT_VERSION, REPORT_AGENT_SYSTEM_PROMPT
 from app.agent.report_tools import (
     TOOL_REGISTRY,
@@ -33,6 +34,7 @@ from app.models.agent import (
     ReportAgentToolCall,
 )
 from app.models.people import User
+from app.models.report import Report
 
 
 WRITE_INTENT_WORDS = ("tạo task", "tao task", "giao việc", "schedule", "hẹn lịch", "gửi report", "send report")
@@ -123,6 +125,9 @@ async def ask_report_agent(
     snapshot: dict[str, Any] | None = None
 
     if selected_report_id:
+        report_obj = await db.get(Report, str(selected_report_id))
+        if report_obj is None or not await can_view_report(db, user, report_obj):
+            raise ValueError("Report not found")
         snapshot = await _run_tool(
             db,
             session,
@@ -178,7 +183,7 @@ async def ask_report_agent(
             user_message.id,
             "list_recent_reports",
             {"limit": 10},
-            lambda: list_recent_reports(db, 10),
+            lambda: _list_recent_reports_for_user(db, user, 10),
             tool_calls,
         )
         snapshot = {"recent_reports": recent_reports}
@@ -372,6 +377,23 @@ async def _remember_recent_report(db: AsyncSession, user_id: str, snapshot: dict
     await db.flush()
 
 
+async def _list_recent_reports_for_user(db: AsyncSession, user: User, limit: int) -> list[dict[str, Any]]:
+    reports = await list_recent_reports(db, 200)
+    visible: list[dict[str, Any]] = []
+    for report in reports:
+        if await can_view_report_scope(
+            db,
+            user,
+            str(report.get("report_type") or ""),
+            report.get("scope_type"),
+            report.get("scope_id"),
+        ):
+            visible.append(report)
+        if len(visible) >= limit:
+            break
+    return visible
+
+
 async def _maybe_create_pending_action(
     db: AsyncSession,
     session: ReportAgentSession,
@@ -432,10 +454,30 @@ async def _build_answer(
             )
             content = str(response.content).strip()
             if content:
-                return content
+                return _append_report_links(content, snapshot)
         except Exception:
             pass
-    return _deterministic_answer(message, mode, snapshot, tool_calls)
+    return _append_report_links(_deterministic_answer(message, mode, snapshot, tool_calls), snapshot)
+
+
+def _append_report_links(content: str, snapshot: dict[str, Any]) -> str:
+    """Append direct report links so chat answers can open the exact report."""
+    report_id = snapshot.get("id")
+    if report_id:
+        url = f"/manager/reports?report={report_id}"
+        if url not in content:
+            title = snapshot.get("title") or "báo cáo"
+            return f"{content}\n\n**Mở báo cáo:** [Xem {title}]({url})"
+    recent = snapshot.get("recent_reports")
+    if isinstance(recent, list) and recent:
+        lines = []
+        for item in recent[:3]:
+            if isinstance(item, dict) and item.get("id"):
+                title = item.get("title") or item["id"]
+                lines.append(f"- [Xem {title}](/manager/reports?report={item['id']})")
+        if lines and "/manager/reports?report=" not in content:
+            return f"{content}\n\n**Báo cáo gần đây:**\n" + "\n".join(lines)
+    return content
 
 
 def _deterministic_answer(message: str, mode: str, snapshot: dict[str, Any], tool_calls: list[dict[str, Any]]) -> str:
@@ -462,10 +504,58 @@ def _deterministic_answer(message: str, mode: str, snapshot: dict[str, Any], too
             "Nếu muốn ghi vào hệ thống, hãy xác nhận pending action thay vì để agent tự tạo task."
         )
     if snapshot.get("found"):
+        metrics: dict = snapshot.get("metrics") or {}
+        lower = message.lower()
+        # CLO-specific answer
+        if any(w in lower for w in ("clo", "chuẩn đầu ra", "thành phần", "cdr")):
+            clo_att: dict = metrics.get("clo_attainment") or {}
+            clo_comp: dict = metrics.get("clo_components") or {}
+            weak_count = metrics.get("weak_clo_count", 0)
+            if clo_att:
+                weak = {k: v for k, v in clo_att.items() if v < 70}
+                strong = {k: v for k, v in clo_att.items() if v >= 70}
+                parts = [
+                    f"**Tóm tắt CLO** — {len(clo_att)} chuẩn đầu ra, "
+                    f"{len(strong)} đạt ngưỡng ≥70%, **{len(weak)} cần cải thiện**.\n"
+                ]
+                if weak:
+                    parts.append("**CLO chưa đạt:**")
+                    for code, pct in sorted(weak.items(), key=lambda x: x[1]):
+                        comps = clo_comp.get(code, [])
+                        if comps:
+                            worst = min(comps, key=lambda c: c["avg_score"] / max(c["max_score"], 1))
+                            parts.append(
+                                f"- **{code}** ({pct}%): thành phần yếu nhất là "
+                                f"\"{worst['component']}\" "
+                                f"({worst['avg_score']:.1f}/{worst['max_score']:.0f})"
+                            )
+                        else:
+                            parts.append(f"- **{code}** ({pct}%)")
+                if strong:
+                    top = sorted(strong.items(), key=lambda x: -x[1])[:3]
+                    parts.append("\n**CLO đạt tốt:** " + ", ".join(f"{k} ({v}%)" for k, v in top))
+                return "\n".join(parts)
+        # PLO-specific answer
+        if any(w in lower for w in ("plo", "chương trình", "kiểm định", "ngành")):
+            plo_att: dict = metrics.get("plo_attainment") or {}
+            if plo_att:
+                weak_plo = {k: v for k, v in plo_att.items() if v < 70}
+                avg = round(sum(plo_att.values()) / len(plo_att), 1)
+                parts = [
+                    f"**Tóm tắt PLO** — {len(plo_att)} chuẩn đầu ra chương trình, "
+                    f"trung bình đạt **{avg}%**.\n"
+                ]
+                if weak_plo:
+                    parts.append("**PLO chưa đạt 70%:**")
+                    for code, pct in sorted(weak_plo.items(), key=lambda x: x[1]):
+                        parts.append(f"- **{code}** ({pct}%) — cần rà soát CLO và hoạt động giảng dạy liên quan.")
+                else:
+                    parts.append("Tất cả PLO đang đạt ngưỡng 70% — chương trình đủ điều kiện theo chuẩn kiểm định.")
+                return "\n".join(parts)
         return (
             f"Report `{snapshot.get('title')}` đã được nạp. "
-            "Bạn có thể hỏi theo dạng: giải thích pass_rate, truy vết risk_level, "
-            "hoặc đề xuất hành động từ report này."
+            "Bạn có thể hỏi: giải thích CLO/PLO, phân tích điểm thành phần, "
+            "truy vết pass_rate, hoặc đề xuất hành động can thiệp."
         )
     if snapshot.get("recent_reports"):
         count = len(snapshot["recent_reports"])
@@ -486,7 +576,11 @@ def _session_title(mode: str, report_id: str | None) -> str:
 
 def _extract_metric_key(message: str) -> str | None:
     lower = message.lower()
-    for key in ("pass_rate", "avg_gpa", "at_risk_students", "risk_level", "watchlist_count", "completed_enrollments"):
+    for key in (
+        "pass_rate", "avg_gpa", "at_risk_students", "risk_level",
+        "watchlist_count", "completed_enrollments",
+        "clo_attainment", "plo_attainment", "weak_clo_count",
+    ):
         if key in lower:
             return key
     aliases = {
@@ -496,13 +590,26 @@ def _extract_metric_key(message: str) -> str | None:
         "nguy cơ": "at_risk_students",
         "mức rủi ro": "risk_level",
         "can thiệp": "watchlist_count",
+        "clo": "clo_attainment",
+        "plo": "plo_attainment",
+        "chuẩn đầu ra": "clo_attainment",
+        "cdr": "clo_attainment",
+        "chương trình": "plo_attainment",
+        "kiểm định": "plo_attainment",
+        "điểm thành phần": "clo_components",
+        "thành phần": "clo_components",
     }
     return next((value for key, value in aliases.items() if key in lower), None)
 
 
 def _wants_metric_explanation(message: str, context: dict[str, Any]) -> bool:
     lower = message.lower()
-    return bool(context.get("metric_key")) or any(word in lower for word in ("chỉ số", "công thức", "tính", "giải thích", "metric"))
+    return bool(context.get("metric_key")) or any(
+        word in lower for word in (
+            "chỉ số", "công thức", "tính", "giải thích", "metric",
+            "clo", "plo", "chuẩn đầu ra", "thành phần", "kiểm định",
+        )
+    )
 
 
 def _wants_trace(message: str) -> bool:
