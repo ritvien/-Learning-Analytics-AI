@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
@@ -63,6 +65,77 @@ _CLO_BREAKDOWN_SQL = text(
     """
 )
 
+# Per-CLO component breakdown for a specific section — shows which grade components
+# feed each CLO, their average scores, and weights so we can pinpoint weak components.
+_CLO_COMPONENT_SQL = text(
+    """
+    SELECT
+        cl.code                                               AS clo_code,
+        cl.name                                               AS clo_name,
+        gct.name                                              AS component_name,
+        ROUND(CAST(gct.weight        AS numeric), 4)          AS component_weight,
+        ROUND(CAST(gccm.weight       AS numeric), 4)          AS clo_contribution,
+        ROUND(CAST(AVG(gc.score)     AS numeric), 2)          AS avg_score,
+        MAX(gc.max_score)                                     AS max_score,
+        COUNT(gc.id)                                          AS sample_count
+    FROM clos cl
+    JOIN grade_component_clo_mappings gccm ON gccm.clo_id            = cl.id
+    JOIN grade_component_types gct         ON gccm.component_type_id = gct.id
+    JOIN grade_components gc               ON gc.component_type_id   = gct.id
+    JOIN enrollments e                     ON gc.enrollment_id        = e.id
+    WHERE e.section_id = :section_id
+      AND e.status = 'completed'
+    GROUP BY cl.code, cl.name, gct.name, gct.weight, gccm.weight
+    ORDER BY cl.code, gct.weight DESC
+    """
+)
+
+# Weighted PLO attainment for a program, aggregated via CLO → PLO contribution matrix.
+_PLO_ATTAINMENT_SQL = text(
+    """
+    WITH ecs AS (
+        SELECT
+            e.id  AS enrollment_id,
+            cl.id AS clo_id,
+            SUM(gc.score * gccm.weight * gct.weight)
+                / NULLIF(SUM(gccm.weight * gct.weight), 0) AS score
+        FROM enrollments e
+        JOIN sections sec                      ON e.section_id         = sec.id
+        JOIN program_courses pc                ON pc.course_id          = sec.course_id
+        JOIN grade_components gc               ON gc.enrollment_id      = e.id
+        JOIN grade_component_types gct         ON gc.component_type_id  = gct.id
+        JOIN grade_component_clo_mappings gccm ON gct.id                = gccm.component_type_id
+        JOIN clos cl                           ON gccm.clo_id           = cl.id
+        WHERE pc.program_id = :program_id AND e.status = 'completed'
+        GROUP BY e.id, cl.id
+    ),
+    clo_att AS (
+        SELECT
+            clo_id,
+            AVG(CASE WHEN score >= :threshold THEN 1.0 ELSE 0.0 END) AS attainment_rate
+        FROM ecs
+        GROUP BY clo_id
+    ),
+    plo_agg AS (
+        SELECT
+            p.id                                                          AS plo_id,
+            p.code                                                        AS plo_code,
+            p.name                                                        AS plo_name,
+            COUNT(DISTINCT ca.clo_id)                                     AS clo_count,
+            ROUND(CAST(
+                SUM(ca.attainment_rate * cpm.contribution)
+                    / NULLIF(SUM(cpm.contribution)::float, 0)
+            AS numeric), 3)                                               AS weighted_attainment
+        FROM plos p
+        JOIN clo_plo_mappings cpm ON cpm.plo_id = p.id
+        JOIN clo_att ca           ON ca.clo_id  = cpm.clo_id
+        WHERE p.program_id = :program_id
+        GROUP BY p.id, p.code, p.name
+    )
+    SELECT * FROM plo_agg ORDER BY plo_code
+    """
+)
+
 
 async def _fetch_clo_breakdown(db: AsyncSession, course_id: int) -> list[dict[str, Any]]:
     """Fetch per-CLO attainment rows for a course (raw, may be empty)."""
@@ -72,8 +145,25 @@ async def _fetch_clo_breakdown(db: AsyncSession, course_id: int) -> list[dict[st
     return [dict(row) for row in result.mappings().all()]
 
 
-def _build_clo_enrichment(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    """Pure transform: per-CLO rows → attainment map + course-improvement suggestions.
+async def _fetch_clo_components(db: AsyncSession, section_id: int) -> list[dict[str, Any]]:
+    """Fetch component-level CLO detail for a section — which grade components feed each CLO."""
+    result = await db.execute(_CLO_COMPONENT_SQL, {"section_id": section_id})
+    return [dict(row) for row in result.mappings().all()]
+
+
+async def _fetch_plo_attainment(db: AsyncSession, program_id: int) -> list[dict[str, Any]]:
+    """Weighted PLO attainment for a program, aggregated from CLO attainment via contribution matrix."""
+    result = await db.execute(
+        _PLO_ATTAINMENT_SQL, {"program_id": program_id, "threshold": CLO_ACHIEVED_THRESHOLD}
+    )
+    return [dict(row) for row in result.mappings().all()]
+
+
+def _build_clo_enrichment(
+    rows: list[dict[str, Any]],
+    component_rows: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Pure transform: per-CLO rows + component detail → attainment map + improvement suggestions.
 
     Returns {} when there is no usable CLO data so the report degrades gracefully.
     """
@@ -91,20 +181,40 @@ def _build_clo_enrichment(rows: list[dict[str, Any]]) -> dict[str, Any]:
     if not clo_attainment:
         return {}
     weak.sort(key=lambda item: item["attainment"])
+
+    # Build per-CLO component detail for diagnostic narratives.
+    clo_components: dict[str, list[dict[str, Any]]] = {}
+    for row in (component_rows or []):
+        code = str(row.get("clo_code") or "").strip()
+        if not code:
+            continue
+        clo_components.setdefault(code, []).append({
+            "component": str(row.get("component_name") or ""),
+            "avg_score": float(row.get("avg_score") or 0),
+            "max_score": float(row.get("max_score") or 10),
+            "component_weight": float(row.get("component_weight") or 0),
+            "clo_contribution": float(row.get("clo_contribution") or 0),
+        })
+
     improvement_issues = [
-        f"{item['code']} chỉ đạt {item['attainment']}% (dưới ngưỡng 70%)." for item in weak
+        f"{item['code']} chỉ đạt {item['attainment']}% (dưới ngưỡng {WEAK_CLO_THRESHOLD_PCT:.0f}%)." for item in weak
     ]
-    improvement_actions = [
-        (
+    improvement_actions = []
+    for item in weak:
+        comps = clo_components.get(item["code"], [])
+        worst_comp = min(comps, key=lambda c: c["avg_score"] / max(c["max_score"], 1)) if comps else None
+        detail = ""
+        if worst_comp:
+            pct = worst_comp["avg_score"] / max(worst_comp["max_score"], 1) * 100
+            detail = f" Thành phần yếu nhất: \"{worst_comp['component']}\" ({worst_comp['avg_score']:.1f}/{worst_comp['max_score']:.0f} = {pct:.0f}%)."
+        improvement_actions.append(
             f"Cải thiện {item['code']}"
-            + (f" ({item['name']})" if item['name'] else "")
-            + f": rà lại rubric và đề của các bài đánh giá gắn với CLO này (hiện đạt {item['attainment']}%), "
-            "bổ sung hoạt động luyện tập bám sát chuẩn đầu ra cho lần dạy sau."
+            + (f" ({item['name']})" if item["name"] else "")
+            + f": đạt {item['attainment']}%, cần rà rubric và đề bài.{detail}"
         )
-        for item in weak
-    ]
     return {
         "clo_attainment": clo_attainment,
+        "clo_components": clo_components,
         "weak_clos": weak,
         "improvement_issues": improvement_issues,
         "improvement_actions": improvement_actions,
@@ -112,14 +222,113 @@ def _build_clo_enrichment(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _apply_clo_enrichment(payload: ReportPayload, enrichment: dict[str, Any]) -> ReportPayload:
-    """Merge CLO attainment + improvement suggestions into a section report payload."""
+    """Merge CLO attainment + component detail + improvement suggestions into a section report."""
     metrics = {**payload["metrics_json"]}
     metrics["clo_attainment"] = enrichment["clo_attainment"]
+    metrics["clo_components"] = enrichment.get("clo_components", {})
     metrics["weak_clo_count"] = len(enrichment["weak_clos"])
     metrics["issues"] = enrichment["improvement_issues"] + list(metrics.get("issues") or [])
     metrics["actions"] = enrichment["improvement_actions"] + list(metrics.get("actions") or [])
     payload["metrics_json"] = metrics
+    clo_section = _format_clo_section(enrichment)
+    if clo_section:
+        payload["content_markdown"] = payload["content_markdown"] + "\n\n" + clo_section
     return payload
+
+
+def _format_clo_section(enrichment: dict[str, Any]) -> str:
+    """Render per-CLO attainment + component breakdown as a markdown section."""
+    clo_attainment: dict[str, float] = enrichment.get("clo_attainment", {})
+    clo_components: dict[str, list[dict[str, Any]]] = enrichment.get("clo_components", {})
+    weak_clos: list[dict[str, Any]] = enrichment.get("weak_clos", [])
+    if not clo_attainment:
+        return ""
+    lines: list[str] = ["## Chi tiết chuẩn đầu ra (CLO)", ""]
+    lines += ["### Tỷ lệ đạt theo CLO", "", "| CLO | Tỷ lệ đạt | Đánh giá |", "|-----|-----------|----------|"]
+    for code, pct in clo_attainment.items():
+        tag = "✅ Đạt" if pct >= WEAK_CLO_THRESHOLD_PCT else "⚠️ Cần cải thiện"
+        lines.append(f"| {code} | {pct}% | {tag} |")
+    lines.append("")
+    if weak_clos:
+        lines.append("### Phân tích CLO chưa đạt ngưỡng")
+        lines.append("")
+        for item in weak_clos:
+            code = item["code"]
+            name = item.get("name", "")
+            pct = item["attainment"]
+            gap = WEAK_CLO_THRESHOLD_PCT - pct
+            lines.append(
+                f"**{code}**{f' — {name}' if name else ''}: "
+                f"chỉ có **{pct}%** sinh viên đạt chuẩn "
+                f"(thiếu {gap:.0f}% so với ngưỡng {WEAK_CLO_THRESHOLD_PCT:.0f}%)."
+            )
+            comps = clo_components.get(code, [])
+            if comps:
+                lines += [
+                    "",
+                    "Điểm thành phần đóng góp vào CLO này:",
+                    "",
+                    "| Thành phần | Điểm TB / Tối đa | % đạt | Trọng số |",
+                    "|------------|-----------------|-------|----------|",
+                ]
+                for comp in comps:
+                    avg = comp["avg_score"]
+                    mx = comp["max_score"]
+                    pct_comp = round(avg / max(mx, 1) * 100, 0)
+                    w = comp["component_weight"]
+                    lines.append(f"| {comp['component']} | {avg:.1f} / {mx:.0f} | {pct_comp:.0f}% | {w*100:.0f}% |")
+                worst = min(comps, key=lambda c: c["avg_score"] / max(c["max_score"], 1))
+                worst_pct = worst["avg_score"] / max(worst["max_score"], 1) * 100
+                lines += [
+                    "",
+                    f"> **Điểm can thiệp**: Thành phần \"*{worst['component']}*\" có tỷ lệ điểm thấp nhất "
+                    f"({worst['avg_score']:.1f}/{worst['max_score']:.0f} = {worst_pct:.0f}%). "
+                    "Cần rà lại đề, rubric và hoạt động ôn tập bám sát chuẩn này.",
+                ]
+            lines.append("")
+    return _join_lines(lines)
+
+
+def _format_plo_section(plo_rows: list[dict[str, Any]]) -> str:
+    """Render PLO attainment table + narrative as a markdown section."""
+    if not plo_rows:
+        return ""
+    _WEAK_PLO = 0.70
+    lines: list[str] = ["## Tổng hợp chuẩn đầu ra chương trình (PLO)", ""]
+    lines += [
+        "| PLO | Tên | CLO đóng góp | Tỷ lệ đạt (có trọng số) | Đánh giá |",
+        "|-----|-----|-------------|------------------------|----------|",
+    ]
+    weak_plos: list[dict[str, Any]] = []
+    for row in plo_rows:
+        code = str(row.get("plo_code") or "")
+        name = str(row.get("plo_name") or "")
+        clo_count = int(row.get("clo_count") or 0)
+        att = float(row.get("weighted_attainment") or 0)
+        pct = round(att * 100, 1)
+        tag = "✅" if att >= _WEAK_PLO else "⚠️"
+        lines.append(f"| {code} | {name[:45]} | {clo_count} | {pct}% | {tag} |")
+        if att < _WEAK_PLO:
+            weak_plos.append({"code": code, "name": name, "pct": pct})
+    lines.append("")
+    if weak_plos:
+        lines += ["### PLO chưa đạt ngưỡng 70%", ""]
+        for item in weak_plos:
+            lines.append(
+                f"- **{item['code']}** ({item['name']}): đạt **{item['pct']}%** — "
+                "cần rà soát các CLO đóng góp vào PLO này và tăng cường hoạt động học tập phù hợp."
+            )
+        lines.append("")
+    total_att = [float(r.get("weighted_attainment") or 0) for r in plo_rows]
+    avg_att = round(sum(total_att) / len(total_att) * 100, 1) if total_att else 0
+    ok = avg_att >= 70
+    lines.append(
+        f"*Tỷ lệ đạt PLO trung bình toàn ngành: **{avg_att}%**. "
+        + ("Chương trình đang đạt ngưỡng an toàn theo chuẩn kiểm định AUN/ABET."
+           if ok else
+           "Chương trình chưa đạt ngưỡng 70% — cần đánh giá lại thiết kế chương trình và hoạt động giảng dạy.") + "*"
+    )
+    return _join_lines(lines)
 
 
 def _pct(part: int, total: int) -> float:
@@ -140,6 +349,19 @@ def _risk_level(pass_rate: float, at_risk_count: int = 0, avg_grade: float | Non
 
 def _join_lines(lines: list[str]) -> str:
     return "\n".join(lines)
+
+
+def _json_safe(value: Any) -> Any:
+    """Convert DB-returned values into plain JSON types before storing metrics."""
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, date | datetime):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_json_safe(item) for item in value]
+    return value
 
 
 async def _load_data(db: AsyncSession) -> dict[str, list[Any]]:
@@ -170,33 +392,157 @@ async def generate_report(
     generated_by: str | None,
     scope_type: str | None = None,
     scope_id: str | None = None,
+    semester_id: int | None = None,
 ) -> Report:
     """Generate, optionally enhance, persist, and return a report."""
     data = await _load_data(db)
+    generation_tool_calls: list[dict[str, Any]] = [
+        {
+            "tool_name": "load_report_dataset",
+            "status": "success",
+            "tool_output": {
+                "students": len(data["students"]),
+                "enrollments": len(data["enrollments"]),
+                "sections": len(data["sections"]),
+                "semesters": len(data["semesters"]),
+                "courses": len(data["courses"]),
+                "programs": len(data["programs"]),
+                "departments": len(data["departments"]),
+                "teachers": len(data["teachers"]),
+            },
+        }
+    ]
     if report_type == "school_overview":
         payload = _school_overview(data)
+        generation_tool_calls.append(
+            {
+                "tool_name": "build_school_overview_snapshot",
+                "status": "success",
+                "tool_output": {
+                    "metrics": payload["metrics_json"],
+                    "title": payload["title"],
+                },
+            }
+        )
         scope_type = scope_type or "school"
     elif report_type == "program_health":
-        payload = _program_health(data, int(scope_id or 0))
+        program_id = int(scope_id or 0)
+        try:
+            plo_rows = await _fetch_plo_attainment(db, program_id)
+            generation_tool_calls.append(
+                {
+                    "tool_name": "fetch_plo_attainment",
+                    "status": "success",
+                    "tool_input": {"program_id": program_id},
+                    "tool_output": {"rows": plo_rows},
+                }
+            )
+        except Exception:
+            logger.exception("PLO attainment query failed; continuing without PLO section")
+            plo_rows = []
+            generation_tool_calls.append(
+                {
+                    "tool_name": "fetch_plo_attainment",
+                    "status": "error",
+                    "tool_input": {"program_id": program_id},
+                    "tool_output": {"rows": []},
+                }
+            )
+        payload = _program_health(data, program_id, plo_rows)
+        generation_tool_calls.append(
+            {
+                "tool_name": "build_program_health_snapshot",
+                "status": "success",
+                "tool_output": {
+                    "metrics": payload["metrics_json"],
+                    "title": payload["title"],
+                },
+            }
+        )
         scope_type = scope_type or "program"
     elif report_type == "section_intervention":
         section_id = int(scope_id or 0)
         payload = _section_intervention(data, section_id)
+        generation_tool_calls.append(
+            {
+                "tool_name": "build_section_intervention_snapshot",
+                "status": "success",
+                "tool_input": {"section_id": section_id},
+                "tool_output": {
+                    "metrics": payload["metrics_json"],
+                    "title": payload["title"],
+                },
+            }
+        )
         scope_type = scope_type or "section"
-        # T32 — enrich with per-CLO attainment + course-improvement suggestions.
         section = next((item for item in data["sections"] if item.id == section_id), None)
         if section is not None:
             try:
-                enrichment = _build_clo_enrichment(await _fetch_clo_breakdown(db, section.course_id))
+                clo_rows = await _fetch_clo_breakdown(db, section.course_id)
+                comp_rows = await _fetch_clo_components(db, section_id)
+                generation_tool_calls.extend(
+                    [
+                        {
+                            "tool_name": "fetch_clo_breakdown",
+                            "status": "success",
+                            "tool_input": {"course_id": section.course_id},
+                            "tool_output": {"rows": clo_rows},
+                        },
+                        {
+                            "tool_name": "fetch_clo_components",
+                            "status": "success",
+                            "tool_input": {"section_id": section_id},
+                            "tool_output": {"rows": comp_rows},
+                        },
+                    ]
+                )
+                enrichment = _build_clo_enrichment(clo_rows, comp_rows)
             except Exception:
-                logger.exception("CLO breakdown failed; skipping course-improvement enrichment")
+                logger.exception("CLO enrichment failed; skipping CLO section")
+                generation_tool_calls.append(
+                    {
+                        "tool_name": "fetch_clo_enrichment",
+                        "status": "error",
+                        "tool_input": {"section_id": section_id},
+                        "tool_output": {"enrichment": {}},
+                    }
+                )
                 enrichment = {}
             if enrichment:
                 payload = _apply_clo_enrichment(payload, enrichment)
+                generation_tool_calls.append(
+                    {
+                        "tool_name": "apply_clo_enrichment",
+                        "status": "success",
+                        "tool_output": {"enrichment": enrichment},
+                    }
+                )
     else:
         raise ValueError("Unsupported report type")
 
-    payload = await _maybe_enhance_with_llm(payload, report_type, actor_role)
+    # Tag the report with the semester it covers so the library can filter by semester range.
+    # Section reports already know their semester; otherwise use the one passed from the UI.
+    resolved_semester_id = semester_id
+    if resolved_semester_id is None and report_type == "section_intervention":
+        section = next((item for item in data["sections"] if item.id == int(scope_id or 0)), None)
+        resolved_semester_id = section.semester_id if section is not None else None
+    if resolved_semester_id is not None:
+        semester = next((s for s in data["semesters"] if s.id == resolved_semester_id), None)
+        if semester is not None:
+            payload["metrics_json"] = {
+                **payload["metrics_json"],
+                "semester_id": semester.id,
+                "semester_name": semester.name,
+                "semester_order": semester.year * 10 + semester.term,
+            }
+
+    generation_tool_calls = _json_safe(generation_tool_calls)
+    payload["metrics_json"] = {
+        **payload["metrics_json"],
+        "generation_tool_calls": generation_tool_calls,
+    }
+
+    payload = await _maybe_enhance_with_llm(payload, report_type, actor_role, generation_tool_calls)
     report = Report(
         id=str(uuid4()),
         report_type=report_type,
@@ -278,7 +624,7 @@ def _school_overview(data: dict[str, list[Any]]) -> ReportPayload:
     }
 
 
-def _program_health(data: dict[str, list[Any]], program_id: int) -> ReportPayload:
+def _program_health(data: dict[str, list[Any]], program_id: int, plo_rows: list[dict[str, Any]] | None = None) -> ReportPayload:
     students: list[Student] = data["students"]
     enrollments: list[Enrollment] = data["enrollments"]
     sections: list[Section] = data["sections"]
@@ -366,6 +712,21 @@ def _program_health(data: dict[str, list[Any]], program_id: int) -> ReportPayloa
         risks,
         actions,
     )
+    if plo_rows:
+        plo_section = _format_plo_section(plo_rows)
+        if plo_section:
+            content = content + "\n\n" + plo_section
+        # surface PLO attainment summary into metrics for agent tools
+        metrics["plo_attainment"] = {
+            str(r.get("plo_code")): round(float(r.get("weighted_attainment") or 0) * 100, 1)
+            for r in plo_rows
+        }
+        weak_plos = [r for r in plo_rows if float(r.get("weighted_attainment") or 0) < 0.70]
+        if weak_plos:
+            issues.append(
+                "PLO chưa đạt ngưỡng 70%: "
+                + ", ".join(f"{r['plo_code']} ({round(float(r.get('weighted_attainment',0))*100,1)}%)" for r in weak_plos)
+            )
     return {
         "title": f"Báo cáo sức khỏe ngành - {program.name}",
         "summary": summary,
@@ -520,34 +881,143 @@ def _format_report(
     return _join_lines(lines)
 
 
-async def _maybe_enhance_with_llm(payload: ReportPayload, report_type: str, actor_role: str) -> ReportPayload:
+_LLM_SYSTEM_PROMPT = (
+    "Bạn là chuyên gia phân tích & đảm bảo chất lượng giáo dục đại học theo chuẩn OBE "
+    "(Outcome-Based Education) tại Việt Nam. Nhiệm vụ: viết phần diễn giải cho một báo cáo học vụ "
+    "bằng tiếng Việt tự nhiên, mạch lạc, đúng văn phong báo cáo hành chính - học thuật, "
+    "KHÔNG liệt kê khô khan như máy.\n\n"
+    "QUY TẮC BẮT BUỘC:\n"
+    "1. CHỈ dùng số liệu có trong JSON đầu vào. TUYỆT ĐỐI không bịa thêm chỉ số, tên, con số.\n"
+    "2. Viết thành câu hoàn chỉnh, có chủ ngữ - vị ngữ, có nhận định và liên hệ nguyên nhân; "
+    "không viết kiểu 'X = Y'.\n"
+    "3. Nếu có dữ liệu CLO (clo_attainment, weak_clos, clo_components): giải thích VÌ SAO CLO yếu "
+    "dựa trên điểm thành phần, nêu hướng cải thiện cụ thể.\n"
+    "4. Nếu có dữ liệu PLO (plo_attainment): nhận xét sức khỏe chương trình theo chuẩn kiểm định, "
+    "chỉ rõ PLO nào rủi ro.\n"
+    "5. Mỗi hành động phải cụ thể: AI làm – LÀM GÌ – MỨC ƯU TIÊN.\n"
+    "6. Nếu dữ liệu thiếu/cỡ mẫu nhỏ, phải nói rõ là chưa đủ cơ sở kết luận.\n\n"
+    "ĐỊNH DẠNG ĐẦU RA: trả về DUY NHẤT một object JSON hợp lệ (không kèm văn bản nào khác, "
+    "không bọc trong ```), gồm đúng các khóa sau:\n"
+    "{\n"
+    '  "summary": "đoạn 2-4 câu tóm tắt điều hành, nêu kết luận chính + con số quan trọng",\n'
+    '  "good_signals": ["câu hoàn chỉnh", ...],\n'
+    '  "issues": ["câu hoàn chỉnh nêu vấn đề + nguyên nhân", ...],\n'
+    '  "risks": ["câu hoàn chỉnh nêu rủi ro + hệ quả nếu không xử lý", ...],\n'
+    '  "actions": ["câu hoàn chỉnh: ai – làm gì – ưu tiên", ...]\n'
+    "}\n"
+    "Mỗi mảng nên có 2-5 mục, ưu tiên chất lượng hơn số lượng."
+)
+
+
+def _parse_llm_json(content: str) -> dict[str, Any] | None:
+    """Parse the LLM response into a dict, tolerating ```json fences and surrounding prose."""
+    text = content.strip()
+    if text.startswith("```"):
+        text = text.split("```", 2)[1] if text.count("```") >= 2 else text.strip("`")
+        if text.lstrip().lower().startswith("json"):
+            text = text.lstrip()[4:]
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    try:
+        data = json.loads(text[start : end + 1])
+        return data if isinstance(data, dict) else None
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def _clean_str_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]
+
+
+async def _maybe_enhance_with_llm(
+    payload: ReportPayload,
+    report_type: str,
+    actor_role: str,
+    generation_tool_calls: list[dict[str, Any]],
+) -> ReportPayload:
+    """Use the LLM to rewrite the narrative fields in natural Vietnamese.
+
+    The model returns structured JSON whose fields (summary, good_signals, issues, risks, actions)
+    REPLACE the rule-based ones — these are exactly what the report document renders — while every
+    numeric metric in metrics_json is preserved untouched. Falls back to the deterministic narrative
+    on any error or when no LLM key is configured.
+    """
     settings = get_settings()
     if not settings.llm_api_key or settings.llm_provider.lower().strip() != "openai":
-        payload["metrics_json"] = {**payload["metrics_json"], "llm_enhanced": False}
+        payload["metrics_json"] = {
+            **payload["metrics_json"],
+            "llm_enhanced": False,
+            "llm_generation_stage": "skipped_no_openai_key",
+        }
         return payload
 
     try:
-        llm = ChatOpenAI(model=settings.llm_model, api_key=settings.llm_api_key, temperature=0.2)
+        llm = ChatOpenAI(
+            model=settings.llm_model,
+            api_key=settings.llm_api_key,
+            temperature=0.3,
+            model_kwargs={"response_format": {"type": "json_object"}},
+        )
         messages = [
-            SystemMessage(content=(
-                "Bạn là analyst học vụ. Viết báo cáo tiếng Việt ngắn, rõ, có nhận định. "
-                "Chỉ dùng số liệu trong JSON. Không bịa chỉ số. Luôn có các mục: "
-                "Kết luận nhanh, Tín hiệu tốt, Điểm chưa tốt, Rủi ro cần chú ý, Hành động đề xuất."
-            )),
+            SystemMessage(content=_LLM_SYSTEM_PROMPT),
             HumanMessage(content=json.dumps({
                 "report_type": report_type,
                 "actor_role": actor_role,
                 "title": payload["title"],
-                "summary": payload["summary"],
+                "rule_based_summary": payload["summary"],
                 "metrics": payload["metrics_json"],
+                "tool_outputs": generation_tool_calls,
+                "required_report_format": {
+                    "summary": "executive narrative, 2-4 complete Vietnamese sentences",
+                    "good_signals": "2-5 complete Vietnamese observations",
+                    "issues": "2-5 complete Vietnamese problem statements with evidence",
+                    "risks": "2-5 complete Vietnamese risk statements with consequence",
+                    "actions": "2-5 concrete actions with owner/action/priority",
+                },
             }, ensure_ascii=False)),
         ]
         response = await llm.ainvoke(messages)
-        content = str(response.content).strip()
-        if content:
-            payload["content_markdown"] = content
-            payload["metrics_json"] = {**payload["metrics_json"], "llm_enhanced": True}
-    except Exception:
+        parsed = _parse_llm_json(str(response.content))
+        if not parsed:
+            raise ValueError("LLM did not return parseable JSON")
+
+        summary = str(parsed.get("summary") or "").strip() or payload["summary"]
+        good = _clean_str_list(parsed.get("good_signals")) or list(payload["metrics_json"].get("good_signals") or [])
+        issues = _clean_str_list(parsed.get("issues")) or list(payload["metrics_json"].get("issues") or [])
+        risks = _clean_str_list(parsed.get("risks")) or list(payload["metrics_json"].get("risks") or [])
+        actions = _clean_str_list(parsed.get("actions")) or list(payload["metrics_json"].get("actions") or [])
+
+        # Merge LLM prose into the fields the document renders; keep all numeric metrics intact.
+        metrics = {**payload["metrics_json"]}
+        metrics.update(
+            good_signals=good,
+            issues=issues,
+            risks=risks,
+            actions=actions,
+            llm_enhanced=True,
+            llm_generation_stage="tool_outputs_to_llm_to_report",
+        )
+        payload["summary"] = summary
+        payload["metrics_json"] = metrics
+        # Rebuild the markdown export from the LLM-written fields so it matches the document.
+        clo_section = payload.get("content_markdown", "")
+        clo_block = ""
+        if "## Chi tiết chuẩn đầu ra (CLO)" in clo_section:
+            clo_block = "\n\n" + clo_section.split("## Chi tiết chuẩn đầu ra (CLO)", 1)[1]
+            clo_block = "\n\n## Chi tiết chuẩn đầu ra (CLO)" + clo_block
+        payload["content_markdown"] = (
+            _format_report(payload["title"], summary, metrics, good, issues, risks, actions)
+            + clo_block
+        )
+    except Exception as exc:
         logger.exception("LLM report enhancement failed; falling back to deterministic report")
-        payload["metrics_json"] = {**payload["metrics_json"], "llm_enhanced": False}
+        payload["metrics_json"] = {
+            **payload["metrics_json"],
+            "llm_enhanced": False,
+            "llm_generation_stage": "failed_fallback",
+            "llm_error": str(exc)[:500],
+        }
     return payload

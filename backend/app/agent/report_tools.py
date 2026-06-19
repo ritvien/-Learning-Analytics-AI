@@ -104,6 +104,45 @@ METRIC_DEFINITIONS: dict[str, dict[str, str]] = {
         "source": "enrollments.is_passed",
         "limit": "Không phải tổng số đăng ký học nếu còn lớp chưa chốt điểm.",
     },
+    "clo_attainment": {
+        "label": "Tỷ lệ đạt CLO",
+        "formula": (
+            "Với mỗi CLO: tính điểm CLO của từng sinh viên = "
+            "Σ(điểm thành phần × trọng số ánh xạ × trọng số thành phần) / Σ(trọng số). "
+            "Tỷ lệ đạt = % sinh viên có điểm CLO ≥ 4.0."
+        ),
+        "source": "grade_components × grade_component_clo_mappings × grade_component_types → clos",
+        "limit": (
+            "Cần đủ dữ liệu grade_component_clo_mappings. "
+            "Nếu giảng viên chưa gán thành phần vào CLO, kết quả sẽ rỗng hoặc lệch."
+        ),
+    },
+    "clo_components": {
+        "label": "Điểm thành phần theo CLO",
+        "formula": "Điểm trung bình của từng thành phần đánh giá (chuyên cần, giữa kỳ, cuối kỳ) theo từng CLO.",
+        "source": "grade_components → grade_component_types → grade_component_clo_mappings → clos",
+        "limit": "Phản ánh điểm bình quân cả lớp; cần nhìn phân phối để phát hiện nhóm sinh viên cụ thể yếu.",
+    },
+    "plo_attainment": {
+        "label": "Tỷ lệ đạt PLO",
+        "formula": (
+            "Với mỗi PLO: tổng hợp tỷ lệ đạt CLO có ánh xạ vào PLO, "
+            "có trọng số theo mức đóng góp (1=Introduced, 2=Developed, 3=Assessed). "
+            "weighted_attainment = Σ(CLO_attainment × contribution) / Σ(contribution)."
+        ),
+        "source": "clo_attainment (đã tính) × clo_plo_mappings × plos",
+        "limit": (
+            "Phụ thuộc chất lượng ma trận CLO→PLO. "
+            "Cần kiểm tra clo_plo_mappings đã được ban khoa điền đúng chưa. "
+            "PLO đạt cao chưa chắc chương trình tốt nếu CLO mapping không phủ đủ."
+        ),
+    },
+    "weak_clo_count": {
+        "label": "Số CLO chưa đạt ngưỡng",
+        "formula": "Số CLO có tỷ lệ đạt < 70%.",
+        "source": "clo_attainment đã tính",
+        "limit": "Ngưỡng 70% là chuẩn tham chiếu; từng trường có thể đặt khác trong chính sách đảm bảo chất lượng.",
+    },
 }
 
 

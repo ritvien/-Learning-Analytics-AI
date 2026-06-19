@@ -83,9 +83,11 @@ export interface ApiSection {
 
 export interface ApiTeacher {
   id: number
+  user_id: string | null
   code: string | null
   full_name: string
   email: string | null
+  phone: string | null
   academic_title: string | null
   specialization: string | null
   department_id: number
@@ -158,6 +160,60 @@ export interface ApiReport {
   feedback_items: ApiReportFeedback[]
 }
 
+export type ApiReportScheduleFrequency = "weekly" | "monthly" | "midterm" | "end_semester" | "after_grade_update"
+
+export interface ApiReportSchedule {
+  id: number
+  name: string
+  report_type: ApiReportType
+  actor_role: string
+  scope_type: string | null
+  scope_id: string | null
+  frequency: ApiReportScheduleFrequency
+  trigger_event: string | null
+  recipients_json: string[]
+  formats_json: string[]
+  detail_level: string
+  include_ai_narrative: boolean
+  include_appendix: boolean
+  is_active: boolean
+  next_run_at: string | null
+  last_run_at: string | null
+  created_by: string | null
+  last_report_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ApiReportScheduleRun {
+  id: number
+  schedule_id: number
+  report_id: string | null
+  trigger: string
+  status: string
+  message: string | null
+  started_at: string | null
+  finished_at: string | null
+  created_at: string
+}
+
+export interface ApiReportScheduleCreate {
+  name: string
+  report_type: ApiReportType
+  actor_role?: string
+  scope_type?: string | null
+  scope_id?: string | null
+  frequency: ApiReportScheduleFrequency
+  trigger_event?: string | null
+  recipients_json?: string[]
+  formats_json?: string[]
+  detail_level?: string
+  include_ai_narrative?: boolean
+  include_appendix?: boolean
+  is_active?: boolean
+  next_run_at?: string | null
+}
+
 // --- Report Agent ---
 export type ApiReportAgentMode = "explain" | "root_cause" | "narrative" | "action_planning" | "workflow" | "compare"
 
@@ -200,10 +256,18 @@ export interface ChatSessionSummary {
   updated_at: string
 }
 
+export interface ChatSessionMessage {
+  type?: string
+  content?: unknown
+  data?: {
+    content?: unknown
+  }
+}
+
 export interface ChatSessionDetail {
   id: string
   title: string
-  messages: any[] // Mảng các LangChain messages
+  messages: ChatSessionMessage[]
 }
 
 export interface ChatResponse {
@@ -300,8 +364,22 @@ export const api = {
     fetcher<ApiReport[]>(`/api/v1/reports${qs({ limit: params?.limit })}`),
   getReport: (id: string) =>
     fetcher<ApiReport>(`/api/v1/reports/${id}`),
-  generateReport: (body: { report_type: ApiReportType; actor_role?: string; scope_type?: string; scope_id?: string }) =>
+  generateReport: (body: { report_type: ApiReportType; actor_role?: string; scope_type?: string; scope_id?: string; semester_id?: number }) =>
     fetcher<ApiReport>("/api/v1/reports", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  getReportSchedules: (params?: { active_only?: boolean; limit?: number }) =>
+    fetcher<ApiReportSchedule[]>(`/api/v1/reports/schedules${qs({ active_only: params?.active_only ? "true" : undefined, limit: params?.limit })}`),
+  createReportSchedule: (body: ApiReportScheduleCreate) =>
+    fetcher<ApiReportSchedule>("/api/v1/reports/schedules", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  runReportSchedule: (id: number, body: { trigger?: "manual" | "scheduled" | "grade_update" }) =>
+    fetcher<ApiReportScheduleRun>(`/api/v1/reports/schedules/${id}/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -323,6 +401,7 @@ export const api = {
   deleteStudent: (id: number) =>
     fetcher<void>(`/api/v1/students/${id}`, { method: "DELETE" }),
   getStudentTokenData: async (params?: { department_id?: number; program_id?: number }) => {
+    void params
     // Return mock data for now as backend might not have this endpoint yet
     return {
       total_students: 1200,
@@ -398,6 +477,46 @@ export const api = {
   // --- Teachers ---
   getTeachers: (params?: { limit?: number; department_id?: number }) =>
     fetcher<ApiTeacher[]>(`/api/v1/teachers${qs(params ?? {})}`),
+  createTeacher: (body: {
+    department_id: number
+    code?: string | null
+    full_name: string
+    email?: string | null
+    phone?: string | null
+    academic_title?: string | null
+    specialization?: string | null
+    is_active?: boolean
+    create_account?: boolean
+    login_password?: string | null
+  }) =>
+    fetcher<ApiTeacher>("/api/v1/teachers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  updateTeacher: (id: number, body: Partial<{
+    department_id: number
+    code: string | null
+    full_name: string
+    email: string | null
+    phone: string | null
+    academic_title: string | null
+    specialization: string | null
+    is_active: boolean
+  }>) =>
+    fetcher<ApiTeacher>(`/api/v1/teachers/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  deleteTeacher: (id: number) =>
+    fetcher<void>(`/api/v1/teachers/${id}`, { method: "DELETE" }),
+  provisionTeacherAccount: (id: number, body: { email?: string | null; password: string }) =>
+    fetcher<{ teacher_id: number; user_id: string; email: string; role: "lecturer" }>(`/api/v1/teachers/${id}/account`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
 
   // --- Semesters ---
   getSemesters: () =>

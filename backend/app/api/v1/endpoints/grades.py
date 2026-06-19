@@ -4,10 +4,14 @@ Bulk ingestion is intentionally outside the current API scope.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 
+from app.access_control import can_access_section, can_access_student, get_teacher_for_user, is_admin, require_department_scope
 from app.crud import teaching as crud
-from app.dependencies import DBSession, PaginationDep, require_write_access
-from app.models.teaching import Enrollment, GradeComponent
+from app.dependencies import CurrentUser, DBSession, PaginationDep, require_write_access
+from app.models.academic import Course, Program
+from app.models.people import Student, UserRole
+from app.models.teaching import Enrollment, GradeComponent, Section
 from app.schemas.teaching import (
     EnrollmentCreate,
     EnrollmentGradeUpdate,
@@ -43,10 +47,36 @@ def _grade_letter_and_4(final_grade: float) -> tuple[str, float]:
 async def list_enrollments(
     db: DBSession,
     pagination: PaginationDep,
+    current_user: CurrentUser,
     section_id: int | None = None,
     student_id: int | None = None,
 ) -> list[Enrollment]:
     """Return enrollments filtered by section or student."""
+    if section_id is not None and not await can_access_section(db, current_user, section_id):
+        return []
+    if student_id is not None and not await can_access_student(db, current_user, student_id):
+        return []
+    if not is_admin(current_user):
+        q = select(Enrollment).join(Section, Section.id == Enrollment.section_id)
+        if section_id is not None:
+            q = q.where(Enrollment.section_id == section_id)
+        if student_id is not None:
+            q = q.where(Enrollment.student_id == student_id)
+        if current_user.role == UserRole.lecturer:
+            teacher = await get_teacher_for_user(db, current_user)
+            if teacher is None:
+                return []
+            q = q.where(Section.teacher_id == teacher.id)
+        else:
+            department_ids = await require_department_scope(db, current_user)
+            q = (
+                q.join(Student, Student.id == Enrollment.student_id)
+                .join(Program, Program.id == Student.program_id)
+                .join(Course, Course.id == Section.course_id)
+                .where((Program.department_id.in_(department_ids)) | (Course.department_id.in_(department_ids)))
+            )
+        q = q.offset(pagination.skip).limit(pagination.limit)
+        return list((await db.execute(q)).scalars().all())
     return await crud.list_enrollments(db, pagination.skip, pagination.limit, section_id, student_id)
 
 
