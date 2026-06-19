@@ -10,7 +10,7 @@ from app.models.assessment import (
     StudentCLOAchievement,
 )
 from app.models.people import Cohort, Student, Teacher, User, UserRole
-from app.models.report import Report, ReportFeedback
+from app.models.report import Report, ReportFeedback, ReportSchedule, ReportScheduleRun
 from app.models.agent import (
     AgentMemory,
     AgentPromptVersion,
@@ -44,6 +44,8 @@ __all__ = [
     "ReportAgentSession",
     "ReportAgentToolCall",
     "ReportFeedback",
+    "ReportSchedule",
+    "ReportScheduleRun",
     "Section",
     "Semester",
     "Student",

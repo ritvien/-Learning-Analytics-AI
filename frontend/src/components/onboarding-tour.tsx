@@ -1,8 +1,8 @@
 "use client"
 
-import * as React from "react"
 import { useEffect } from "react"
 import { driver } from "driver.js"
+import type { DriveStep } from "driver.js"
 import "driver.js/dist/driver.css"
 
 import { usePathname } from "next/navigation"
@@ -15,7 +15,7 @@ export function OnboardingTour() {
     // const hasSeenTour = localStorage.getItem(`hasSeenTour_${pathname}`)
     // if (hasSeenTour) return
 
-    let steps: any[] = []
+    let steps: DriveStep[] = []
 
     if (pathname === "/manager") {
       steps = [

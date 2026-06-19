@@ -37,10 +37,17 @@ Tôi có thể giúp bạn:
 
 Hãy đặt câu hỏi bằng tiếng Việt tự nhiên!`
 
+function formatInline(text: string) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\[([^\]]+)\]\((\/manager\/reports\?report=[^)]+)\)/g, '<a class="font-medium text-primary underline" href="$2">$1</a>')
+    .replace(/(^|\s)(\/manager\/reports\?report=[a-zA-Z0-9_-]+)/g, '$1<a class="font-medium text-primary underline" href="$2">$2</a>')
+}
+
 function renderContent(text: string) {
   const lines = text.split("\n")
   return lines.map((line, i) => {
-    line = line.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    line = formatInline(line)
     if (line.startsWith("|")) {
       return <div key={i} className="font-mono text-xs my-0.5 text-muted-foreground">{line}</div>
     }
@@ -88,7 +95,7 @@ export default function ChatPage() {
     fetchSessions()
   }, [])
 
-  const fetchSessions = async () => {
+  async function fetchSessions() {
     try {
       const data = await api.getChatSessions()
       setSessions(data)
@@ -189,7 +196,7 @@ export default function ChatPage() {
     }])
   }
 
-  const sendMessage = async (text: string) => {
+  async function sendMessage(text: string) {
     if (!text.trim() || isLoading) return
 
     const userMsg: Message = {
@@ -295,10 +302,11 @@ export default function ChatPage() {
       setMessages(prev => prev.map(m =>
         m.id === assistantMsgId ? { ...m, isStreaming: false } : m
       ))
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Không rõ lỗi"
       setMessages(prev => prev.map(m =>
         m.id === assistantMsgId
-          ? { ...m, content: `**Lỗi hệ thống:** Không thể kết nối với Agent.\n\nChi tiết: ${error.message}`, isStreaming: false }
+          ? { ...m, content: `**Lỗi hệ thống:** Không thể kết nối với Agent.\n\nChi tiết: ${message}`, isStreaming: false }
           : m
       ))
     }

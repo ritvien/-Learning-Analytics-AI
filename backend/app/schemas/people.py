@@ -64,6 +64,8 @@ class TeacherCreate(TeacherBase):
     """Fields required when creating a Teacher."""
 
     department_id: int
+    create_account: bool = False
+    login_password: str | None = Field(None, min_length=6)
 
 
 class TeacherUpdate(BaseModel):
@@ -83,9 +85,26 @@ class TeacherResponse(TeacherBase, OrmBase):
     """Full Teacher response including PK and timestamps."""
 
     id: int
+    user_id: str | None
     department_id: int
     created_at: datetime
     updated_at: datetime
+
+
+class TeacherAccountProvision(BaseModel):
+    """Create or reset a lecturer login account for a Teacher."""
+
+    email: EmailStr | None = None
+    password: str = Field(min_length=6)
+
+
+class TeacherAccountResponse(BaseModel):
+    """Safe response after provisioning a Teacher login account."""
+
+    teacher_id: int
+    user_id: str
+    email: str
+    role: UserRole = UserRole.lecturer
 
 
 # ================================================================== Student

@@ -1,10 +1,14 @@
 """CRUD endpoints for Course (Môn học)."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_, select
+from sqlalchemy.orm import selectinload
 
+from app.access_control import can_access_course, get_teacher_for_user, is_admin, require_department_scope
 from app.crud import academic as crud
-from app.dependencies import DBSession, PaginationDep, require_write_access
-from app.models.academic import Course
+from app.dependencies import CurrentUser, DBSession, PaginationDep, require_write_access
+from app.models.academic import Course, Program, program_courses
+from app.models.teaching import Section
 from app.schemas.academic import CourseCreate, CourseResponse, CourseUpdate
 
 router = APIRouter()
@@ -14,17 +18,38 @@ router = APIRouter()
 async def list_courses(
     db: DBSession,
     pagination: PaginationDep,
+    current_user: CurrentUser,
     program_id: int | None = None,
 ) -> list[Course]:
     """Return courses, optionally filtered by program."""
+    if not is_admin(current_user):
+        department_ids = await require_department_scope(db, current_user)
+        teacher = await get_teacher_for_user(db, current_user)
+        q = select(Course).options(selectinload(Course.programs)).where(Course.is_active == True).distinct()  # noqa: E712
+        if program_id is not None:
+            q = q.join(program_courses).where(program_courses.c.program_id == program_id)
+        q = q.outerjoin(program_courses, program_courses.c.course_id == Course.id).outerjoin(
+            Program, Program.id == program_courses.c.program_id
+        )
+        scope_clauses = [
+            Course.department_id.in_(department_ids),
+            Program.department_id.in_(department_ids),
+        ]
+        if teacher is not None:
+            q = q.outerjoin(Section, Section.course_id == Course.id)
+            scope_clauses.append(Section.teacher_id == teacher.id)
+        q = q.where(or_(*scope_clauses)).offset(pagination.skip).limit(pagination.limit)
+        return list((await db.execute(q)).scalars().all())
     return await crud.list_courses(db, pagination.skip, pagination.limit, program_id)
 
 
 @router.get("/{course_id}", response_model=CourseResponse)
-async def get_course(course_id: int, db: DBSession) -> Course:
+async def get_course(course_id: int, db: DBSession, current_user: CurrentUser) -> Course:
     """Retrieve a course by ID."""
     obj = await crud.get_course(db, course_id)
     if obj is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+    if not await can_access_course(db, current_user, course_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
     return obj
 
