@@ -180,8 +180,8 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status |
 |:-:|:-----|:----------------|:--------:|:------:|
-| V15 | Quay Video Demo 3 phút | Quay + edit video MVP Demo cho Gate G2. Show: user mở app → nhập câu hỏi → agent xử lý → trả output. Có voiceover/subtitle | 17/06 | ⬜ |
-| V16 | Academic Tree ↔ Real API | Kết nối Tree component với `/api/v1/tree` thật. Dynamic data, loading states, error handling | 18/06 | ⬜ |
+| V15 | Quay Video Demo 3 phút | Quay + edit video MVP Demo cho Gate G2. Show: user mở app → nhập câu hỏi → agent xử lý → trả output. Có voiceover/subtitle | 17/06 | ✅ |
+| V16 | Academic Tree ↔ Real API | Kết nối Tree component với `/api/v1/tree` thật. Dynamic data, loading states, error handling | 18/06 | ✅ |
 
 > *Ghi chú: Task V17 (Chat SSE) đã gộp vào V25 (Phase 3).*
 
@@ -189,9 +189,9 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Priority |
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
-| V24 | Tree Node → Chat AI Navigation | Click 1 node trong Academic Tree → điều hướng tới Chat AI page với context ngành/khoa. Tự động trigger báo cáo về node đó | 16/06 | ⬜ | **P0** |
-| V25 | Chat UI ↔ SSE Streaming | Kết nối Chat component với SSE endpoint từ Hoàng. Typewriter effect, loading states, error handling | 16/06 | ⬜ | **P0** |
-| V26 | Login UI ↔ Auth Backend | Kết nối Login page với `/api/v1/auth/login` từ Hưng. Store JWT token, protected routes, redirect unauthorized | 16/06 | ⬜ | **P0** |
+| V24 | Tree Node → Chat AI Navigation | Click 1 node trong Academic Tree → điều hướng tới Chat AI page với context ngành/khoa. Tự động trigger báo cáo về node đó | 16/06 | ✅ | **P0** |
+| V25 | Chat UI ↔ SSE Streaming | Kết nối Chat component với SSE endpoint từ Hoàng. Typewriter effect, loading states, error handling | 16/06 | ✅ | **P0** |
+| V26 | Login UI ↔ Auth Backend | Kết nối Login page với `/api/v1/auth/login` từ Hưng. Store JWT token, protected routes, redirect unauthorized | 16/06 | ✅ | **P0** |
 
 ### Phase 2 mở rộng (deprioritized)
 
@@ -207,10 +207,10 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Priority |
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
-| V27 | Lấy thêm token data sinh viên | Bổ sung token data API về thông tin sinh viên (SV count, demographics, enrollment status) để enrich context cho chatbot và dashboard | 18/06 | ⬜ | **P0** |
-| V28 | Sửa UI Academic Tree — Multi-prompt | Click vào từng ngành/khoa trong Academic Tree sẽ hiển thị danh sách nhiều câu hỏi prompt gợi ý (3-5 câu) để chuyển hướng sang chatbot. Thay vì chỉ 1 câu mẫu, chưa hiển thị khi click | 18/06 | ⬜ | **P0** |
-| V29 | Tạo widget thông tin cho các chỉ số | Thiết kế và implement các widget cards hiển thị KPI chỉ số (Health Score, GPA avg, Fail Rate, CLO Attainment) trên dashboard, với micro-animations và responsive layout | 20/06 | ⬜ | **P1** |
-| V30 | UX hướng dẫn người dùng theo workflow | Implement guided UX flow (onboarding tour / step-by-step wizard) hướng dẫn người dùng mới: Login → Dashboard → Tree → Chat → Báo cáo. Dùng tooltip hoặc overlay guide | 22/06 | ⬜ | **P1** |
+| V27 | Lấy thêm token data sinh viên | Bổ sung token data API về thông tin sinh viên (SV count, demographics, enrollment status) để enrich context cho chatbot và dashboard | 18/06 | ✅ | **P0** |
+| V28 | Sửa UI Academic Tree — Multi-prompt | Click vào từng ngành/khoa trong Academic Tree sẽ hiển thị danh sách nhiều câu hỏi prompt gợi ý (3-5 câu) để chuyển hướng sang chatbot. Thay vì chỉ 1 câu mẫu, chưa hiển thị khi click | 18/06 | ✅ | **P0** |
+| V29 | Tạo widget thông tin cho các chỉ số | Thiết kế và implement các widget cards hiển thị KPI chỉ số (Health Score, GPA avg, Fail Rate, CLO Attainment) trên dashboard, với micro-animations và responsive layout | 20/06 | ✅ | **P1** |
+| V30 | UX hướng dẫn người dùng theo workflow | Implement guided UX flow (onboarding tour / step-by-step wizard) hướng dẫn người dùng mới: Login → Dashboard → Tree → Chat → Báo cáo. Dùng tooltip hoặc overlay guide | 22/06 | ✅ | **P1** |
 
 **Tổng: 19 task · Trọng tâm: Tree→Chat Navigation + SSE + Auth + Video Demo + Multi-prompt UI + Widget KPI + UX Guide**
 

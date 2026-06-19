@@ -9,6 +9,7 @@ import type { Department } from "@/types"
 export type TreeSelection = {
   id: string
   type: "department" | "major"
+  prompt?: string
 }
 
 interface AcademicTreeProps {
@@ -49,23 +50,41 @@ export function AcademicTree({
     const count = studentCountByMajor[major.id] ?? 0
     const isActive = selected.type === "major" && selected.id === major.id
     return (
-      <button
-        key={major.id}
-        type="button"
-        onClick={() => onSelect({ id: major.id, type: "major" })}
-        className={`group flex w-full items-center justify-between gap-2 rounded-xl border px-4 py-3 text-left transition ${
-          isActive ? "border-primary bg-primary/10" : "border-border hover:border-primary/60 hover:bg-primary/5"
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          <GraduationCap className="h-4 w-4 text-primary" />
-          <div>
-            <p className="font-medium">{major.tenNganh}</p>
-            <p className="text-xs text-muted-foreground">{major.moTa}</p>
+      <div key={major.id} className="space-y-1">
+        <button
+          type="button"
+          onClick={() => onSelect({ id: major.id, type: "major" })}
+          className={`group flex w-full items-center justify-between gap-2 rounded-xl border px-4 py-3 text-left transition ${
+            isActive ? "border-primary bg-primary/10" : "border-border hover:border-primary/60 hover:bg-primary/5"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <GraduationCap className="h-4 w-4 text-primary" />
+            <div>
+              <p className="font-medium">{major.tenNganh}</p>
+              <p className="text-xs text-muted-foreground">{major.moTa}</p>
+            </div>
           </div>
-        </div>
-        <Badge variant={badgeVariant(count)}>{count} SV</Badge>
-      </button>
+          <Badge variant={badgeVariant(count)}>{count} SV</Badge>
+        </button>
+        
+        {isActive && (
+          <div className="ml-4 mt-2 grid gap-2 border-l-2 border-primary/20 pl-4">
+            <p className="text-xs font-medium text-muted-foreground">Gợi ý phân tích (Click để hỏi Chatbot):</p>
+            {["Điểm trung bình và tỷ lệ qua môn của ngành này?", "Các môn học nào sinh viên ngành này hay gặp khó khăn nhất?", "Gợi ý cải thiện chuẩn đầu ra (PLO) cho ngành này?"].map((prompt, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onSelect({ id: major.id, type: "major", prompt }) }}
+                className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-left text-xs transition hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
+              >
+                <div className="h-1.5 w-1.5 rounded-full bg-primary/40" />
+                {prompt}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     )
   }
 
@@ -120,6 +139,23 @@ export function AcademicTree({
                     <Badge variant="outline">{courseCount} môn</Badge>
                   </div>
                 </div>
+                
+                {isActive && (
+                  <div className="mt-2 ml-4 mb-3 grid gap-2 border-l-2 border-primary/20 pl-4 pr-2">
+                    <p className="text-xs font-medium text-muted-foreground">Gợi ý phân tích (Click để hỏi Chatbot):</p>
+                    {["Đánh giá sức khỏe đào tạo tổng quan của khoa này?", "Các ngành nào trong khoa có tỷ lệ trượt cao nhất?", "Phân tích CLO các môn học thuộc khoa này?"].map((prompt, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onSelect({ id: department.id, type: "department", prompt }) }}
+                        className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-left text-xs transition hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
+                      >
+                        <div className="h-1.5 w-1.5 rounded-full bg-primary/40" />
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {isOpen && (
                   <div className="space-y-2 pl-12">
                     {department.nganhs.map(renderMajor)}
