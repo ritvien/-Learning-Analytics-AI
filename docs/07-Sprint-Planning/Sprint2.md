@@ -3,7 +3,7 @@
 > **Thời gian:** 11/06 – 24/06 (2 tuần — W3 + W4)
 > **Sprint Goal:** _Xây dựng AI Agent chạy được end-to-end với LLM thực tế, pass Gate G2 (18/06) và hoàn thiện Demo 1. Agent phải nhận input → xử lý → trả output có ý nghĩa cho ít nhất 1 user flow chính._
 > **Tham chiếu:** [SprintPlanning.md](./SprintPlanning.md) · [LangGraphAgent.md](../10-References/LangGraphAgent.md) · [AgentFlowDiagram.md](../10-References/AgentFlowDiagram.md)
-> **Cập nhật lần cuối:** 18/06/2026
+> **Cập nhật lần cuối:** 20/06/2026
 
 > [!IMPORTANT]
 > **Gate G2 Deadline: 18/06/2026 (23:59)** — Deliverables bắt buộc:
@@ -120,15 +120,15 @@
 | T11 | Database Migration + Seed Runner | Alembic migration từ `schema.sql`. Script seed data runner chạy trên Docker. Đảm bảo DB sẵn sàng cho Agent | 11/06 | ✅ |
 | T12 | SQLAlchemy Models + DB Session | ORM models cho core entities (Department, Program, Course, Student, Grade, Section, CLO). DB session factory | 12/06 | ✅ |
 | T13 | CRUD API — Core Entities (P0) | Implement CRUD: `/departments`, `/programs`, `/courses`, `/students`, `/grades`. Swagger docs tự động | 13/06 | ✅ |
-| T14 | Tree Metrics API | `GET /api/v1/tree` — trả về tree structure với metrics (student count, avg GPA, fail rate) cho từng node. Hỗ trợ Academic Tree component | 14/06 | ⬜ |
+| T14 | Tree Metrics API | `GET /api/v1/tree` — trả về tree structure với metrics (student count, avg GPA, fail rate) cho từng node. Hỗ trợ Academic Tree component | 14/06 | ✅ |
 
 ### Phase 2: Mở rộng + DevOps (15–18/06)
 
 | # | Task | Mô tả chi tiết | Deadline | Status |
 |:-:|:-----|:----------------|:--------:|:------:|
 | T16 | Unit Tests — Backend | Viết unit tests cho CRUD APIs + DB models. Mục tiêu: ≥ 10 test cases, chạy qua CI/CD | 16/06 | ✅ |
-| T17 | Chốt ORM + Alembic Baseline | Đồng bộ ORM với thiết kế OLTP, tạo migration baseline, seed được database sạch và ghi hướng dẫn rollout | 17/06 | ⬜ |
-| T18 | PR Cleanup — đảm bảo ≥ 10 PRs | Review + merge các PRs tồn đọng. Tạo PRs mới cho các features đã code trực tiếp. Đảm bảo repo có ≥ 10 merged PRs | 18/06 | ⬜ |
+| T17 | Chốt ORM + Alembic Baseline | Đồng bộ ORM với thiết kế OLTP, tạo migration baseline, seed được database sạch và ghi hướng dẫn rollout | 17/06 | ✅ |
+| T18 | PR Cleanup — đảm bảo ≥ 10 PRs | Review + merge các PRs tồn đọng. Tạo PRs mới cho các features đã code trực tiếp. Đảm bảo repo có ≥ 10 merged PRs | 18/06 | ✅ |
 
 > *Ghi chú: Task T15 (SSE Streaming) đã chuyển cho Hoàng (H28 - Phase 3).*
 
@@ -136,10 +136,7 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status |
 |:-:|:-----|:----------------|:--------:|:------:|
-| T19 | CLO/PLO Backend Logic | Implement tính toán CLO/PLO achievement: query grades × CLO mapping → tính tỷ lệ đạt | 20/06 | ⬜ |
-| T20 | pgvector Setup + Syllabus Embedding | Enable pgvector extension, tạo table embeddings, script embed đề cương môn học | 22/06 | ⬜ |
-| T21 | Docker-compose Update | Thêm services: Streamlit container, pgvector-enabled PostgreSQL. Cập nhật docker-compose.yml | 22/06 | ⬜ |
-| T22 | Integration Tests | Tests end-to-end: API → Agent → DB → Response. Chạy trên CI | 24/06 | ⬜ |
+| T19 | CLO/PLO Backend Logic | Implement tính toán CLO/PLO achievement: query grades × CLO mapping → tính tỷ lệ đạt | 20/06 | ✅ |
 | T27 | Overview KPI Dashboard | Xây dựng UI (Frontend) và API (Backend) hiển thị Dashboard tổng quan metric sức khỏe đào tạo trước khi vào Tree | 20/06 | ✅ |
 
 ### 🎯 Phase 3: Demo 1 Completion — Hưng (16–20/06)
@@ -147,12 +144,11 @@
 | # | Task | Mô tả chi tiết | Deadline | Status | Priority |
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
 | T28 | Report Tool Backend | Implement `report_tool` cho Agent: nhận node context (ngành/khoa) → query DB → sinh báo cáo phân tích tự động | 16/06 | ✅ | **P0** |
-| T29 | Prompt Engineering Report | Thiết kế prompt templates theo cấp (Khoa/Ngành/Môn) cho auto-report khi click node. Phối hợp Hiếu (UI) + Hoàng (Agent) | 16/06 | ⬜ | **P0** |
+| T29 | Prompt Engineering Report | Thiết kế prompt templates theo cấp (Khoa/Ngành/Môn) cho auto-report khi click node. Phối hợp Hiếu (UI) + Hoàng (Agent) | 16/06 | ✅ | **P0** |
 | T30 | Auth Login Backend | `POST /api/v1/auth/login` + `GET /api/v1/auth/me` + JWT token + role-based middleware (manager full / lecturer view-only) | 16/06 | ✅ | **P0** |
-| T31 | Failure Analysis | Phân tích các case agent fail: collect error logs, document failure patterns, cải thiện error handling + retry logic | 20/06 | ⬜ | **P2** |
 
 > [!NOTE]
-> T31 (Failure Analysis) là **ưu tiên thấp** — để sau, làm nếu còn kịp.
+> T31 được chuyển sang Gate G3 để gắn với guardrails, eval framework và production readiness.
 
 ### 🚀 Phase 4: Sprint 2 Hoàn thiện — Hưng (18–24/06)
 
@@ -160,7 +156,7 @@
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
 | T32 | Tool Report CLO — Cải thiện môn học | Implement tool report CLO cho agent: phân tích CLO achievement → đề xuất cải thiện môn học. Direct kết quả tới tab Báo cáo trên frontend. Hiển thị dạng artifact (markdown rendered), có khả năng lưu (persist to DB) và chỉnh sửa (inline edit) | 18/06 | ✅ | **P0** |
 
-**Tổng: 17 task · Trọng tâm: Backend APIs + Auth + Report Tool + CLO Report Artifact + DevOps + Testing**
+**Tổng: 14 task Sprint 2 + nhóm Gate G3 · Trọng tâm: Backend APIs + Auth + Report Tool + CLO Report Artifact + DevOps + Testing**
 
 ---
 
@@ -270,8 +266,8 @@ Hoàng    H28      H29      (Buffer) H30
          SSE      RAGAS             Agent
          Stream   Eval              Safety(P2)
 
-Hưng     T28,T29  T14      (Buffer) T31
-         Report   Tree              Failure
+Hưng     T28,T29  T14      (Buffer) Gate G3
+         Report   Tree              Guardrails
          +Auth(T30)Metrics          Analysis
 
 Hiếu     V24,V25  V15      (Buffer) (Buffer)
@@ -329,7 +325,6 @@ graph LR
         H17 --> H22["H22: Metric Engine"]
         H22 --> H24["H24: Auto-Analysis"]
         T12 --> T19["T19: CLO/PLO Backend"]
-        T20["T20: pgvector"] --> H23["H23: RAG Vector"]
         T13 --> V18["V18: CRUD Pages"]
         H18 --> V19["V19: Chart Component"]
     end
@@ -344,7 +339,7 @@ graph LR
         T30["T30: Auth Login"] --> V26["V26: Login↔Auth"]
         H20 --> H29["H29: RAGAS Eval"]
         H29 -.-> H30["H30: Agent Safety (P2)"]
-        T30 -.-> T31["T31: Failure Analysis (P2)"]
+        T30 -.-> T31["T31: Failure Analysis + Guardrails (G3)"]
     end
 ```
 
@@ -402,10 +397,10 @@ graph LR
 
 | # | Task | Owner | Deadline | Status |
 |:-:|:-----|:-----:|:--------:|:------:|
-| T23 | Đồng bộ ORM với schema, chốt Program-Course many-to-many, bỏ model source trùng | Hưng | 19/06 | ⬜ |
-| T24 | Sửa seed cohort/import điểm thành phần và tạo Alembic baseline | Hưng | 20/06 | ⬜ |
-| T25 | Điều phối một lần reset DB local và xác minh revision/row counts toàn team | Hưng + cả team | 20/06 | ⬜ |
-| T26 | Tạo schema `dwh`, ETL idempotent và data quality checks | Hưng | 23/06 | ⬜ |
+| T23 | Đồng bộ ORM với schema, chốt Program-Course many-to-many, bỏ model source trùng | Hưng | 19/06 | ✅ |
+| T24 | Sửa seed cohort/import điểm thành phần và tạo Alembic baseline | Hưng | 20/06 | ✅ |
+| T25 | Điều phối một lần reset DB local và xác minh revision/row counts toàn team | Hưng + cả team | 20/06 | ✅ |
+| T26 | Tạo schema `dwh`, ETL idempotent và data quality checks | Hưng | 23/06 | ✅ |
 | H25 | Tạo schema `ml`, baseline dự đoán pass/trượt từng môn, chống leakage | Hoàng | 23/06 | ⬜ |
 | H26 | Tổng hợp expected passed/failed credits và báo cáo evaluation | Hoàng | 24/06 | ⬜ |
 | V23 | UI prediction từng môn và tổng tín chỉ pass/trượt kỳ vọng | Hiếu | 24/06 | ⬜ |
@@ -426,9 +421,9 @@ Tham khảo [DatabaseModernizationPlan.md](../10-References/DatabaseModernizatio
 
 | # | Deliverable | Checklist | Owner | Status |
 |:-:|:------------|:----------|:-----:|:------:|
-| G2-1 | MVP Demo Video | Video 3 phút, quay rõ user flow end-to-end, có voiceover/subtitle | Hiếu | ⬜ |
-| G2-2 | Architecture Diagram | 3+ Mermaid diagrams cập nhật trong README, phản ánh đúng code hiện tại | Hoàng | ⬜ |
-| G2-3 | ≥ 10 PR Merged | Đếm trên GitHub, bổ sung nếu thiếu, mỗi PR có description + review | Cả team | ⬜ |
+| G2-1 | MVP Demo Video | Video 3 phút, quay rõ user flow end-to-end, có voiceover/subtitle | Hiếu | ✅ |
+| G2-2 | Architecture Diagram | 3+ Mermaid diagrams cập nhật trong README, phản ánh đúng code hiện tại | Hoàng | ✅ |
+| G2-3 | ≥ 10 PR Merged | Đếm trên GitHub, bổ sung nếu thiếu, mỗi PR có description + review | Cả team | ✅ |
 | G2-4 | README.md | Setup instructions, env vars list, ≥ 3 sample queries | Hoàng | ⬜ |
 | G2-5 | Eval Evidences | 10 test case manual + screenshot output thực tế | Hoàng + Hưng | ⬜ |
 
@@ -443,6 +438,38 @@ Tham khảo [DatabaseModernizationPlan.md](../10-References/DatabaseModernizatio
 | **Testing** | ≥ 10 unit tests BE, ≥ 5 FE test suites, 10 eval evidences | Cả team |
 | **DevOps** | Docker chạy đầy đủ services, CI/CD pass trên mọi PR | Hưng |
 | **Docs** | README cập nhật, architecture diagrams đúng, Journal + Worklog | Cả team |
+
+---
+
+## 🎯 Gate G3 — Production-ready
+
+> **Deadline:** 25/06/2026 23:59  
+> **Trạng thái:** 🟢 Active  
+> **XP khi pass:** +150 XP / member  
+> **Mục tiêu:** Deployed production URL, evaluation framework, guardrails, demo video draft và cost report.
+
+### Deliverables Gate G3
+
+| # | Deliverable | Mô tả | Owner | Status |
+|:-:|:------------|:-----|:-----:|:------:|
+| G3-1 | Deployed production URL | Deploy được production URL bằng Vercel / Railway / Cloud Run hoặc nền tảng tương đương | Hưng + Hiếu | ⬜ |
+| G3-2 | Evaluation Metrics | Có nhiều hơn 1 metric với baseline number: latency, cost, pass/fail quality, tool success rate | Hoàng + Hưng | ⬜ |
+| G3-3 | Guardrails | Có guardrails cho auth scope, prompt/report safety, tool execution và lỗi dữ liệu | Hoàng + Hưng | ⬜ |
+| G3-4 | Demo video draft | Video draft 3–5 phút gồm pitch slides + live demo | Hiếu + Hoàng | ⬜ |
+| G3-5 | Cost report | Ước tính cost / user / month dựa trên usage giả định và log thực tế nếu có | Hoàng + Hưng | ⬜ |
+
+### Gate G3 Task Breakdown
+
+| # | Task | Mô tả chi tiết | Owner | Deadline | Status | Priority |
+|:-:|:-----|:----------------|:-----:|:--------:|:------:|:--------:|
+| T31 | Failure Analysis + Guardrails | Phân tích lỗi agent/report, bổ sung retry, fallback, RBAC guardrail và log lỗi có cấu trúc | Hưng | 25/06 | ⬜ | **P1** |
+| T33 | Chỉnh sửa Agent hỗ trợ báo cáo | Cập nhật report agent để hiểu context Khoa/Ngành/Môn/Lớp, sinh báo cáo đúng template, giữ phạm vi theo actor và trả artifact dễ đọc | Hưng + Hoàng | 25/06 | ⬜ | **P0** |
+| T34 | Hoàn thiện DWH | Hoàn thiện schema `dwh`, bổ sung ETL refresh theo lịch, DQ checks nâng cao và đối soát OLTP-DWH cho dashboard/report | Hưng | 25/06 | ⬜ | **P0** |
+| H40 | Xây dựng model ML + explanation | Xây model dự đoán pass/trượt hoặc rủi ro học tập, lưu baseline metrics, explanation, cutoff và model version | Hoàng | 25/06 | ⬜ | **P0** |
+| T35 | Session + cookie người dùng | Xây dựng cơ chế session/cookie cho user, refresh/expire hợp lý, đồng bộ với JWT và protected routes | Hưng + Hiếu | 25/06 | ⬜ | **P0** |
+| T36 | Schema riêng cho session + system logs | Tạo schema/bảng riêng cho session, activity log, system log, agent run log để phục vụ analytics và audit | Hưng | 25/06 | ⬜ | **P0** |
+| H41 | Evaluation + cost report | Tạo evaluation report có latency/cost/tool success/baseline quality và ước tính cost / user / month | Hoàng + Hưng | 25/06 | ⬜ | **P0** |
+| V31 | Demo video draft + deploy QA | Chuẩn bị video 3–5 phút, test production URL, quay live demo và ghi nhận lỗi UI/blocker | Hiếu | 25/06 | ⬜ | **P0** |
 
 ---
 
