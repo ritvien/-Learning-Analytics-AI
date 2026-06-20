@@ -156,7 +156,19 @@
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
 | T32 | Tool Report CLO — Cải thiện môn học | Implement tool report CLO cho agent: phân tích CLO achievement → đề xuất cải thiện môn học. Direct kết quả tới tab Báo cáo trên frontend. Hiển thị dạng artifact (markdown rendered), có khả năng lưu (persist to DB) và chỉnh sửa (inline edit) | 18/06 | ✅ | **P0** |
 
-**Tổng: 14 task Sprint 2 + nhóm Gate G3 · Trọng tâm: Backend APIs + Auth + Report Tool + CLO Report Artifact + DevOps + Testing**
+### 🎯 Gate G3 — Hưng Production-ready (20–25/06)
+
+| # | Task | Mô tả chi tiết | Deadline | Status | Priority |
+|:-:|:-----|:----------------|:--------:|:------:|:--------:|
+| T31 | Failure Analysis + Guardrails | Phân tích lỗi agent/report, bổ sung retry, fallback, RBAC guardrail và log lỗi có cấu trúc | 25/06 | ⬜ | **P1** |
+| T33 | Chỉnh sửa Agent hỗ trợ báo cáo | Cập nhật report agent để hiểu context Khoa/Ngành/Môn/Lớp, sinh báo cáo đúng template, giữ phạm vi theo actor và trả artifact dễ đọc | 25/06 | ⬜ | **P0** |
+| T34 | Hoàn thiện DWH | Hoàn thiện schema `dwh`, bổ sung ETL refresh theo lịch, DQ checks nâng cao và đối soát OLTP-DWH cho dashboard/report | 25/06 | ⬜ | **P0** |
+| T35 | Session + cookie người dùng | Xây dựng cơ chế session/cookie cho user, refresh/expire hợp lý, đồng bộ với JWT và protected routes | 25/06 | ⬜ | **P0** |
+| T36 | Schema riêng cho session + system logs | Tạo schema/bảng riêng cho session, activity log, system log, agent run log để phục vụ analytics và audit | 25/06 | ⬜ | **P0** |
+| T37 | Model ML + explanation | Phối hợp xây model dự đoán pass/trượt hoặc rủi ro học tập, lưu baseline metrics, explanation, cutoff và model version | 25/06 | ⬜ | **P0** |
+| T38 | Evaluation + cost report | Phối hợp tạo evaluation report có latency/cost/tool success/baseline quality và ước tính cost / user / month | 25/06 | ⬜ | **P0** |
+
+**Tổng: 14 task Sprint 2 + 7 task Gate G3 của Hưng · Trọng tâm: Backend APIs + Auth + Report Tool + CLO Report Artifact + DWH + Session/Logs + Guardrails**
 
 ---
 
@@ -463,12 +475,12 @@ Tham khảo [DatabaseModernizationPlan.md](../10-References/DatabaseModernizatio
 | # | Task | Mô tả chi tiết | Owner | Deadline | Status | Priority |
 |:-:|:-----|:----------------|:-----:|:--------:|:------:|:--------:|
 | T31 | Failure Analysis + Guardrails | Phân tích lỗi agent/report, bổ sung retry, fallback, RBAC guardrail và log lỗi có cấu trúc | Hưng | 25/06 | ⬜ | **P1** |
-| T33 | Chỉnh sửa Agent hỗ trợ báo cáo | Cập nhật report agent để hiểu context Khoa/Ngành/Môn/Lớp, sinh báo cáo đúng template, giữ phạm vi theo actor và trả artifact dễ đọc | Hưng + Hoàng | 25/06 | ⬜ | **P0** |
+| T33 | Chỉnh sửa Agent hỗ trợ báo cáo | Cập nhật report agent để hiểu context Khoa/Ngành/Môn/Lớp, sinh báo cáo đúng template, giữ phạm vi theo actor và trả artifact dễ đọc | Hưng | 25/06 | ⬜ | **P0** |
 | T34 | Hoàn thiện DWH | Hoàn thiện schema `dwh`, bổ sung ETL refresh theo lịch, DQ checks nâng cao và đối soát OLTP-DWH cho dashboard/report | Hưng | 25/06 | ⬜ | **P0** |
-| H40 | Xây dựng model ML + explanation | Xây model dự đoán pass/trượt hoặc rủi ro học tập, lưu baseline metrics, explanation, cutoff và model version | Hoàng | 25/06 | ⬜ | **P0** |
 | T35 | Session + cookie người dùng | Xây dựng cơ chế session/cookie cho user, refresh/expire hợp lý, đồng bộ với JWT và protected routes | Hưng + Hiếu | 25/06 | ⬜ | **P0** |
 | T36 | Schema riêng cho session + system logs | Tạo schema/bảng riêng cho session, activity log, system log, agent run log để phục vụ analytics và audit | Hưng | 25/06 | ⬜ | **P0** |
-| H41 | Evaluation + cost report | Tạo evaluation report có latency/cost/tool success/baseline quality và ước tính cost / user / month | Hoàng + Hưng | 25/06 | ⬜ | **P0** |
+| T37 | Model ML + explanation | Phối hợp xây model dự đoán pass/trượt hoặc rủi ro học tập, lưu baseline metrics, explanation, cutoff và model version | Hưng + Hoàng | 25/06 | ⬜ | **P0** |
+| T38 | Evaluation + cost report | Phối hợp tạo evaluation report có latency/cost/tool success/baseline quality và ước tính cost / user / month | Hưng + Hoàng | 25/06 | ⬜ | **P0** |
 | V31 | Demo video draft + deploy QA | Chuẩn bị video 3–5 phút, test production URL, quay live demo và ghi nhận lỗi UI/blocker | Hiếu | 25/06 | ⬜ | **P0** |
 
 ---
