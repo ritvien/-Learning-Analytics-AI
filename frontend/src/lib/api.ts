@@ -69,6 +69,38 @@ export interface ApiEnrollment {
   status: string
 }
 
+export interface ApiGradeImportRow {
+  row_number?: number
+  enrollment_id?: number | null
+  student_code?: string | null
+  section_code?: string | null
+  course_code?: string | null
+  final_grade?: number | null
+  component_name?: string | null
+  component_score?: number | null
+  notes?: string | null
+}
+
+export interface ApiGradeImportResult {
+  total_rows: number
+  updated_rows: number
+  skipped_rows: number
+  errors: string[]
+}
+
+export interface ApiGradeComponent {
+  id: number
+  enrollment_id: number
+  component_type_id: number
+  component_name: string
+  score: number | null
+  max_score: number
+  is_absent: boolean
+  assessed_at: string | null
+  recorded_at: string | null
+  updated_at: string
+}
+
 export interface ApiSection {
   id: number
   section_code: string
@@ -477,6 +509,14 @@ export const api = {
 
   getEnrollments: (params?: { student_id?: number; section_id?: number; limit?: number }) =>
     fetcher<ApiEnrollment[]>(`/api/v1/grades/enrollments${qs(params ?? {})}`),
+  getGradeComponents: (params?: { enrollment_id?: number; section_id?: number; limit?: number }) =>
+    fetcher<ApiGradeComponent[]>(`/api/v1/grades/components${qs(params ?? {})}`),
+  importGrades: (rows: ApiGradeImportRow[]) =>
+    fetcher<ApiGradeImportResult>("/api/v1/grades/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows }),
+    }),
   getGrades: async (params?: { limit?: number }) => {
     const enrolls = await fetcher<ApiEnrollment[]>(`/api/v1/grades/enrollments${qs({ limit: params?.limit ?? 3000 })}`)
     return enrolls.map(e => ({

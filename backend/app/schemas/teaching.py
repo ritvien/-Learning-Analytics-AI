@@ -114,3 +114,38 @@ class GradeComponentResponse(OrmBase):
     assessed_at: datetime | None
     recorded_at: datetime | None
     updated_at: datetime
+
+
+class GradeComponentDetailResponse(GradeComponentResponse):
+    """Grade component response with its component name for grade screens."""
+
+    component_name: str
+
+
+class GradeImportRow(BaseModel):
+    """One row imported from Excel/CSV grade sheets."""
+
+    row_number: int | None = None
+    enrollment_id: int | None = None
+    student_code: str | None = None
+    section_code: str | None = None
+    course_code: str | None = None
+    final_grade: float | None = Field(None, ge=0, le=10)
+    component_name: str | None = None
+    component_score: float | None = Field(None, ge=0)
+    notes: str | None = None
+
+
+class GradeImportRequest(BaseModel):
+    """Bulk grade import payload parsed from a spreadsheet on the client."""
+
+    rows: list[GradeImportRow]
+
+
+class GradeImportResult(BaseModel):
+    """Bulk grade import result."""
+
+    total_rows: int
+    updated_rows: int
+    skipped_rows: int
+    errors: list[str] = Field(default_factory=list)
