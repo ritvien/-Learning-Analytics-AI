@@ -139,9 +139,7 @@ _PLO_ATTAINMENT_SQL = text(
 
 async def _fetch_clo_breakdown(db: AsyncSession, course_id: int) -> list[dict[str, Any]]:
     """Fetch per-CLO attainment rows for a course (raw, may be empty)."""
-    result = await db.execute(
-        _CLO_BREAKDOWN_SQL, {"course_id": course_id, "threshold": CLO_ACHIEVED_THRESHOLD}
-    )
+    result = await db.execute(_CLO_BREAKDOWN_SQL, {"course_id": course_id, "threshold": CLO_ACHIEVED_THRESHOLD})
     return [dict(row) for row in result.mappings().all()]
 
 
@@ -153,9 +151,7 @@ async def _fetch_clo_components(db: AsyncSession, section_id: int) -> list[dict[
 
 async def _fetch_plo_attainment(db: AsyncSession, program_id: int) -> list[dict[str, Any]]:
     """Weighted PLO attainment for a program, aggregated from CLO attainment via contribution matrix."""
-    result = await db.execute(
-        _PLO_ATTAINMENT_SQL, {"program_id": program_id, "threshold": CLO_ACHIEVED_THRESHOLD}
-    )
+    result = await db.execute(_PLO_ATTAINMENT_SQL, {"program_id": program_id, "threshold": CLO_ACHIEVED_THRESHOLD})
     return [dict(row) for row in result.mappings().all()]
 
 
@@ -184,17 +180,19 @@ def _build_clo_enrichment(
 
     # Build per-CLO component detail for diagnostic narratives.
     clo_components: dict[str, list[dict[str, Any]]] = {}
-    for row in (component_rows or []):
+    for row in component_rows or []:
         code = str(row.get("clo_code") or "").strip()
         if not code:
             continue
-        clo_components.setdefault(code, []).append({
-            "component": str(row.get("component_name") or ""),
-            "avg_score": float(row.get("avg_score") or 0),
-            "max_score": float(row.get("max_score") or 10),
-            "component_weight": float(row.get("component_weight") or 0),
-            "clo_contribution": float(row.get("clo_contribution") or 0),
-        })
+        clo_components.setdefault(code, []).append(
+            {
+                "component": str(row.get("component_name") or ""),
+                "avg_score": float(row.get("avg_score") or 0),
+                "max_score": float(row.get("max_score") or 10),
+                "component_weight": float(row.get("component_weight") or 0),
+                "clo_contribution": float(row.get("clo_contribution") or 0),
+            }
+        )
 
     improvement_issues = [
         f"{item['code']} chỉ đạt {item['attainment']}% (dưới ngưỡng {WEAK_CLO_THRESHOLD_PCT:.0f}%)." for item in weak
@@ -206,7 +204,7 @@ def _build_clo_enrichment(
         detail = ""
         if worst_comp:
             pct = worst_comp["avg_score"] / max(worst_comp["max_score"], 1) * 100
-            detail = f" Thành phần yếu nhất: \"{worst_comp['component']}\" ({worst_comp['avg_score']:.1f}/{worst_comp['max_score']:.0f} = {pct:.0f}%)."
+            detail = f' Thành phần yếu nhất: "{worst_comp["component"]}" ({worst_comp["avg_score"]:.1f}/{worst_comp["max_score"]:.0f} = {pct:.0f}%).'
         improvement_actions.append(
             f"Cải thiện {item['code']}"
             + (f" ({item['name']})" if item["name"] else "")
@@ -276,12 +274,12 @@ def _format_clo_section(enrichment: dict[str, Any]) -> str:
                     mx = comp["max_score"]
                     pct_comp = round(avg / max(mx, 1) * 100, 0)
                     w = comp["component_weight"]
-                    lines.append(f"| {comp['component']} | {avg:.1f} / {mx:.0f} | {pct_comp:.0f}% | {w*100:.0f}% |")
+                    lines.append(f"| {comp['component']} | {avg:.1f} / {mx:.0f} | {pct_comp:.0f}% | {w * 100:.0f}% |")
                 worst = min(comps, key=lambda c: c["avg_score"] / max(c["max_score"], 1))
                 worst_pct = worst["avg_score"] / max(worst["max_score"], 1) * 100
                 lines += [
                     "",
-                    f"> **Điểm can thiệp**: Thành phần \"*{worst['component']}*\" có tỷ lệ điểm thấp nhất "
+                    f'> **Điểm can thiệp**: Thành phần "*{worst["component"]}*" có tỷ lệ điểm thấp nhất '
                     f"({worst['avg_score']:.1f}/{worst['max_score']:.0f} = {worst_pct:.0f}%). "
                     "Cần rà lại đề, rubric và hoạt động ôn tập bám sát chuẩn này.",
                 ]
@@ -324,9 +322,12 @@ def _format_plo_section(plo_rows: list[dict[str, Any]]) -> str:
     ok = avg_att >= 70
     lines.append(
         f"*Tỷ lệ đạt PLO trung bình toàn ngành: **{avg_att}%**. "
-        + ("Chương trình đang đạt ngưỡng an toàn theo chuẩn kiểm định AUN/ABET."
-           if ok else
-           "Chương trình chưa đạt ngưỡng 70% — cần đánh giá lại thiết kế chương trình và hoạt động giảng dạy.") + "*"
+        + (
+            "Chương trình đang đạt ngưỡng an toàn theo chuẩn kiểm định AUN/ABET."
+            if ok
+            else "Chương trình chưa đạt ngưỡng 70% — cần đánh giá lại thiết kế chương trình và hoạt động giảng dạy."
+        )
+        + "*"
     )
     return _join_lines(lines)
 
@@ -425,6 +426,21 @@ async def generate_report(
             }
         )
         scope_type = scope_type or "school"
+    elif report_type == "department_health":
+        department_id = int(scope_id or 0)
+        payload = _department_health(data, department_id)
+        generation_tool_calls.append(
+            {
+                "tool_name": "build_department_health_snapshot",
+                "status": "success",
+                "tool_input": {"department_id": department_id},
+                "tool_output": {
+                    "metrics": payload["metrics_json"],
+                    "title": payload["title"],
+                },
+            }
+        )
+        scope_type = scope_type or "department"
     elif report_type == "program_health":
         program_id = int(scope_id or 0)
         try:
@@ -460,6 +476,42 @@ async def generate_report(
             }
         )
         scope_type = scope_type or "program"
+    elif report_type == "course_health":
+        course_id = int(scope_id or 0)
+        try:
+            clo_rows = await _fetch_clo_breakdown(db, course_id)
+            generation_tool_calls.append(
+                {
+                    "tool_name": "fetch_clo_breakdown",
+                    "status": "success",
+                    "tool_input": {"course_id": course_id},
+                    "tool_output": {"rows": clo_rows},
+                }
+            )
+        except Exception:
+            logger.exception("Course CLO breakdown query failed; continuing without CLO section")
+            clo_rows = []
+            generation_tool_calls.append(
+                {
+                    "tool_name": "fetch_clo_breakdown",
+                    "status": "error",
+                    "tool_input": {"course_id": course_id},
+                    "tool_output": {"rows": []},
+                }
+            )
+        payload = _course_health(data, course_id, clo_rows)
+        generation_tool_calls.append(
+            {
+                "tool_name": "build_course_health_snapshot",
+                "status": "success",
+                "tool_input": {"course_id": course_id},
+                "tool_output": {
+                    "metrics": payload["metrics_json"],
+                    "title": payload["title"],
+                },
+            }
+        )
+        scope_type = scope_type or "course"
     elif report_type == "section_intervention":
         section_id = int(scope_id or 0)
         payload = _section_intervention(data, section_id)
@@ -570,9 +622,7 @@ def _school_overview(data: dict[str, list[Any]]) -> ReportPayload:
     pass_rate = _pct(passed_count, len(valid))
     avg_gpa = _avg([float(student.gpa_cumulative) for student in active_students if student.gpa_cumulative is not None])
     at_risk = [
-        student
-        for student in active_students
-        if student.gpa_cumulative is not None and student.gpa_cumulative < 2
+        student for student in active_students if student.gpa_cumulative is not None and student.gpa_cumulative < 2
     ]
     risk_level = _risk_level(pass_rate, len(at_risk))
     metrics = {
@@ -624,7 +674,125 @@ def _school_overview(data: dict[str, list[Any]]) -> ReportPayload:
     }
 
 
-def _program_health(data: dict[str, list[Any]], program_id: int, plo_rows: list[dict[str, Any]] | None = None) -> ReportPayload:
+def _department_health(data: dict[str, list[Any]], department_id: int) -> ReportPayload:
+    students: list[Student] = data["students"]
+    enrollments: list[Enrollment] = data["enrollments"]
+    sections: list[Section] = data["sections"]
+    courses: list[Course] = data["courses"]
+    programs: list[Program] = data["programs"]
+    departments: list[Department] = data["departments"]
+    department = next((item for item in departments if item.id == department_id), None)
+    if department is None:
+        raise ValueError("Department not found")
+
+    department_programs = [item for item in programs if item.department_id == department_id]
+    program_ids = {item.id for item in department_programs}
+    department_students = [
+        student for student in students if student.program_id in program_ids and student.status == "active"
+    ]
+    student_ids = {student.id for student in department_students}
+    rows = [item for item in enrollments if item.student_id in student_ids and item.is_passed is not None]
+    passed_count = len([item for item in rows if item.is_passed])
+    pass_rate = _pct(passed_count, len(rows))
+    avg_gpa = _avg(
+        [float(student.gpa_cumulative) for student in department_students if student.gpa_cumulative is not None]
+    )
+    at_risk_students = [
+        student for student in department_students if student.gpa_cumulative is not None and student.gpa_cumulative < 2
+    ]
+
+    section_map = {section.id: section for section in sections}
+    course_map = {course.id: course for course in courses}
+    program_map = {program.id: program for program in programs}
+    department_courses = [
+        course
+        for course in courses
+        if course.department_id == department_id or any(program.id in program_ids for program in course.programs)
+    ]
+    failed_by_course: dict[int, int] = {}
+    failed_by_program: dict[int, int] = {}
+    for row in rows:
+        if row.is_passed is not False:
+            continue
+        section = section_map.get(row.section_id)
+        if section is None:
+            continue
+        failed_by_course[section.course_id] = failed_by_course.get(section.course_id, 0) + 1
+        student = next((item for item in department_students if item.id == row.student_id), None)
+        if student is not None:
+            failed_by_program[student.program_id] = failed_by_program.get(student.program_id, 0) + 1
+
+    bottlenecks = [
+        {
+            "course": course_map.get(course_id).name if course_map.get(course_id) else str(course_id),
+            "failed": failed,
+        }
+        for course_id, failed in sorted(failed_by_course.items(), key=lambda item: item[1], reverse=True)[:5]
+    ]
+    weak_programs = [
+        {
+            "program": program_map.get(program_id).name if program_map.get(program_id) else str(program_id),
+            "failed": failed,
+        }
+        for program_id, failed in sorted(failed_by_program.items(), key=lambda item: item[1], reverse=True)[:5]
+    ]
+    risk_level = _risk_level(pass_rate, len(at_risk_students))
+    metrics = {
+        "department_id": department_id,
+        "department_name": department.name,
+        "program_count": len(department_programs),
+        "course_count": len(department_courses),
+        "active_students": len(department_students),
+        "completed_enrollments": len(rows),
+        "pass_rate": pass_rate,
+        "avg_gpa": avg_gpa,
+        "at_risk_students": len(at_risk_students),
+        "risk_level": risk_level,
+        "weak_programs": weak_programs,
+        "bottlenecks": bottlenecks,
+    }
+    good = [
+        f"Khoa {department.name} co {len(department_programs)} nganh va {len(department_students)} sinh vien active.",
+        f"Pass rate hien tai la {pass_rate}%, can doc cung cac nganh va mon co nhieu luot truot.",
+    ]
+    issues = [
+        f"Co {len(at_risk_students)} sinh vien GPA duoi 2.0 trong pham vi khoa.",
+        "Nhom mon nghẽn chinh: "
+        + (", ".join(f"{item['course']} ({item['failed']} luot)" for item in bottlenecks) or "chua co du lieu truot"),
+    ]
+    risks = [
+        f"Muc rui ro khoa: {risk_level}.",
+        "Neu khong tach theo nganh va mon, khoa co the bo sot diem nghẽn trong chuong trinh dao tao.",
+    ]
+    actions = [
+        "Truong khoa uu tien review cac nganh co nhieu luot truot va danh sach sinh vien GPA duoi 2.0.",
+        "Phan cong truong nganh lam viec voi giang vien cac mon nghẽn trong ky gan nhat.",
+        "Kiem tra lai ma tran CLO/PLO cua cac mon co fail rate cao de tim chuan dau ra dang yeu.",
+    ]
+    summary = (
+        f"Khoa {department.name} co pass rate {pass_rate}%, GPA trung binh {avg_gpa}, "
+        f"{len(at_risk_students)} sinh vien nguy co. Muc rui ro: {risk_level}."
+    )
+    content = _format_report(
+        f"Bao cao suc khoe khoa: {department.name}",
+        summary,
+        metrics,
+        good,
+        issues,
+        risks,
+        actions,
+    )
+    return {
+        "title": f"Bao cao suc khoe khoa - {department.name}",
+        "summary": summary,
+        "metrics_json": {**metrics, "good_signals": good, "issues": issues, "risks": risks, "actions": actions},
+        "content_markdown": content,
+    }
+
+
+def _program_health(
+    data: dict[str, list[Any]], program_id: int, plo_rows: list[dict[str, Any]] | None = None
+) -> ReportPayload:
     students: list[Student] = data["students"]
     enrollments: list[Enrollment] = data["enrollments"]
     sections: list[Section] = data["sections"]
@@ -637,23 +805,17 @@ def _program_health(data: dict[str, list[Any]], program_id: int, plo_rows: list[
     section_map = {section.id: section for section in sections}
     course_map = {course.id: course for course in courses}
     program_students = [
-        student
-        for student in students
-        if student.program_id == program_id and student.status == "active"
+        student for student in students if student.program_id == program_id and student.status == "active"
     ]
     student_ids = {student.id for student in program_students}
     rows = [item for item in enrollments if item.student_id in student_ids and item.is_passed is not None]
     passed_count = len([item for item in rows if item.is_passed])
     pass_rate = _pct(passed_count, len(rows))
-    avg_gpa = _avg([
-        float(student.gpa_cumulative)
-        for student in program_students
-        if student.gpa_cumulative is not None
-    ])
+    avg_gpa = _avg(
+        [float(student.gpa_cumulative) for student in program_students if student.gpa_cumulative is not None]
+    )
     at_risk_students = [
-        student
-        for student in program_students
-        if student.gpa_cumulative is not None and student.gpa_cumulative < 2
+        student for student in program_students if student.gpa_cumulative is not None and student.gpa_cumulative < 2
     ]
     failed_by_course: dict[int, int] = {}
     for row in rows:
@@ -718,17 +880,136 @@ def _program_health(data: dict[str, list[Any]], program_id: int, plo_rows: list[
             content = content + "\n\n" + plo_section
         # surface PLO attainment summary into metrics for agent tools
         metrics["plo_attainment"] = {
-            str(r.get("plo_code")): round(float(r.get("weighted_attainment") or 0) * 100, 1)
-            for r in plo_rows
+            str(r.get("plo_code")): round(float(r.get("weighted_attainment") or 0) * 100, 1) for r in plo_rows
         }
         weak_plos = [r for r in plo_rows if float(r.get("weighted_attainment") or 0) < 0.70]
         if weak_plos:
             issues.append(
                 "PLO chưa đạt ngưỡng 70%: "
-                + ", ".join(f"{r['plo_code']} ({round(float(r.get('weighted_attainment',0))*100,1)}%)" for r in weak_plos)
+                + ", ".join(
+                    f"{r['plo_code']} ({round(float(r.get('weighted_attainment', 0)) * 100, 1)}%)" for r in weak_plos
+                )
             )
     return {
         "title": f"Báo cáo sức khỏe ngành - {program.name}",
+        "summary": summary,
+        "metrics_json": {**metrics, "good_signals": good, "issues": issues, "risks": risks, "actions": actions},
+        "content_markdown": content,
+    }
+
+
+def _course_health(
+    data: dict[str, list[Any]], course_id: int, clo_rows: list[dict[str, Any]] | None = None
+) -> ReportPayload:
+    students: list[Student] = data["students"]
+    enrollments: list[Enrollment] = data["enrollments"]
+    sections: list[Section] = data["sections"]
+    courses: list[Course] = data["courses"]
+    teachers: list[Teacher] = data["teachers"]
+    course = next((item for item in courses if item.id == course_id), None)
+    if course is None:
+        raise ValueError("Course not found")
+
+    course_sections = [item for item in sections if item.course_id == course_id]
+    section_ids = {item.id for item in course_sections}
+    rows = [item for item in enrollments if item.section_id in section_ids and item.is_passed is not None]
+    all_rows = [item for item in enrollments if item.section_id in section_ids]
+    passed_count = len([item for item in rows if item.is_passed])
+    pass_rate = _pct(passed_count, len(rows))
+    grades = [float(item.final_grade) for item in rows if item.final_grade is not None]
+    avg_grade = _avg(grades)
+    student_ids = {item.student_id for item in all_rows}
+    course_students = [item for item in students if item.id in student_ids]
+    teacher_map = {teacher.id: teacher for teacher in teachers}
+
+    weak_sections = []
+    for section in course_sections:
+        section_rows = [item for item in rows if item.section_id == section.id]
+        section_passed = len([item for item in section_rows if item.is_passed])
+        section_pass_rate = _pct(section_passed, len(section_rows))
+        if section_rows and section_pass_rate < 70:
+            teacher = teacher_map.get(section.teacher_id) if section.teacher_id is not None else None
+            weak_sections.append(
+                {
+                    "section": section.section_code,
+                    "teacher": teacher.full_name if teacher else "Chua gan giang vien",
+                    "pass_rate": section_pass_rate,
+                    "sample": len(section_rows),
+                }
+            )
+    weak_sections.sort(key=lambda item: item["pass_rate"])
+
+    enrichment = _build_clo_enrichment(clo_rows or [])
+    weak_clos = enrichment.get("weak_clos", [])
+    risk_level = _risk_level(pass_rate, len(weak_sections), avg_grade)
+    metrics = {
+        "course_id": course_id,
+        "course_code": course.code,
+        "course_name": course.name,
+        "credits": course.credits,
+        "section_count": len(course_sections),
+        "student_count": len(course_students),
+        "completed_enrollments": len(rows),
+        "pass_rate": pass_rate,
+        "avg_grade": avg_grade,
+        "risk_level": risk_level,
+        "weak_sections": weak_sections[:5],
+    }
+    if enrichment:
+        metrics["clo_attainment"] = enrichment["clo_attainment"]
+        metrics["weak_clo_count"] = len(weak_clos)
+
+    good = [
+        f"Mon {course.name} co {len(course_sections)} lop hoc phan va {len(rows)} luot hoc phan da co ket qua.",
+        f"Diem trung binh mon hien tai la {avg_grade}, pass rate la {pass_rate}%.",
+    ]
+    issues = []
+    if weak_sections:
+        issues.append(
+            "Cac lop hoc phan can chu y: "
+            + ", ".join(f"{item['section']} ({item['pass_rate']}%)" for item in weak_sections[:5])
+        )
+    else:
+        issues.append("Chua thay lop hoc phan nao duoi nguong pass rate 70% trong du lieu da hoan tat.")
+    if weak_clos:
+        issues.append(
+            "CLO chua dat nguong 70%: " + ", ".join(f"{item['code']} ({item['attainment']}%)" for item in weak_clos)
+        )
+    elif clo_rows:
+        issues.append("Cac CLO co du lieu hien dang dat nguong theo cau hinh hien tai.")
+    else:
+        issues.append("Chua co du lieu CLO du de danh gia chuan dau ra mon hoc.")
+
+    risks = [
+        f"Muc rui ro mon hoc: {risk_level}.",
+        "Neu cac lop yeu tap trung o cung mot thanh phan diem, can ra lai de, rubric va hoat dong on tap.",
+    ]
+    actions = [
+        "Truong bo mon so sanh cac lop co pass rate thap voi mat bang chung cua mon.",
+        "Giang vien phu trach lop yeu kiem tra diem thanh phan va danh sach sinh vien can ho tro.",
+        "Cap nhat mapping thanh phan diem -> CLO neu bao cao chua co du lieu chuan dau ra.",
+    ]
+    if enrichment.get("improvement_actions"):
+        actions = list(enrichment["improvement_actions"]) + actions
+
+    summary = (
+        f"Mon {course.name} co pass rate {pass_rate}%, diem trung binh {avg_grade}, "
+        f"{len(weak_sections)} lop hoc phan can chu y. Muc rui ro: {risk_level}."
+    )
+    content = _format_report(
+        f"Bao cao suc khoe mon hoc: {course.name}",
+        summary,
+        metrics,
+        good,
+        issues,
+        risks,
+        actions,
+    )
+    clo_section = _format_clo_section(enrichment)
+    if clo_section:
+        content = content + "\n\n" + clo_section
+    return {
+        "title": f"Bao cao suc khoe mon hoc - {course.name}",
         "summary": summary,
         "metrics_json": {**metrics, "good_signals": good, "issues": issues, "risks": risks, "actions": actions},
         "content_markdown": content,
@@ -760,12 +1041,14 @@ def _section_intervention(data: dict[str, list[Any]], section_id: int) -> Report
         grade = float(row.final_grade) if row.final_grade is not None else None
         if row.is_passed is False or (grade is not None and grade < 5.5):
             student = student_map.get(row.student_id)
-            watchlist.append({
-                "student_code": student.student_code if student else str(row.student_id),
-                "full_name": student.full_name if student else "Unknown",
-                "grade": grade,
-                "reason": "Không đạt" if row.is_passed is False else "Cận rủi ro",
-            })
+            watchlist.append(
+                {
+                    "student_code": student.student_code if student else str(row.student_id),
+                    "full_name": student.full_name if student else "Unknown",
+                    "grade": grade,
+                    "reason": "Không đạt" if row.is_passed is False else "Cận rủi ro",
+                }
+            )
     risk_level = _risk_level(pass_rate, len(watchlist), avg_grade)
     metrics = {
         "section_id": section_id,
@@ -808,10 +1091,12 @@ def _section_intervention(data: dict[str, list[Any]], section_id: int) -> Report
         actions.append("Giảng viên lọc watchlist và liên hệ sinh viên trong tuần này.")
     else:
         actions.append("Tiếp tục theo dõi sau khi có thêm điểm thành phần hoặc kết quả học phần tiếp theo.")
-    actions.extend([
-        "Kiểm tra điểm thành phần để biết sinh viên yếu ở chuyên cần, giữa kỳ hay cuối kỳ.",
-        "Nếu nhiều sinh viên cùng thấp ở một phần đánh giá, cần rà lại đề, rubric hoặc hoạt động ôn tập.",
-    ])
+    actions.extend(
+        [
+            "Kiểm tra điểm thành phần để biết sinh viên yếu ở chuyên cần, giữa kỳ hay cuối kỳ.",
+            "Nếu nhiều sinh viên cùng thấp ở một phần đánh giá, cần rà lại đề, rubric hoặc hoạt động ôn tập.",
+        ]
+    )
     summary = (
         f"Lớp {section.section_code} có pass rate {pass_rate}%, điểm trung bình {avg_grade}, "
         f"{len(watchlist)} sinh viên cần can thiệp. Mức rủi ro: {risk_level}."
@@ -863,20 +1148,24 @@ def _format_report(
         *(f"- {key}: {value}" for key, value in metrics.items() if key not in {"watchlist", "bottlenecks"}),
     ]
     if metrics.get("bottlenecks"):
-        lines.extend([
-            "",
-            "## Môn nghẽn",
-            *(f"- {item['course']}: {item['failed']} lượt chưa đạt" for item in metrics["bottlenecks"]),
-        ])
+        lines.extend(
+            [
+                "",
+                "## Môn nghẽn",
+                *(f"- {item['course']}: {item['failed']} lượt chưa đạt" for item in metrics["bottlenecks"]),
+            ]
+        )
     if watchlist:
-        lines.extend([
-            "",
-            "## Danh sách cần can thiệp",
-            *(
-                f"- {item['student_code']} - {item['full_name']}: {item['reason']} ({item['grade']})"
-                for item in watchlist[:10]
-            ),
-        ])
+        lines.extend(
+            [
+                "",
+                "## Danh sách cần can thiệp",
+                *(
+                    f"- {item['student_code']} - {item['full_name']}: {item['reason']} ({item['grade']})"
+                    for item in watchlist[:10]
+                ),
+            ]
+        )
     lines.extend(["", "## Hành động đề xuất", *(f"- {item}" for item in actions)])
     return _join_lines(lines)
 
@@ -963,21 +1252,26 @@ async def _maybe_enhance_with_llm(
         )
         messages = [
             SystemMessage(content=_LLM_SYSTEM_PROMPT),
-            HumanMessage(content=json.dumps({
-                "report_type": report_type,
-                "actor_role": actor_role,
-                "title": payload["title"],
-                "rule_based_summary": payload["summary"],
-                "metrics": payload["metrics_json"],
-                "tool_outputs": generation_tool_calls,
-                "required_report_format": {
-                    "summary": "executive narrative, 2-4 complete Vietnamese sentences",
-                    "good_signals": "2-5 complete Vietnamese observations",
-                    "issues": "2-5 complete Vietnamese problem statements with evidence",
-                    "risks": "2-5 complete Vietnamese risk statements with consequence",
-                    "actions": "2-5 concrete actions with owner/action/priority",
-                },
-            }, ensure_ascii=False)),
+            HumanMessage(
+                content=json.dumps(
+                    {
+                        "report_type": report_type,
+                        "actor_role": actor_role,
+                        "title": payload["title"],
+                        "rule_based_summary": payload["summary"],
+                        "metrics": payload["metrics_json"],
+                        "tool_outputs": generation_tool_calls,
+                        "required_report_format": {
+                            "summary": "executive narrative, 2-4 complete Vietnamese sentences",
+                            "good_signals": "2-5 complete Vietnamese observations",
+                            "issues": "2-5 complete Vietnamese problem statements with evidence",
+                            "risks": "2-5 complete Vietnamese risk statements with consequence",
+                            "actions": "2-5 concrete actions with owner/action/priority",
+                        },
+                    },
+                    ensure_ascii=False,
+                )
+            ),
         ]
         response = await llm.ainvoke(messages)
         parsed = _parse_llm_json(str(response.content))
@@ -1009,8 +1303,7 @@ async def _maybe_enhance_with_llm(
             clo_block = "\n\n" + clo_section.split("## Chi tiết chuẩn đầu ra (CLO)", 1)[1]
             clo_block = "\n\n## Chi tiết chuẩn đầu ra (CLO)" + clo_block
         payload["content_markdown"] = (
-            _format_report(payload["title"], summary, metrics, good, issues, risks, actions)
-            + clo_block
+            _format_report(payload["title"], summary, metrics, good, issues, risks, actions) + clo_block
         )
     except Exception as exc:
         logger.exception("LLM report enhancement failed; falling back to deterministic report")

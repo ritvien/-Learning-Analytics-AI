@@ -1,212 +1,253 @@
-# Data Pipeline — Pipeline dữ liệu end-to-end của EduInsight
+# Review task Sprint 2 - Hung Backend/DevOps
 
-> Tài liệu này hợp nhất **toàn bộ vòng đời dữ liệu** của hệ thống thành một pipeline duy nhất:
-> từ nguồn thô → OLTP → ETL → Data Warehouse → tầng metric/outcome → ML → phục vụ (Report, Agent, Dashboard).
-> Mỗi tầng được **gắn trực tiếp với code/bảng/endpoint đã có**, kèm phần **còn thiếu cần bổ sung** để pipeline thật sự hoàn chỉnh.
->
-> Tài liệu nền tảng (đọc kèm): [10-References/ML_DWH_Architecture.md](../10-References/ML_DWH_Architecture.md) (star schema, ML),
-> [10-References/DataFlowDiagram.md](../10-References/DataFlowDiagram.md) (sequence diagram), [16-Report-Center](../16-Report-Center/README.md) (tầng phục vụ báo cáo),
-> [15-Implementation-TODO](../15-Implementation-TODO/README.md) (backlog).
+> Cap nhat ngay 20/06/2026. Tai lieu nay chi ghi nhan cac viec Hung phu trach da hoan thien, bang chung trong code, ket qua verify va cac viec con thieu. Khong mo ta pipeline tong the.
 
-## 1. Mục tiêu
+## 1. Tong ket nhanh
 
-- Cho người mới một **bản đồ dữ liệu** rõ ràng: dữ liệu vào từ đâu, biến đổi qua những tầng nào, ai đọc ở cuối.
-- Chuẩn hóa **hợp đồng dữ liệu** (data contract) giữa các tầng: khóa, `updated_at`, idempotency, grain.
-- Tách bạch **đã có** vs **cần xây** để biến tập hợp script rời rạc hiện tại thành pipeline có điều phối, có giám sát, có chất lượng.
-- Gắn pipeline với chức năng sản phẩm: Health Score, Report Center, Report Agent, dự đoán rủi ro.
-
-## 2. Bức tranh tổng thể
-
-```mermaid
-flowchart LR
-  subgraph SRC[0. Nguồn]
-    A1[Crawl JSON EPU]
-    A2[PDF đề cương/CTĐT]
-    A3[Nhập tay qua API CRUD]
-  end
-  subgraph ING[1. Ingestion & chuẩn hóa]
-    B1[generate_seed_data.py]
-    B2[extract/import CLO - Gemini]
-    B3[seed_*.py / SQL seed]
-  end
-  subgraph OLTP[2. OLTP - public.*]
-    C1[(academic tree)]
-    C2[(enrollments + grade_components)]
-    C3[(CLO/PLO + mappings)]
-  end
-  subgraph ETL[3. ETL - refresh_dwh]
-    D1[validate + DQ]
-  end
-  subgraph DWH[4. Data Warehouse - dwh.*]
-    E1[(dim_*)]
-    E2[(fact_enrollment_outcome)]
-    E3[(fact_student_semester)]
-  end
-  subgraph MET[5. Metric / Outcome]
-    F1[vw_*_stats]
-    F2[health_score]
-    F3[CLO/PLO attainment]
-    F4[(student_clo_achievements)]
-  end
-  subgraph ML[6. ML - ml.*]
-    G1[model_run]
-    G2[enrollment_prediction]
-    G3[student_semester_prediction]
-  end
-  subgraph SRV[7. Phục vụ]
-    H1[Report Center]
-    H2[Report Agent]
-    H3[Analytics/Dashboard]
-  end
-
-  A1 --> B1 --> C1 & C2
-  A2 --> B2 --> C3
-  A3 --> C1 & C2 & C3
-  B3 --> C3
-  C2 & C3 --> D1 --> E1 & E2 & E3
-  C2 & C3 --> F1 & F3
-  E2 & E3 --> F1
-  F3 --> F4
-  E2 & E3 --> G1 --> G2 --> G3
-  F1 & F2 & F3 & F4 --> H1 & H3
-  H1 --> H2
-  G2 & G3 --> H3
-```
-
-**Nguyên tắc xuyên suốt:** OLTP là *system of record* (nguồn chân lý). DWH/metric/ML/report là **dẫn xuất** — có thể tính lại hoàn toàn từ OLTP. Không tầng nào được "đẻ" số liệu mới ngoài nguồn.
-
-## 3. Hiện trạng — cái gì ĐÃ CÓ (map vào code thật)
-
-| Tầng | Thành phần đã có | Vị trí |
+| Nhom viec | Trang thai | Ket luan |
 | --- | --- | --- |
-| 0. Nguồn | Crawl JSON `epu_data_batch.json`; PDF đề cương; API CRUD | `crawl/`, sidebar nhập liệu |
-| 1. Ingestion | `generate_seed_data.py` (JSON→SQL), `map_course_departments.py` (GPT-4o-mini), `extract_clo_pdf.py` + `import_clo_from_pdfs.py` + `generate_synthetic_clos.py` (Gemini), `seed_clo_mappings.py`, `seed-outcomes.sql`, `apply_seed_updates.py`, `seed_users.py` (auto khi khởi động) | `backend/scripts/`, `backend/db/` |
-| 2. OLTP | academic tree, people, teaching, assessment | migration `54025928d213_baseline_oltp_schema.py`; `app/models/*` |
-| 3. ETL | `refresh_dwh()` idempotent + DQ reconciliation | `app/analytics/etl.py:131`; `POST /api/v1/admin/dwh/refresh` |
-| 4. DWH | `dwh.dim_*`, `dwh.fact_enrollment_outcome`, `dwh.fact_student_semester`, `dwh.etl_run`, `dwh.data_quality_result` | migration `8b2d4c7e91af`, `c9e3f1a2b845` |
-| 4. Metric | `vw_section/course/program/department_stats`; health score OBE (0.3 GPA + 0.3 pass + 0.4 CLO), TTLCache 1h; CLO/PLO attainment SQL | `a9a181de6ed9_create_views.py`; `app/analytics/health_score.py`; `app/reports/service.py` |
-| 5. ML | `ml.model_run`, `ml.enrollment_prediction`, `ml.student_semester_prediction`; train/score/aggregate | migration `8b2d4c7e91af`; `app/ml/scoring.py`, `app/ml/aggregation.py`; `POST /admin/ml/{train,score,aggregate}` |
-| 6. Phục vụ | Report Center + Agent + Dashboard | `app/reports/`, `app/agent/`, `/analytics/*`, `/predictions/*` |
+| T14 - Tree Metrics API | Done | Da co API cay hoc vu va FE dashboard dung du lieu that tu backend. |
+| T17/T23 - ORM + Alembic modernization | Done | ORM/schema da dong bo them cac field va migration moi; DB dang o Alembic head. |
+| T24 - Seed/import diem thanh phan | Done | Docker backend co seed runner khi DB trong; reset DB sach van dung lai du lieu hoc vu. |
+| T25 - Reset DB local + verify revision | Done | Da co script reset local va da chay verify voi Docker/Postgres. |
+| T26 - DWH schema, ETL idempotent, DQ checks | Done | Da co fact assessment, ETL idempotent, DQ reconciliation pass. |
+| T19 - CLO/PLO backend logic | Done | Da materialize `student_clo_achievements`, report/ETL dung du lieu CLO/PLO. |
+| T29 - Report theo Khoa/Nganh/Mon | Done mot phan lon | Da co report types va UI chon Khoa/Nganh/Mon/Lop; export file that van con thieu. |
+| T18 - PR Cleanup >= 10 PRs | Chua xac nhan | Can kiem tren GitHub/PR that, workspace local khong xac minh duoc. |
 
-> **Kết luận hiện trạng:** Khung pipeline đã đầy đủ tầng. Điểm yếu là **điều phối** (chạy tay, rời rạc), **độ phủ DQ** còn mỏng, và một số bảng outcome chưa được **vật chất hóa/đồng bộ** (xem §8).
+## 2. Cac task da lam
 
-## 4. Chi tiết từng tầng
+### T14 - Tree Metrics API
 
-### 4.0 — Nguồn dữ liệu (Sources)
+Da hoan thien:
 
-| Nguồn | Định dạng | Đặc tính | Đi vào |
-| --- | --- | --- | --- |
-| Crawl EPU | JSON (sinh viên + điểm lồng nhau) | Batch, offline | Toàn bộ cây học vụ + điểm |
-| Đề cương/CTĐT | PDF | Bán cấu trúc, cần OCR/LLM | CLO, mapping CLO→PLO |
-| Nhập tay | JSON qua API CRUD | Lẻ, realtime | Từng bảng |
+- Them `GET /api/v1/tree`.
+- Them endpoint metrics theo node.
+- Tree tra du cau truc `school -> department -> program -> course`.
+- Metrics gom sinh vien, mon hoc, enrollments, pass/fail rate, GPA, health score.
+- Dashboard `/manager` da chuyen sang doc metrics tu Tree API thay vi tu join sai o frontend.
 
-### 4.1 — Ingestion & chuẩn hóa
+Bang chung:
 
-Quy ước hiện tại: **2 pha** cho điểm/enrollment — `generate_seed_data.py` (JSON→`init-data.sql`) rồi nạp lúc init container; `apply_seed_updates.py` UPSERT các trường biến đổi (`gpa_cumulative`, `grade_4`). CLO theo 3 đường: trích PDF (Gemini) → sinh tổng hợp khi thiếu → mặc định template. Tất cả script đều **idempotent (ON CONFLICT/UPSERT)** để chạy lại an toàn.
+- `backend/app/api/v1/endpoints/tree.py`
+- `backend/app/api/v1/router.py`
+- `backend/tests/test_tree.py`
+- `frontend/src/app/(dashboard)/manager/page.tsx`
 
-Chuẩn hóa chính: parse mã học kỳ `"HK1 (2021-2022)" → year/term`, làm sạch điểm chữ, quy đổi thang 4, tính GPA tích lũy, tách điểm thành phần (TX1–4, cuối kỳ) kèm trọng số.
+Verify:
 
-### 4.2 — OLTP (`public.*`) — System of Record
+- Tree API sau reset tra: `699` sinh vien, `480` mon, GPA `2.45`, fail rate `16.7%`, health score `72.28`.
 
-Cây học vụ: `University → Department → Program → Course (M2M program_courses) → Section (theo Semester+Teacher) → Enrollment → GradeComponent`. Chuẩn đầu ra: `CLO (theo Course)`, `PLO (theo Program)`, ma trận `clo_plo_mappings (contribution 1-3)`, `grade_component_clo_mappings (weight)`. Mọi bảng nghiệp vụ có `updated_at` (qua `TimestampMixin`) làm mốc cho ETL gia tăng.
+### T17/T23 - ORM + Alembic modernization
 
-### 4.3 — ETL → DWH (`refresh_dwh()`)
+Da hoan thien:
 
-Luồng trong `app/analytics/etl.py`: mở `dwh.etl_run` (status=running) → UPSERT dimensions → load facts (`fact_enrollment_outcome`, `fact_student_semester` gộp theo SV×kỳ) → chạy **data quality** (đối soát số lượng enrollment OLTP vs DWH, ghi `dwh.data_quality_result`) → nếu lệch thì `failed` + raise; nếu khớp thì `success` + `rows_processed`. Chỉ chạy trên PostgreSQL.
+- Dong bo ORM voi schema moi.
+- Giu Program-Course many-to-many bang `program_courses`.
+- Them snapshot/timestamps cho diem va enrollment:
+  - `Enrollment.registered_credits`
+  - `Enrollment.completed_at`
+  - `GradeComponent.assessed_at`
+  - `GradeComponent.recorded_at`
+- Them migration moi len Alembic head.
 
-### 4.4 — Tầng Metric / Outcome
+Bang chung:
 
-- **Views thống kê** (`vw_*_stats`): đếm/độ trượt/GPA theo 4 cấp, lọc `status='completed'`.
-- **Health Score** (`health_score.py`): `health = 0.3·gpa + 0.3·(1-fail_rate) + 0.4·clo_attainment`, phân tầng Healthy/Warning/Critical, cache TTL 1h theo `{level}_{node_id}`.
-- **CLO attainment**: điểm CLO mỗi SV `= Σ(score·w_map·w_type)/Σ(w_map·w_type)`; đạt khi `≥ 4.0`; tỷ lệ đạt = % SV đạt. **PLO attainment** = rollup có trọng số `Σ(clo_att·contribution)/Σ(contribution)`.
-- `student_clo_achievements`: bảng **đã khai báo** để lưu mức đạt CLO theo từng SV (điểm vật chất hóa của tầng outcome).
+- `backend/app/models/teaching.py`
+- `backend/app/schemas/teaching.py`
+- `backend/app/api/v1/endpoints/grades.py`
+- `backend/migrations/versions/d4e5f6a7b8c9_add_assessment_timestamps.py`
+- `backend/migrations/versions/e5f6a7b8c9d0_add_dwh_assessment_facts.py`
 
-### 4.5 — ML (`ml.*`)
+Verify:
 
-`model_run` (versioning + metrics + artifact_uri) → `enrollment_prediction` (xác suất đạt/trượt theo mốc thời gian) → `student_semester_prediction` (tín chỉ kỳ vọng đạt/trượt, risk_level). Train/score/aggregate qua `/admin/ml/*`; đọc qua `/predictions/*`.
+- Alembic current: `e5f6a7b8c9d0 (head)`.
 
-### 4.6 — Phục vụ (Serving)
+### T24 - Seed/import diem thanh phan
 
-- **Report Center**: `generate_report()` đọc OLTP + chạy CLO/PLO SQL → `metrics_json` + (tùy chọn) LLM diễn giải → lưu `reports`.
-- **Report Agent**: tool đọc snapshot báo cáo, giải thích metric, đề xuất hành động (có pending-action cần xác nhận).
-- **Dashboard/Analytics**: `/analytics/overview|trends|refresh-status`, `/analytics/health/*`, `/predictions/*`.
+Da hoan thien:
 
-## 5. Hợp đồng dữ liệu (Data Contracts)
+- Them seed runner de Docker backend tu nap seed khi DB trong.
+- Mount `backend/db` vao container backend.
+- Seed chay idempotent, reset volume sach van co du academic/grade/outcome data.
+- Startup backend chay migration, seed neu DB trong, refresh CLO achievement roi moi start API.
 
-| Quy ước | Nội dung |
+Bang chung:
+
+- `backend/scripts/seed_database.py`
+- `backend/entrypoint.sh`
+- `docker-compose.yml`
+- `backend/db/init-data.sql`
+- `backend/db/seed-outcomes.sql`
+
+Verify sau reset:
+
+- `12` khoa
+- `37` nganh
+- `480` mon
+- `699` sinh vien
+- `35,916` enrollments
+- `96,899` grade components
+
+### T25 - Reset DB local + verify revision
+
+Da hoan thien:
+
+- Them script reset DB local bang Docker.
+- Script co guard `-Yes` de tranh xoa volume ngoai y muon.
+- Da chay reset that tu volume sach.
+- Sau reset, backend/db healthy va Alembic len head.
+
+Bang chung:
+
+- `scripts/reset_local_db.ps1`
+
+Lenh dung:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\reset_local_db.ps1 -Yes
+```
+
+Verify:
+
+- Docker services: `backend` va `db` healthy.
+- Alembic current: `e5f6a7b8c9d0 (head)`.
+- Seed counts dung nhu muc T24.
+
+### T26 - DWH schema, ETL idempotent, DQ checks
+
+Da hoan thien:
+
+- Them DWH fact cho diem thanh phan va CLO achievement.
+- ETL refresh idempotent bang upsert.
+- ETL refresh `student_clo_achievements` truoc khi nap DWH.
+- Data quality reconciliation pass cho enrollment va grade component.
+
+Bang chung:
+
+- `backend/app/analytics/etl.py`
+- `backend/migrations/versions/e5f6a7b8c9d0_add_dwh_assessment_facts.py`
+
+Verify:
+
+- `dwh.fact_enrollment_outcome`: `35,916` rows.
+- `dwh.fact_grade_component`: `96,899` rows.
+- `dwh.fact_clo_achievement`: `71,028` rows.
+- DQ checks:
+  - `enrollment_count_reconciliation`: pass, `35916/35916`.
+  - `grade_component_count_reconciliation`: pass, `96899/96899`.
+- ETL chay lai lan 2 van pass, xac nhan idempotent.
+
+### T19 - CLO/PLO backend logic
+
+Da hoan thien:
+
+- Them metric engine de materialize `student_clo_achievements`.
+- Tinh diem CLO tu `grade_components x grade_component_clo_mappings`.
+- Dat/chua dat CLO theo nguong `>= 4.0`.
+- Report service da co CLO breakdown, PLO attainment va narrative fallback.
+
+Bang chung:
+
+- `backend/app/analytics/clo.py`
+- `backend/app/analytics/etl.py`
+- `backend/app/reports/service.py`
+
+Verify:
+
+- `student_clo_achievements`: `71,028` rows sau reset.
+- `dwh.fact_clo_achievement`: `71,028` rows sau ETL.
+
+### T29 - Report theo Khoa/Nganh/Mon
+
+Da hoan thien:
+
+- Them report types:
+  - `department_health`
+  - `program_health`
+  - `course_health`
+  - `section_intervention`
+  - `school_overview`
+- Report Center co tao report theo Khoa/Nganh/Mon/Lop.
+- UI da sua de chon scope theo cascade `Khoa -> Nganh -> Mon -> Lop`.
+- Chon mon da doi tu dropdown phang sang search/list, tranh hieu nham chi co 2 mon.
+- Fetch sections tang len `5000`, tranh thieu lop hoc phan.
+- Dashboard report labels/filter da bo sung Khoa va Mon.
+
+Bang chung:
+
+- `backend/app/schemas/reports.py`
+- `backend/app/reports/service.py`
+- `frontend/src/app/(dashboard)/manager/reports/page.tsx`
+- `frontend/src/lib/api.ts`
+
+Con gioi han:
+
+- UI da chuan hoa lua chon `web_preview`, `pdf_a4`, `xlsx_appendix`, nhung backend export file PDF/Excel that chua tach thanh service rieng.
+
+### RBAC/doc quyen lien quan
+
+Da hoan thien:
+
+- Sua quyen doc department cho role doc-only/lecturer theo scope.
+- Bo sung access-control helpers cho department/course/report scope.
+
+Bang chung:
+
+- `backend/app/access_control.py`
+- `backend/app/api/v1/endpoints/departments.py`
+
+## 3. Ket qua test/build da chay
+
+| Hang muc | Ket qua |
 | --- | --- |
-| Khóa nghiệp vụ | `student_code`, `course.code`, `(program_id,code)` cho PLO, `(course_id,code)` cho CLO… |
-| Mốc thay đổi | mọi bảng nghiệp vụ có `updated_at` → ETL gia tăng lọc theo mốc |
-| Idempotency | mọi bước ghi dùng UPSERT/ON CONFLICT; chạy lại không nhân đôi |
-| Grain | enrollment (1 dòng/đăng ký), student×semester (fact_student_semester), enrollment×CLO (achievement) |
-| Ngưỡng | CLO/PLO đạt ≥ 70%; CLO score đạt ≥ 4.0; rủi ro SV GPA < 2.0 |
-| Không bịa số | LLM/agent chỉ diễn giải metric có sẵn, không tạo chỉ số mới |
+| Backend tests | `23 passed, 2 warnings` |
+| Frontend build | `next build` pass |
+| Docker backend/db | healthy |
+| Alembic current | `e5f6a7b8c9d0 (head)` |
+| DWH ETL | completed |
+| DQ reconciliation | pass |
+| Tree API | tra dung metric tong |
 
-## 6. Chất lượng dữ liệu & truy vết (DQ & Lineage)
+## 4. Con thieu / can lam tiep
 
-- **Đã có**: đối soát số lượng enrollment trong `refresh_dwh()`; log `dwh.etl_run` + `dwh.data_quality_result`.
-- **Lineage**: mỗi report lưu `metrics_json` (ảnh chụp số liệu) + `semester_*`; mỗi tool-call của agent ghi `report_agent_tool_calls`.
-- **Còn mỏng** (xem §8): chưa kiểm range điểm, FK mồ côi, tỷ lệ thiếu điểm, độ phủ mapping CLO→PLO, mapping component→CLO — các chỉ số này chính là `data_quality` mà Report Center cần để gắn nhãn độ tin cậy.
+### P0 neu can demo production hon
 
-## 7. Điều phối & lịch chạy (Orchestration)
+- Export file that cho Report Center:
+  - PDF A4 sinh file that thay vi chi print browser.
+  - Excel appendix sinh file `.xlsx` that.
+- Dua DQ nang cao vao report:
+  - range diem `[0..max]`;
+  - FK mo coi;
+  - ty le thieu diem theo lop;
+  - do phu mapping CLO->PLO va component->CLO;
+  - ghi vao `metrics_json.data_quality`.
 
-```mermaid
-flowchart LR
-  T1[Sự kiện cập nhật điểm] --> R[refresh_dwh]
-  T2[Cron cuối ngày/tuần] --> R
-  R --> M[làm mới metric/health cache]
-  M --> S[ml score - tùy chọn]
-  S --> RPT[sinh report theo report_schedules]
-```
+### P1
 
-- **Hiện tại**: tất cả chạy **tay** (`/admin/dwh/refresh`, `/admin/ml/score`, nút "Chạy ngay" của schedule).
-- **Mục tiêu**: một **worker/cron** gọi đúng chuỗi `refresh_dwh → (invalidate cache) → ml score → generate_report` theo `report_schedules.frequency` và trigger `after_grade_update`. Hợp đồng API `POST /reports/schedules/{id}/run` đã sẵn để worker tái dùng.
+- Worker/cron tu dong:
+  - chay ETL theo lich;
+  - chay report schedules;
+  - trigger sau khi cap nhat diem.
+- Invalidate health-score cache sau ETL/import diem.
+- Them pagination/search server-side cho course/section neu data tang lon hon.
 
-## 8. Khoảng trống & VIỆC CẦN LÀM
+### Ngoai code local
 
-### P0 — Khép kín vòng dữ liệu
+- T18 PR Cleanup >= 10 PRs:
+  - Chua xac nhan duoc trong workspace local.
+  - Can kiem tren GitHub: so PR, trang thai merge, PR cleanup con open hay khong.
 
-- [ ] **Vật chất hóa `student_clo_achievements`**: thêm bước trong `refresh_dwh()` (hoặc job riêng) ghi mức đạt CLO mỗi SV từ `grade_components × mappings`. Hiện attainment tính on-the-fly trong report; cần lưu để ML và dashboard dùng lại.
-- [ ] **Bổ sung fact còn thiếu** mà [ML_DWH_Architecture](../10-References/ML_DWH_Architecture.md) đã thiết kế nhưng chưa tạo: `dwh.fact_grade_component`, `dwh.fact_clo_achievement`, `dwh.dim_clo`, `dwh.dim_date`.
-- [ ] **Mở rộng DQ checks**: range điểm [0..max], FK mồ côi, tỷ lệ thiếu điểm theo lớp, độ phủ mapping CLO→PLO & component→CLO → ghi `data_quality_result` và **đẩy `data_quality` vào `metrics_json`** của report (Report Center đang cần để hiện độ tin cậy).
+## 5. Ket luan
 
-### P1 — Tự động hóa & gia tăng
+Phan Backend/DevOps Sprint 2 cua Hung da co nen tang du de demo:
 
-- [ ] **Scheduler/worker** chạy chuỗi ETL→metric→(ML)→report theo lịch + `after_grade_update`; tái dùng `POST /reports/schedules/{id}/run`.
-- [ ] **ETL gia tăng** theo `updated_at` thay vì nạp lại toàn bộ; lưu `last_refreshed_at`.
-- [ ] **Invalidte health cache** sau mỗi ETL (hiện TTL 1h có thể trả số cũ ngay sau khi nhập điểm).
+- DB reset sach dung duoc.
+- Seed du lieu tu dong.
+- Alembic o head.
+- Tree API va dashboard dung metric that.
+- DWH ETL chay idempotent va DQ pass.
+- CLO/PLO co materialized achievement.
+- Report Center da tao duoc report theo Khoa/Nganh/Mon/Lop.
 
-### P2 — Ingestion sản phẩm hóa & quan sát
-
-- [ ] **API import file** (Excel/CSV điểm, PDF đề cương) thay cho script offline — gắn nút "Upload CTĐT" thành luồng thật, validate trước khi ghi OLTP.
-- [ ] **Observability**: trang `/analytics/refresh-status` hiển thị lần ETL gần nhất, kết quả DQ, độ trễ; cảnh báo khi DQ fail.
-- [ ] **Lineage rõ ràng**: gắn `etl_run_id`/phiên bản dữ liệu vào report snapshot để truy vết "report này dựa trên lần làm mới nào".
-
-## 9. Thứ tự phụ thuộc (chạy đúng thứ tự)
-
-```text
-seed_users (auto)
-  → generate_seed_data → init-data.sql (OLTP)
-  → seed-outcomes.sql / import_clo_from_pdfs / generate_synthetic_clos (CLO/PLO)
-  → seed_clo_mappings (component→CLO)
-  → refresh_dwh (DWH + DQ)
-  → [materialize student_clo_achievements]   ← P0 cần thêm
-  → ml train/score/aggregate (tùy chọn)
-  → generate_report / health score (phục vụ)
-```
-
-## 10. Definition of Done
-
-- Có thể tái tạo **toàn bộ** dẫn xuất (DWH, metric, ML, report) từ OLTP chỉ bằng chạy lại pipeline.
-- ETL ghi `etl_run` + `data_quality_result` cho mỗi lần chạy; report hiển thị độ tin cậy dựa trên DQ thật.
-- `student_clo_achievements` được vật chất hóa và dùng chung cho dashboard + ML + report.
-- Một lịch tự động chạy chuỗi ETL→metric→report; nhập điểm mới → báo cáo cập nhật mà không cần thao tác tay.
-- Mỗi report truy vết được về phiên bản dữ liệu (lineage).
-
-## 11. Liên kết tài liệu
-
-- [10-References/ML_DWH_Architecture.md](../10-References/ML_DWH_Architecture.md) — star schema, feature ML, danh mục bảng DWH/ML.
-- [10-References/DataFlowDiagram.md](../10-References/DataFlowDiagram.md) — sequence diagram ingestion/ETL/prediction.
-- [14-Outcome-Workflow](../14-Outcome-Workflow/README.md) — workflow phát hiện → giao việc dựa trên outcome.
-- [15-Implementation-TODO](../15-Implementation-TODO/README.md) — backlog triển khai.
-- [16-Report-Center](../16-Report-Center/README.md) — tầng phục vụ báo cáo + agent.
+Phan con thieu chu yeu la export file that, DQ nang cao dua vao report va kiem chung T18 tren GitHub.

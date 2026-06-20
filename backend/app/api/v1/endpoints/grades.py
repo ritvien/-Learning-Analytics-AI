@@ -3,10 +3,18 @@
 Bulk ingestion is intentionally outside the current API scope.
 """
 
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 
-from app.access_control import can_access_section, can_access_student, get_teacher_for_user, is_admin, require_department_scope
+from app.access_control import (
+    can_access_section,
+    can_access_student,
+    get_teacher_for_user,
+    is_admin,
+    require_department_scope,
+)
 from app.crud import teaching as crud
 from app.dependencies import CurrentUser, DBSession, PaginationDep, require_write_access
 from app.models.academic import Course, Program
@@ -88,7 +96,13 @@ async def list_enrollments(
 )
 async def create_enrollment(payload: EnrollmentCreate, db: DBSession) -> Enrollment:
     """Enroll a student in a section."""
-    return await crud.create_enrollment(db, payload.model_dump())
+    section = await db.get(Section, payload.section_id)
+    if section is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Section not found")
+    course = await db.get(Course, section.course_id)
+    data = payload.model_dump()
+    data["registered_credits"] = course.credits if course is not None else None
+    return await crud.create_enrollment(db, data)
 
 
 @router.patch(
@@ -114,6 +128,7 @@ async def submit_final_grade(
             "grade_letter": grade_letter,
             "grade_4": grade_4,
             "is_passed": payload.final_grade >= 5.0,
+            "completed_at": datetime.now(UTC),
         },
     )
 
@@ -128,6 +143,12 @@ async def submit_final_grade(
 async def upsert_grade_component(payload: GradeComponentUpsert, db: DBSession) -> GradeComponent:
     """Create or update a student's score for one grade component."""
     obj = await crud.get_grade_component(db, payload.enrollment_id, payload.component_type_id)
+    data = payload.model_dump(exclude_unset=True)
+    if payload.score is not None or payload.is_absent:
+        recorded_at = datetime.now(UTC)
+        if data.get("assessed_at") is None:
+            data["assessed_at"] = recorded_at
+        data["recorded_at"] = recorded_at
     if obj is None:
-        return await crud.create_grade_component(db, payload.model_dump())
-    return await crud.update_grade_component(db, obj, payload.model_dump(exclude_unset=True))
+        return await crud.create_grade_component(db, data)
+    return await crud.update_grade_component(db, obj, data)

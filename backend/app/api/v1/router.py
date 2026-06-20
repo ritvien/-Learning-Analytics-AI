@@ -17,6 +17,7 @@ from app.api.v1.endpoints import (
     semesters,
     students,
     teachers,
+    tree,
 )
 
 api_router = APIRouter()
@@ -35,3 +36,4 @@ api_router.include_router(cohorts.router, prefix="/cohorts", tags=["cohorts"])
 api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 api_router.include_router(report_agent.router, prefix="/report-agent", tags=["report-agent"])
+api_router.include_router(tree.router, prefix="/tree", tags=["tree"])

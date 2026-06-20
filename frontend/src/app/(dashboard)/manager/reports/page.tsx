@@ -29,6 +29,7 @@ import {
 import {
   api,
   type ApiCourse,
+  type ApiDepartment,
   type ApiProgram,
   type ApiReport,
   type ApiReportAgentAskResponse,
@@ -55,8 +56,9 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 
-type TemplateId = "section_report" | "program_report" | "school_report"
+type TemplateId = "department_report" | "program_report" | "course_report" | "section_report" | "school_report"
 type ReportPurpose = "operational" | "end_semester" | "accreditation"
+type ReportOutputFormat = "web_preview" | "pdf_a4" | "xlsx_appendix"
 
 interface ReportTemplate {
   id: TemplateId
@@ -65,10 +67,19 @@ interface ReportTemplate {
   description: string
   actor: string
   backendType: ApiReportType
-  scopeType: "school" | "program" | "section"
+  scopeType: "school" | "department" | "program" | "course" | "section"
 }
 
 const templates: ReportTemplate[] = [
+  {
+    id: "department_report",
+    title: "Khoa",
+    emoji: "🏢",
+    description: "Tổng quan khoa, ngành yếu, môn bottleneck và hành động ưu tiên",
+    actor: "Trưởng khoa, quản lý đào tạo",
+    backendType: "department_health",
+    scopeType: "department",
+  },
   {
     id: "section_report",
     title: "Lớp học phần",
@@ -86,6 +97,15 @@ const templates: ReportTemplate[] = [
     actor: "Trưởng ngành, trưởng khoa, quản lý đào tạo",
     backendType: "program_health",
     scopeType: "program",
+  },
+  {
+    id: "course_report",
+    title: "Môn học",
+    emoji: "📘",
+    description: "Sức khỏe môn, lớp bất thường, CLO yếu và hướng cải thiện",
+    actor: "Trưởng bộ môn, giảng viên phụ trách",
+    backendType: "course_health",
+    scopeType: "course",
   },
   {
     id: "school_report",
@@ -191,13 +211,17 @@ const modeLabels: Record<ApiReportAgentMode, string> = {
 
 const reportTypeLabels: Record<string, string> = {
   school_overview: "Toàn trường",
+  department_health: "Sức khỏe khoa",
   program_health: "Sức khỏe ngành",
+  course_health: "Sức khỏe môn học",
   section_intervention: "Can thiệp lớp học phần",
 }
 
 const scopeTypeLabels: Record<string, string> = {
   school: "Toàn trường",
+  department: "Khoa",
   program: "Ngành",
+  course: "Môn học",
   section: "Lớp học phần",
 }
 
@@ -583,6 +607,7 @@ export default function ReportsPage() {
   const searchParams = useSearchParams()
   const [reports, setReports] = React.useState<ApiReport[]>([])
   const [reportSchedules, setReportSchedules] = React.useState<ApiReportSchedule[]>([])
+  const [departments, setDepartments] = React.useState<ApiDepartment[]>([])
   const [programs, setPrograms] = React.useState<ApiProgram[]>([])
   const [sections, setSections] = React.useState<ApiSection[]>([])
   const [courses, setCourses] = React.useState<ApiCourse[]>([])
@@ -590,9 +615,14 @@ export default function ReportsPage() {
   const [selectedTemplateId, setSelectedTemplateId] = React.useState<TemplateId>("program_report")
   const [selectedPurpose, setSelectedPurpose] = React.useState<ReportPurpose>("operational")
   const [selectedReport, setSelectedReport] = React.useState<ApiReport | null>(null)
+  const [selectedDepartmentId, setSelectedDepartmentId] = React.useState("")
   const [selectedProgramId, setSelectedProgramId] = React.useState("")
+  const [selectedCourseId, setSelectedCourseId] = React.useState("")
   const [selectedSectionId, setSelectedSectionId] = React.useState("")
   const [selectedSemesterId, setSelectedSemesterId] = React.useState("")
+  const [courseSearch, setCourseSearch] = React.useState("")
+  const [sectionSearch, setSectionSearch] = React.useState("")
+  const [outputFormat, setOutputFormat] = React.useState<ReportOutputFormat>("web_preview")
   const [agentMode, setAgentMode] = React.useState<ApiReportAgentMode>("explain")
   const [agentQuestion, setAgentQuestion] = React.useState(
     "Giải thích tỷ lệ đạt của báo cáo này được tính như thế nào và có đáng tin không?",
@@ -618,13 +648,48 @@ export default function ReportsPage() {
   const semesterMap = React.useMemo(() => new Map(semesters.map((s) => [s.id, s])), [semesters])
 
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId) ?? templates[0]
+  const selectedDepartment = departments.find((d) => String(d.id) === selectedDepartmentId)
   const selectedProgram = programs.find((p) => String(p.id) === selectedProgramId)
+  const selectedCourse = courses.find((c) => String(c.id) === selectedCourseId)
   const selectedSemester = semesters.find((s) => String(s.id) === selectedSemesterId)
 
+  const programOptions = React.useMemo(() => {
+    if (!selectedDepartmentId) return programs
+    return programs.filter((p) => String(p.department_id) === selectedDepartmentId)
+  }, [programs, selectedDepartmentId])
+
+  const courseOptions = React.useMemo(() => {
+    return courses.filter((course) => {
+      if (selectedProgramId && !course.program_ids.includes(Number(selectedProgramId))) return false
+      if (!selectedProgramId && selectedDepartmentId && String(course.department_id) !== selectedDepartmentId) return false
+      return true
+    })
+  }, [courses, selectedDepartmentId, selectedProgramId])
+
+  const filteredCourseOptions = React.useMemo(() => {
+    const q = courseSearch.trim().toLowerCase()
+    const list = q
+      ? courseOptions.filter((course) => `${course.code} ${course.name}`.toLowerCase().includes(q))
+      : courseOptions
+    return list.slice(0, 80)
+  }, [courseOptions, courseSearch])
+
   const filteredSections = React.useMemo(() => {
-    if (!selectedSemesterId) return sections
-    return sections.filter((s) => String(s.semester_id) === selectedSemesterId)
-  }, [sections, selectedSemesterId])
+    const q = sectionSearch.trim().toLowerCase()
+    return sections
+      .filter((section) => !selectedSemesterId || String(section.semester_id) === selectedSemesterId)
+      .filter((section) => {
+        if (selectedCourseId) return String(section.course_id) === selectedCourseId
+        if (selectedProgramId) return courseMap.get(section.course_id)?.program_ids.includes(Number(selectedProgramId))
+        if (selectedDepartmentId) return String(courseMap.get(section.course_id)?.department_id) === selectedDepartmentId
+        return true
+      })
+      .filter((section) => {
+        if (!q) return true
+        return buildSectionLabel(section, courseMap, semesterMap).toLowerCase().includes(q)
+      })
+      .slice(0, 120)
+  }, [sections, selectedSemesterId, selectedCourseId, selectedProgramId, selectedDepartmentId, sectionSearch, courseMap, semesterMap])
 
   const selectedSection = filteredSections.find((s) => String(s.id) === selectedSectionId)
 
@@ -670,6 +735,20 @@ export default function ReportsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredSections])
 
+  React.useEffect(() => {
+    if (selectedProgramId && !programOptions.some((p) => String(p.id) === selectedProgramId)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedProgramId(programOptions[0] ? String(programOptions[0].id) : "")
+    }
+  }, [programOptions, selectedProgramId])
+
+  React.useEffect(() => {
+    if (selectedCourseId && !courseOptions.some((c) => String(c.id) === selectedCourseId)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedCourseId(courseOptions[0] ? String(courseOptions[0].id) : "")
+    }
+  }, [courseOptions, selectedCourseId])
+
   const refreshReports = React.useCallback(async () => {
     const list = await api.getReports({ limit: 80 })
     setReports(list)
@@ -680,22 +759,26 @@ export default function ReportsPage() {
     async function load() {
       setError("")
       try {
-        const [reportList, scheduleList, programList, sectionList, courseList, semesterList] = await Promise.all([
+        const [reportList, scheduleList, departmentList, programList, sectionList, courseList, semesterList] = await Promise.all([
           api.getReports({ limit: 80 }),
           api.getReportSchedules({ limit: 80 }),
+          api.getDepartments({ limit: 500 }),
           api.getPrograms({ limit: 500 }),
-          api.getSections({ limit: 1000 }),
+          api.getSections({ limit: 5000 }),
           api.getCourses({ limit: 500 }),
           api.getSemesters(),
         ])
         setReports(reportList)
         setReportSchedules(scheduleList)
         setSelectedReport(reportList[0] ?? null)
+        setDepartments(departmentList)
         setPrograms(programList)
         setSections(sectionList)
         setCourses(courseList)
         setSemesters(semesterList)
+        setSelectedDepartmentId(departmentList[0] ? String(departmentList[0].id) : "")
         setSelectedProgramId(programList[0] ? String(programList[0].id) : "")
+        setSelectedCourseId(courseList[0] ? String(courseList[0].id) : "")
         const currentSem = semesterList.find((s) => s.is_current) ?? semesterList[0]
         if (currentSem) {
           setSelectedSemesterId(String(currentSem.id))
@@ -728,11 +811,15 @@ export default function ReportsPage() {
   async function handleGenerate() {
     setError("")
     const scopeId =
-      selectedTemplate.scopeType === "program"
-        ? selectedProgramId
-        : selectedTemplate.scopeType === "section"
-          ? selectedSectionId
-          : undefined
+      selectedTemplate.scopeType === "department"
+        ? selectedDepartmentId
+        : selectedTemplate.scopeType === "program"
+          ? selectedProgramId
+          : selectedTemplate.scopeType === "course"
+            ? selectedCourseId
+            : selectedTemplate.scopeType === "section"
+              ? selectedSectionId
+              : undefined
 
     if (selectedTemplate.scopeType !== "school" && !scopeId) {
       setError("Cần chọn phạm vi trước khi tạo báo cáo.")
@@ -742,7 +829,7 @@ export default function ReportsPage() {
     try {
       const report = await api.generateReport({
         report_type: selectedTemplate.backendType,
-        actor_role: selectedTemplate.scopeType === "section" ? "lecturer" : "manager",
+        actor_role: ["course", "section"].includes(selectedTemplate.scopeType) ? "lecturer" : "manager",
         scope_type: selectedTemplate.scopeType,
         scope_id: scopeId,
         semester_id: selectedSemesterId ? Number(selectedSemesterId) : undefined,
@@ -921,7 +1008,9 @@ export default function ReportsPage() {
                 <SelectContent>
                   <SelectItem value="all">Tất cả loại</SelectItem>
                   <SelectItem value="school_overview">Toàn trường</SelectItem>
+                  <SelectItem value="department_health">Sức khỏe khoa</SelectItem>
                   <SelectItem value="program_health">Sức khỏe ngành</SelectItem>
+                  <SelectItem value="course_health">Sức khỏe môn học</SelectItem>
                   <SelectItem value="section_intervention">Can thiệp lớp học phần</SelectItem>
                 </SelectContent>
               </Select>
@@ -1044,7 +1133,8 @@ export default function ReportsPage() {
 
             {/* Bước C: phạm vi cụ thể */}
             {selectedTemplate.scopeType !== "school" && (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Học kỳ</Label>
                   <Select value={selectedSemesterId} onValueChange={(v) => { if (v) setSelectedSemesterId(v) }}>
@@ -1065,7 +1155,27 @@ export default function ReportsPage() {
                   </Select>
                 </div>
 
-                {selectedTemplate.scopeType === "program" && (
+                {["department", "program", "course", "section"].includes(selectedTemplate.scopeType) && (
+                  <div className="space-y-2">
+                    <Label>Khoa</Label>
+                    <Select value={selectedDepartmentId} onValueChange={(v) => { if (v) setSelectedDepartmentId(v) }}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Chon khoa">
+                          {selectedDepartment ? `${selectedDepartment.code} - ${selectedDepartment.name}` : "Chon khoa"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {departments.map((d) => (
+                          <SelectItem key={d.id} value={String(d.id)}>
+                            {d.code} - {d.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {["program", "course", "section"].includes(selectedTemplate.scopeType) && (
                   <div className="space-y-2">
                     <Label>Ngành</Label>
                     <Select value={selectedProgramId} onValueChange={(v) => { if (v) setSelectedProgramId(v) }}>
@@ -1075,7 +1185,7 @@ export default function ReportsPage() {
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        {programs.map((p) => (
+                        {programOptions.map((p) => (
                           <SelectItem key={p.id} value={String(p.id)}>
                             {p.code} - {p.name}
                           </SelectItem>
@@ -1085,9 +1195,99 @@ export default function ReportsPage() {
                   </div>
                 )}
 
+                {selectedTemplate.scopeType === "course" && (
+                  <div className="space-y-2 sm:col-span-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <Label>Môn học</Label>
+                      <span className="text-xs text-muted-foreground">
+                        Đang lọc {filteredCourseOptions.length}/{courseOptions.length} môn
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={courseSearch}
+                        onChange={(event) => setCourseSearch(event.target.value)}
+                        placeholder="Tìm theo mã hoặc tên môn..."
+                        className="pl-9"
+                      />
+                    </div>
+                    <div className="max-h-64 overflow-y-auto rounded-lg border bg-background p-1">
+                      {filteredCourseOptions.length ? (
+                        filteredCourseOptions.map((course) => (
+                          <button
+                            key={course.id}
+                            type="button"
+                            onClick={() => setSelectedCourseId(String(course.id))}
+                            className={`flex w-full items-start justify-between gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-muted ${
+                              selectedCourseId === String(course.id) ? "bg-primary/10 text-primary" : ""
+                            }`}
+                          >
+                            <span>
+                              <span className="font-medium">{course.code}</span>
+                              <span className="ml-2">{course.name}</span>
+                            </span>
+                            <span className="shrink-0 text-xs text-muted-foreground">{course.credits} TC</span>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                          Không tìm thấy môn phù hợp với phạm vi đã chọn.
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Môn học được lọc theo Khoa/Ngành ở trên để tránh xổ toàn bộ {courses.length} môn cùng lúc.
+                    </p>
+                  </div>
+                )}
+
                 {selectedTemplate.scopeType === "section" && (
-                  <div className="space-y-2">
+                  <div className="space-y-2 sm:col-span-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <Label>Môn học</Label>
+                      <span className="text-xs text-muted-foreground">
+                        Đang lọc {filteredCourseOptions.length}/{courseOptions.length} môn
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={courseSearch}
+                        onChange={(event) => setCourseSearch(event.target.value)}
+                        placeholder="Tìm môn trước khi chọn lớp..."
+                        className="pl-9"
+                      />
+                    </div>
+                    <div className="max-h-40 overflow-y-auto rounded-lg border bg-background p-1">
+                      {filteredCourseOptions.slice(0, 40).map((course) => (
+                        <button
+                          key={course.id}
+                          type="button"
+                          onClick={() => setSelectedCourseId(String(course.id))}
+                          className={`flex w-full items-start justify-between gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-muted ${
+                            selectedCourseId === String(course.id) ? "bg-primary/10 text-primary" : ""
+                          }`}
+                        >
+                          <span>
+                            <span className="font-medium">{course.code}</span>
+                            <span className="ml-2">{course.name}</span>
+                          </span>
+                          <span className="shrink-0 text-xs text-muted-foreground">{course.credits} TC</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedTemplate.scopeType === "section" && (
+                  <div className="space-y-2 sm:col-span-2">
                     <Label>Lớp học phần</Label>
+                    <Input
+                      value={sectionSearch}
+                      onChange={(event) => setSectionSearch(event.target.value)}
+                      placeholder="Tìm lớp theo mã, môn hoặc học kỳ..."
+                    />
                     <Select value={selectedSectionId} onValueChange={(v) => { if (v) setSelectedSectionId(v) }}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Chọn lớp">
@@ -1106,10 +1306,42 @@ export default function ReportsPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Hiển thị tối đa 120 lớp phù hợp với học kỳ, khoa/ngành và môn đã chọn.
+                    </p>
                   </div>
                 )}
+                </div>
               </div>
             )}
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Định dạng đầu ra</Label>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {[
+                  { id: "web_preview", label: "Xem trên hệ thống", note: "Mở ngay sau khi tạo" },
+                  { id: "pdf_a4", label: "PDF A4", note: "Chuẩn in, có chữ ký" },
+                  { id: "xlsx_appendix", label: "Excel phụ lục", note: "Bảng số liệu đi kèm" },
+                ].map((format) => (
+                  <button
+                    key={format.id}
+                    type="button"
+                    onClick={() => setOutputFormat(format.id as ReportOutputFormat)}
+                    className={`rounded-lg border p-3 text-left text-sm transition hover:bg-muted/50 ${
+                      outputFormat === format.id ? "border-primary bg-primary/5 text-primary" : ""
+                    }`}
+                  >
+                    <div className="font-medium">{format.label}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">{format.note}</div>
+                  </button>
+                ))}
+              </div>
+              {outputFormat === "xlsx_appendix" ? (
+                <p className="text-xs text-amber-700">
+                  Excel phụ lục sẽ dùng cùng snapshot chỉ số; phần tải file thật cần nối backend export ở bước tiếp theo.
+                </p>
+              ) : null}
+            </div>
 
             <Button onClick={() => handleGenerate()} disabled={isGenerating} className="w-full">
               {isGenerating ? (

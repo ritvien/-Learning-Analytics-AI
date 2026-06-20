@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
+    DateTime,
     ForeignKey,
     Integer,
     Numeric,
@@ -66,6 +68,8 @@ class Enrollment(TimestampMixin, Base):
     grade_letter: Mapped[str | None] = mapped_column(String(5))
     grade_4: Mapped[float | None] = mapped_column(Numeric(3, 2))
     is_passed: Mapped[bool | None] = mapped_column(Boolean)
+    registered_credits: Mapped[int | None] = mapped_column(SmallInteger)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     attempt_number: Mapped[int] = mapped_column(SmallInteger, default=1, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="enrolled", nullable=False)
 
@@ -106,6 +110,8 @@ class GradeComponent(TimestampMixin, Base):
     score: Mapped[float | None] = mapped_column(Numeric(5, 2))
     max_score: Mapped[float] = mapped_column(Numeric(5, 2), default=10.0, nullable=False)
     is_absent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    assessed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     notes: Mapped[str | None] = mapped_column(Text)
 
     enrollment: Mapped[Enrollment] = relationship(back_populates="grade_components")
