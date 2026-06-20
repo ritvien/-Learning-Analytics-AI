@@ -9,7 +9,7 @@ from app.schemas.common import OrmBase
 
 ReportType = Literal["school_overview", "department_health", "program_health", "course_health", "section_intervention"]
 ReportScheduleFrequency = Literal["weekly", "monthly", "midterm", "end_semester", "after_grade_update"]
-ReportScheduleTrigger = Literal["manual", "scheduled", "grade_update"]
+ReportScheduleTrigger = Literal["manual", "scheduled", "grade_update", "midterm_grade", "final_grade"]
 
 
 class ReportGenerateRequest(BaseModel):

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
+from unicodedata import normalize
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -20,6 +20,12 @@ from app.reports.service import generate_report
 logger = logging.getLogger(__name__)
 
 SCHEDULER_INTERVAL_SECONDS = 60
+GRADE_UPDATE_FREQUENCY = "after_grade_update"
+MIDTERM_FREQUENCY = "midterm"
+END_SEMESTER_FREQUENCY = "end_semester"
+MIDTERM_TRIGGER = "midterm_grade"
+FINAL_TRIGGER = "final_grade"
+GRADE_UPDATE_TRIGGER = "grade_update"
 
 
 def next_run_after(frequency: str, base: datetime | None = None) -> datetime | None:
@@ -29,9 +35,31 @@ def next_run_after(frequency: str, base: datetime | None = None) -> datetime | N
         return now + timedelta(days=7)
     if frequency == "monthly":
         return now + timedelta(days=30)
-    if frequency in {"midterm", "end_semester", "after_grade_update"}:
+    if frequency in {MIDTERM_FREQUENCY, END_SEMESTER_FREQUENCY, GRADE_UPDATE_FREQUENCY}:
         return None
     return None
+
+
+def grade_component_schedule_frequency(component_name: str | None) -> str:
+    """Map a grade component name to the schedule frequency it should trigger."""
+    if not component_name:
+        return GRADE_UPDATE_FREQUENCY
+    normalized = normalize("NFKD", component_name).encode("ascii", "ignore").decode("ascii").lower()
+    if any(token in normalized for token in ("midterm", "mid-term", "giua ky", "giuaky", "giua")):
+        return MIDTERM_FREQUENCY
+    if any(token in normalized for token in ("final", "endterm", "end-term", "cuoi ky", "cuoiky", "cuoi")):
+        return END_SEMESTER_FREQUENCY
+    return GRADE_UPDATE_FREQUENCY
+
+
+def grade_component_schedule_trigger(component_name: str | None) -> str:
+    """Map a grade component name to the schedule run trigger label."""
+    frequency = grade_component_schedule_frequency(component_name)
+    if frequency == MIDTERM_FREQUENCY:
+        return MIDTERM_TRIGGER
+    if frequency == END_SEMESTER_FREQUENCY:
+        return FINAL_TRIGGER
+    return GRADE_UPDATE_TRIGGER
 
 
 async def run_schedule(
@@ -117,25 +145,38 @@ async def _grade_update_scope_ids(db: AsyncSession, enrollment_id: int) -> set[t
     return scopes
 
 
-async def run_grade_update_schedules(db: AsyncSession, *, enrollment_id: int) -> int:
-    """Run active after-grade-update schedules affected by one enrollment."""
+async def run_grade_update_schedules(
+    db: AsyncSession,
+    *,
+    enrollment_id: int,
+    schedule_frequency: str = GRADE_UPDATE_FREQUENCY,
+    trigger: str = GRADE_UPDATE_TRIGGER,
+) -> int:
+    """Run active grade-event schedules affected by one enrollment."""
     scopes = await _grade_update_scope_ids(db, enrollment_id)
     if not scopes:
         return 0
+    frequencies = {GRADE_UPDATE_FREQUENCY}
+    if schedule_frequency != GRADE_UPDATE_FREQUENCY:
+        frequencies.add(schedule_frequency)
 
     result = await db.execute(
         select(ReportSchedule)
         .where(ReportSchedule.is_active == True)  # noqa: E712
-        .where(ReportSchedule.frequency == "after_grade_update")
+        .where(ReportSchedule.frequency.in_(frequencies))
         .order_by(ReportSchedule.id.asc())
     )
     schedules = [
         schedule
         for schedule in result.scalars().all()
-        if schedule.scope_type == "school" or (schedule.scope_type, str(schedule.scope_id)) in scopes
+        if (schedule.scope_type == "school" or (schedule.scope_type, str(schedule.scope_id)) in scopes)
+        and (
+            schedule.trigger_event is None
+            or schedule.trigger_event in {trigger, schedule_frequency, GRADE_UPDATE_TRIGGER}
+        )
     ]
     for schedule in schedules:
-        await run_schedule(db, schedule, trigger="grade_update")
+        await run_schedule(db, schedule, trigger=trigger)
     return len(schedules)
 
 
@@ -167,8 +208,3 @@ async def report_schedule_worker(
         except TimeoutError:
             continue
     logger.info("Report schedule worker stopped")
-
-
-def relevant_schedules_count(schedules: Iterable[ReportSchedule]) -> int:
-    """Small test helper for counting selected schedule rows."""
-    return sum(1 for _ in schedules)

@@ -1420,8 +1420,8 @@ export default function ReportsPage() {
                         </Button>
                       ) : null}
                       {!savedSchedule ? (
-                        <span className="rounded-md border bg-background px-2 py-1 text-muted-foreground">
-                          Chờ quản trị cấu hình
+                        <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700">
+                          Sẵn sàng tự kích hoạt theo mốc điểm
                         </span>
                       ) : null}
                     </div>
@@ -1444,10 +1444,11 @@ export default function ReportsPage() {
               </CardContent>
             </Card>
 
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-              <div className="font-semibold">Phần tự động hóa còn lại</div>
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+              <div className="font-semibold">Tự động hóa đã sẵn sàng</div>
               <p className="mt-1">
-                Backend đã có bảng lịch, API tạo/chạy lịch và log mỗi lần chạy. Bước hạ tầng tiếp theo là gắn worker nền hoặc cron để gọi API này theo tuần, tháng, học kỳ và sau sự kiện cập nhật điểm.
+                Backend đã có worker nền để chạy lịch đến hạn. Khi cập nhật điểm giữa kỳ hoặc điểm cuối kỳ,
+                hệ thống tự sinh báo cáo đúng phạm vi của actor; lịch tuần/tháng chạy theo next_run_at.
               </p>
             </div>
           </div>
