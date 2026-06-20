@@ -7,7 +7,7 @@ and defines all endpoint signatures with proper type annotations.
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 
-from app.access_control import is_admin, require_department_scope
+from app.access_control import is_admin, user_department_ids
 from app.crud import academic as crud
 from app.dependencies import CurrentUser, DBSession, PaginationDep, require_write_access
 from app.models.academic import Department
@@ -20,7 +20,9 @@ router = APIRouter()
 async def list_departments(db: DBSession, pagination: PaginationDep, current_user: CurrentUser) -> list[Department]:
     """Return all active departments with pagination."""
     if not is_admin(current_user):
-        department_ids = await require_department_scope(db, current_user)
+        department_ids = await user_department_ids(db, current_user)
+        if not department_ids:
+            return await crud.list_departments(db, pagination.skip, pagination.limit)
         result = await db.execute(
             select(Department)
             .where(Department.is_active == True, Department.id.in_(department_ids))  # noqa: E712
@@ -38,8 +40,8 @@ async def get_department(department_id: int, db: DBSession, current_user: Curren
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Department not found")
     if not is_admin(current_user):
-        department_ids = await require_department_scope(db, current_user)
-        if department_id not in department_ids:
+        department_ids = await user_department_ids(db, current_user)
+        if department_ids and department_id not in department_ids:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Department not found")
     return obj
 

@@ -72,6 +72,8 @@ class EnrollmentResponse(OrmBase):
     grade_letter: str | None
     grade_4: float | None
     is_passed: bool | None
+    registered_credits: int | None
+    completed_at: datetime | None
     attempt_number: int
     status: str
     created_at: datetime
@@ -95,6 +97,7 @@ class GradeComponentUpsert(BaseModel):
     enrollment_id: int
     component_type_id: int
     score: float | None = Field(None, ge=0)
+    assessed_at: datetime | None = None
     is_absent: bool = False
     notes: str | None = None
 
@@ -108,4 +111,6 @@ class GradeComponentResponse(OrmBase):
     score: float | None
     max_score: float
     is_absent: bool
+    assessed_at: datetime | None
+    recorded_at: datetime | None
     updated_at: datetime

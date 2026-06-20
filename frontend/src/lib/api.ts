@@ -120,7 +120,12 @@ export interface LoginResponse {
   token_type: "bearer"
 }
 
-export type ApiReportType = "school_overview" | "program_health" | "section_intervention"
+export type ApiReportType =
+  | "school_overview"
+  | "department_health"
+  | "program_health"
+  | "course_health"
+  | "section_intervention"
 
 export interface ApiHealthScore {
   node_id: number
@@ -212,6 +217,28 @@ export interface ApiReportScheduleCreate {
   include_appendix?: boolean
   is_active?: boolean
   next_run_at?: string | null
+}
+
+export interface ApiTreeMetrics {
+  student_count: number
+  course_count: number
+  completed_enrollments: number
+  passed_enrollments: number
+  failed_enrollments: number
+  pass_rate: number
+  fail_rate: number
+  avg_gpa: number
+  avg_grade: number
+  health_score: number
+}
+
+export interface ApiTreeNode {
+  id: number | string
+  type: "school" | "department" | "program" | "course"
+  code: string
+  label: string
+  metrics: ApiTreeMetrics
+  children: ApiTreeNode[]
 }
 
 // --- Report Agent ---
@@ -531,6 +558,8 @@ export const api = {
     fetcher<ApiHealthScore>(`/api/v1/analytics/health/program/${id}`),
   getDepartmentHealth: (id: number) =>
     fetcher<ApiHealthScore>(`/api/v1/analytics/health/department/${id}`),
+  getTree: () =>
+    fetcher<ApiTreeNode>("/api/v1/tree"),
 
   // --- Chat ---
   chat: (body: ChatRequest) =>

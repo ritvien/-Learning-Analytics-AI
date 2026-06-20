@@ -3,35 +3,66 @@
 import * as React from "react"
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronDown, ChevronUp, Network, School, MessageSquare } from "lucide-react"
+import { School, MessageSquare } from "lucide-react"
 import { api } from "@/lib/api"
+import type { ApiTreeMetrics, ApiTreeNode } from "@/lib/api"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuGroup,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  mapApiDeptToFeDept,
-  mapApiStudentToFeStudent,
-  mapApiCourseToFeCourse,
-  mapApiEnrollmentToFeGrade
-} from "@/lib/adapters"
-import type { Course, Department, GradeRecord, Student } from "@/types"
+import type { Department } from "@/types"
 import { DetailPanel } from "@/components/dashboard/detail-panel"
 import { KpiWidgets } from "@/components/dashboard/kpi-widgets"
+
+const emptyMetrics: ApiTreeMetrics = {
+  student_count: 0,
+  course_count: 0,
+  completed_enrollments: 0,
+  passed_enrollments: 0,
+  failed_enrollments: 0,
+  pass_rate: 0,
+  fail_rate: 0,
+  avg_gpa: 0,
+  avg_grade: 0,
+  health_score: 0,
+}
+
+function mapTreeToDepartments(tree: ApiTreeNode | null): Department[] {
+  return (tree?.children ?? [])
+    .filter((node) => node.type === "department")
+    .map((department) => ({
+      id: String(department.id),
+      tenKhoa: department.label,
+      moTa: department.code,
+      nganhs: department.children
+        .filter((node) => node.type === "program")
+        .map((program) => ({
+          id: String(program.id),
+          tenNganh: program.label,
+          khoaId: String(department.id),
+          moTa: program.code,
+        })),
+    }))
+}
+
+function flattenMetrics(tree: ApiTreeNode | null): Record<string, ApiTreeMetrics> {
+  const metrics: Record<string, ApiTreeMetrics> = {}
+  const walk = (node: ApiTreeNode) => {
+    metrics[`${node.type}_${node.id}`] = node.metrics
+    node.children.forEach(walk)
+  }
+  if (tree) walk(tree)
+  return metrics
+}
 
 export default function ManagerDashboard() {
   const router = useRouter()
   const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>({})
+  const [tree, setTree] = useState<ApiTreeNode | null>(null)
   const [departments, setDepartments] = useState<Department[]>([])
-  const [students, setStudents] = useState<Student[]>([])
-  const [courses, setCourses] = useState<Course[]>([])
-  const [grades, setGrades] = useState<GradeRecord[]>([])
-  const [healthScores, setHealthScores] = useState<Record<string, number>>({})
   const [isLoading, setIsLoading] = useState(true)
   const [selection, setSelection] = useState<{ id: string; type: "department" | "major" } | null>(null)
 
@@ -39,65 +70,22 @@ export default function ManagerDashboard() {
     let active = true
     async function loadData() {
       try {
-        console.log("loadData: start fetching")
         setIsLoading(true)
-        const [deptsRes, studentsRes, coursesRes, gradesRes, programsRes] = await Promise.all([
-          api.getDepartments({ limit: 100 }),
-          api.getStudents({ limit: 1000 }),
-          api.getCourses({ limit: 500 }),
-          api.getGrades({ limit: 5000 }),
-          api.getPrograms({ limit: 100 }),
-        ])
-        console.log("loadData: fetch success", { deptsRes })
+        const treeRes = await api.getTree()
         if (active) {
-          const feDepartments = deptsRes.map(d => mapApiDeptToFeDept(d, programsRes))
-          const feStudents = studentsRes.map(s => mapApiStudentToFeStudent(s, programsRes, deptsRes))
-          const feCourses = coursesRes.map(c => mapApiCourseToFeCourse(c, programsRes, deptsRes))
-          const feGrades = gradesRes
-
+          const feDepartments = mapTreeToDepartments(treeRes)
+          setTree(treeRes)
           setDepartments(feDepartments)
-          setStudents(feStudents)
-          setCourses(feCourses)
-          setGrades(feGrades)
-
-          // Fetch health scores in background without blocking the main UI render
-          const fetchHealth = async () => {
-            const scores: Record<string, number> = {}
-            const promises: Promise<void>[] = []
-            
-            for (const d of deptsRes) {
-              promises.push(
-                api.getDepartmentHealth(d.id)
-                  .then(res => { scores[`dept_${d.id}`] = res.health_score })
-                  .catch(() => { scores[`dept_${d.id}`] = 0 })
-              )
-            }
-            for (const p of programsRes) {
-              promises.push(
-                api.getProgramHealth(p.id)
-                  .then(res => { scores[`prog_${p.id}`] = res.health_score })
-                  .catch(() => { scores[`prog_${p.id}`] = 0 })
-              )
-            }
-            
-            await Promise.allSettled(promises)
-            if (active) {
-              setHealthScores(scores)
-            }
-          }
-          fetchHealth()
 
           if (feDepartments.length > 0) {
             setSelection({ id: feDepartments[0].id, type: "department" })
             setExpandedDepts({ [feDepartments[0].id]: true })
           }
-          console.log("loadData: processing complete, hiding spinner")
           setIsLoading(false)
         }
       } catch (err) {
         console.error("loadData: ERROR", err)
         if (active) {
-          console.log("loadData: hiding spinner due to error")
           setIsLoading(false)
         }
       }
@@ -127,65 +115,21 @@ export default function ManagerDashboard() {
     return departments.flatMap((item) => item.nganhs).find((major) => major.id === selection.id)
   }, [selection, departments])
 
-  const studentIds = useMemo(() => {
-    if (!selection) return []
-    if (selection.type === "major" && selectedMajor) {
-      return students.filter((student) => student.nganh === selectedMajor.tenNganh).map((student) => student.id)
-    }
-    if (selection.type === "department" && selectedDepartment) {
-      return students.filter((student) => student.khoaQuanLy === selectedDepartment.tenKhoa).map((student) => student.id)
-    }
-    return []
-  }, [selection, selectedMajor, selectedDepartment, students])
+  const metricsByNode = useMemo(() => flattenMetrics(tree), [tree])
 
-  const averageGpa = useMemo(() => {
-    const relevantStudents = students.filter((student) => studentIds.includes(student.id))
-    if (relevantStudents.length === 0) return 0
-    return (
-      relevantStudents.reduce((sum, student) => sum + student.diemTBTichLuy, 0) / relevantStudents.length
-    )
-  }, [studentIds, students])
+  const selectedMetrics = useMemo(() => {
+    if (!selection) return emptyMetrics
+    const key = selection.type === "major" ? `program_${selection.id}` : `department_${selection.id}`
+    return metricsByNode[key] ?? emptyMetrics
+  }, [selection, metricsByNode])
 
-  const failRate = useMemo(() => {
-    const relevantGrades = grades.filter((grade) => studentIds.includes(grade.studentId))
-    if (relevantGrades.length === 0) return 0
-    const failed = relevantGrades.filter((grade) => {
-      return grade.xepLoai === "F" || (grade.diemTongKet !== null && grade.diemTongKet < 5)
-    }).length
-    return (failed / relevantGrades.length) * 100
-  }, [studentIds, grades])
-
-  // Global KPIs for the widgets
-  const globalHealthScore = useMemo(() => {
-    const scores = Object.values(healthScores).filter(v => v > 0)
-    if (scores.length === 0) return 75 // mock if no data
-    return scores.reduce((a, b) => a + b, 0) / scores.length
-  }, [healthScores])
-
-  const globalGpaAvg = useMemo(() => {
-    if (students.length === 0) return 0
-    return students.reduce((sum, s) => sum + s.diemTBTichLuy, 0) / students.length
-  }, [students])
-
-  const globalFailRate = useMemo(() => {
-    if (grades.length === 0) return 0
-    const failed = grades.filter((g) => g.xepLoai === "F" || (g.diemTongKet !== null && g.diemTongKet < 5)).length
-    return (failed / grades.length) * 100
-  }, [grades])
-
-  const globalCloAttainment = 78.5 // Mock data for now since backend doesn't have global CLO
-
-
-  const courseCount = useMemo(() => {
-    if (!selection) return 0
-    const selectedDepartmentForCourses =
-      selectedMajor
-        ? departments.find((department) => department.nganhs.some((major) => major.id === selectedMajor.id))
-        : selectedDepartment
-
-    if (!selectedDepartmentForCourses) return 0
-    return courses.filter((course) => course.khoaQuanLy === selectedDepartmentForCourses.tenKhoa).length
-  }, [selection, selectedMajor, selectedDepartment, departments, courses])
+  const averageGpa = selectedMetrics.avg_gpa
+  const failRate = selectedMetrics.fail_rate
+  const courseCount = selectedMetrics.course_count
+  const globalHealthScore = tree?.metrics.health_score ?? 0
+  const globalGpaAvg = tree?.metrics.avg_gpa ?? 0
+  const globalFailRate = tree?.metrics.fail_rate ?? 0
+  const globalCloAttainment = 78.5
 
   return (
     <div className="space-y-6">
@@ -203,7 +147,7 @@ export default function ManagerDashboard() {
             gpaAvg={globalGpaAvg}
             failRate={globalFailRate}
             cloAttainment={globalCloAttainment}
-            totalStudents={students.length}
+            totalStudents={tree?.metrics.student_count ?? 0}
           />
           <div className="flex flex-col w-full bg-background text-foreground transition-colors duration-300 rounded-xl border border-border/50 shadow-sm p-4">
             {/* ── Dashboard Header ── */}
@@ -253,7 +197,7 @@ export default function ManagerDashboard() {
                   const isDeptSelected = selection?.type === "department" && selection.id === dept.id
 
                   const getDeptStatus = (deptId: string) => {
-                    const hScore = healthScores[`dept_${deptId}`]
+                    const hScore = metricsByNode[`department_${deptId}`]?.health_score
                     const avg = hScore !== undefined ? hScore : 0
                     
                     if (hScore === undefined) {
@@ -356,7 +300,7 @@ export default function ManagerDashboard() {
                       >
                         {dept.nganhs.map((major) => {
                           const getMajorStatus = (majorId: string) => {
-                            const hScore = healthScores[`prog_${majorId}`]
+                            const hScore = metricsByNode[`program_${majorId}`]?.health_score
                             const percent = hScore !== undefined ? hScore : 0
                             
                             if (hScore === undefined) {
@@ -456,13 +400,13 @@ export default function ManagerDashboard() {
             <DetailPanel
               title={selectedMajor ? selectedMajor.tenNganh : selectedDepartment?.tenKhoa ?? "Chưa chọn"}
               subtitle={selectedMajor ? selectedMajor.moTa : selectedDepartment?.moTa ?? "Chọn một khoa hoặc ngành để xem chi tiết."}
-              studentCount={studentIds.length}
+              studentCount={selectedMetrics.student_count}
               averageGpa={averageGpa}
               failRate={failRate}
               courseCount={courseCount}
               topInsights={[
                 "Dữ liệu cập nhật realtime từ database",
-                selection ? `Đang hiển thị cho ${studentIds.length} sinh viên` : "Chưa có dữ liệu"
+                selection ? `Đang hiển thị cho ${selectedMetrics.student_count} sinh viên` : "Chưa có dữ liệu"
               ]}
             />
           </div>

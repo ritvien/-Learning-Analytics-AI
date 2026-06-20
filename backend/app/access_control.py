@@ -6,7 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.academic import Course, Program
+from app.models.academic import Course, Department, Program
 from app.models.people import Student, Teacher, User, UserRole
 from app.models.report import Report, ReportSchedule
 from app.models.teaching import Enrollment, Section
@@ -59,6 +59,16 @@ async def can_access_program(db: AsyncSession, user: User, program_id: int) -> b
     result = await db.execute(
         select(exists().where(Program.id == program_id, Program.department_id.in_(department_ids)))
     )
+    return bool(result.scalar())
+
+
+async def can_access_department(db: AsyncSession, user: User, department_id: int) -> bool:
+    if is_admin(user):
+        return True
+    department_ids = await user_department_ids(db, user)
+    if not department_ids:
+        return False
+    result = await db.execute(select(exists().where(Department.id == department_id, Department.id.in_(department_ids))))
     return bool(result.scalar())
 
 
@@ -122,21 +132,35 @@ async def can_access_student(db: AsyncSession, user: User, student_id: int) -> b
     if not department_ids:
         return False
     result = await db.execute(
-        select(exists().where(Student.id == student_id, Student.program_id == Program.id, Program.department_id.in_(department_ids)))
+        select(
+            exists().where(
+                Student.id == student_id, Student.program_id == Program.id, Program.department_id.in_(department_ids)
+            )
+        )
     )
     return bool(result.scalar())
 
 
-async def can_view_report_scope(db: AsyncSession, user: User, report_type: str, scope_type: str | None, scope_id: str | None) -> bool:
+async def can_view_report_scope(
+    db: AsyncSession, user: User, report_type: str, scope_type: str | None, scope_id: str | None
+) -> bool:
     """Check whether the user can read a report with the given scope."""
     if is_admin(user):
         return True
     if report_type == "school_overview" or scope_type == "school":
         return False
+    if report_type == "department_health" or scope_type == "department":
+        if scope_id is None:
+            return False
+        return await can_access_department(db, user, int(scope_id))
     if report_type == "program_health" or scope_type == "program":
         if scope_id is None:
             return False
         return await can_access_program(db, user, int(scope_id))
+    if report_type == "course_health" or scope_type == "course":
+        if scope_id is None:
+            return False
+        return await can_access_course(db, user, int(scope_id))
     if report_type == "section_intervention" or scope_type == "section":
         if scope_id is None:
             return False
@@ -144,23 +168,28 @@ async def can_view_report_scope(db: AsyncSession, user: User, report_type: str, 
     return False
 
 
-async def can_create_report_scope(db: AsyncSession, user: User, report_type: str, scope_type: str | None, scope_id: str | None) -> bool:
+async def can_create_report_scope(
+    db: AsyncSession, user: User, report_type: str, scope_type: str | None, scope_id: str | None
+) -> bool:
     """Check whether the user can generate a report for a scope."""
     if is_admin(user):
         return True
     if report_type == "school_overview" or scope_type == "school":
         return False
     if user.role == UserRole.manager:
+        if report_type == "department_health" or scope_type == "department":
+            return scope_id is not None and await can_access_department(db, user, int(scope_id))
         if report_type == "program_health" or scope_type == "program":
             return scope_id is not None and await can_access_program(db, user, int(scope_id))
+        if report_type == "course_health" or scope_type == "course":
+            return scope_id is not None and await can_access_course(db, user, int(scope_id))
         if report_type == "section_intervention" or scope_type == "section":
             return scope_id is not None and await can_access_section(db, user, int(scope_id))
     if user.role == UserRole.lecturer:
-        return (
-            (report_type == "section_intervention" or scope_type == "section")
-            and scope_id is not None
-            and await can_access_section(db, user, int(scope_id))
-        )
+        if report_type == "course_health" or scope_type == "course":
+            return scope_id is not None and await can_access_course(db, user, int(scope_id))
+        if report_type == "section_intervention" or scope_type == "section":
+            return scope_id is not None and await can_access_section(db, user, int(scope_id))
     return False
 
 

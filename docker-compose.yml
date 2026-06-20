@@ -50,6 +50,7 @@ services:
       - ./backend/app:/app/app
       - ./backend/scripts:/app/scripts
       - ./backend/migrations:/app/migrations
+      - ./backend/db:/app/db:ro
       - ./backend/tests:/app/tests
       - ./backend/pyproject.toml:/app/pyproject.toml:ro
     healthcheck:
