@@ -1,5 +1,6 @@
 """EduInsight FastAPI application entry point."""
 
+import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -31,7 +32,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         import logging
         logging.getLogger(__name__).error(f"Failed to seed users on startup: {e}")
 
-    yield
+    from app.reports.scheduler import report_schedule_worker
+
+    schedule_worker_stop = asyncio.Event()
+    schedule_worker_task = asyncio.create_task(report_schedule_worker(stop_event=schedule_worker_stop))
+    app.state.report_schedule_worker_task = schedule_worker_task
+
+    try:
+        yield
+    finally:
+        schedule_worker_stop.set()
+        schedule_worker_task.cancel()
+        try:
+            await schedule_worker_task
+        except asyncio.CancelledError:
+            pass
+
     # Shutdown: dispose engine connections.
     from app.database import engine
 

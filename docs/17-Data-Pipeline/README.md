@@ -12,7 +12,7 @@
 | T25 - Reset DB local + verify revision | Done | Da co script reset local va da chay verify voi Docker/Postgres. |
 | T26 - DWH schema, ETL idempotent, DQ checks | Done | Da co fact assessment, ETL idempotent, DQ reconciliation pass. |
 | T19 - CLO/PLO backend logic | Done | Da materialize `student_clo_achievements`, report/ETL dung du lieu CLO/PLO. |
-| T29 - Report theo Khoa/Nganh/Mon | Done mot phan lon | Da co report types va UI chon Khoa/Nganh/Mon/Lop; export file that van con thieu. |
+| T29 - Report theo Khoa/Nganh/Mon + lich sinh tu dong | Done phan chinh | Da co report types, UI chon Khoa/Nganh/Mon/Lop, schedule API, worker chay lich va trigger sau cap nhat diem; export file that van con thieu. |
 | T18 - PR Cleanup >= 10 PRs | Chua xac nhan | Can kiem tren GitHub/PR that, workspace local khong xac minh duoc. |
 
 ## 2. Cac task da lam
@@ -173,11 +173,21 @@ Da hoan thien:
 - Chon mon da doi tu dropdown phang sang search/list, tranh hieu nham chi co 2 mon.
 - Fetch sections tang len `5000`, tranh thieu lop hoc phan.
 - Dashboard report labels/filter da bo sung Khoa va Mon.
+- Lich sinh bao cao tu dong:
+  - tao/list/update/chay schedule qua API;
+  - ho tro `weekly`, `monthly`, `midterm`, `end_semester`, `after_grade_update`;
+  - worker nen tu chay schedule `weekly/monthly` khi den `next_run_at`;
+  - cap nhat diem cuoi ky hoac diem thanh phan se trigger schedule `after_grade_update` dung scope lien quan;
+  - schedule/run van dung RBAC report scope, actor chi thay bao cao trong pham vi duoc cap.
 
 Bang chung:
 
 - `backend/app/schemas/reports.py`
+- `backend/app/models/report.py`
 - `backend/app/reports/service.py`
+- `backend/app/reports/scheduler.py`
+- `backend/app/api/v1/endpoints/reports.py`
+- `backend/app/api/v1/endpoints/grades.py`
 - `frontend/src/app/(dashboard)/manager/reports/page.tsx`
 - `frontend/src/lib/api.ts`
 
@@ -227,8 +237,7 @@ Bang chung:
 
 - Worker/cron tu dong:
   - chay ETL theo lich;
-  - chay report schedules;
-  - trigger sau khi cap nhat diem.
+  - refine lich hoc ky that cho `midterm`/`end_semester`.
 - Invalidate health-score cache sau ETL/import diem.
 - Them pagination/search server-side cho course/section neu data tang lon hon.
 
