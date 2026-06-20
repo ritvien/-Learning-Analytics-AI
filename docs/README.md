@@ -14,7 +14,7 @@ Trang này giúp team biết tài liệu nào là nguồn chuẩn hiện tại, 
 | Backend progress (Hưng) | [Hung/README.md](./09-Materials/Hung/README.md) |
 | Kiến trúc tổng thể | [SystemArchitecture.md](./10-References/SystemArchitecture.md) |
 | Setup, pull, reset và migration | [ProjectSetup.md](./10-References/ProjectSetup.md) |
-| Kế hoạch thực thi hiện tại | [Sprint2.md](./07-Sprint-Planning/Sprint2.md) |
+| Kế hoạch thực thi hiện tại | [Sprint3.md](./07-Sprint-Planning/Sprint3.md) |
 
 Khi có mâu thuẫn giữa tài liệu, ưu tiên theo thứ tự:
 

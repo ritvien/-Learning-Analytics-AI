@@ -1,9 +1,16 @@
-# 🏃 Sprint 2 — Core Agent & Demo 1 (Gate G2: First Working Agent MVP)
+# Sprint 2 - Core Agent & Demo 1 (Gate G2: First Working Agent MVP)
 
 > **Thời gian:** 11/06 – 24/06 (2 tuần — W3 + W4)
 > **Sprint Goal:** _Xây dựng AI Agent chạy được end-to-end với LLM thực tế, pass Gate G2 (18/06) và hoàn thiện Demo 1. Agent phải nhận input → xử lý → trả output có ý nghĩa cho ít nhất 1 user flow chính._
 > **Tham chiếu:** [SprintPlanning.md](./SprintPlanning.md) · [LangGraphAgent.md](../10-References/LangGraphAgent.md) · [AgentFlowDiagram.md](../10-References/AgentFlowDiagram.md)
-> **Cập nhật lần cuối:** 20/06/2026 (Gate G2 ✅ submitted · phân bổ lại deadline Hoàng G3)
+> **Cập nhật lần cuối:** 20/06/2026 (Gate G2 đã nộp · Sprint 2 đóng scope · Gate G3 chuyển sang Sprint 3)
+
+> [!IMPORTANT]
+> **Trạng thái hiện tại:** Sprint 2 được xem là **đã đóng scope từ 20/06/2026** sau khi Gate G2 đã nộp. Toàn bộ công việc phục vụ **Gate G3** và **Demo 2** không còn dùng Sprint 2 làm nguồn chuẩn.
+>
+> **Nguồn chuẩn mới:** [Sprint3.md](./Sprint3.md)
+>
+> **Ý nghĩa của file này:** lưu lịch sử Sprint 2, Gate G2, và các quyết định/draft planning trước khi tách Sprint 3.
 
 > [!NOTE]
 > **Gate G2 — ✅ ĐÃ SUBMIT (18/06/2026).** Tất cả 5 deliverables đã nộp. Eval: 10 test cases AI chatbot + báo cáo tại [gate2_eval_report.md](../12-Evaluation/gate2_eval_report.md).
@@ -103,15 +110,15 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Depends on |
 |:-:|:-----|:----------------|:--------:|:------:|:-----------|
-| H45 | Nâng architecture 3-tier | Thiết kế và triển khai cấu trúc **Khoa → Ngành → Chuyên ngành**: entity model, Alembic migration, cập nhật views/metrics, sửa agent prompts + README diagram. Chốt spec drill-down Tree (Khoa mở ra Chuyên ngành) cho V36 | 20/06 | ⬜ | — |
-| H46 | Seed đủ 1.300 sinh viên | Mở rộng seed từ ~700 → **≥ 1.300 SV** từ data crawl: map đúng chuyên ngành, cohort, enrollment, grades. Verify row counts + sample queries | 21/06 | ⬜ | H45, T44 |
+| H45 | Nâng architecture 3-tier | Thiết kế và triển khai cấu trúc **Khoa → Ngành → Chuyên ngành**: entity model, Alembic migration, cập nhật views/metrics, sửa agent prompts + README diagram. Chốt spec drill-down Tree (Khoa mở ra Chuyên ngành) cho V36 | 20/06 | ➜ Sprint 3 | — |
+| H46 | Seed đủ 1.300 sinh viên | Mở rộng seed từ ~700 → **≥ 1.300 SV** từ data crawl: map đúng chuyên ngành, cohort, enrollment, grades. Verify row counts + sample queries | 21/06 | ➜ Sprint 3 | H45, T44 |
 
 ### 🎯 Phase 3: Demo 1 Completion — Hoàng (16–20/06)
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Priority |
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
 | H28 | SSE Streaming Response | Upgrade `/api/v1/chat` từ JSON → SSE (Server-Sent Events) streaming, token-by-token. Frontend nhận realtime typewriter effect | 16/06 | ✅ | **P0** |
-| H30 | Agent Safety & Tools Evaluation | Đánh giá agents có tools: jailbreak resistance, PII detection, bias check. Tạo test suite safety | 28/06 | ⬜ | **P2** |
+| H30 | Agent Safety & Tools Evaluation | Đánh giá agents có tools: jailbreak resistance, PII detection, bias check. Tạo test suite safety | 28/06 | ➜ Sprint 3 | **P2** |
 
 > [!NOTE]
 > H30 (Agent Safety) là **ưu tiên thấp** — chỉ làm nếu còn kịp thời gian.
@@ -128,20 +135,6 @@
 
 > [!NOTE]
 > H36–H39 ✅ done — nộp cùng Gate G2-5. Báo cáo: [gate2_eval_report.md](../12-Evaluation/gate2_eval_report.md).
-
-### 🎯 Gate G3 — Hoàng AI/Evaluation (22–26/06)
-
-> **Quy tắc:** **1 task / ngày** — tránh dồn 25/06.
-
-| # | Task | Mô tả chi tiết | Deadline | Status | Priority |
-|:-:|:-----|:----------------|:--------:|:------:|:--------:|
-| H44 | Demo Video Narrative | Viết kịch bản pitch + live demo flow 3–5 phút cho Hiếu quay Gate G3. Phối hợp highlight agent, dashboard, báo cáo | 22/06 | ⬜ | **P1** |
-| H40 | Guardrails — Prompt & Report Safety | Bổ sung guardrails phía AI: jailbreak resistance, PII filter, giới hạn phạm vi câu trả lời, kiểm tra output report trước khi trả user | 23/06 | ⬜ | **P0** |
-| H42 | Evaluation Metrics Framework | Thiết lập baseline cho latency p95, tool success rate, answer quality; tích hợp vào eval pipeline và log có cấu trúc | 24/06 | ⬜ | **P0** |
-| H43 | Cost Report | Ước tính cost / user / month từ usage giả định + log thực tế (router vs core model). Lưu trong `docs/12-Evaluation/` | 25/06 | ⬜ | **P0** |
-| H41 | ML Baseline + Explanation | Xây baseline dự đoán pass/trượt từng môn: metrics (Recall, Precision, F1, PR-AUC), cutoff, model version, explanation template. Phối hợp Hưng expose API | 26/06 | ⬜ | **P0** |
-
-**Tổng: 23 task Sprint 2 + 5 task Gate G3 · Trọng tâm: Architecture 3-tier + Seed 1.3k + G3 Eval (1 task/ngày)**
 
 ---
 
@@ -182,7 +175,7 @@
 | T30 | Auth Login Backend | `POST /api/v1/auth/login` + `GET /api/v1/auth/me` + JWT token + role-based middleware (manager full / lecturer view-only) | 16/06 | ✅ | **P0** |
 
 > [!NOTE]
-> T31 (Failure Analysis + Guardrails) đã chuyển sang Gate G3 — T40 (Hưng) + H40 (Hoàng).
+> T31 (Failure Analysis + Guardrails) đã chuyển sang Sprint 3.
 
 ### 🚀 Phase 4: Sprint 2 Hoàn thiện — Hưng (18–24/06)
 
@@ -194,19 +187,7 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Depends on |
 |:-:|:-----|:----------------|:--------:|:------:|:-----------|
-| T44 | Tree API + Migration 3-tier | Alembic migration `specializations`, cập nhật ORM + `GET /api/v1/tree`: Khoa → **Chuyên ngành** → Ngành → Môn. CRUD endpoints liên quan. Handoff spec từ H45 | 20/06 | ⬜ | H45 |
-
-### 🎯 Gate G3 — Hưng Backend/DevOps (22–25/06)
-
-| # | Task | Mô tả chi tiết | Deadline | Status | Priority |
-|:-:|:-----|:----------------|:--------:|:------:|:--------:|
-| T39 | Production Deploy — Backend | Deploy FastAPI lên Render: env vars, health check, CORS production, migration rollout. Verify `/health` và chat endpoint | 22/06 | ⬜ | **P0** |
-| T40 | Guardrails — Backend & RBAC | Retry/fallback cho agent/report, RBAC guardrail theo role, giới hạn tool execution, structured error logs | 23/06 | ⬜ | **P0** |
-| T41 | Session + Cookie + Logs Schema | Cơ chế session/cookie (refresh/expire), đồng bộ JWT; schema riêng cho session, activity log, agent run log | 24/06 | ⬜ | **P1** |
-| T42 | Hoàn thiện DWH + ETL Schedule | ETL refresh theo lịch, DQ checks nâng cao, đối soát OLTP-DWH cho dashboard/report | 25/06 | ⬜ | **P1** |
-| T43 | Report Agent Backend | Cập nhật report agent hiểu context Khoa/Ngành/Chuyên ngành/Môn/Lớp, sinh báo cáo đúng template, persist artifact | 26/06 | ⬜ | **P1** |
-
-**Tổng Gate G3 (BTC):** T39, T40 · Stretch: T41–T43
+| T44 | Tree API + Migration 3-tier | Alembic migration `specializations`, cập nhật ORM + `GET /api/v1/tree`: Khoa → **Chuyên ngành** → Ngành → Môn. CRUD endpoints liên quan. Handoff spec từ H45 | 20/06 | ➜ Sprint 3 | H45 |
 
 ---
 
@@ -242,11 +223,11 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Priority |
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
-| V18 | CRUD Pages (Courses, Students) | Trang quản lý: danh sách, thêm/sửa/xóa. Dùng shadcn/ui Table + Dialog + Form | 22/06 | ⬜ | P1 |
-| V19 | Chart Component | Render biểu đồ từ chart spec (JSON) trả về bởi Agent. Dùng Recharts hoặc Chart.js | 23/06 | ⬜ | P1 |
-| V20 | Prediction UI | Hiển thị xác suất pass/trượt từng môn và tổng tín chỉ pass/trượt kỳ vọng | 23/06 | ⬜ | P1 |
-| V21 | Responsive + Dark Mode | Đảm bảo layout responsive trên mobile/tablet. Toggle dark mode hoạt động đúng | 24/06 | ⬜ | P1 |
-| V22 | FE Unit Tests | Viết tests cho core components: Tree, Chat, DetailPanel. Mục tiêu: ≥ 5 test suites | 24/06 | ⬜ | P1 |
+| V18 | CRUD Pages (Courses, Students) | Trang quản lý: danh sách, thêm/sửa/xóa. Dùng shadcn/ui Table + Dialog + Form | 22/06 | ➜ Sprint 3 | P1 |
+| V19 | Chart Component | Render biểu đồ từ chart spec (JSON) trả về bởi Agent. Dùng Recharts hoặc Chart.js | 23/06 | ➜ Sprint 3 | P1 |
+| V20 | Prediction UI | Hiển thị xác suất pass/trượt từng môn và tổng tín chỉ pass/trượt kỳ vọng | 23/06 | ➜ Sprint 3 | P1 |
+| V21 | Responsive + Dark Mode | Đảm bảo layout responsive trên mobile/tablet. Toggle dark mode hoạt động đúng | 24/06 | ➜ Sprint 3 | P1 |
+| V22 | FE Unit Tests | Viết tests cho core components: Tree, Chat, DetailPanel. Mục tiêu: ≥ 5 test suites | 24/06 | ➜ Sprint 3 | P1 |
 
 ### 🚀 Phase 4: Sprint 2 Hoàn thiện — Hiếu (18–24/06)
 
@@ -261,66 +242,9 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Depends on |
 |:-:|:-----|:----------------|:--------:|:------:|:-----------|
-| V36 | Academic Tree — Khoa → Chuyên ngành | Sửa Academic Tree: expand node **Khoa** hiển thị danh sách **Chuyên ngành** (không còn nhảy thẳng Ngành). Cập nhật labels, drill-down, multi-prompt, context chat | 21/06 | ⬜ | T44 |
-
-### 🎯 Gate G3 — Hiếu Frontend/QA (22–25/06)
-
-| # | Task | Mô tả chi tiết | Deadline | Status | Priority |
-|:-:|:-----|:----------------|:--------:|:------:|:--------:|
-| V31 | Production Deploy — Frontend | Deploy Next.js lên Vercel: env vars, API URL production, build verify. Phối hợp Hưng test end-to-end | 22/06 | ⬜ | **P0** |
-| V32 | Production Smoke Test | Test production URL: login, dashboard, tree, chat, report. Ghi log lỗi UI/blocker vào checklist QA | 23/06 | ⬜ | **P0** |
-| V33 | Session/Cookie UI Integration | Tích hợp refresh session/cookie với auth backend, protected routes, logout/expire handling | 24/06 | ⬜ | **P1** |
-| V34 | Demo Video Draft — Recording | Quay video draft 3–5 phút: pitch slides + live demo production URL (agent, dashboard, báo cáo) | 24/06 | ⬜ | **P0** |
-| V35 | Demo Video Final + URL Verify | Edit video, subtitle/voiceover, verify production URL ổn định cho Gate G3 nộp | 25/06 | ⬜ | **P0** |
-
-**Tổng: 20 task Sprint 2 + 5 task Gate G3 · Trọng tâm: Tree 3-tier + Deploy QA + Demo Video G3**
+| V36 | Academic Tree — Khoa → Chuyên ngành | Sửa Academic Tree: expand node **Khoa** hiển thị danh sách **Chuyên ngành** (không còn nhảy thẳng Ngành). Cập nhật labels, drill-down, multi-prompt, context chat | 21/06 | ➜ Sprint 3 | T44 |
 
 ---
-
-## Timeline tuần tự — 20–25/06 (không block cross-team)
-
-> **Quy tắc:** Mỗi người **1 task chính/ngày**. Task downstream chỉ bắt đầu sau khi upstream merge (handoff standup 09:00).
-
-| Ngày | Hoàng | Hưng | Hiếu | Handoff |
-|:-----|:------|:-----|:-----|:--------|
-| **20/06** | **H45** — Architecture 3-tier (schema spec + diagram) | **T44** — Migration + Tree API *(sau khi H45 chốt schema buổi sáng)* | — *(chờ T44)* | H45 → T44 |
-| **21/06** | **H46** — Seed ≥ 1.300 SV | Buffer / hỗ trợ verify seed | **V36** — Tree UI Khoa→Chuyên ngành | T44 → V36; H45+T44 → H46 |
-| **22/06** | **H44** — Demo narrative *(trước video Hiếu)* | **T39** — Deploy backend | **V31** — Deploy frontend | H46 → H44; T44 → T39 |
-| **23/06** | **H40** — Guardrails AI | **T40** — Guardrails BE | **V32** — Smoke test | H44 → H40; T39+V31 → V32 |
-| **24/06** | **H42** — Eval metrics ✅ G3-2 | T41 *(stretch)* | **V34** — Quay video | H40 → H42; V32+H44 → V34 |
-| **25/06** | **H43** — Cost report ✅ G3-5 | T42 *(stretch, buffer)* | **V35** — Edit + nộp video ✅ G3-4 | H42 → H43; V34 → V35 |
-| **26/06** | **H41** — ML baseline *(stretch)* | **T43** *(stretch)* | V33 *(stretch)* | T42 → H41 |
-
-```mermaid
-gantt
-    title Sprint 2 Close-out — Sequential (20–25/06)
-    dateFormat YYYY-MM-DD
-    axisFormat %d/%m
-
-    section Hoàng
-    H45 Architecture 3-tier     :h45, 2026-06-20, 1d
-    H46 Seed 1300 students      :h46, after h45, 1d
-    H44 Demo narrative G3       :h44, 2026-06-22, 1d
-    H40 Guardrails AI           :h40, after h44, 1d
-    H42 Eval metrics            :h42, after h40, 1d
-    H43 Cost report             :h43, after h42, 1d
-    H41 ML baseline             :h41, 2026-06-26, 1d
-
-    section Hưng
-    T44 Tree API 3-tier         :t44, 2026-06-20, 1d
-    T39 Deploy backend          :t39, 2026-06-22, 1d
-    T40 Guardrails              :t40, after t39, 1d
-    T41 Session logs            :t41, after t40, 1d
-    T42 DWH                     :t42, 2026-06-25, 1d
-    T43 Report agent            :t43, 2026-06-26, 1d
-
-    section Hiếu
-    V36 Tree UI 3-tier          :v36, 2026-06-21, 1d
-    V31 Deploy frontend         :v31, 2026-06-22, 1d
-    V32 Smoke test              :v32, after v31, 1d
-    V34 Video record            :v34, 2026-06-24, 1d
-    V35 Video final G3          :v35, 2026-06-25, 1d
-```
 
 ---
 
@@ -379,7 +303,7 @@ Hoàng    H28      H29      (Buffer) H30
          SSE      RAGAS             Agent
          Stream   Eval              Safety(P2)
 
-Hưng     T28,T29  T14      (Buffer) Gate G3
+Hưng     T28,T29  T14      (Buffer)
          Report   Tree              Guardrails
          +Auth(T30)Metrics          Analysis
 
@@ -455,24 +379,6 @@ graph LR
         H38 --> H39["H39: Eval Report ✅"]
     end
 
-    subgraph "Gate G3 — Hoàng (22–26/06, 1 task/ngày)"
-        H46["H46: Seed 1.300 SV"] --> H44["H44: Demo Narrative"]
-        H44 --> H40["H40: Guardrails AI"]
-        H40 --> H42["H42: Eval Metrics"]
-        H42 --> H43["H43: Cost Report"]
-        T42["T42: DWH"] --> H41["H41: ML Baseline"]
-        H43 --> H41
-    end
-
-    subgraph "Gate G3 Deploy chain (22–25/06)"
-        V36 --> V31["V31: Deploy FE"]
-        T44 --> T39["T39: Deploy BE"]
-        T39 --> T40["T40: Guardrails"]
-        V31 --> V32["V32: Smoke Test ✅ G3-1"]
-        H44 --> V34["V34: Record Video"]
-        V32 --> V34
-        V34 --> V35["V35: Final Video ✅ G3-4"]
-    end
 ```
 
 ---
@@ -533,9 +439,9 @@ graph LR
 | T24 | Sửa seed cohort/import điểm thành phần và tạo Alembic baseline | Hưng | 20/06 | ✅ |
 | T25 | Điều phối một lần reset DB local và xác minh revision/row counts toàn team | Hưng + cả team | 20/06 | ✅ |
 | T26 | Tạo schema `dwh`, ETL idempotent và data quality checks | Hưng | 23/06 | ✅ |
-| H25 | Tạo schema `ml`, baseline dự đoán pass/trượt từng môn, chống leakage | Hoàng | 23/06 | ⬜ |
-| H26 | Tổng hợp expected passed/failed credits và báo cáo evaluation | Hoàng | 24/06 | ⬜ |
-| V23 | UI prediction từng môn và tổng tín chỉ pass/trượt kỳ vọng | Hiếu | 24/06 | ⬜ |
+| H25 | Tạo schema `ml`, baseline dự đoán pass/trượt từng môn, chống leakage | Hoàng | 23/06 | ➜ Sprint 3 |
+| H26 | Tổng hợp expected passed/failed credits và báo cáo evaluation | Hoàng | 24/06 | ➜ Sprint 3 |
+| V23 | UI prediction từng môn và tổng tín chỉ pass/trượt kỳ vọng | Hiếu | 24/06 | ➜ Sprint 3 |
 
 **Definition of Done bổ sung:**
 
@@ -570,114 +476,6 @@ Tham khảo [DatabaseModernizationPlan.md](../10-References/DatabaseModernizatio
 | **Testing** | ≥ 10 unit tests BE, ≥ 5 FE test suites, 10 eval evidences | Cả team |
 | **DevOps** | Docker chạy đầy đủ services, CI/CD pass trên mọi PR | Hưng |
 | **Docs** | README cập nhật, architecture diagrams đúng, Journal + Worklog | Cả team |
-
----
-
-## 🎯 Gate G3 — Production-ready
-
-> **Deadline:** 25/06/2026 23:59  
-> **Trạng thái:** 🟢 Active  
-> **XP khi pass:** +150 XP / member  
-> **Mục tiêu BTC:** Deployed production URL · Evaluation Metrics · Guardrails · Demo video draft · Cost report.
-
-> [!IMPORTANT]
-> **Phạm vi Gate G3 (BTC):** Chỉ 5 deliverables bên dưới. Mọi task khác (3-tier architecture, ML baseline, DWH, report agent…) là **Sprint 2 stretch** — không block nộp Gate G3.
-
-### ✅ Gate G3 Compliance — 5 deliverables BTC (deadline ≤ 25/06 23:59)
-
-| # | Deliverable BTC | Yêu cầu | Task nộp bộ | Deadline nộp | Đủ deadline? |
-|:-:|:----------------|:---------|:------------|:-------------|:-------------|
-| G3-1 | **Deployed production URL** | Vercel / Railway / Cloud Run + verify E2E | T39 (BE Render) · V31 (FE Vercel) · V32 (smoke test URL) | **23/06** | ✅ |
-| G3-2 | **Evaluation Metrics** | ≥ 2 metrics có baseline số (latency p95, tool success rate, answer quality…) | H42 (metrics framework + baseline table trong `docs/12-Evaluation/`) | **24/06** | ✅ |
-| G3-3 | **Guardrails** | Auth scope, prompt/report safety, tool execution limits | H40 (AI guardrails) · T40 (RBAC + tool limits + error logs) | **23/06** | ✅ |
-| G3-4 | **Demo video draft** | 3–5 phút: pitch slides + live demo trên production URL | H44 (kịch bản 22/06) · V34 (quay 24/06) · V35 (edit + nộp 25/06) | **25/06** | ✅ |
-| G3-5 | **Cost report** | Ước tính cost / user / month từ usage giả định (+ log thực tế nếu có) | H43 (report trong `docs/12-Evaluation/`) | **25/06** | ✅ |
-
-**Kết luận:** Timeline hiện tại **đáp ứng đủ 5/5 deliverables Gate G3** trước 25/06 23:59. Hoàng ngày 25/06 chỉ còn **H43 (Cost report)** — 1 deliverable BTC.
-
-### Gate G3 — Checklist nộp (25/06)
-
-| # | Nộp gì | File / URL | Owner |
-|:-:|:-------|:-----------|:-----:|
-| 1 | Production URL (FE + BE) | URL Vercel + Render trong README | Hưng + Hiếu |
-| 2 | Eval metrics baseline | `docs/12-Evaluation/` — bảng latency, tool success, quality | Hoàng |
-| 3 | Guardrails evidence | Mô tả + code: H40 prompts, T40 RBAC/tool limits | Hoàng + Hưng |
-| 4 | Demo video draft | File video 3–5 phút (pitch + live demo) | Hiếu |
-| 5 | Cost report | `docs/12-Evaluation/cost_report.md` (hoặc tương đương) | Hoàng |
-
-### Deliverables Gate G3 (mapping task)
-
-| # | Deliverable | Task map | Status |
-|:-:|:------------|:---------|:------:|
-| G3-1 | Deployed production URL | T39, V31, V32 | ⬜ |
-| G3-2 | Evaluation Metrics | H42 | ⬜ |
-| G3-3 | Guardrails | H40, T40 | ⬜ |
-| G3-4 | Demo video draft | H44, V34, V35 | ⬜ |
-| G3-5 | Cost report | H43 | ⬜ |
-
-### Sprint 2 stretch — KHÔNG thuộc Gate G3 BTC
-
-| Hạng mục | Task | Deadline | Ghi chú |
-|:---------|:-----|:--------:|:--------|
-| Architecture 3-tier | H45, T44, V36 | 20–21/06 | Enabler cho Demo 2, không nộp Gate G3 |
-| Seed 1.300 SV | H46 | 21/06 | Data scale |
-| DWH + ETL | T42 | 26/06 | Sprint 2 DoD, lùi sau Gate G3 |
-| Report agent backend | T43 | 26/06 | Sprint 2 feature |
-| ML baseline | H41 | 26/06 | Sprint 2 DoD (H25), sau T42 |
-| Session/logs | T41, V33 | 24/06 | Production polish, không bắt buộc Gate G3 |
-| Agent safety | H30 | 28/06 | P2 |
-
-### Gate G3 Timeline — critical path (deadline 25/06)
-
-| Ngày | Hoàng *(Gate G3)* | Hưng *(Gate G3)* | Hiếu *(Gate G3)* |
-|:-----|:------------------|:-----------------|:-----------------|
-| **20/06** | H45 *(stretch)* | T44 *(stretch)* | — |
-| **21/06** | H46 *(stretch)* | verify seed | V36 *(stretch)* |
-| **22/06** | **H44** — kịch bản video | **T39** — deploy BE | **V31** — deploy FE |
-| **23/06** | **H40** — guardrails AI | **T40** — guardrails BE | **V32** — smoke test URL ✅ G3-1 |
-| **24/06** | **H42** — eval metrics ✅ G3-2 | T41 *(stretch)* | **V34** — quay video |
-| **25/06** | **H43** — cost report ✅ G3-5 | T42 *(stretch, buffer)* | **V35** — edit + nộp video ✅ G3-4 |
-
-> **23/06:** G3-1 done (URL live + smoke pass). **24/06:** G3-2 done. **25/06:** G3-4 + G3-5 nộp.
-
-### Gate G3 Timeline — tuần tự đầy đủ 20–26/06
-
-| Ngày | Hoàng | Hưng | Hiếu |
-|:-----|:------|:-----|:-----|
-| **20/06** | H45 | T44 | — |
-| **21/06** | H46 | Buffer / verify seed | V36 |
-| **22/06** | H44 | T39 | V31 |
-| **23/06** | H40 | T40 | V32 |
-| **24/06** | H42 | T41 | V34 |
-| **25/06** | H43 | T42 | V35 |
-| **26/06** | H41 | T43 | — |
-
-### Gate G3 Task Summary — Hoàng (1 task/ngày)
-
-| # | Task | Owner | Deadline | Priority | Depends on |
-|:-:|:-----|:-----:|:--------:|:--------:|:-----------|
-| H45 | Architecture 3-tier Khoa/Ngành/Chuyên ngành | Hoàng | 20/06 | **P0** | — |
-| H46 | Seed ≥ 1.300 sinh viên | Hoàng | 21/06 | **P0** | H45, T44 |
-| H44 | Demo Video Narrative | Hoàng | 22/06 | **P1** | — |
-| H40 | Guardrails — Prompt & Report Safety | Hoàng | 23/06 | **P0** | H44 |
-| H42 | Evaluation Metrics Framework | Hoàng | 24/06 | **P0** | H40 |
-| H43 | Cost Report | Hoàng | 25/06 | **P0** | H42 |
-| H41 | ML Baseline + Explanation | Hoàng | 26/06 | **P0** | T42 |
-| H30 | Agent Safety (P2) | Hoàng | 28/06 | **P2** | H40 |
-| T44 | Tree API + Migration 3-tier | Hưng | 20/06 | **P0** | H45 |
-| V36 | Academic Tree — Khoa → Chuyên ngành | Hiếu | 21/06 | **P0** | T44 |
-| T39 | Production Deploy — Backend | Hưng | 22/06 | **P0** | T44 |
-| T40 | Guardrails — Backend & RBAC | Hưng | 23/06 | **P0** | T39 |
-| T41 | Session + Cookie + Logs Schema | Hưng | 24/06 | **P1** | T40 |
-| T42 | Hoàn thiện DWH + ETL Schedule | Hưng | 25/06 | **P1** | H46 |
-| T43 | Report Agent Backend | Hưng | 26/06 | **P1** | T42 |
-| V31 | Production Deploy — Frontend | Hiếu | 22/06 | **P0** | V36 |
-| V32 | Production Smoke Test | Hiếu | 23/06 | **P0** | V31, T39 |
-| V33 | Session/Cookie UI Integration | Hiếu | 24/06 | **P1** | T41 |
-| V34 | Demo Video Draft — Recording | Hiếu | 24/06 | **P0** | V32, H44 |
-| V35 | Demo Video Final + URL Verify | Hiếu | 25/06 | **P0** | V34 |
-
-> **Gate G2:** ✅ Submitted 18/06. **Gate G3 BTC:** 5/5 deliverables có deadline ≤ 25/06. Stretch tasks (H41, T43…) lùi 26/06+.
 
 ---
 
