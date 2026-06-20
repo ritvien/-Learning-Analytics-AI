@@ -19,8 +19,14 @@ from app.crud import teaching as crud
 from app.dependencies import CurrentUser, DBSession, PaginationDep, require_write_access
 from app.models.academic import Course, Program
 from app.models.people import Student, UserRole
-from app.models.teaching import Enrollment, GradeComponent, Section
-from app.reports.scheduler import run_grade_update_schedules
+from app.models.teaching import Enrollment, GradeComponent, GradeComponentType, Section
+from app.reports.scheduler import (
+    END_SEMESTER_FREQUENCY,
+    FINAL_TRIGGER,
+    grade_component_schedule_frequency,
+    grade_component_schedule_trigger,
+    run_grade_update_schedules,
+)
 from app.schemas.teaching import (
     EnrollmentCreate,
     EnrollmentGradeUpdate,
@@ -132,7 +138,12 @@ async def submit_final_grade(
             "completed_at": datetime.now(UTC),
         },
     )
-    await run_grade_update_schedules(db, enrollment_id=enrollment_id)
+    await run_grade_update_schedules(
+        db,
+        enrollment_id=enrollment_id,
+        schedule_frequency=END_SEMESTER_FREQUENCY,
+        trigger=FINAL_TRIGGER,
+    )
     return updated
 
 
@@ -146,6 +157,10 @@ async def submit_final_grade(
 async def upsert_grade_component(payload: GradeComponentUpsert, db: DBSession) -> GradeComponent:
     """Create or update a student's score for one grade component."""
     obj = await crud.get_grade_component(db, payload.enrollment_id, payload.component_type_id)
+    component_type = await db.get(GradeComponentType, payload.component_type_id)
+    component_name = component_type.name if component_type else None
+    schedule_frequency = grade_component_schedule_frequency(component_name)
+    schedule_trigger = grade_component_schedule_trigger(component_name)
     data = payload.model_dump(exclude_unset=True)
     if payload.score is not None or payload.is_absent:
         recorded_at = datetime.now(UTC)
@@ -154,8 +169,18 @@ async def upsert_grade_component(payload: GradeComponentUpsert, db: DBSession) -
         data["recorded_at"] = recorded_at
     if obj is None:
         created = await crud.create_grade_component(db, data)
-        await run_grade_update_schedules(db, enrollment_id=payload.enrollment_id)
+        await run_grade_update_schedules(
+            db,
+            enrollment_id=payload.enrollment_id,
+            schedule_frequency=schedule_frequency,
+            trigger=schedule_trigger,
+        )
         return created
     updated = await crud.update_grade_component(db, obj, data)
-    await run_grade_update_schedules(db, enrollment_id=payload.enrollment_id)
+    await run_grade_update_schedules(
+        db,
+        enrollment_id=payload.enrollment_id,
+        schedule_frequency=schedule_frequency,
+        trigger=schedule_trigger,
+    )
     return updated

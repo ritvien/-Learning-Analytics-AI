@@ -6,8 +6,11 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.academic import Course, Department, Program, Semester, University
+from app.models.people import Cohort, Student
 from app.models.report import ReportSchedule, ReportScheduleRun
-from app.reports.scheduler import run_due_schedules
+from app.models.teaching import Enrollment, Section
+from app.reports.scheduler import MIDTERM_FREQUENCY, MIDTERM_TRIGGER, run_due_schedules, run_grade_update_schedules
 
 
 async def test_create_list_and_run_report_schedule(client: AsyncClient) -> None:
@@ -86,3 +89,87 @@ async def test_due_report_schedule_runs_from_worker(db_session: AsyncSession) ->
     assert run.trigger == "scheduled"
     assert run.status == "success"
     assert run.report_id == schedule.last_report_id
+
+
+async def test_midterm_grade_event_runs_only_midterm_and_generic_schedules(db_session: AsyncSession) -> None:
+    university = University(code="EPU", name="Electric Power University")
+    db_session.add(university)
+    await db_session.flush()
+    department = Department(university_id=university.id, code="CNTT", name="Cong nghe thong tin")
+    db_session.add(department)
+    await db_session.flush()
+    program = Program(department_id=department.id, code="SE", name="Software Engineering")
+    course = Course(department_id=department.id, code="SE101", name="Software Basics", credits=3)
+    cohort = Cohort(code="K99", year_start=2026)
+    semester = Semester(code="2026-1", name="HK1 2026", year=2026, term=1)
+    db_session.add_all([program, course, cohort, semester])
+    await db_session.flush()
+    student = Student(program_id=program.id, cohort_id=cohort.id, student_code="SV001", full_name="Test Student")
+    section = Section(course_id=course.id, semester_id=semester.id, section_code="01")
+    db_session.add_all([student, section])
+    await db_session.flush()
+    enrollment = Enrollment(student_id=student.id, section_id=section.id, registered_credits=3)
+    db_session.add(enrollment)
+    await db_session.flush()
+
+    midterm_schedule = ReportSchedule(
+        name="Midterm course report",
+        report_type="course_health",
+        actor_role="manager",
+        scope_type="course",
+        scope_id=str(course.id),
+        frequency="midterm",
+        trigger_event="midterm_grade",
+        recipients_json=["manager"],
+        formats_json=["web"],
+        detail_level="standard",
+        include_ai_narrative=True,
+        include_appendix=True,
+        is_active=True,
+        created_by="test-admin",
+    )
+    generic_schedule = ReportSchedule(
+        name="Any grade update course report",
+        report_type="course_health",
+        actor_role="manager",
+        scope_type="course",
+        scope_id=str(course.id),
+        frequency="after_grade_update",
+        recipients_json=["manager"],
+        formats_json=["web"],
+        detail_level="standard",
+        include_ai_narrative=True,
+        include_appendix=True,
+        is_active=True,
+        created_by="test-admin",
+    )
+    final_schedule = ReportSchedule(
+        name="Final course report",
+        report_type="course_health",
+        actor_role="manager",
+        scope_type="course",
+        scope_id=str(course.id),
+        frequency="end_semester",
+        recipients_json=["manager"],
+        formats_json=["web"],
+        detail_level="standard",
+        include_ai_narrative=True,
+        include_appendix=True,
+        is_active=True,
+        created_by="test-admin",
+    )
+    db_session.add_all([midterm_schedule, generic_schedule, final_schedule])
+    await db_session.flush()
+
+    ran = await run_grade_update_schedules(
+        db_session,
+        enrollment_id=enrollment.id,
+        schedule_frequency=MIDTERM_FREQUENCY,
+        trigger=MIDTERM_TRIGGER,
+    )
+
+    assert ran == 2
+    result = await db_session.execute(select(ReportScheduleRun).order_by(ReportScheduleRun.schedule_id.asc()))
+    runs = list(result.scalars().all())
+    assert {run.schedule_id for run in runs} == {midterm_schedule.id, generic_schedule.id}
+    assert all(run.trigger == "midterm_grade" for run in runs)

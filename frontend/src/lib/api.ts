@@ -405,7 +405,10 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
-  runReportSchedule: (id: number, body: { trigger?: "manual" | "scheduled" | "grade_update" }) =>
+  runReportSchedule: (
+    id: number,
+    body: { trigger?: "manual" | "scheduled" | "grade_update" | "midterm_grade" | "final_grade" },
+  ) =>
     fetcher<ApiReportScheduleRun>(`/api/v1/reports/schedules/${id}/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
