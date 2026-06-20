@@ -20,6 +20,7 @@ from app.dependencies import CurrentUser, DBSession, PaginationDep, require_writ
 from app.models.academic import Course, Program
 from app.models.people import Student, UserRole
 from app.models.teaching import Enrollment, GradeComponent, Section
+from app.reports.scheduler import run_grade_update_schedules
 from app.schemas.teaching import (
     EnrollmentCreate,
     EnrollmentGradeUpdate,
@@ -120,7 +121,7 @@ async def submit_final_grade(
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Enrollment not found")
     grade_letter, grade_4 = _grade_letter_and_4(payload.final_grade)
-    return await crud.update_enrollment(
+    updated = await crud.update_enrollment(
         db,
         obj,
         {
@@ -131,6 +132,8 @@ async def submit_final_grade(
             "completed_at": datetime.now(UTC),
         },
     )
+    await run_grade_update_schedules(db, enrollment_id=enrollment_id)
+    return updated
 
 
 # ========================================================= Grade Components
@@ -150,5 +153,9 @@ async def upsert_grade_component(payload: GradeComponentUpsert, db: DBSession) -
             data["assessed_at"] = recorded_at
         data["recorded_at"] = recorded_at
     if obj is None:
-        return await crud.create_grade_component(db, data)
-    return await crud.update_grade_component(db, obj, data)
+        created = await crud.create_grade_component(db, data)
+        await run_grade_update_schedules(db, enrollment_id=payload.enrollment_id)
+        return created
+    updated = await crud.update_grade_component(db, obj, data)
+    await run_grade_update_schedules(db, enrollment_id=payload.enrollment_id)
+    return updated
