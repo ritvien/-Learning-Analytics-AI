@@ -32,11 +32,23 @@ async def test_academic_tree_returns_rollup_metrics(client: AsyncClient, db_sess
             json={"program_ids": [program["id"]], "code": "DB101", "name": "Databases", "credits": 3},
         )
     ).json()
+    specialization = (
+        await client.post(
+            "/api/v1/specializations",
+            json={
+                "program_id": program["id"],
+                "code": "SE-TRACK",
+                "name": "Software Engineering Track",
+                "course_ids": [course["id"]],
+            },
+        )
+    ).json()
     student = (
         await client.post(
             "/api/v1/students",
             json={
                 "program_id": program["id"],
+                "specialization_id": specialization["id"],
                 "cohort_id": cohort.id,
                 "student_code": "SVTREE01",
                 "full_name": "Tree Student",
@@ -67,12 +79,24 @@ async def test_academic_tree_returns_rollup_metrics(client: AsyncClient, db_sess
 
     department_node = tree["children"][0]
     program_node = department_node["children"][0]
-    course_node = program_node["children"][0]
+    specialization_node = next(
+        node for node in program_node["children"] if node["id"] == specialization["id"]
+    )
+    course_node = specialization_node["children"][0]
     assert department_node["type"] == "department"
     assert program_node["type"] == "program"
+    assert specialization_node["type"] == "specialization"
     assert course_node["type"] == "course"
+    assert specialization_node["metrics"]["student_count"] == 1
+    assert specialization_node["metrics"]["completed_enrollments"] == 1
     assert course_node["metrics"]["avg_grade"] == 8.0
 
     metrics_response = await client.get(f"/api/v1/tree/course/{course['id']}/metrics")
     assert metrics_response.status_code == 200
     assert metrics_response.json()["metrics"]["completed_enrollments"] == 1
+
+    specialization_metrics = await client.get(
+        f"/api/v1/tree/specialization/{specialization['id']}/metrics"
+    )
+    assert specialization_metrics.status_code == 200
+    assert specialization_metrics.json()["metrics"]["pass_rate"] == 100.0

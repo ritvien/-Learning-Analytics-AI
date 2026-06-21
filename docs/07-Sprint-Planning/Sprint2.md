@@ -188,7 +188,7 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Depends on |
 |:-:|:-----|:----------------|:--------:|:------:|:-----------|
-| T44 | Tree API + Migration 3-tier | Alembic migration `specializations`, cập nhật ORM + `GET /api/v1/tree`: Khoa → **Chuyên ngành** → Ngành → Môn. CRUD endpoints liên quan. Handoff spec từ H45 | 20/06 | ➜ Sprint 3 | H45 |
+| T44 | Tree API + Migration 3-tier — ownership chuyển sang Hoàng ngày 21/06 | Alembic migration `specializations`, cập nhật ORM + `GET /api/v1/tree`: Khoa → Ngành → Chuyên ngành → Môn. CRUD endpoints liên quan | 21/06 | ✅ Sprint 3 | H45 |
 
 ---
 
@@ -440,8 +440,9 @@ graph LR
 | T24 | Sửa seed cohort/import điểm thành phần và tạo Alembic baseline | Hưng | 20/06 | ✅ |
 | T25 | Điều phối một lần reset DB local và xác minh revision/row counts toàn team | Hưng + cả team | 20/06 | ✅ |
 | T26 | Tạo schema `dwh`, ETL idempotent và data quality checks | Hưng | 23/06 | ✅ |
-| H25 | Tạo schema `ml`, baseline dự đoán pass/trượt từng môn, chống leakage | Hoàng | 23/06 | ➜ Sprint 3 |
-| H26 | Tổng hợp expected passed/failed credits và báo cáo evaluation | Hoàng | 24/06 | ➜ Sprint 3 |
+| T50 | Nhận ownership schema `ml`, migration và prediction storage tables | Hưng | 23/06 | ➜ Sprint 3 |
+| H25 | Feature engineering + baseline dự đoán pass/trượt từng môn, chống leakage | Hoàng | 26/06 | ➜ Sprint 3 |
+| H26 | Tổng hợp expected passed/failed credits và báo cáo evaluation | Hoàng | 28/06 | ➜ Sprint 3 |
 | V23 | UI prediction từng môn và tổng tín chỉ pass/trượt kỳ vọng | Hiếu | 24/06 | ➜ Sprint 3 |
 
 **Definition of Done bổ sung:**
@@ -473,7 +474,7 @@ Tham khảo [DatabaseModernizationPlan.md](../10-References/DatabaseModernizatio
 | **Agent** | LangGraph agent chạy end-to-end, ≥ 3 tools (SQL, CLO, Chart), ReAct loop, error handling 3 tầng | Hoàng |
 | **Backend** | CRUD APIs hoạt động, Tree Metrics API, Chat endpoint, SSE streaming | Hưng |
 | **Frontend** | Chat UI + Tree component kết nối API thật, CRUD pages cơ bản | Hiếu |
-| **Data** | Seed data trong PostgreSQL, **≥ 1.300 students** với grades thật | Hoàng (H46) + Hưng (T44) |
+| **Data** | Seed data trong PostgreSQL, **≥ 1.300 students** với grades thật | Hoàng (H46 + T44) |
 | **Testing** | ≥ 10 unit tests BE, ≥ 5 FE test suites, 10 eval evidences | Cả team |
 | **DevOps** | Docker chạy đầy đủ services, CI/CD pass trên mọi PR | Hưng |
 | **Docs** | README cập nhật, architecture diagrams đúng, Journal + Worklog | Cả team |

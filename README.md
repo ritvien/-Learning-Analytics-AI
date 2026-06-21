@@ -158,6 +158,24 @@ The hook system needs **one** of: `python3`, `python`, or `py` on PATH.
 
 The `scripts/_pyrun.*` wrappers detect whichever is available — students do not need to alias `python3` → `python`.
 
+## Academic Tree Contract
+
+Academic Tree dùng một thứ tự nghiệp vụ duy nhất. `Program` mang nghĩa **Ngành / Chương trình đào tạo**;
+`Specialization` mang nghĩa **Chuyên ngành** và luôn thuộc một Program.
+
+```mermaid
+flowchart LR
+    School["Trường"] --> Department["Khoa<br/>Department"]
+    Department --> Program["Ngành / CTĐT<br/>Program"]
+    Program --> Specialization["Chuyên ngành<br/>Specialization"]
+    Specialization --> Course["Môn học<br/>Course"]
+```
+
+Các môn có thể dùng chung giữa nhiều Ngành hoặc Chuyên ngành. Vì vậy backend phải giữ mapping
+many-to-many, và metric cấp cha phải deduplicate student/course/enrollment theo ID thay vì cộng thẳng
+metric của các node con. Contract schema, API, backfill và rollout nằm tại
+[H45-Plan.md](./docs/07-Sprint-Planning/H45-Plan.md).
+
 ## System Architecture
 
 Dự án EduInsight sử dụng kiến trúc 4 tầng, tối ưu cho RAG và AI Agent với PostgreSQL (`pgvector`) đóng vai trò trung tâm cho cả dữ liệu quan hệ và vector.

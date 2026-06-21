@@ -72,6 +72,28 @@ Một PostgreSQL instance được tách schema theo workload:
 3. **`ml` - Prediction:** model run, prediction từng môn và tổng tín chỉ kỳ vọng.
 4. **`pgvector`:** embedding đề cương cho RAG, độc lập với prediction ML.
 
+### 3.1. Academic hierarchy
+
+`Program` được giữ với nghĩa **Ngành / Chương trình đào tạo**. `Specialization` là
+**Chuyên ngành** thuộc một Program; không đảo hai khái niệm này trong API, UI hoặc
+Agent prompt.
+
+```mermaid
+erDiagram
+    UNIVERSITIES ||--o{ DEPARTMENTS : contains
+    DEPARTMENTS ||--o{ PROGRAMS : manages
+    PROGRAMS ||--o{ SPECIALIZATIONS : contains
+    PROGRAMS }o--o{ COURSES : program_courses
+    SPECIALIZATIONS }o--o{ COURSES : specialization_courses
+    PROGRAMS ||--o{ STUDENTS : enrolls
+    SPECIALIZATIONS o|--o{ STUDENTS : classifies
+```
+
+Trong rollout Sprint 3, `program_courses` tiếp tục là curriculum cấp Ngành để giữ
+tương thích với report/view hiện có. `specialization_courses` bổ sung mapping cấp
+Chuyên ngành. `students.specialization_id` nullable; migration không được suy đoán
+chuyên ngành thật từ tên lớp hoặc tên môn.
+
 ## 4. Quyết định Kiến trúc (ADR - Architecture Decision Records)
 - **ADR-001:** Chọn FastAPI thay vì Flask/Django vì FastAPI hỗ trợ native async, cực kỳ quan trọng cho tính năng Streaming của AI.
 - **ADR-002:** Chọn LangGraph thay vì LangChain tiêu chuẩn vì chúng ta cần AI xử lý vòng lặp có điều kiện (Cyclic Graphs), cho phép Agent sửa sai khi gọi Tool thất bại.
@@ -105,6 +127,8 @@ flowchart TB
 **ADR-006:** ML dự đoán xác suất pass/trượt từng enrollment, sau đó tổng hợp expected passed/failed credits theo sinh viên-học kỳ. LLM chỉ giải thích prediction và không trực tiếp sinh xác suất.
 
 **ADR-007:** SQLAlchemy ORM trong `backend/app/models/` là nguồn định nghĩa database chính. Sau một lần reset local có kiểm soát, mọi thay đổi schema được phân phối bằng Alembic migration.
+
+**ADR-008:** (20/06/2026) Chuẩn hóa Academic Tree thành `Department -> Program -> Specialization -> Course`. Giữ `program_courses` để tương thích; thêm `specialization_courses` và FK specialization nullable trên sinh viên. Chi tiết contract: [H45-Plan.md](../07-Sprint-Planning/H45-Plan.md).
 
 Thiết kế star schema, pipeline ETL, feature, metric đánh giá và API được mô tả tại [ML_DWH_Architecture.md](./ML_DWH_Architecture.md).
 Kế hoạch sửa database và rollout cho toàn team: [DatabaseModernizationPlan.md](./DatabaseModernizationPlan.md).

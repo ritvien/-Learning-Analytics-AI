@@ -15,6 +15,7 @@ from app.api.v1.endpoints import (
     reports,
     sections,
     semesters,
+    specializations,
     students,
     teachers,
     tree,
@@ -26,6 +27,7 @@ api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(analytics.router, tags=["analytics"])
 api_router.include_router(departments.router, prefix="/departments", tags=["departments"])
 api_router.include_router(programs.router, prefix="/programs", tags=["programs"])
+api_router.include_router(specializations.router, prefix="/specializations", tags=["specializations"])
 api_router.include_router(courses.router, prefix="/courses", tags=["courses"])
 api_router.include_router(students.router, prefix="/students", tags=["students"])
 api_router.include_router(teachers.router, prefix="/teachers", tags=["teachers"])

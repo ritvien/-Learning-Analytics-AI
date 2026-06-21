@@ -1,0 +1,20 @@
+{
+  "artifact_checksum": "63bc103b2d9fc11dec42af06295948e7675297451fcb2089aa5b4ca28bcfee38",
+  "class_mappings": 80,
+  "courses": 549,
+  "derived_course_departments": 67,
+  "duplicate_grade_rows": 2442,
+  "duplicate_student_rows": 42,
+  "enrollments": 56301,
+  "failed_source_rows": 241,
+  "grade_components": 147286,
+  "grade_conflicts": 0,
+  "reviewed_course_overrides": 2,
+  "schema_version": 1,
+  "skipped_grade_rows": 24,
+  "source_checksum": "a57b8d5475d96c21b588554c83b55d49f48d0259e3848ed387c47847f7b4eb9a",
+  "source_rows": 1560,
+  "specializations": 26,
+  "unique_students": 1277,
+  "valid_source_rows": 1319
+}

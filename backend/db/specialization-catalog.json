@@ -1,0 +1,724 @@
+{
+  "class_mappings": [
+    {
+      "class_code": "C13H3",
+      "department_name": "Khoa Kỹ thuật điện",
+      "program_name": "Công nghệ kỹ thuật điện, điện tử",
+      "specialization_code": "SPEC-1BD77A19BAEB",
+      "specialization_name": "Hệ thống điện"
+    },
+    {
+      "class_code": "D15DCN&DD1",
+      "department_name": "Khoa Kỹ thuật điện",
+      "program_name": "Công nghệ kỹ thuật điện, điện tử",
+      "specialization_code": "SPEC-04F46D2C0D17",
+      "specialization_name": "Điện công nghiệp và dân dụng"
+    },
+    {
+      "class_code": "D15MVT&MT",
+      "department_name": "Khoa Điện tử Viễn thông",
+      "program_name": "Công nghệ kỹ thuật điện tử - viễn thông",
+      "specialization_code": "SPEC-D9D39623972B",
+      "specialization_name": "Mạng viễn thông và máy tính"
+    },
+    {
+      "class_code": "D15QTDLKS",
+      "department_name": "Khoa Quản trị Kinh doanh và Du lịch",
+      "program_name": "Quản trị kinh doanh",
+      "specialization_code": "SPEC-D2BEF141804C",
+      "specialization_name": "Quản trị du lịch, khách sạn"
+    },
+    {
+      "class_code": "D16CKCTM",
+      "department_name": "Khoa Cơ khí - ô tô và Xây dựng",
+      "program_name": "Công nghệ kỹ thuật cơ khí",
+      "specialization_code": "SPEC-63D868FB0E70",
+      "specialization_name": "Cơ khí chế tạo máy"
+    },
+    {
+      "class_code": "D16CNKTDK1",
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "program_name": "Công nghệ kỹ thuật điều khiển và tự động hoá",
+      "specialization_code": "SPEC-85CAB02C05E5",
+      "specialization_name": "Công nghệ kỹ thuật điều khiển"
+    },
+    {
+      "class_code": "D16CNKTDK2",
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "program_name": "Công nghệ kỹ thuật điều khiển và tự động hoá",
+      "specialization_code": "SPEC-85CAB02C05E5",
+      "specialization_name": "Công nghệ kỹ thuật điều khiển"
+    },
+    {
+      "class_code": "D16CNPM1",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-741C5F709C33",
+      "specialization_name": "Công nghệ phần mềm"
+    },
+    {
+      "class_code": "D16CNPM2",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-741C5F709C33",
+      "specialization_name": "Công nghệ phần mềm"
+    },
+    {
+      "class_code": "D16CNPM3",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-741C5F709C33",
+      "specialization_name": "Công nghệ phần mềm"
+    },
+    {
+      "class_code": "D16CNPM4",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-741C5F709C33",
+      "specialization_name": "Công nghệ phần mềm"
+    },
+    {
+      "class_code": "D16CODT4",
+      "department_name": "Khoa Cơ khí - ô tô và Xây dựng",
+      "program_name": "Công nghệ kỹ thuật cơ điện tử",
+      "specialization_code": "SPEC-5C0BE96C0AC6",
+      "specialization_name": "Công nghệ cơ điện tử"
+    },
+    {
+      "class_code": "D16DTVT2",
+      "department_name": "Khoa Điện tử Viễn thông",
+      "program_name": "Công nghệ kỹ thuật điện tử - viễn thông",
+      "specialization_code": "SPEC-4F6869C4EF3B",
+      "specialization_name": "Điện tử viễn thông"
+    },
+    {
+      "class_code": "D16HTTMDT",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-C5AE857C9FF6",
+      "specialization_name": "Hệ thống thương mại điện tử"
+    },
+    {
+      "class_code": "D16TDHHTD2",
+      "department_name": "Khoa Kỹ thuật điện",
+      "program_name": "Công nghệ kỹ thuật điện, điện tử",
+      "specialization_code": "SPEC-F77C28715F4E",
+      "specialization_name": "Tự động hoá Hệ thống điện"
+    },
+    {
+      "class_code": "D17CKCTM",
+      "department_name": "Khoa Cơ khí - ô tô và Xây dựng",
+      "program_name": "Công nghệ kỹ thuật cơ khí",
+      "specialization_code": "SPEC-63D868FB0E70",
+      "specialization_name": "Cơ khí chế tạo máy"
+    },
+    {
+      "class_code": "D17CKOTO",
+      "department_name": "Khoa Cơ khí - ô tô và Xây dựng",
+      "program_name": "Công nghệ kỹ thuật cơ khí",
+      "specialization_code": "SPEC-1E470AFF6210",
+      "specialization_name": "Cơ khí ô tô"
+    },
+    {
+      "class_code": "D17CNKTDK1",
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "program_name": "Công nghệ kỹ thuật điều khiển và tự động hoá",
+      "specialization_code": "SPEC-85CAB02C05E5",
+      "specialization_name": "Công nghệ kỹ thuật điều khiển"
+    },
+    {
+      "class_code": "D17CNKTDK2",
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "program_name": "Công nghệ kỹ thuật điều khiển và tự động hoá",
+      "specialization_code": "SPEC-85CAB02C05E5",
+      "specialization_name": "Công nghệ kỹ thuật điều khiển"
+    },
+    {
+      "class_code": "D17CNPM1",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-741C5F709C33",
+      "specialization_name": "Công nghệ phần mềm"
+    },
+    {
+      "class_code": "D17CNPM2",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-741C5F709C33",
+      "specialization_name": "Công nghệ phần mềm"
+    },
+    {
+      "class_code": "D17CNPM3",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-741C5F709C33",
+      "specialization_name": "Công nghệ phần mềm"
+    },
+    {
+      "class_code": "D17CNPM4",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-741C5F709C33",
+      "specialization_name": "Công nghệ phần mềm"
+    },
+    {
+      "class_code": "D17CODT1",
+      "department_name": "Khoa Cơ khí - ô tô và Xây dựng",
+      "program_name": "Công nghệ kỹ thuật cơ điện tử",
+      "specialization_code": "SPEC-5C0BE96C0AC6",
+      "specialization_name": "Công nghệ cơ điện tử"
+    },
+    {
+      "class_code": "D17DT&KTMT1",
+      "department_name": "Khoa Điện tử Viễn thông",
+      "program_name": "Công nghệ kỹ thuật điện tử - viễn thông",
+      "specialization_code": "SPEC-7401C76D29BC",
+      "specialization_name": "Điện tử và kỹ thuật máy tính"
+    },
+    {
+      "class_code": "D17HTTMDT",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-C5AE857C9FF6",
+      "specialization_name": "Hệ thống thương mại điện tử"
+    },
+    {
+      "class_code": "D17LOGISTICS1",
+      "department_name": "Khoa Quản lý Công nghiệp và Năng lượng",
+      "program_name": "Logistics và quản lý chuỗi cung ứng",
+      "specialization_code": "SPEC-00CF87FDCCB5",
+      "specialization_name": "Logistics và quản lý chuỗi cung ứng"
+    },
+    {
+      "class_code": "D17LOGISTICS2",
+      "department_name": "Khoa Quản lý Công nghiệp và Năng lượng",
+      "program_name": "Logistics và quản lý chuỗi cung ứng",
+      "specialization_code": "SPEC-00CF87FDCCB5",
+      "specialization_name": "Logistics và quản lý chuỗi cung ứng"
+    },
+    {
+      "class_code": "D17QLCN1",
+      "department_name": "Khoa Quản lý Công nghiệp và Năng lượng",
+      "program_name": "Quản lý công nghiệp",
+      "specialization_code": "SPEC-9CE6414EBABB",
+      "specialization_name": "Quản lý công nghiệp"
+    },
+    {
+      "class_code": "D17QTDN3",
+      "department_name": "Khoa Quản trị Kinh doanh và Du lịch",
+      "program_name": "Quản trị kinh doanh",
+      "specialization_code": "SPEC-7F5E4B90A5E3",
+      "specialization_name": "Quản trị doanh nghiệp"
+    },
+    {
+      "class_code": "D18CKCTM",
+      "department_name": "Khoa Cơ khí - ô tô và Xây dựng",
+      "program_name": "Công nghệ kỹ thuật cơ khí",
+      "specialization_code": "SPEC-63D868FB0E70",
+      "specialization_name": "Cơ khí chế tạo máy"
+    },
+    {
+      "class_code": "D18CKOTO",
+      "department_name": "Khoa Cơ khí - ô tô và Xây dựng",
+      "program_name": "Công nghệ kỹ thuật cơ khí",
+      "specialization_code": "SPEC-1E470AFF6210",
+      "specialization_name": "Cơ khí ô tô"
+    },
+    {
+      "class_code": "D18CNKTDK1",
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "program_name": "Công nghệ kỹ thuật điều khiển và tự động hoá",
+      "specialization_code": "SPEC-85CAB02C05E5",
+      "specialization_name": "Công nghệ kỹ thuật điều khiển"
+    },
+    {
+      "class_code": "D18CNKTDK2",
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "program_name": "Công nghệ kỹ thuật điều khiển và tự động hoá",
+      "specialization_code": "SPEC-85CAB02C05E5",
+      "specialization_name": "Công nghệ kỹ thuật điều khiển"
+    },
+    {
+      "class_code": "D18CNPM1",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-741C5F709C33",
+      "specialization_name": "Công nghệ phần mềm"
+    },
+    {
+      "class_code": "D18CNPM2",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-741C5F709C33",
+      "specialization_name": "Công nghệ phần mềm"
+    },
+    {
+      "class_code": "D18CNPM3",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-741C5F709C33",
+      "specialization_name": "Công nghệ phần mềm"
+    },
+    {
+      "class_code": "D18CNPM4",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-741C5F709C33",
+      "specialization_name": "Công nghệ phần mềm"
+    },
+    {
+      "class_code": "D18DTVT2",
+      "department_name": "Khoa Điện tử Viễn thông",
+      "program_name": "Công nghệ kỹ thuật điện tử - viễn thông",
+      "specialization_code": "SPEC-4F6869C4EF3B",
+      "specialization_name": "Điện tử viễn thông"
+    },
+    {
+      "class_code": "D18H1",
+      "department_name": "Khoa Kỹ thuật điện",
+      "program_name": "Công nghệ kỹ thuật điện, điện tử",
+      "specialization_code": "SPEC-1BD77A19BAEB",
+      "specialization_name": "Hệ thống điện"
+    },
+    {
+      "class_code": "D18HTTMDT",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-C5AE857C9FF6",
+      "specialization_name": "Hệ thống thương mại điện tử"
+    },
+    {
+      "class_code": "D18KDTMTT1",
+      "department_name": "Khoa Quản trị Kinh doanh và Du lịch",
+      "program_name": "Thương mại điện tử",
+      "specialization_code": "SPEC-3F383A963D9C",
+      "specialization_name": "Kinh doanh thương mại trực tuyến"
+    },
+    {
+      "class_code": "D18KIEMTOAN",
+      "department_name": "Khoa Kế toán - Tài chính",
+      "program_name": "Kiểm toán",
+      "specialization_code": "SPEC-AB89058FF6D3",
+      "specialization_name": "Kiểm toán"
+    },
+    {
+      "class_code": "D18LOGISTICS1",
+      "department_name": "Khoa Quản lý Công nghiệp và Năng lượng",
+      "program_name": "Logistics và quản lý chuỗi cung ứng",
+      "specialization_code": "SPEC-00CF87FDCCB5",
+      "specialization_name": "Logistics và quản lý chuỗi cung ứng"
+    },
+    {
+      "class_code": "D18NGANHANG",
+      "department_name": "Khoa Kế toán - Tài chính",
+      "program_name": "Tài chính – Ngân hàng",
+      "specialization_code": "SPEC-64B35D8F3FF3",
+      "specialization_name": "Ngân hàng"
+    },
+    {
+      "class_code": "D18QTDLKS",
+      "department_name": "Khoa Quản trị Kinh doanh và Du lịch",
+      "program_name": "Quản trị kinh doanh",
+      "specialization_code": "SPEC-D2BEF141804C",
+      "specialization_name": "Quản trị du lịch, khách sạn"
+    },
+    {
+      "class_code": "D18QTDVDL&LH1",
+      "department_name": "Khoa Quản trị Kinh doanh và Du lịch",
+      "program_name": "Quản trị dịch vụ du lịch và lữ hành",
+      "specialization_code": "SPEC-DA1654E41C9C",
+      "specialization_name": "Quản trị dịch vụ du lịch và lữ hành"
+    },
+    {
+      "class_code": "D18TDH&DKTBCN1",
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "program_name": "Công nghệ kỹ thuật điều khiển và tự động hoá",
+      "specialization_code": "SPEC-F65BA0C174AB",
+      "specialization_name": "Tự động hóa và điều khiển thiết bị điện công nghiệp"
+    },
+    {
+      "class_code": "D19CKCTM1",
+      "department_name": "Khoa Cơ khí - ô tô và Xây dựng",
+      "program_name": "Công nghệ kỹ thuật cơ khí",
+      "specialization_code": "SPEC-63D868FB0E70",
+      "specialization_name": "Cơ khí chế tạo máy"
+    },
+    {
+      "class_code": "D19CKOTO",
+      "department_name": "Khoa Cơ khí - ô tô và Xây dựng",
+      "program_name": "Công nghệ kỹ thuật cơ khí",
+      "specialization_code": "SPEC-1E470AFF6210",
+      "specialization_name": "Cơ khí ô tô"
+    },
+    {
+      "class_code": "D19CNKTDK1",
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "program_name": "Công nghệ kỹ thuật điều khiển và tự động hoá",
+      "specialization_code": "SPEC-85CAB02C05E5",
+      "specialization_name": "Công nghệ kỹ thuật điều khiển"
+    },
+    {
+      "class_code": "D19CNKTDK2",
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "program_name": "Công nghệ kỹ thuật điều khiển và tự động hoá",
+      "specialization_code": "SPEC-85CAB02C05E5",
+      "specialization_name": "Công nghệ kỹ thuật điều khiển"
+    },
+    {
+      "class_code": "D19CNPM1",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-741C5F709C33",
+      "specialization_name": "Công nghệ phần mềm"
+    },
+    {
+      "class_code": "D19CNPM2",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-741C5F709C33",
+      "specialization_name": "Công nghệ phần mềm"
+    },
+    {
+      "class_code": "D19CNPM3",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-741C5F709C33",
+      "specialization_name": "Công nghệ phần mềm"
+    },
+    {
+      "class_code": "D19CNPM4",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-741C5F709C33",
+      "specialization_name": "Công nghệ phần mềm"
+    },
+    {
+      "class_code": "D19DCN&DD1",
+      "department_name": "Khoa Kỹ thuật điện",
+      "program_name": "Công nghệ kỹ thuật điện, điện tử",
+      "specialization_code": "SPEC-04F46D2C0D17",
+      "specialization_name": "Điện công nghiệp và dân dụng"
+    },
+    {
+      "class_code": "D19DTVT1",
+      "department_name": "Khoa Điện tử Viễn thông",
+      "program_name": "Công nghệ kỹ thuật điện tử - viễn thông",
+      "specialization_code": "SPEC-4F6869C4EF3B",
+      "specialization_name": "Điện tử viễn thông"
+    },
+    {
+      "class_code": "D19HTTMDT1",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-C5AE857C9FF6",
+      "specialization_name": "Hệ thống thương mại điện tử"
+    },
+    {
+      "class_code": "D19KIEMTOAN1",
+      "department_name": "Khoa Kế toán - Tài chính",
+      "program_name": "Kiểm toán",
+      "specialization_code": "SPEC-AB89058FF6D3",
+      "specialization_name": "Kiểm toán"
+    },
+    {
+      "class_code": "D19QLCN1",
+      "department_name": "Khoa Quản lý Công nghiệp và Năng lượng",
+      "program_name": "Quản lý công nghiệp",
+      "specialization_code": "SPEC-9CE6414EBABB",
+      "specialization_name": "Quản lý công nghiệp"
+    },
+    {
+      "class_code": "D19QTDVDL&LH2",
+      "department_name": "Khoa Quản trị Kinh doanh và Du lịch",
+      "program_name": "Quản trị dịch vụ du lịch và lữ hành",
+      "specialization_code": "SPEC-DA1654E41C9C",
+      "specialization_name": "Quản trị dịch vụ du lịch và lữ hành"
+    },
+    {
+      "class_code": "D19TBDTYT",
+      "department_name": "Khoa Điện tử Viễn thông",
+      "program_name": "Công nghệ kỹ thuật điện tử - viễn thông",
+      "specialization_code": "SPEC-0BFAA60E69B5",
+      "specialization_name": "Thiết bị điện tử y tế"
+    },
+    {
+      "class_code": "D19TDH&DKTBCN1",
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "program_name": "Công nghệ kỹ thuật điều khiển và tự động hoá",
+      "specialization_code": "SPEC-F65BA0C174AB",
+      "specialization_name": "Tự động hóa và điều khiển thiết bị điện công nghiệp"
+    },
+    {
+      "class_code": "D19THDK&TDH1",
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "program_name": "Công nghệ kỹ thuật điều khiển và tự động hoá",
+      "specialization_code": "SPEC-3B20B4ADB81F",
+      "specialization_name": "Tin học cho điều khiển và tự động hóa"
+    },
+    {
+      "class_code": "D19XDCTD",
+      "department_name": "Khoa Cơ khí - ô tô và Xây dựng",
+      "program_name": "Công nghệ kỹ thuật công trình xây dựng",
+      "specialization_code": "SPEC-986FBD254187",
+      "specialization_name": "Xây dựng công trình điện"
+    },
+    {
+      "class_code": "D20CKCTM1",
+      "department_name": "Khoa Cơ khí - ô tô và Xây dựng",
+      "program_name": "Công nghệ kỹ thuật cơ khí",
+      "specialization_code": "SPEC-63D868FB0E70",
+      "specialization_name": "Cơ khí chế tạo máy"
+    },
+    {
+      "class_code": "D20CNKTDK2",
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "program_name": "Công nghệ kỹ thuật điều khiển và tự động hoá",
+      "specialization_code": "SPEC-85CAB02C05E5",
+      "specialization_name": "Công nghệ kỹ thuật điều khiển"
+    },
+    {
+      "class_code": "D20DCN&DD1",
+      "department_name": "Khoa Kỹ thuật điện",
+      "program_name": "Công nghệ kỹ thuật điện, điện tử",
+      "specialization_code": "SPEC-04F46D2C0D17",
+      "specialization_name": "Điện công nghiệp và dân dụng"
+    },
+    {
+      "class_code": "D20DTVT1",
+      "department_name": "Khoa Điện tử Viễn thông",
+      "program_name": "Công nghệ kỹ thuật điện tử - viễn thông",
+      "specialization_code": "SPEC-4F6869C4EF3B",
+      "specialization_name": "Điện tử viễn thông"
+    },
+    {
+      "class_code": "D20H1",
+      "department_name": "Khoa Kỹ thuật điện",
+      "program_name": "Công nghệ kỹ thuật điện, điện tử",
+      "specialization_code": "SPEC-1BD77A19BAEB",
+      "specialization_name": "Hệ thống điện"
+    },
+    {
+      "class_code": "D20KDTMTT1",
+      "department_name": "Khoa Quản trị Kinh doanh và Du lịch",
+      "program_name": "Thương mại điện tử",
+      "specialization_code": "SPEC-3F383A963D9C",
+      "specialization_name": "Kinh doanh thương mại trực tuyến"
+    },
+    {
+      "class_code": "D20NGANHANG",
+      "department_name": "Khoa Kế toán - Tài chính",
+      "program_name": "Tài chính – Ngân hàng",
+      "specialization_code": "SPEC-64B35D8F3FF3",
+      "specialization_name": "Ngân hàng"
+    },
+    {
+      "class_code": "D20QLNL1",
+      "department_name": "Khoa Quản lý Công nghiệp và Năng lượng",
+      "program_name": "Quản lý năng lượng",
+      "specialization_code": "SPEC-CFA3434491CF",
+      "specialization_name": "Quản lý năng lượng"
+    },
+    {
+      "class_code": "D20QLNL2",
+      "department_name": "Khoa Quản lý Công nghiệp và Năng lượng",
+      "program_name": "Quản lý năng lượng",
+      "specialization_code": "SPEC-CFA3434491CF",
+      "specialization_name": "Quản lý năng lượng"
+    },
+    {
+      "class_code": "D20TDH&DKTBCN1",
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "program_name": "Công nghệ kỹ thuật điều khiển và tự động hoá",
+      "specialization_code": "SPEC-F65BA0C174AB",
+      "specialization_name": "Tự động hóa và điều khiển thiết bị điện công nghiệp"
+    },
+    {
+      "class_code": "D20TTNTTNL",
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "program_name": "Trí tuệ nhân tạo",
+      "specialization_code": "SPEC-64A59009B572",
+      "specialization_name": "Trí tuệ nhân tạo trong năng lượng"
+    },
+    {
+      "class_code": "D9CNPM",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "program_name": "Công nghệ thông tin",
+      "specialization_code": "SPEC-741C5F709C33",
+      "specialization_name": "Công nghệ phần mềm"
+    },
+    {
+      "class_code": "D9H3",
+      "department_name": "Khoa Kỹ thuật điện",
+      "program_name": "Công nghệ kỹ thuật điện, điện tử",
+      "specialization_code": "SPEC-1BD77A19BAEB",
+      "specialization_name": "Hệ thống điện"
+    },
+    {
+      "class_code": "Đ17H21B LT CĐ",
+      "department_name": "Khoa Kỹ thuật điện",
+      "program_name": "Công nghệ kỹ thuật điện, điện tử",
+      "specialization_code": "SPEC-1BD77A19BAEB",
+      "specialization_name": "Hệ thống điện"
+    }
+  ],
+  "schema_version": 1,
+  "source_checksum": "a57b8d5475d96c21b588554c83b55d49f48d0259e3848ed387c47847f7b4eb9a",
+  "specializations": [
+    {
+      "code": "SPEC-00CF87FDCCB5",
+      "department_name": "Khoa Quản lý Công nghiệp và Năng lượng",
+      "name": "Logistics và quản lý chuỗi cung ứng",
+      "program_name": "Logistics và quản lý chuỗi cung ứng"
+    },
+    {
+      "code": "SPEC-04F46D2C0D17",
+      "department_name": "Khoa Kỹ thuật điện",
+      "name": "Điện công nghiệp và dân dụng",
+      "program_name": "Công nghệ kỹ thuật điện, điện tử"
+    },
+    {
+      "code": "SPEC-0BFAA60E69B5",
+      "department_name": "Khoa Điện tử Viễn thông",
+      "name": "Thiết bị điện tử y tế",
+      "program_name": "Công nghệ kỹ thuật điện tử - viễn thông"
+    },
+    {
+      "code": "SPEC-1BD77A19BAEB",
+      "department_name": "Khoa Kỹ thuật điện",
+      "name": "Hệ thống điện",
+      "program_name": "Công nghệ kỹ thuật điện, điện tử"
+    },
+    {
+      "code": "SPEC-1E470AFF6210",
+      "department_name": "Khoa Cơ khí - ô tô và Xây dựng",
+      "name": "Cơ khí ô tô",
+      "program_name": "Công nghệ kỹ thuật cơ khí"
+    },
+    {
+      "code": "SPEC-3B20B4ADB81F",
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "name": "Tin học cho điều khiển và tự động hóa",
+      "program_name": "Công nghệ kỹ thuật điều khiển và tự động hoá"
+    },
+    {
+      "code": "SPEC-3F383A963D9C",
+      "department_name": "Khoa Quản trị Kinh doanh và Du lịch",
+      "name": "Kinh doanh thương mại trực tuyến",
+      "program_name": "Thương mại điện tử"
+    },
+    {
+      "code": "SPEC-4F6869C4EF3B",
+      "department_name": "Khoa Điện tử Viễn thông",
+      "name": "Điện tử viễn thông",
+      "program_name": "Công nghệ kỹ thuật điện tử - viễn thông"
+    },
+    {
+      "code": "SPEC-5C0BE96C0AC6",
+      "department_name": "Khoa Cơ khí - ô tô và Xây dựng",
+      "name": "Công nghệ cơ điện tử",
+      "program_name": "Công nghệ kỹ thuật cơ điện tử"
+    },
+    {
+      "code": "SPEC-63D868FB0E70",
+      "department_name": "Khoa Cơ khí - ô tô và Xây dựng",
+      "name": "Cơ khí chế tạo máy",
+      "program_name": "Công nghệ kỹ thuật cơ khí"
+    },
+    {
+      "code": "SPEC-64A59009B572",
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "name": "Trí tuệ nhân tạo trong năng lượng",
+      "program_name": "Trí tuệ nhân tạo"
+    },
+    {
+      "code": "SPEC-64B35D8F3FF3",
+      "department_name": "Khoa Kế toán - Tài chính",
+      "name": "Ngân hàng",
+      "program_name": "Tài chính – Ngân hàng"
+    },
+    {
+      "code": "SPEC-7401C76D29BC",
+      "department_name": "Khoa Điện tử Viễn thông",
+      "name": "Điện tử và kỹ thuật máy tính",
+      "program_name": "Công nghệ kỹ thuật điện tử - viễn thông"
+    },
+    {
+      "code": "SPEC-741C5F709C33",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "name": "Công nghệ phần mềm",
+      "program_name": "Công nghệ thông tin"
+    },
+    {
+      "code": "SPEC-7F5E4B90A5E3",
+      "department_name": "Khoa Quản trị Kinh doanh và Du lịch",
+      "name": "Quản trị doanh nghiệp",
+      "program_name": "Quản trị kinh doanh"
+    },
+    {
+      "code": "SPEC-85CAB02C05E5",
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "name": "Công nghệ kỹ thuật điều khiển",
+      "program_name": "Công nghệ kỹ thuật điều khiển và tự động hoá"
+    },
+    {
+      "code": "SPEC-986FBD254187",
+      "department_name": "Khoa Cơ khí - ô tô và Xây dựng",
+      "name": "Xây dựng công trình điện",
+      "program_name": "Công nghệ kỹ thuật công trình xây dựng"
+    },
+    {
+      "code": "SPEC-9CE6414EBABB",
+      "department_name": "Khoa Quản lý Công nghiệp và Năng lượng",
+      "name": "Quản lý công nghiệp",
+      "program_name": "Quản lý công nghiệp"
+    },
+    {
+      "code": "SPEC-AB89058FF6D3",
+      "department_name": "Khoa Kế toán - Tài chính",
+      "name": "Kiểm toán",
+      "program_name": "Kiểm toán"
+    },
+    {
+      "code": "SPEC-C5AE857C9FF6",
+      "department_name": "Khoa Công nghệ Thông tin",
+      "name": "Hệ thống thương mại điện tử",
+      "program_name": "Công nghệ thông tin"
+    },
+    {
+      "code": "SPEC-CFA3434491CF",
+      "department_name": "Khoa Quản lý Công nghiệp và Năng lượng",
+      "name": "Quản lý năng lượng",
+      "program_name": "Quản lý năng lượng"
+    },
+    {
+      "code": "SPEC-D2BEF141804C",
+      "department_name": "Khoa Quản trị Kinh doanh và Du lịch",
+      "name": "Quản trị du lịch, khách sạn",
+      "program_name": "Quản trị kinh doanh"
+    },
+    {
+      "code": "SPEC-D9D39623972B",
+      "department_name": "Khoa Điện tử Viễn thông",
+      "name": "Mạng viễn thông và máy tính",
+      "program_name": "Công nghệ kỹ thuật điện tử - viễn thông"
+    },
+    {
+      "code": "SPEC-DA1654E41C9C",
+      "department_name": "Khoa Quản trị Kinh doanh và Du lịch",
+      "name": "Quản trị dịch vụ du lịch và lữ hành",
+      "program_name": "Quản trị dịch vụ du lịch và lữ hành"
+    },
+    {
+      "code": "SPEC-F65BA0C174AB",
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "name": "Tự động hóa và điều khiển thiết bị điện công nghiệp",
+      "program_name": "Công nghệ kỹ thuật điều khiển và tự động hoá"
+    },
+    {
+      "code": "SPEC-F77C28715F4E",
+      "department_name": "Khoa Kỹ thuật điện",
+      "name": "Tự động hoá Hệ thống điện",
+      "program_name": "Công nghệ kỹ thuật điện, điện tử"
+    }
+  ]
+}

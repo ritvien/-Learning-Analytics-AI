@@ -1,0 +1,33 @@
+{
+  "acceptance": {
+    "enrollments": 56301,
+    "expected_students": 1277,
+    "grade_components": 147286,
+    "id_mismatches": 0,
+    "imported_students": 1277,
+    "null_specializations": 0,
+    "passed": true,
+    "preserved_existing_student_ids": 699
+  },
+  "after": {
+    "enrollments": 56301,
+    "grade_components": 147286,
+    "real_specializations": 26,
+    "students": 1277
+  },
+  "applied_at": "2026-06-21T05:36:39.974677+00:00",
+  "artifact_checksum": "63bc103b2d9fc11dec42af06295948e7675297451fcb2089aa5b4ca28bcfee38",
+  "before": {
+    "enrollments": 56301,
+    "grade_components": 147286,
+    "real_specializations": 26,
+    "students": 1277
+  },
+  "idempotent_rerun": true,
+  "initial_before": {
+    "enrollments": 35916,
+    "grade_components": 96899,
+    "real_specializations": 0,
+    "students": 699
+  }
+}

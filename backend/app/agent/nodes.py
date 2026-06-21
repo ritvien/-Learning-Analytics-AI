@@ -1,11 +1,12 @@
 """LangGraph nodes for the EduInsight Agent."""
 
 import logging
+import os
 import re
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
-from typing_extensions import Literal
 
 from app.agent.prompts import (
     CORE_AGENT_SYSTEM_PROMPT,
@@ -13,7 +14,7 @@ from app.agent.prompts import (
     ROUTER_SYSTEM_PROMPT,
 )
 from app.agent.state import AgentState
-from app.agent.tools import execute_sql_query, calculate_student_clo_scores
+from app.agent.tools import calculate_student_clo_scores, execute_sql_query
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,8 @@ _SCHEMA_PATTERNS = re.compile(
     r'(?:'
     r'`?(?:students|enrollments|sections|courses|programs|cohorts|'
     r'departments|universities|teachers|clos|plos|semesters|'
-    r'student_clo_achievements|program_courses|vw_\w+)`?'
+    r'student_clo_achievements|program_courses|specializations|'
+    r'specialization_courses|vw_\w+)`?'
     r'(?:\.\w+)?'  # table.column
     r'|ILIKE|JOIN|WHERE|GROUP BY|SELECT|FROM|COUNT\(|SUM\(|AVG\('
     r'|status\s*=\s*[\'"]completed[\'"]'
@@ -40,12 +42,13 @@ def _sanitize_response(text: str) -> str:
         return text
     return _SCHEMA_PATTERNS.sub('[dữ liệu hệ thống]', text)
 
-def get_model(model_name: str, temperature: float = 0):
-    """Factory helper to build ChatOpenAI or ChatGoogleGenerativeAI model."""
+def get_model(model_name: str, temperature: float = 0) -> BaseChatModel:
+    """Build a ChatOpenAI or ChatGoogleGenerativeAI model."""
     provider = settings.llm_provider.lower().strip()
     if provider == "gemini":
         from langchain_google_genai import ChatGoogleGenerativeAI
-        import os
+
+        # Map models if they are configured as openai format
         actual_model = settings.llm_model if "gemini" in settings.llm_model else "gemini-1.5-flash"
         kwargs = {"model": actual_model, "temperature": temperature}
         api_key = settings.llm_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")

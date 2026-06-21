@@ -1,16 +1,6 @@
 """ORM model registry — import all models so Alembic autogenerate sees them."""
 
-from app.models.academic import Course, Department, Program, Semester, University
-from app.models.assessment import (
-    CLO,
-    PLO,
-    CLOPLOMapping,
-    CoursePLOMapping,
-    GradeComponentCLOMapping,
-    StudentCLOAchievement,
-)
-from app.models.people import Cohort, Student, Teacher, User, UserRole
-from app.models.report import Report, ReportFeedback, ReportSchedule, ReportScheduleRun
+from app.models.academic import Course, Department, Program, Semester, Specialization, University
 from app.models.agent import (
     AgentMemory,
     AgentPromptVersion,
@@ -19,19 +9,29 @@ from app.models.agent import (
     ReportAgentSession,
     ReportAgentToolCall,
 )
+from app.models.assessment import (
+    CLO,
+    PLO,
+    CLOPLOMapping,
+    CoursePLOMapping,
+    GradeComponentCLOMapping,
+    StudentCLOAchievement,
+)
 from app.models.chat import ChatSession
+from app.models.people import Cohort, Student, Teacher, User, UserRole
+from app.models.report import Report, ReportFeedback, ReportSchedule, ReportScheduleRun
 from app.models.teaching import Enrollment, GradeComponent, GradeComponentType, Section
 
 __all__ = [
-    "AgentMemory",
-    "AgentPromptVersion",
     "CLO",
     "PLO",
+    "AgentMemory",
+    "AgentPromptVersion",
     "CLOPLOMapping",
+    "ChatSession",
     "Cohort",
     "Course",
     "CoursePLOMapping",
-    "ChatSession",
     "Department",
     "Enrollment",
     "GradeComponent",
@@ -48,6 +48,7 @@ __all__ = [
     "ReportScheduleRun",
     "Section",
     "Semester",
+    "Specialization",
     "Student",
     "StudentCLOAchievement",
     "Teacher",

@@ -6,11 +6,10 @@ from fastapi import HTTPException, status
 from sqlalchemy import exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.academic import Course, Department, Program
+from app.models.academic import Course, Department, Program, Specialization
 from app.models.people import Student, Teacher, User, UserRole
 from app.models.report import Report, ReportSchedule
 from app.models.teaching import Enrollment, Section
-
 
 ADMIN_ROLES = {UserRole.superadmin, UserRole.admin}
 
@@ -51,6 +50,7 @@ async def require_department_scope(db: AsyncSession, user: User) -> set[int]:
 
 
 async def can_access_program(db: AsyncSession, user: User, program_id: int) -> bool:
+    """Return whether a user can access a Program through department scope."""
     if is_admin(user):
         return True
     department_ids = await user_department_ids(db, user)
@@ -63,6 +63,7 @@ async def can_access_program(db: AsyncSession, user: User, program_id: int) -> b
 
 
 async def can_access_department(db: AsyncSession, user: User, department_id: int) -> bool:
+    """Return whether a user can access a Department."""
     if is_admin(user):
         return True
     department_ids = await user_department_ids(db, user)
@@ -72,7 +73,26 @@ async def can_access_department(db: AsyncSession, user: User, department_id: int
     return bool(result.scalar())
 
 
+async def can_access_specialization(db: AsyncSession, user: User, specialization_id: int) -> bool:
+    """Return whether a user can access a specialization through its parent Program."""
+    if is_admin(user):
+        return True
+    department_ids = await user_department_ids(db, user)
+    if not department_ids:
+        return False
+    result = await db.execute(
+        select(
+            exists()
+            .where(Specialization.id == specialization_id)
+            .where(Specialization.program_id == Program.id)
+            .where(Program.department_id.in_(department_ids))
+        )
+    )
+    return bool(result.scalar())
+
+
 async def can_access_course(db: AsyncSession, user: User, course_id: int) -> bool:
+    """Return whether a user can access a Course through scope or teaching assignment."""
     if is_admin(user):
         return True
     department_ids = await user_department_ids(db, user)
@@ -90,6 +110,7 @@ async def can_access_course(db: AsyncSession, user: User, course_id: int) -> boo
 
 
 async def can_access_section(db: AsyncSession, user: User, section_id: int) -> bool:
+    """Return whether a user can access a Section."""
     if is_admin(user):
         return True
     teacher = await get_teacher_for_user(db, user)
@@ -113,6 +134,7 @@ async def can_access_section(db: AsyncSession, user: User, section_id: int) -> b
 
 
 async def can_access_student(db: AsyncSession, user: User, student_id: int) -> bool:
+    """Return whether a user can access a Student."""
     if is_admin(user):
         return True
     teacher = await get_teacher_for_user(db, user)
