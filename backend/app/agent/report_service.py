@@ -19,6 +19,7 @@ from app.agent.report_prompts import REPORT_AGENT_PROMPT_VERSION, REPORT_AGENT_S
 from app.agent.report_tools import (
     TOOL_REGISTRY,
     explain_report_metric,
+    get_historical_trend,
     get_report_snapshot,
     list_recent_reports,
     suggest_report_actions,
@@ -164,6 +165,20 @@ async def ask_report_agent(
                     lambda: trace_report_metric(snapshot or {}, selected_metric),
                     tool_calls,
                 )
+            if _wants_trend(message):
+                _scope = snapshot.get("scope_id")
+                _rtype = snapshot.get("report_type")
+                if _rtype:
+                    await _run_tool(
+                        db,
+                        session,
+                        user,
+                        user_message.id,
+                        "get_historical_trend",
+                        {"report_type": _rtype, "scope_id": _scope},
+                        lambda rt=_rtype, si=_scope: get_historical_trend(db, rt, si),
+                        tool_calls,
+                    )
             if mode in {"action_planning", "workflow"} or _wants_action(message):
                 await _run_tool(
                     db,
@@ -432,7 +447,10 @@ async def _build_answer(
     settings = get_settings()
     if settings.llm_api_key:
         try:
-            llm = ChatOpenAI(model=settings.llm_model, api_key=settings.llm_api_key, temperature=0.1)
+            llm_kwargs = {"model": settings.llm_model, "api_key": settings.llm_api_key, "temperature": 0.1}
+            if settings.llm_base_url:
+                llm_kwargs["base_url"] = settings.llm_base_url
+            llm = ChatOpenAI(**llm_kwargs)
             response = await llm.ainvoke(
                 [
                     SystemMessage(content=REPORT_AGENT_SYSTEM_PROMPT),
@@ -625,3 +643,13 @@ def _wants_action(message: str) -> bool:
 def _has_write_intent(message: str) -> bool:
     lower = message.lower()
     return any(word in lower for word in WRITE_INTENT_WORDS)
+
+
+def _wants_trend(message: str) -> bool:
+    lower = message.lower()
+    return any(word in lower for word in (
+        "xu hướng", "xu huong", "trend", "qua các kỳ", "qua cac ky",
+        "nhiều kỳ", "nhieu ky", "lịch sử", "lich su", "thay đổi",
+        "thay doi", "giảm", "tăng", "so sánh kỳ", "so sanh ky",
+        "kỳ trước", "ky truoc", "kỳ trước đó",
+    ))

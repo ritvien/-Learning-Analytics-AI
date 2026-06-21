@@ -1,5 +1,7 @@
 """Report generation, history, schedules, and feedback endpoints."""
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -43,9 +45,29 @@ async def _get_schedule_or_404(schedule_id: int, db: DBSession, current_user: Cu
 
 
 @router.get("", response_model=list[ReportResponse])
-async def list_reports(db: DBSession, current_user: CurrentUser, limit: int = 50) -> list[Report]:
+async def list_reports(
+    db: DBSession,
+    current_user: CurrentUser,
+    limit: int = 50,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    report_type: str | None = None,
+    scope_type: str | None = None,
+    scope_id: str | None = None,
+) -> list[Report]:
     """Return recent generated reports."""
-    query = select(Report).options(selectinload(Report.feedback_items)).order_by(Report.created_at.desc()).limit(200)
+    query = select(Report).options(selectinload(Report.feedback_items))
+    if date_from is not None:
+        query = query.where(Report.created_at >= date_from)
+    if date_to is not None:
+        query = query.where(Report.created_at <= date_to)
+    if report_type:
+        query = query.where(Report.report_type == report_type)
+    if scope_type:
+        query = query.where(Report.scope_type == scope_type)
+    if scope_id:
+        query = query.where(Report.scope_id == scope_id)
+    query = query.order_by(Report.created_at.desc()).limit(200)
     result = await db.execute(query)
     reports = list(result.scalars().all())
     visible_reports = [report for report in reports if await can_view_report(db, current_user, report)]
@@ -181,6 +203,8 @@ async def create_report(payload: ReportGenerateRequest, db: DBSession, current_u
             scope_type=payload.scope_type,
             scope_id=payload.scope_id,
             semester_id=payload.semester_id,
+            period_start=payload.period_start,
+            period_end=payload.period_end,
         )
         return await _get_report_or_404(report.id, db, current_user)
     except ValueError as exc:

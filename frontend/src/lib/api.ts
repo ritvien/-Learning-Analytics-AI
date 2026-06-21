@@ -65,6 +65,7 @@ export interface ApiEnrollment {
   final_grade: number | null
   grade_letter: string | null
   is_passed: boolean | null
+  completed_at: string | null
   attempt_number: number
   status: string
 }
@@ -193,6 +194,8 @@ export interface ApiReport {
   metrics_json: Record<string, unknown>
   content_markdown: string
   generated_by: string | null
+  period_start: string | null
+  period_end: string | null
   created_at: string
   feedback_items: ApiReportFeedback[]
 }
@@ -273,6 +276,108 @@ export interface ApiTreeNode {
   children: ApiTreeNode[]
 }
 
+export interface ApiDashboardDepartmentOption {
+  id: number
+  code: string
+  name: string
+}
+
+export interface ApiDashboardProgramOption {
+  id: number
+  code: string
+  name: string
+  department_id: number
+}
+
+export interface ApiDashboardSemesterOption {
+  id: number
+  code: string
+  name: string
+  year: number
+  term: number
+}
+
+export interface ApiDashboardCohortOption {
+  id: number
+  code: string
+  year_start: number
+}
+
+export interface ApiDashboardTrendRow {
+  id: number
+  semester: string
+  year: number
+  term: number
+  count: number
+  pass_rate: number
+  avg_grade: number
+}
+
+export interface ApiDashboardOverview {
+  departments: ApiDashboardDepartmentOption[]
+  programs: ApiDashboardProgramOption[]
+  semesters: ApiDashboardSemesterOption[]
+  cohorts: ApiDashboardCohortOption[]
+  kpis: {
+    total_active_students: number
+    program_count: number
+    completed_enrollments: number
+    failed_enrollments: number
+    risk_student_count: number
+    pass_rate: number
+    avg_grade: number
+  }
+  trend: ApiDashboardTrendRow[]
+  program_rows: {
+    id: number
+    code: string
+    name: string
+    department: string | null
+    active_students: number
+    sections: number
+    pass_rate: number
+    avg_grade: number
+    at_risk: number
+    worst_course: string
+  }[]
+  department_rows: { id: number; name: string; count: number; pass_rate: number }[]
+  cohort_rows: { id: number; cohort: string; year_start: number; count: number; pass_rate: number; fail_rate: number }[]
+  grade_distribution: { name: string; value: number }[]
+  heatmap: { program_id: number; program_name: string; semester_id: number; semester: string; year: number; term: number; pass_rate: number }[]
+}
+
+export interface ApiDashboardDepartments {
+  departments: ApiDashboardDepartmentOption[]
+  programs: ApiDashboardProgramOption[]
+  semesters: ApiDashboardSemesterOption[]
+  cohorts: ApiDashboardCohortOption[]
+  dept_stats: { id: number; name: string; short_name: string; student_count: number; pass_rate: number; avg_grade: number; at_risk: number }[]
+  heatmap: { department_id: number; department: string; semester_id: number; semester: string; year: number; term: number; pass_rate: number }[]
+  drill_course_fail: { id: number; name: string; total: number; failed: number; rate: number }[]
+  drill_section_abnormal: { id: number; code: string; course_name: string; fail_rate: number; avg_fail: number; diff: number }[]
+}
+
+export interface ApiDashboardProgram {
+  departments: ApiDashboardDepartmentOption[]
+  programs: ApiDashboardProgramOption[]
+  semesters: ApiDashboardSemesterOption[]
+  cohorts: ApiDashboardCohortOption[]
+  program: ApiDashboardProgramOption
+  kpis: {
+    students: number
+    completed_enrollments: number
+    pass_rate: number
+    avg_grade: number
+    at_risk: number
+    bottlenecks: number
+  }
+  trend: ApiDashboardTrendRow[]
+  course_stats: { id: number; code: string; name: string; group: string; total: number; pass_rate: number; avg_grade: number; failed: number; near_fail: number }[]
+  groups: { name: string; pass_rate: number }[]
+  distribution: { name: string; value: number }[]
+  cohort_heatmap: { cohort_id: number; cohort: string; semester_id: number; semester: string; year: number; term: number; pass_rate: number }[]
+}
+
 // --- Report Agent ---
 export type ApiReportAgentMode = "explain" | "root_cause" | "narrative" | "action_planning" | "workflow" | "compare"
 
@@ -338,6 +443,16 @@ export interface ChatResponse {
 
 async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null
+  const method = (init?.method ?? "GET").toUpperCase()
+  const cacheKey = token ? `${method}:${input}:${token.slice(-16)}` : `${method}:${input}`
+  if (method === "GET") {
+    const cached = getApiCache<T>(cacheKey)
+    if (cached !== undefined) return cached
+    const inFlight = getApiInFlight<T>(cacheKey)
+    if (inFlight) return inFlight
+  } else {
+    clearApiReadCache()
+  }
   const customInit = { ...init }
   customInit.headers = {
     ...customInit.headers,
@@ -345,7 +460,8 @@ async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   }
 
-  const response = await fetch(input, customInit)
+  const request = fetch(input, customInit)
+    .then(async (response) => {
   if (response.status === 204) {
     return null as T
   }
@@ -359,19 +475,123 @@ async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
     )
   }
 
-  return data as T
+      if (method === "GET") setApiCache(cacheKey, data as T)
+      return data as T
+    })
+    .finally(() => {
+      if (method === "GET") apiInFlight.delete(cacheKey)
+    })
+
+  if (method === "GET") apiInFlight.set(cacheKey, request as Promise<unknown>)
+  return request
+}
+
+const USER_CACHE_KEY = "current_user_cache_v1"
+const USER_CACHE_TTL_MS = 10 * 60_000
+let meInFlight: Promise<ApiUser> | null = null
+const API_CACHE_TTL_MS = 10 * 60_000
+const apiCache = new Map<string, { expiresAt: number; value: unknown }>()
+const apiInFlight = new Map<string, Promise<unknown>>()
+
+function getApiCache<T>(key: string): T | undefined {
+  const cached = apiCache.get(key)
+  if (!cached) return undefined
+  if (Date.now() > cached.expiresAt) {
+    apiCache.delete(key)
+    return undefined
+  }
+  return cached.value as T
+}
+
+function setApiCache<T>(key: string, value: T) {
+  apiCache.set(key, { expiresAt: Date.now() + API_CACHE_TTL_MS, value })
+}
+
+function getApiInFlight<T>(key: string): Promise<T> | null {
+  const request = apiInFlight.get(key)
+  return request ? (request as Promise<T>) : null
+}
+
+function clearApiReadCache() {
+  apiCache.clear()
 }
 
 export function saveAccessToken(token: string) {
   localStorage.setItem("access_token", token)
+  sessionStorage.removeItem(USER_CACHE_KEY)
+  localStorage.removeItem(USER_CACHE_KEY)
 }
 
 export function clearAccessToken() {
   localStorage.removeItem("access_token")
+  sessionStorage.removeItem(USER_CACHE_KEY)
+  localStorage.removeItem(USER_CACHE_KEY)
 }
 
 export function getAccessToken() {
   return typeof window !== "undefined" ? localStorage.getItem("access_token") : null
+}
+
+function isApiUser(value: unknown): value is ApiUser {
+  return Boolean(
+    value
+    && typeof value === "object"
+    && "id" in value
+    && "email" in value
+    && "role" in value
+  )
+}
+
+export function getCachedCurrentUser(): ApiUser | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = sessionStorage.getItem(USER_CACHE_KEY) ?? localStorage.getItem(USER_CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as unknown
+    if (parsed && typeof parsed === "object" && "user" in parsed) {
+      const wrapped = parsed as { cached_at?: number; user?: unknown }
+      if (!wrapped.cached_at || Date.now() - wrapped.cached_at > USER_CACHE_TTL_MS) {
+        sessionStorage.removeItem(USER_CACHE_KEY)
+        localStorage.removeItem(USER_CACHE_KEY)
+        return null
+      }
+      if (isApiUser(wrapped.user)) {
+        sessionStorage.setItem(USER_CACHE_KEY, raw)
+        return wrapped.user
+      }
+      return null
+    }
+    return isApiUser(parsed) ? parsed : null
+  } catch {
+    sessionStorage.removeItem(USER_CACHE_KEY)
+    localStorage.removeItem(USER_CACHE_KEY)
+    return null
+  }
+}
+
+function setCachedCurrentUser(user: ApiUser) {
+  if (typeof window !== "undefined") {
+    const payload = JSON.stringify({ cached_at: Date.now(), user })
+    sessionStorage.setItem(USER_CACHE_KEY, payload)
+    localStorage.setItem(USER_CACHE_KEY, payload)
+  }
+}
+
+export function getCurrentUserCached() {
+  const cachedUser = getCachedCurrentUser()
+  if (cachedUser) return Promise.resolve(cachedUser)
+
+  if (!meInFlight) {
+    meInFlight = fetcher<ApiUser>("/api/v1/auth/me")
+      .then((user) => {
+        setCachedCurrentUser(user)
+        return user
+      })
+      .finally(() => {
+        meInFlight = null
+      })
+  }
+  return meInFlight
 }
 
 function qs(params: Record<string, string | number | undefined>): string {
@@ -396,7 +616,7 @@ export const api = {
     saveAccessToken(result.access_token)
     return result
   },
-  me: () => fetcher<ApiUser>("/api/v1/auth/me"),
+  me: getCurrentUserCached,
   getUsers: (params?: { limit?: number; skip?: number }) =>
     fetcher<ApiUser[]>(`/api/v1/auth/users${qs({ limit: params?.limit, skip: params?.skip })}`),
   createUser: (body: {
@@ -419,11 +639,11 @@ export const api = {
     }),
 
   // --- Reports ---
-  getReports: (params?: { limit?: number }) =>
-    fetcher<ApiReport[]>(`/api/v1/reports${qs({ limit: params?.limit })}`),
+  getReports: (params?: { limit?: number; date_from?: string; date_to?: string; report_type?: string; scope_type?: string; scope_id?: string }) =>
+    fetcher<ApiReport[]>(`/api/v1/reports${qs(params ?? {})}`),
   getReport: (id: string) =>
     fetcher<ApiReport>(`/api/v1/reports/${id}`),
-  generateReport: (body: { report_type: ApiReportType; actor_role?: string; scope_type?: string; scope_id?: string; semester_id?: number }) =>
+  generateReport: (body: { report_type: ApiReportType; actor_role?: string; scope_type?: string; scope_id?: string; semester_id?: number; period_start?: string; period_end?: string }) =>
     fetcher<ApiReport>("/api/v1/reports", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -507,7 +727,7 @@ export const api = {
   deleteCourse: (id: number) =>
     fetcher<void>(`/api/v1/courses/${id}`, { method: "DELETE" }),
 
-  getEnrollments: (params?: { student_id?: number; section_id?: number; limit?: number }) =>
+  getEnrollments: (params?: { student_id?: number; section_id?: number; course_id?: number; program_id?: number; semester_id?: number; date_from?: string; date_to?: string; limit?: number }) =>
     fetcher<ApiEnrollment[]>(`/api/v1/grades/enrollments${qs(params ?? {})}`),
   getGradeComponents: (params?: { enrollment_id?: number; section_id?: number; limit?: number }) =>
     fetcher<ApiGradeComponent[]>(`/api/v1/grades/components${qs(params ?? {})}`),
@@ -601,6 +821,12 @@ export const api = {
     fetcher<ApiHealthScore>(`/api/v1/analytics/health/program/${id}`),
   getDepartmentHealth: (id: number) =>
     fetcher<ApiHealthScore>(`/api/v1/analytics/health/department/${id}`),
+  getDashboardOverview: (params?: { semester_code?: string; department_id?: number; date_from?: string; date_to?: string }) =>
+    fetcher<ApiDashboardOverview>(`/api/v1/analytics/dashboard/overview${qs(params ?? {})}`),
+  getDashboardDepartments: (params?: { semester_code?: string; department_id?: number; program_id?: number; date_from?: string; date_to?: string }) =>
+    fetcher<ApiDashboardDepartments>(`/api/v1/analytics/dashboard/departments${qs(params ?? {})}`),
+  getDashboardProgram: (id: number, params?: { semester_code?: string; cohort_id?: number; date_from?: string; date_to?: string }) =>
+    fetcher<ApiDashboardProgram>(`/api/v1/analytics/dashboard/programs/${id}${qs(params ?? {})}`),
   getTree: () =>
     fetcher<ApiTreeNode>("/api/v1/tree"),
 

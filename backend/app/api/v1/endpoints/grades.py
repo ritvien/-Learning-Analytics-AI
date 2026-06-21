@@ -177,18 +177,39 @@ async def list_enrollments(
     current_user: CurrentUser,
     section_id: int | None = None,
     student_id: int | None = None,
+    course_id: int | None = None,
+    program_id: int | None = None,
+    semester_id: int | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
 ) -> list[Enrollment]:
     """Return enrollments filtered by section or student."""
     if section_id is not None and not await can_access_section(db, current_user, section_id):
         return []
     if student_id is not None and not await can_access_student(db, current_user, student_id):
         return []
+
+    q = select(Enrollment).join(Section, Section.id == Enrollment.section_id)
+    joined_student = False
+    joined_course = False
+
+    if section_id is not None:
+        q = q.where(Enrollment.section_id == section_id)
+    if student_id is not None:
+        q = q.where(Enrollment.student_id == student_id)
+    if course_id is not None:
+        q = q.where(Section.course_id == course_id)
+    if semester_id is not None:
+        q = q.where(Section.semester_id == semester_id)
+    if date_from is not None:
+        q = q.where(Enrollment.completed_at >= date_from)
+    if date_to is not None:
+        q = q.where(Enrollment.completed_at <= date_to)
+    if program_id is not None:
+        q = q.join(Student, Student.id == Enrollment.student_id).where(Student.program_id == program_id)
+        joined_student = True
+
     if not is_admin(current_user):
-        q = select(Enrollment).join(Section, Section.id == Enrollment.section_id)
-        if section_id is not None:
-            q = q.where(Enrollment.section_id == section_id)
-        if student_id is not None:
-            q = q.where(Enrollment.student_id == student_id)
         if current_user.role == UserRole.lecturer:
             teacher = await get_teacher_for_user(db, current_user)
             if teacher is None:
@@ -196,15 +217,19 @@ async def list_enrollments(
             q = q.where(Section.teacher_id == teacher.id)
         else:
             department_ids = await require_department_scope(db, current_user)
-            q = (
-                q.join(Student, Student.id == Enrollment.student_id)
-                .join(Program, Program.id == Student.program_id)
-                .join(Course, Course.id == Section.course_id)
-                .where((Program.department_id.in_(department_ids)) | (Course.department_id.in_(department_ids)))
-            )
-        q = q.offset(pagination.skip).limit(pagination.limit)
-        return list((await db.execute(q)).scalars().all())
-    return await crud.list_enrollments(db, pagination.skip, pagination.limit, section_id, student_id)
+            if not joined_student:
+                q = q.join(Student, Student.id == Enrollment.student_id)
+                joined_student = True
+            q = q.join(Program, Program.id == Student.program_id)
+            q = q.join(Course, Course.id == Section.course_id)
+            joined_course = True
+            q = q.where((Program.department_id.in_(department_ids)) | (Course.department_id.in_(department_ids)))
+
+    if course_id is not None and not joined_course:
+        q = q.join(Course, Course.id == Section.course_id)
+
+    q = q.offset(pagination.skip).limit(pagination.limit)
+    return list((await db.execute(q)).scalars().all())
 
 
 @router.post(

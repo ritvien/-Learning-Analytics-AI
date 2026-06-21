@@ -1,4 +1,5 @@
 import * as React from "react"
+import Link from "next/link"
 import {
   BookOpen,
   FileText,
@@ -26,8 +27,16 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { api, type ApiUserRole } from "@/lib/api"
 
-const data = {
+type NavItem = {
+  title: string
+  url: string
+  icon: React.ComponentType<{ className?: string }>
+  roles?: ApiUserRole[]
+}
+
+const data: { navMain: { title: string; items: NavItem[] }[] } = {
   navMain: [
     {
       title: "Quản lý chung",
@@ -60,20 +69,62 @@ const data = {
       items: [
         { title: "Chat AI", url: "/chat", icon: MessageSquare },
         { title: "Báo cáo", url: "/manager/reports", icon: FileText },
-        { title: "Tài khoản & phân quyền", url: "/manager/users", icon: ShieldCheck },
-        { title: "Upload CTĐT", url: "/manager/programs", icon: FileUp },
+        { title: "Tài khoản & phân quyền", url: "/manager/users", icon: ShieldCheck, roles: ["superadmin", "admin"] },
+        { title: "Upload CTĐT", url: "/manager/programs", icon: FileUp, roles: ["superadmin", "admin", "manager"] },
       ],
     },
   ],
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+function canSeeItem(item: NavItem, role?: ApiUserRole | null) {
+  return !item.roles || (role != null && item.roles.includes(role))
+}
+
+function prefetchNavData(url: string) {
+  if (url === "/manager") {
+    void api.getTree().catch(() => undefined)
+    return
+  }
+  if (url === "/manager/analytics") {
+    void api.getDashboardOverview().catch(() => undefined)
+    return
+  }
+  if (url === "/manager/analytics/departments") {
+    void api.getDashboardDepartments().catch(() => undefined)
+    return
+  }
+  if (url === "/manager/analytics/programs") {
+    void api.getPrograms({ limit: 100 })
+      .then((programs) => {
+        const firstProgramId = programs[0]?.id
+        if (firstProgramId) return api.getDashboardProgram(firstProgramId)
+        return undefined
+      })
+      .catch(() => undefined)
+    return
+  }
+  if (url === "/manager/reports") {
+    void api.getReports({ limit: 50 }).catch(() => undefined)
+  }
+}
+
+export function AppSidebar({ userRole, ...props }: React.ComponentProps<typeof Sidebar> & { userRole?: ApiUserRole | null }) {
+  const groups = data.navMain
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => canSeeItem(item, userRole)),
+    }))
+    .filter((group) => group.items.length > 0)
+
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<a href="/manager" />}>
+            <SidebarMenuButton
+              size="lg"
+              render={<Link href="/manager" prefetch onMouseEnter={() => prefetchNavData("/manager")} onFocus={() => prefetchNavData("/manager")} />}
+            >
               <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-[#1B3A5C] text-white shadow-sm">
                 <Zap className="size-5" />
               </div>
@@ -86,7 +137,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        {data.navMain.map((item) => (
+        {groups.map((item) => (
           <SidebarGroup key={item.title}>
             <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
               {item.title}
@@ -95,7 +146,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <SidebarMenu>
                 {item.items.map((subItem) => (
                   <SidebarMenuItem key={subItem.title}>
-                    <SidebarMenuButton render={<a href={subItem.url} />}>
+                    <SidebarMenuButton
+                      render={(
+                        <Link
+                          href={subItem.url}
+                          prefetch
+                          onMouseEnter={() => prefetchNavData(subItem.url)}
+                          onFocus={() => prefetchNavData(subItem.url)}
+                        />
+                      )}
+                    >
                       <subItem.icon className="size-4" />
                       <span>{subItem.title}</span>
                     </SidebarMenuButton>
