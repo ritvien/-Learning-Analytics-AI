@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from langchain_openai import ChatOpenAI
 
 from app.agent import create_agent
+from app.agent.nodes import MissingLLMCredentialsError
 from app.database import get_db, AsyncSessionLocal
 from app.models.chat import ChatSession
 from app.dependencies import get_current_user
@@ -175,6 +176,12 @@ async def chat(
                 "messages": input_messages,
                 "context": payload.context,
             })
+        except MissingLLMCredentialsError as exc:
+            logger.warning("Agent invocation blocked by missing LLM credentials")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=str(exc),
+            ) from exc
         except Exception as exc:
             logger.exception("Agent invocation failed")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Agent error: {exc}") from exc
@@ -312,6 +319,9 @@ async def chat_stream(
                     db_session.messages = messages_to_dict(final_state_messages)
                     await db.commit()
 
+            except MissingLLMCredentialsError as exc:
+                logger.warning("Agent stream blocked by missing LLM credentials")
+                yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
             except Exception as exc:
                 logger.exception("Agent stream failed")
                 yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"

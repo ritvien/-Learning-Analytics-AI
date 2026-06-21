@@ -27,6 +27,7 @@ services:
       target: runtime          # use the slim runtime stage
     restart: unless-stopped
     env_file:
+      - ./.env
       - ./backend/.env
     depends_on:
       db:
