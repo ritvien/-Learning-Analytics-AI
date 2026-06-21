@@ -7,6 +7,7 @@ export interface ApiStudent {
   class_code: string | null
   status: string
   program_id: number
+  specialization_id: number | null
   cohort_id: number
   gpa_cumulative: number | null
 }
@@ -269,7 +270,7 @@ export interface ApiTreeMetrics {
 
 export interface ApiTreeNode {
   id: number | string
-  type: "school" | "department" | "program" | "course"
+  type: "school" | "department" | "program" | "specialization" | "course"
   code: string
   label: string
   metrics: ApiTreeMetrics

@@ -127,6 +127,7 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Priority |
 |:-:|:-----|:----------------|:--------:|:------:|:--------:|
+| H40 | Schema Update 3-Tier Hierarchy | Sửa schema DB quản lý 3 cấp (Khoa -> Ngành -> Chuyên ngành), sinh viên trỏ vào Program. Đồng thời đổi tên trường đại học. | 19/06 | ⬜ | **P0** |
 | H35 | Thêm session lưu lịch sử chat | Implement session management lưu lịch sử chat: tạo/load/list sessions, persist messages theo thread_id vào DB, UI hiển thị sidebar danh sách sessions cũ | 18/06 | [x] | **P0** |
 | H36 | Unit Tests — API Endpoints | Viết unit tests cho các API endpoints chính (chat, health, tree, auth) theo pattern trong Test.md: conftest.py fixtures, AsyncClient, mock LLM. Mục tiêu: ≥ 10 test cases, coverage ≥ 60% | 18/06 | ✅ | **P0** |
 | H37 | Unit Tests — Agent Nodes & Routing | Viết tests cho từng LangGraph node (router, core_agent, format_response) và conditional routing logic. Dùng parametrize cho nhiều intent cases | 18/06 | ✅ | **P0** |
@@ -187,7 +188,7 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Depends on |
 |:-:|:-----|:----------------|:--------:|:------:|:-----------|
-| T44 | Tree API + Migration 3-tier | Alembic migration `specializations`, cập nhật ORM + `GET /api/v1/tree`: Khoa → **Chuyên ngành** → Ngành → Môn. CRUD endpoints liên quan. Handoff spec từ H45 | 20/06 | ➜ Sprint 3 | H45 |
+| T44 | Tree API + Migration 3-tier — ownership chuyển sang Hoàng ngày 21/06 | Alembic migration `specializations`, cập nhật ORM + `GET /api/v1/tree`: Khoa → Ngành → Chuyên ngành → Môn. CRUD endpoints liên quan | 21/06 | ✅ Sprint 3 | H45 |
 
 ---
 
@@ -439,8 +440,9 @@ graph LR
 | T24 | Sửa seed cohort/import điểm thành phần và tạo Alembic baseline | Hưng | 20/06 | ✅ |
 | T25 | Điều phối một lần reset DB local và xác minh revision/row counts toàn team | Hưng + cả team | 20/06 | ✅ |
 | T26 | Tạo schema `dwh`, ETL idempotent và data quality checks | Hưng | 23/06 | ✅ |
-| H25 | Tạo schema `ml`, baseline dự đoán pass/trượt từng môn, chống leakage | Hoàng | 23/06 | ➜ Sprint 3 |
-| H26 | Tổng hợp expected passed/failed credits và báo cáo evaluation | Hoàng | 24/06 | ➜ Sprint 3 |
+| T50 | Nhận ownership schema `ml`, migration và prediction storage tables | Hưng | 23/06 | ➜ Sprint 3 |
+| H25 | Feature engineering + baseline dự đoán pass/trượt từng môn, chống leakage | Hoàng | 26/06 | ➜ Sprint 3 |
+| H26 | Tổng hợp expected passed/failed credits và báo cáo evaluation | Hoàng | 28/06 | ➜ Sprint 3 |
 | V23 | UI prediction từng môn và tổng tín chỉ pass/trượt kỳ vọng | Hiếu | 24/06 | ➜ Sprint 3 |
 
 **Definition of Done bổ sung:**
@@ -472,7 +474,7 @@ Tham khảo [DatabaseModernizationPlan.md](../10-References/DatabaseModernizatio
 | **Agent** | LangGraph agent chạy end-to-end, ≥ 3 tools (SQL, CLO, Chart), ReAct loop, error handling 3 tầng | Hoàng |
 | **Backend** | CRUD APIs hoạt động, Tree Metrics API, Chat endpoint, SSE streaming | Hưng |
 | **Frontend** | Chat UI + Tree component kết nối API thật, CRUD pages cơ bản | Hiếu |
-| **Data** | Seed data trong PostgreSQL, **≥ 1.300 students** với grades thật | Hoàng (H46) + Hưng (T44) |
+| **Data** | Seed data trong PostgreSQL, **≥ 1.300 students** với grades thật | Hoàng (H46 + T44) |
 | **Testing** | ≥ 10 unit tests BE, ≥ 5 FE test suites, 10 eval evidences | Cả team |
 | **DevOps** | Docker chạy đầy đủ services, CI/CD pass trên mọi PR | Hưng |
 | **Docs** | README cập nhật, architecture diagrams đúng, Journal + Worklog | Cả team |

@@ -12,6 +12,11 @@ from pathlib import Path
 
 import asyncpg
 
+try:
+    from scripts.import_academic_dataset import DEFAULT_EXPECTED_STUDENTS, apply_artifact, load_artifact
+except ModuleNotFoundError:  # Direct execution: python scripts/seed_database.py
+    from import_academic_dataset import DEFAULT_EXPECTED_STUDENTS, apply_artifact, load_artifact
+
 SEED_FILES = (
     "init-data.sql",
     "supplement-academic-catalog.sql",
@@ -56,6 +61,18 @@ async def main() -> None:
                 continue
             print(f"[seed] Applying {filename}...")
             await connection.execute(path.read_text(encoding="utf-8"))
+
+        academic_artifact = seed_dir / "seed-academic-v2.json.gz"
+        if academic_artifact.exists():
+            expected_students = int(os.getenv("H46_EXPECTED_STUDENTS", DEFAULT_EXPECTED_STUDENTS))
+            print(f"[seed] Applying {academic_artifact.name} with natural-key upserts...")
+            await apply_artifact(
+                connection,
+                load_artifact(academic_artifact),
+                expected_students=expected_students,
+            )
+        else:
+            print(f"[seed] Missing {academic_artifact}; clean DB remains on the legacy SQL dataset")
 
         counts = await connection.fetchrow(
             """

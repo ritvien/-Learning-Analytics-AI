@@ -1,10 +1,10 @@
-"""Academic hierarchy ORM models: University → Department → Program → Course."""
+"""Academic hierarchy ORM models: University → Department → Program → Specialization → Course."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, SmallInteger, String, Table, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, ForeignKey, Index, Integer, SmallInteger, String, Table, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -19,6 +19,13 @@ program_courses = Table(
     "program_courses",
     Base.metadata,
     Column("program_id", ForeignKey("programs.id", ondelete="CASCADE"), primary_key=True),
+    Column("course_id", ForeignKey("courses.id", ondelete="CASCADE"), primary_key=True),
+)
+
+specialization_courses = Table(
+    "specialization_courses",
+    Base.metadata,
+    Column("specialization_id", ForeignKey("specializations.id", ondelete="CASCADE"), primary_key=True),
     Column("course_id", ForeignKey("courses.id", ondelete="CASCADE"), primary_key=True),
 )
 
@@ -82,8 +89,37 @@ class Program(TimestampMixin, Base):
 
     department: Mapped[Department] = relationship(back_populates="programs")
     courses: Mapped[list[Course]] = relationship(secondary=program_courses, back_populates="programs")
+    specializations: Mapped[list[Specialization]] = relationship(back_populates="program")
     plos: Mapped[list[PLO]] = relationship(back_populates="program")  # type: ignore[name-defined]
     students: Mapped[list[Student]] = relationship(back_populates="program")
+
+
+class Specialization(TimestampMixin, Base):
+    """Chuyên ngành — a focused study track within one Program."""
+
+    __tablename__ = "specializations"
+    __table_args__ = (
+        UniqueConstraint("program_id", "code"),
+        Index("idx_specializations_program", "program_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    program_id: Mapped[int] = mapped_column(ForeignKey("programs.id", ondelete="CASCADE"), nullable=False)
+    code: Mapped[str] = mapped_column(String(30), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    name_en: Mapped[str | None] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text)
+    is_placeholder: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    program: Mapped[Program] = relationship(back_populates="specializations")
+    courses: Mapped[list[Course]] = relationship(secondary=specialization_courses, back_populates="specializations")
+    students: Mapped[list[Student]] = relationship(back_populates="specialization")
+
+    @property
+    def course_ids(self) -> list[int]:
+        """Return IDs of courses assigned to this specialization."""
+        return [course.id for course in self.courses]
 
 
 class Semester(Base):
@@ -121,6 +157,10 @@ class Course(TimestampMixin, Base):
 
     department: Mapped[Department] = relationship(back_populates="courses")
     programs: Mapped[list[Program]] = relationship(secondary=program_courses, back_populates="courses")
+    specializations: Mapped[list[Specialization]] = relationship(
+        secondary=specialization_courses,
+        back_populates="courses",
+    )
     clos: Mapped[list[CLO]] = relationship(back_populates="course")  # type: ignore[name-defined]
     plo_mappings: Mapped[list[CoursePLOMapping]] = relationship(back_populates="course") # type: ignore[name-defined]
     sections: Mapped[list[Section]] = relationship(back_populates="course")

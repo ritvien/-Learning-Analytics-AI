@@ -6,12 +6,34 @@ from sqlalchemy import select
 from app.access_control import can_access_student, get_teacher_for_user, is_admin, require_department_scope
 from app.crud import people as crud
 from app.dependencies import CurrentUser, DBSession, PaginationDep, require_write_access
-from app.models.academic import Program
+from app.models.academic import Program, Specialization
 from app.models.people import Student, UserRole
 from app.models.teaching import Enrollment, Section
 from app.schemas.people import StudentCreate, StudentResponse, StudentUpdate
 
 router = APIRouter()
+
+
+async def _ensure_specialization_matches_program(
+    db: DBSession,
+    program_id: int,
+    specialization_id: int | None,
+) -> None:
+    """Validate that an optional specialization belongs to the student's Program."""
+    if specialization_id is None:
+        return
+    result = await db.execute(
+        select(Specialization.id).where(
+            Specialization.id == specialization_id,
+            Specialization.program_id == program_id,
+            Specialization.is_active == True,  # noqa: E712
+        )
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Specialization does not belong to the selected program",
+        )
 
 
 @router.get("", response_model=list[StudentResponse])
@@ -65,6 +87,7 @@ async def get_student(student_id: int, db: DBSession, current_user: CurrentUser)
 )
 async def create_student(payload: StudentCreate, db: DBSession) -> Student:
     """Create a new student."""
+    await _ensure_specialization_matches_program(db, payload.program_id, payload.specialization_id)
     return await crud.create_student(db, payload.model_dump())
 
 
@@ -74,7 +97,10 @@ async def update_student(student_id: int, payload: StudentUpdate, db: DBSession)
     obj = await crud.get_student(db, student_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
-    return await crud.update_student(db, obj, payload.model_dump(exclude_unset=True))
+    updates = payload.model_dump(exclude_unset=True)
+    if "specialization_id" in updates:
+        await _ensure_specialization_matches_program(db, obj.program_id, updates["specialization_id"])
+    return await crud.update_student(db, obj, updates)
 
 
 @router.delete("/{student_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_write_access)])

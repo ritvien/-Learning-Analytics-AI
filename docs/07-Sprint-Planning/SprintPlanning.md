@@ -133,7 +133,7 @@ gantt
 |:------:|:------|:-----|:-----|
 | **S1** | Crawl data thực tế, AI agent design, Architecture diagrams, PRD update | Interview stakeholder, DB schema, FastAPI + CRUD, **Docker + CI/CD** | Wireframes, Next.js setup, base components, Tree component (static) |
 | **S2** | LangGraph agent, Gate G2 eval, prompt tuning, README | ORM/Alembic baseline, tree/report/auth APIs, tests | Academic Tree ↔ API, Chat UI, dashboard/report flow |
-| **S3** | Guardrails, eval metrics, cost report, demo narrative | **Deploy** via ngrok/personal host or platform fallback, backend guardrails, release runbook | Public frontend URL, smoke test, demo video draft, final QA |
+| **S3** | Guardrails, eval metrics, cost report, demo narrative | Duy trì shared Ngrok + Next.js API proxy đã có, backend guardrails, release runbook | Xác minh public URL, smoke test, demo video draft, final QA |
 | **S4** | README final, architecture diagram final, evaluation evidence | Final QA, security review, performance check | **Pitch Deck 10 slides**, **Video Demo**, UI polish |
 
 ---

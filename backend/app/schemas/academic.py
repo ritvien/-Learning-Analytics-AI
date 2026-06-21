@@ -93,6 +93,47 @@ class ProgramResponse(ProgramBase, OrmBase):
     updated_at: datetime
 
 
+# =========================================================== Specialization
+class SpecializationBase(BaseModel):
+    """Shared fields for Specialization create/update."""
+
+    code: str = Field(max_length=30)
+    name: str = Field(max_length=255)
+    name_en: str | None = None
+    description: str | None = None
+    is_placeholder: bool = False
+    is_active: bool = True
+
+
+class SpecializationCreate(SpecializationBase):
+    """Fields required when creating a Specialization."""
+
+    program_id: int
+    course_ids: list[int] = Field(default_factory=list)
+
+
+class SpecializationUpdate(BaseModel):
+    """All fields optional for PATCH update of Specialization."""
+
+    code: str | None = Field(None, max_length=30)
+    name: str | None = Field(None, max_length=255)
+    name_en: str | None = None
+    description: str | None = None
+    is_placeholder: bool | None = None
+    is_active: bool | None = None
+    course_ids: list[int] | None = None
+
+
+class SpecializationResponse(SpecializationBase, OrmBase):
+    """Full Specialization response including course mappings."""
+
+    id: int
+    program_id: int
+    course_ids: list[int]
+    created_at: datetime
+    updated_at: datetime
+
+
 # =================================================================== Course
 class CourseBase(BaseModel):
     """Shared fields for Course create/update."""

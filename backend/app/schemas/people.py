@@ -126,6 +126,7 @@ class StudentCreate(StudentBase):
     """Fields required when creating a Student."""
 
     program_id: int
+    specialization_id: int | None = None
     cohort_id: int
 
 
@@ -137,6 +138,7 @@ class StudentUpdate(BaseModel):
     phone: str | None = None
     class_code: str | None = None
     status: str | None = None
+    specialization_id: int | None = None
     is_active: bool | None = None
 
 
@@ -145,6 +147,7 @@ class StudentResponse(StudentBase, OrmBase):
 
     id: int
     program_id: int
+    specialization_id: int | None
     cohort_id: int
     gpa_cumulative: float | None
     created_at: datetime

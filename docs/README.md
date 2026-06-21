@@ -15,6 +15,7 @@ Trang này giúp team biết tài liệu nào là nguồn chuẩn hiện tại, 
 | Kiến trúc tổng thể | [SystemArchitecture.md](./10-References/SystemArchitecture.md) |
 | Setup, pull, reset và migration | [ProjectSetup.md](./10-References/ProjectSetup.md) |
 | Kế hoạch thực thi hiện tại | [Sprint3.md](./07-Sprint-Planning/Sprint3.md) |
+| Contract Academic Tree 3-tier | [H45-Plan.md](./07-Sprint-Planning/H45-Plan.md) |
 
 Khi có mâu thuẫn giữa tài liệu, ưu tiên theo thứ tự:
 

@@ -6,14 +6,14 @@ import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Date, Enum, ForeignKey, Integer, Numeric, SmallInteger, String, Text
+from sqlalchemy import Boolean, Date, Enum, ForeignKey, Index, Integer, Numeric, SmallInteger, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 from app.models.base import TimestampMixin
 
 if TYPE_CHECKING:
-    from app.models.academic import Department, Program
+    from app.models.academic import Department, Program, Specialization
     from app.models.teaching import Enrollment, Section
 
 
@@ -78,12 +78,17 @@ class Cohort(Base):
 
 
 class Student(TimestampMixin, Base):
-    """Sinh viên — linked to program and cohort."""
+    """Sinh viên — linked to program, optional specialization, and cohort."""
 
     __tablename__ = "students"
+    __table_args__ = (Index("idx_students_specialization", "specialization_id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     program_id: Mapped[int] = mapped_column(ForeignKey("programs.id", ondelete="RESTRICT"), nullable=False)
+    specialization_id: Mapped[int | None] = mapped_column(
+        ForeignKey("specializations.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     cohort_id: Mapped[int] = mapped_column(ForeignKey("cohorts.id", ondelete="RESTRICT"), nullable=False)
     student_code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -97,5 +102,6 @@ class Student(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     program: Mapped[Program] = relationship(back_populates="students")
+    specialization: Mapped[Specialization | None] = relationship(back_populates="students")
     cohort: Mapped[Cohort] = relationship(back_populates="students")
     enrollments: Mapped[list[Enrollment]] = relationship(back_populates="student")

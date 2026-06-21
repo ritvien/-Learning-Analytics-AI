@@ -13,10 +13,10 @@ sequenceDiagram
     participant Cache as "⚡ Redis Cache"
     participant DB as "💾 PostgreSQL (Relational)"
 
-    User->>FE: Click vào node "Ngành KTPM"
-    FE->>API: GET /api/v1/tree/program/2/metrics
+    User->>FE: Click vào node "Chuyên ngành KTPM"
+    FE->>API: GET /api/v1/tree/specialization/2/metrics
     
-    API->>Cache: Kiểm tra Cache (Key: metrics_prog_2)
+    API->>Cache: Kiểm tra Cache (Key: metrics_specialization_2)
     alt Cache Hit (Đã có sẵn dữ liệu)
         Cache-->>API: Trả về JSON {gpa: 7.5, fail_rate: 15%}
     else Cache Miss (Dữ liệu chưa có hoặc hết hạn)
