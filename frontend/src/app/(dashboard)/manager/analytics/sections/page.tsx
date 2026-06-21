@@ -1,8 +1,10 @@
 "use client"
 
 import * as React from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Users, AlertTriangle, CheckCircle2, TrendingDown } from "lucide-react"
 import { api, type ApiSection, type ApiSemester } from "@/lib/api"
@@ -29,23 +31,57 @@ const DIST_RANGES = [
 
 type RiskLevel = "fail" | "nearFail" | "risk"
 
+function dateStartIso(value: string) {
+  return value ? new Date(`${value}T00:00:00`).toISOString() : undefined
+}
+
+function dateEndIso(value: string) {
+  return value ? new Date(`${value}T23:59:59.999`).toISOString() : undefined
+}
+
 export default function SectionsRiskPage() {
+  const searchParams = useSearchParams()
   const [raw, setRaw]           = React.useState<Raw | null>(null)
   const [selSem, setSelSem]     = React.useState("all")
   const [selCourse, setSelCourse] = React.useState("all")
   const [selSection, setSelSection] = React.useState("all")
+  const [dateFrom, setDateFrom] = React.useState("")
+  const [dateTo, setDateTo] = React.useState("")
 
   React.useEffect(() => {
+    const querySection = searchParams.get("section_id") ?? searchParams.get("section")
+    const queryCourse = searchParams.get("course_id") ?? searchParams.get("course")
+    const parsedSectionId = querySection ? Number(querySection) : NaN
+    const parsedCourseId = queryCourse ? Number(queryCourse) : NaN
+    const enrollmentFilter = querySection
+      ? { section_id: Number.isFinite(parsedSectionId) ? parsedSectionId : undefined, limit: 50000, date_from: dateStartIso(dateFrom), date_to: dateEndIso(dateTo) }
+      : queryCourse
+        ? { course_id: Number.isFinite(parsedCourseId) ? parsedCourseId : undefined, limit: 50000, date_from: dateStartIso(dateFrom), date_to: dateEndIso(dateTo) }
+        : { limit: 50000, date_from: dateStartIso(dateFrom), date_to: dateEndIso(dateTo) }
     Promise.all([
       api.getCourses({ limit: 500 }),
-      api.getEnrollments({ limit: 50000 }),
+      api.getEnrollments(enrollmentFilter),
       api.getSections({ limit: 5000 }),
       api.getSemesters(),
       api.getStudents({ limit: 1000 }),
-    ]).then(([courses, enrollments, sections, semesters, students]) =>
+    ]).then(([courses, enrollments, sections, semesters, students]) => {
       setRaw({ courses, enrollments, sections, semesters, students })
-    ).catch(console.error)
-  }, [])
+      const querySemester = searchParams.get("semester") ?? searchParams.get("semester_id")
+      const linkedSection = querySection ? sections.find(s => String(s.id) === querySection) : undefined
+      const linkedSemester = linkedSection
+        ? semesters.find(s => s.id === linkedSection.semester_id)
+        : querySemester
+          ? semesters.find(s => String(s.id) === querySemester || s.code === querySemester)
+          : undefined
+      if (linkedSemester) setSelSem(linkedSemester.code)
+      if (linkedSection) {
+        setSelCourse(String(linkedSection.course_id))
+        setSelSection(String(linkedSection.id))
+      } else if (queryCourse && courses.some(c => String(c.id) === queryCourse)) {
+        setSelCourse(queryCourse)
+      }
+    }).catch(console.error)
+  }, [searchParams, dateFrom, dateTo])
 
   const maps = React.useMemo(() => {
     if (!raw) return null
@@ -203,6 +239,14 @@ export default function SectionsRiskPage() {
     risk: "🟡 Qua — nguy cơ",
   }
 
+  const selectedSemester = raw?.semesters.find(s => s.code === selSem)
+  const selectedCourse = maps?.courseMap.get(Number(selCourse))
+  const selectedSection = maps?.secMap.get(Number(selSection))
+  const selectedSectionSemester = selectedSection ? maps?.semMap.get(selectedSection.semester_id) : undefined
+  const semLabel = selectedSemester ? `${selectedSemester.name} (${selectedSemester.code})` : "Tất cả học kỳ"
+  const courseLabel = selectedCourse ? `${selectedCourse.code} - ${selectedCourse.name}` : "Tất cả môn"
+  const sectionLabel = selectedSection ? `${selectedSection.section_code} - ${selectedSectionSemester?.code ?? "chưa rõ kỳ"}` : "Tất cả lớp học phần"
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
@@ -219,7 +263,7 @@ export default function SectionsRiskPage() {
               <span className="text-xs font-medium text-muted-foreground w-4">1</span>
               <Select value={selSem} onValueChange={v => { setSelSem(v ?? "all"); setSelCourse("all"); setSelSection("all") }}>
                 <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Chọn Học kỳ" />
+                  <span className="truncate">{semLabel}</span>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả học kỳ</SelectItem>
@@ -232,7 +276,7 @@ export default function SectionsRiskPage() {
               <span className="text-xs font-medium text-muted-foreground w-4">2</span>
               <Select value={selCourse} onValueChange={v => { setSelCourse(v ?? "all"); setSelSection("all") }}>
                 <SelectTrigger className="w-64">
-                  <SelectValue placeholder="Chọn Môn học" />
+                  <span className="truncate">{courseLabel}</span>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả môn</SelectItem>
@@ -245,7 +289,7 @@ export default function SectionsRiskPage() {
               <span className="text-xs font-medium text-muted-foreground w-4">3</span>
               <Select value={selSection} onValueChange={v => setSelSection(v ?? "all")} disabled={selCourse === "all"}>
                 <SelectTrigger className="w-52">
-                  <SelectValue placeholder="Chọn Lớp học phần" />
+                  <span className="truncate">{sectionLabel}</span>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">— Chọn lớp —</SelectItem>
@@ -257,6 +301,14 @@ export default function SectionsRiskPage() {
                 </SelectContent>
               </Select>
             </div>
+            <Input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} className="w-40" aria-label="Từ ngày" />
+            <Input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} className="w-40" aria-label="Đến ngày" />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <Badge variant="outline">Học kỳ: {semLabel}</Badge>
+            <Badge variant="outline">Môn: {courseLabel}</Badge>
+            <Badge variant="outline">Lớp: {sectionLabel}</Badge>
+            <Badge variant="outline">Thời gian: {dateFrom || "đầu dữ liệu"} → {dateTo || "hiện tại"}</Badge>
           </div>
         </CardContent>
       </Card>

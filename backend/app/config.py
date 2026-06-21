@@ -34,16 +34,17 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
 
     # --------------------------------------------------------------------- llm
-    llm_provider: str = "openai"  # gemini | mistral | openai
+    llm_provider: str = "openai"  # gemini | openai (openai-compatible includes deepseek)
     llm_model: str = "gpt-4o"
     llm_api_key: str = ""
+    llm_base_url: str = ""  # override API base, e.g. https://api.deepseek.com/v1
     # Standard provider env vars — used as fallback when llm_api_key is not set.
     openai_api_key: str = ""
     gemini_api_key: str = ""
 
     # ------------------------------------------------------------------- agent
-    agent_router_model: str = "gpt-5.4-nano"
-    agent_core_model: str = "gpt-5.4-nano"
+    agent_router_model: str = "deepseek-chat"
+    agent_core_model: str = "deepseek-chat"
     agent_db_url: str = "postgresql://eduinsight:eduinsight_dev@localhost:5433/eduinsight"
 
     model_config = SettingsConfigDict(env_file=(".env", "../.env"), env_file_encoding="utf-8", extra="ignore")

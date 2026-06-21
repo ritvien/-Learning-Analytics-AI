@@ -29,6 +29,11 @@ TOOL_REGISTRY: tuple[ReportAgentToolSpec, ...] = (
         mode=("explain", "root_cause", "narrative", "action_planning", "workflow", "compare"),
     ),
     ReportAgentToolSpec(
+        name="get_historical_trend",
+        description="Pull pass_rate trend across past reports of the same scope to support multi-semester analysis.",
+        mode=("explain", "root_cause", "compare"),
+    ),
+    ReportAgentToolSpec(
         name="explain_report_metric",
         description="Explain a metric value, formula, source fields, and interpretation limits.",
         mode=("explain", "root_cause"),
@@ -220,6 +225,75 @@ def suggest_report_actions(snapshot: dict[str, Any]) -> dict[str, Any]:
             }
         )
     return {"actions": candidates, "source_report_id": snapshot.get("id")}
+
+
+async def get_historical_trend(
+    db: AsyncSession,
+    report_type: str,
+    scope_id: str | None,
+    limit: int = 8,
+) -> dict[str, Any]:
+    """Pull pass_rate + avg_gpa trend từ các báo cáo cùng scope, sắp xếp theo thứ tự thời gian.
+
+    Dùng để agent trả lời câu hỏi xu hướng nhiều kỳ:
+    'pass_rate thay đổi như thế nào?', 'kỳ nào đang giảm?'.
+    """
+    result = await db.execute(
+        select(Report)
+        .where(
+            Report.report_type == report_type,
+            Report.scope_id == scope_id,
+            Report.status.in_(["generated", "final", "ready"]),
+        )
+        .order_by(Report.created_at.desc())
+        .limit(limit)
+    )
+    reports = list(result.scalars().all())
+    trend: list[dict[str, Any]] = []
+    for r in reversed(reports):
+        m = r.metrics_json or {}
+        pr = m.get("pass_rate")
+        if pr is None:
+            continue
+        trend.append(
+            {
+                "semester": m.get("semester_name") or (r.created_at.strftime("%m/%Y") if r.created_at else ""),
+                "pass_rate": float(pr),
+                "avg_gpa": float(m["avg_gpa"]) if m.get("avg_gpa") is not None else None,
+                "risk_level": m.get("risk_level"),
+                "report_id": r.id,
+            }
+        )
+
+    if not trend:
+        return {
+            "found": False,
+            "message": "Chưa đủ báo cáo lịch sử để vẽ xu hướng. Cần ít nhất 2 báo cáo cùng phạm vi.",
+            "report_type": report_type,
+            "scope_id": scope_id,
+        }
+
+    latest = trend[-1]
+    oldest = trend[0]
+    delta = round(latest["pass_rate"] - oldest["pass_rate"], 1)
+    direction = "tăng" if delta > 0 else "giảm" if delta < 0 else "ổn định"
+
+    return {
+        "found": True,
+        "report_type": report_type,
+        "scope_id": scope_id,
+        "data_points": len(trend),
+        "trend": trend,
+        "summary": (
+            f"Từ {oldest['semester']} đến {latest['semester']}: "
+            f"pass_rate {direction} {abs(delta)}% "
+            f"({oldest['pass_rate']}% → {latest['pass_rate']}%)."
+        ),
+        "latest_pass_rate": latest["pass_rate"],
+        "oldest_pass_rate": oldest["pass_rate"],
+        "delta": delta,
+        "direction": direction,
+    }
 
 
 async def list_recent_reports(db: AsyncSession, limit: int = 10) -> list[dict[str, Any]]:

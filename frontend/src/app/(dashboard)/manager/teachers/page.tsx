@@ -59,8 +59,8 @@ export default function TeachersPage() {
     setError(null)
     try {
       const [apiTeachers, apiDepartments] = await Promise.all([
-        api.getTeachers({ limit: 50000 }),
-        api.getDepartments({ limit: 50000 }),
+        api.getTeachers({ limit: 1000 }),
+        api.getDepartments({ limit: 100 }),
       ])
       setDepartments(apiDepartments)
       setTeachers(apiTeachers.map((teacher) => toTeacher(teacher, apiDepartments)))

@@ -25,6 +25,11 @@ export interface Student {
 export interface GradeRecord {
   id: string;
   studentId: string;
+  departmentId?: number | null;
+  courseId?: number | null;
+  sectionId?: number | null;
+  courseCode?: string;
+  studentCode?: string;
   tenMonHoc: string;
   maLop: string;
   tinChi: number;

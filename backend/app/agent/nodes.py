@@ -45,7 +45,6 @@ def get_model(model_name: str, temperature: float = 0):
     provider = settings.llm_provider.lower().strip()
     if provider == "gemini":
         from langchain_google_genai import ChatGoogleGenerativeAI
-        # Map models if they are configured as openai format
         import os
         actual_model = settings.llm_model if "gemini" in settings.llm_model else "gemini-1.5-flash"
         kwargs = {"model": actual_model, "temperature": temperature}
@@ -54,11 +53,14 @@ def get_model(model_name: str, temperature: float = 0):
             kwargs["google_api_key"] = api_key
         return ChatGoogleGenerativeAI(**kwargs)
     else:
-        return ChatOpenAI(
-            model=model_name,
-            api_key=settings.llm_api_key or None,
-            temperature=temperature,
-        )
+        kwargs = {
+            "model": model_name,
+            "api_key": settings.llm_api_key or None,
+            "temperature": temperature,
+        }
+        if settings.llm_base_url:
+            kwargs["base_url"] = settings.llm_base_url
+        return ChatOpenAI(**kwargs)
 
 
 # ─────────────────────────────────────────────────────── Router Node (H12)

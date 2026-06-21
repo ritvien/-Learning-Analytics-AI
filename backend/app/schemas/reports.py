@@ -7,9 +7,9 @@ from pydantic import BaseModel, Field
 
 from app.schemas.common import OrmBase
 
-ReportType = Literal["school_overview", "program_health", "section_intervention"]
+ReportType = Literal["school_overview", "department_health", "program_health", "course_health", "section_intervention"]
 ReportScheduleFrequency = Literal["weekly", "monthly", "midterm", "end_semester", "after_grade_update"]
-ReportScheduleTrigger = Literal["manual", "scheduled", "grade_update"]
+ReportScheduleTrigger = Literal["manual", "scheduled", "grade_update", "midterm_grade", "final_grade"]
 
 
 class ReportGenerateRequest(BaseModel):
@@ -20,6 +20,8 @@ class ReportGenerateRequest(BaseModel):
     scope_type: str | None = None
     scope_id: str | None = None
     semester_id: int | None = None
+    period_start: datetime | None = None
+    period_end: datetime | None = None
 
 
 class ReportFeedbackCreate(BaseModel):
@@ -56,6 +58,8 @@ class ReportResponse(OrmBase):
     metrics_json: dict
     content_markdown: str
     generated_by: str | None
+    period_start: datetime | None = None
+    period_end: datetime | None = None
     created_at: datetime
     feedback_items: list[ReportFeedbackResponse] = Field(default_factory=list)
 

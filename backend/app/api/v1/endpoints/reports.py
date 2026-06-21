@@ -1,6 +1,6 @@
 """Report generation, history, schedules, and feedback endpoints."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.access_control import can_create_report_scope, can_view_report
 from app.dependencies import CurrentUser, DBSession, require_write_access
 from app.models.report import Report, ReportFeedback, ReportSchedule, ReportScheduleRun
+from app.reports.scheduler import next_run_after, run_schedule
 from app.reports.service import generate_report
 from app.schemas.reports import (
     ReportFeedbackCreate,
@@ -23,19 +24,6 @@ from app.schemas.reports import (
 )
 
 router = APIRouter()
-
-
-def _next_run_after(frequency: str, base: datetime | None = None) -> datetime | None:
-    now = base or datetime.now(UTC)
-    if frequency == "weekly":
-        return now + timedelta(days=7)
-    if frequency == "monthly":
-        return now + timedelta(days=30)
-    if frequency in {"midterm", "end_semester"}:
-        return None
-    if frequency == "after_grade_update":
-        return None
-    return None
 
 
 async def _get_report_or_404(report_id: str, db: DBSession, current_user: CurrentUser) -> Report:
@@ -57,9 +45,29 @@ async def _get_schedule_or_404(schedule_id: int, db: DBSession, current_user: Cu
 
 
 @router.get("", response_model=list[ReportResponse])
-async def list_reports(db: DBSession, current_user: CurrentUser, limit: int = 50) -> list[Report]:
+async def list_reports(
+    db: DBSession,
+    current_user: CurrentUser,
+    limit: int = 50,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    report_type: str | None = None,
+    scope_type: str | None = None,
+    scope_id: str | None = None,
+) -> list[Report]:
     """Return recent generated reports."""
-    query = select(Report).options(selectinload(Report.feedback_items)).order_by(Report.created_at.desc()).limit(200)
+    query = select(Report).options(selectinload(Report.feedback_items))
+    if date_from is not None:
+        query = query.where(Report.created_at >= date_from)
+    if date_to is not None:
+        query = query.where(Report.created_at <= date_to)
+    if report_type:
+        query = query.where(Report.report_type == report_type)
+    if scope_type:
+        query = query.where(Report.scope_type == scope_type)
+    if scope_id:
+        query = query.where(Report.scope_id == scope_id)
+    query = query.order_by(Report.created_at.desc()).limit(200)
     result = await db.execute(query)
     reports = list(result.scalars().all())
     visible_reports = [report for report in reports if await can_view_report(db, current_user, report)]
@@ -100,7 +108,7 @@ async def create_report_schedule(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Report scope is outside your permissions")
     schedule = ReportSchedule(
         **payload.model_dump(exclude={"next_run_at"}),
-        next_run_at=payload.next_run_at or _next_run_after(payload.frequency),
+        next_run_at=payload.next_run_at or next_run_after(payload.frequency),
         created_by=current_user.id,
     )
     db.add(schedule)
@@ -126,7 +134,7 @@ async def update_report_schedule(
     for key, value in updates.items():
         setattr(schedule, key, value)
     if "frequency" in updates and "next_run_at" not in updates:
-        schedule.next_run_at = _next_run_after(schedule.frequency)
+        schedule.next_run_at = next_run_after(schedule.frequency)
     await db.flush()
     await db.refresh(schedule)
     return schedule
@@ -164,36 +172,9 @@ async def run_report_schedule(
 ) -> ReportScheduleRun:
     """Run a schedule now; cron/grade-update workers call this same contract."""
     schedule = await _get_schedule_or_404(schedule_id, db, current_user)
-    started_at = datetime.now(UTC)
-    run = ReportScheduleRun(schedule_id=schedule.id, trigger=payload.trigger, status="running", started_at=started_at)
-    db.add(run)
-    await db.flush()
-    try:
-        report = await generate_report(
-            db,
-            report_type=schedule.report_type,
-            actor_role=schedule.actor_role,
-            generated_by=current_user.id,
-            scope_type=schedule.scope_type,
-            scope_id=schedule.scope_id,
-        )
-    except ValueError as exc:
-        run.status = "failed"
-        run.message = str(exc)
-        run.finished_at = datetime.now(UTC)
-        await db.flush()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-
-    finished_at = datetime.now(UTC)
-    run.status = "success"
-    run.report_id = report.id
-    run.message = f"Generated report {report.id}"
-    run.finished_at = finished_at
-    schedule.last_report_id = report.id
-    schedule.last_run_at = finished_at
-    schedule.next_run_at = _next_run_after(schedule.frequency, finished_at)
-    await db.flush()
-    await db.refresh(run)
+    run = await run_schedule(db, schedule, trigger=payload.trigger)
+    if run.status == "failed":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=run.message or "Report schedule failed")
     return run
 
 
@@ -222,6 +203,8 @@ async def create_report(payload: ReportGenerateRequest, db: DBSession, current_u
             scope_type=payload.scope_type,
             scope_id=payload.scope_id,
             semester_id=payload.semester_id,
+            period_start=payload.period_start,
+            period_end=payload.period_end,
         )
         return await _get_report_or_404(report.id, db, current_user)
     except ValueError as exc:

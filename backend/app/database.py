@@ -13,10 +13,11 @@ from app.config import get_settings
 
 settings = get_settings()
 
-# Engine is created once at module load. echo=True in dev prints all SQL.
+# Engine is created once at module load. SQL echo is very noisy, so only
+# enable it explicitly with DEBUG=true.
 engine = create_async_engine(
     settings.database_url,
-    echo=settings.app_env == "development",
+    echo=settings.debug,
     future=True,
     # Pool settings — ignored for SQLite (no pool), relevant for PostgreSQL.
     pool_pre_ping=True,

@@ -1,8 +1,10 @@
 "use client"
 
 import * as React from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { BookOpen, TrendingUp, Users, CheckCircle2, AlertTriangle } from "lucide-react"
 import { api, type ApiSection, type ApiSemester } from "@/lib/api"
@@ -30,25 +32,49 @@ const DIST_RANGES = [
   { label: "8–10",  min: 8,  max: 10.1, color: "#10b981" },
 ]
 
+function dateStartIso(value: string) {
+  return value ? new Date(`${value}T00:00:00`).toISOString() : undefined
+}
+
+function dateEndIso(value: string) {
+  return value ? new Date(`${value}T23:59:59.999`).toISOString() : undefined
+}
+
 export default function CourseAnalyticsPage() {
+  const searchParams = useSearchParams()
   const [raw, setRaw]         = React.useState<Raw | null>(null)
   const [selDept, setSelDept] = React.useState("all")
   const [selProg, setSelProg] = React.useState("all")
   const [selCourse, setSelCourse] = React.useState("all")
+  const [dateFrom, setDateFrom] = React.useState("")
+  const [dateTo, setDateTo] = React.useState("")
 
   React.useEffect(() => {
+    const queryCourse = searchParams.get("course_id") ?? searchParams.get("course")
+    const queryProgram = searchParams.get("program_id") ?? searchParams.get("program")
+    const queryDepartment = searchParams.get("department_id") ?? searchParams.get("department")
+    const parsedCourseId = queryCourse ? Number(queryCourse) : NaN
+    const courseId = Number.isFinite(parsedCourseId) ? parsedCourseId : undefined
     Promise.all([
       api.getDepartments({ limit: 100 }),
       api.getPrograms({ limit: 100 }),
       api.getCourses({ limit: 500 }),
-      api.getEnrollments({ limit: 50000 }),
-      api.getSections({ limit: 5000 }),
+      api.getEnrollments(courseId ? { course_id: courseId, limit: 50000, date_from: dateStartIso(dateFrom), date_to: dateEndIso(dateTo) } : { limit: 50000, date_from: dateStartIso(dateFrom), date_to: dateEndIso(dateTo) }),
+      api.getSections(courseId ? { course_id: courseId, limit: 5000 } : { limit: 5000 }),
       api.getSemesters(),
     ]).then(async ([departments, programs, courses, enrollments, sections, semesters]) => {
-      const healths = await api.getCourseHealthBatch(courses.map(c => c.id)).catch(() => [])
+      const healthCourseIds = courseId ? [courseId] : courses.map(c => c.id)
+      const healths = await api.getCourseHealthBatch(healthCourseIds).catch(() => [])
       setRaw({ departments, programs, courses, enrollments, sections, semesters, healths })
+      const linkedCourse = queryCourse ? courses.find(c => String(c.id) === queryCourse) : undefined
+      const linkedProgramId = queryProgram ?? (linkedCourse?.program_ids?.[0] != null ? String(linkedCourse.program_ids[0]) : null)
+      const linkedProgram = linkedProgramId ? programs.find(p => String(p.id) === linkedProgramId) : undefined
+      const linkedDepartmentId = queryDepartment ?? (linkedProgram?.department_id != null ? String(linkedProgram.department_id) : null)
+      if (linkedDepartmentId && departments.some(d => String(d.id) === linkedDepartmentId)) setSelDept(linkedDepartmentId)
+      if (linkedProgramId && programs.some(p => String(p.id) === linkedProgramId)) setSelProg(linkedProgramId)
+      if (linkedCourse) setSelCourse(String(linkedCourse.id))
     }).catch(console.error)
-  }, [])
+  }, [searchParams, dateFrom, dateTo])
 
   const maps = React.useMemo(() => {
     if (!raw) return null
@@ -176,7 +202,11 @@ export default function CourseAnalyticsPage() {
     return { scatterData, top5, bottom5 }
   }, [raw, selProg, filteredCourses])
 
-  const selectedCourseName = raw?.courses.find(c => c.id === Number(selCourse))?.name ?? ""
+  const selectedCourse = raw?.courses.find(c => c.id === Number(selCourse))
+  const selectedCourseName = selectedCourse?.name ?? ""
+  const selectedCourseLabel = selectedCourse ? `${selectedCourse.code} - ${selectedCourse.name}` : "Chưa chọn môn"
+  const selectedDeptName = raw?.departments.find(d => String(d.id) === selDept)?.name ?? "Tất cả khoa"
+  const selectedProgramName = raw?.programs.find(p => String(p.id) === selProg)?.name ?? "Tất cả ngành"
 
   return (
     <div className="flex flex-col gap-6">
@@ -194,7 +224,7 @@ export default function CourseAnalyticsPage() {
               <span className="text-xs font-medium text-muted-foreground w-4">1</span>
               <Select value={selDept} onValueChange={v => { setSelDept(v ?? "all"); setSelProg("all"); setSelCourse("all") }}>
                 <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Chọn Khoa" />
+                  <span className="truncate">{selectedDeptName}</span>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả khoa</SelectItem>
@@ -207,7 +237,7 @@ export default function CourseAnalyticsPage() {
               <span className="text-xs font-medium text-muted-foreground w-4">2</span>
               <Select value={selProg} onValueChange={v => { setSelProg(v ?? "all"); setSelCourse("all") }} disabled={selDept === "all"}>
                 <SelectTrigger className="w-52">
-                  <SelectValue placeholder="Chọn Ngành" />
+                  <span className="truncate">{selectedProgramName}</span>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả ngành</SelectItem>
@@ -220,7 +250,7 @@ export default function CourseAnalyticsPage() {
               <span className="text-xs font-medium text-muted-foreground w-4">3</span>
               <Select value={selCourse} onValueChange={v => setSelCourse(v ?? "all")}>
                 <SelectTrigger className="w-64">
-                  <SelectValue placeholder="Chọn Môn học" />
+                  <span className="truncate">{selectedCourseLabel}</span>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">— Chọn môn học —</SelectItem>
@@ -230,6 +260,14 @@ export default function CourseAnalyticsPage() {
                 </SelectContent>
               </Select>
             </div>
+            <Input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} className="w-40" aria-label="Từ ngày" />
+            <Input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} className="w-40" aria-label="Đến ngày" />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <Badge variant="outline">Khoa: {selectedDeptName}</Badge>
+            <Badge variant="outline">Ngành: {selectedProgramName}</Badge>
+            <Badge variant="outline">Môn: {selectedCourseLabel}</Badge>
+            <Badge variant="outline">Thời gian: {dateFrom || "đầu dữ liệu"} → {dateTo || "hiện tại"}</Badge>
           </div>
         </CardContent>
       </Card>
@@ -339,8 +377,15 @@ export default function CourseAnalyticsPage() {
       ) : (
         <>
           <div>
-            <h2 className="text-lg font-semibold">{selectedCourseName}</h2>
+            <h2 className="text-lg font-semibold">{selectedCourseLabel}</h2>
           </div>
+
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="py-3 text-sm">
+              <span className="font-medium">Phạm vi phân tích:</span> hệ thống đang gom tất cả lớp học phần của môn này
+              {courseStats ? ` (${courseStats.sectionCount} lớp, ${courseStats.totalEnrolls} lượt học hợp lệ).` : "."}
+            </CardContent>
+          </Card>
 
           {/* 5 KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">

@@ -26,6 +26,8 @@ services:
       context: ./backend
       target: runtime          # use the slim runtime stage
     restart: unless-stopped
+    env_file:
+      - ./backend/.env
     depends_on:
       db:
         condition: service_healthy
@@ -35,12 +37,6 @@ services:
       AGENT_DB_URL:    postgresql://${POSTGRES_USER:-eduinsight}:${POSTGRES_PASSWORD:-eduinsight_dev}@db:5432/${POSTGRES_DB:-eduinsight}
       SECRET_KEY:      ${SECRET_KEY:-change-me-in-production}
       CORS_ORIGINS:    ${CORS_ORIGINS:-http://localhost:3000}
-      LLM_PROVIDER:    ${LLM_PROVIDER:-openai}
-      LLM_MODEL:       ${LLM_MODEL:-gpt-4o}
-      LLM_API_KEY:     ${LLM_API_KEY:-}
-      OPENAI_API_KEY:  ${OPENAI_API_KEY:-}
-      GEMINI_API_KEY:  ${GEMINI_API_KEY:-}
-      GOOGLE_API_KEY:  ${GEMINI_API_KEY:-}
       RUFF_CACHE_DIR:  /tmp/.ruff_cache
     ports:
       - "8000:8000"
@@ -50,6 +46,7 @@ services:
       - ./backend/app:/app/app
       - ./backend/scripts:/app/scripts
       - ./backend/migrations:/app/migrations
+      - ./backend/db:/app/db:ro
       - ./backend/tests:/app/tests
       - ./backend/pyproject.toml:/app/pyproject.toml:ro
     healthcheck:

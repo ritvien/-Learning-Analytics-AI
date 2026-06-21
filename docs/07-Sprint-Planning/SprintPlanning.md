@@ -76,10 +76,10 @@ gantt
     S1 (W1-W2)                     :s1, 2026-05-28, 14d
 
     section Sprint 2 — Core Agent & Demo 1
-    S2 (W3-W4)                     :s2, 2026-06-11, 14d
+    S2 (W3-W4, closed early)       :s2, 2026-06-11, 10d
 
     section Sprint 3 — Production & Demo 2
-    S3 (W5)                        :s3, 2026-06-25, 7d
+    S3 (Gate G3 + Demo 2 prep)     :s3, 2026-06-21, 8d
 
     section Sprint 4 — Polish & Demo Day
     S4 (W6)                        :s4, 2026-07-02, 5d
@@ -90,8 +90,8 @@ gantt
 | Sprint | Tuần | Ngày | Theme | Milestone | Mục tiêu chính |
 |:------:|:----:|:-----|:------|:----------|:---------------|
 | **S1** | W1–W2 | 28/05 – 10/06 | Foundation & Research | Project Charter ✅ | Setup env, Docker, CI/CD, DB schema, FastAPI skeleton, FE skeleton, interview stakeholder, crawl data thực tế |
-| **S2** | W3–W4 | 11/06 – 24/06 | Core Agent & Analytics Foundation | **🎯 Demo 1 (14/06)** | Agent MVP, ORM/Alembic baseline, DWH/ETL và ML baseline |
-| **S3** | W5 | 25/06 – 01/07 | Production & Demo 2 | **🎯 Demo 2 (28/06)** | Deploy, DWH reconciliation, ML evaluation, integration và polish |
+| **S2** | W3–W4 | 11/06 – 20/06 | Core Agent & Demo 1 | **🎯 Demo 1 (14/06)** | Agent MVP, Gate G2, evaluation evidence, close Sprint 2 scope |
+| **S3** | W4–W5 | 21/06 – 28/06 | Production & Gate G3 | **🎯 Gate G3 (25/06)** · **🎯 Demo 2 (28/06)** | Public URL, guardrails, eval metrics, cost report, demo video draft, production polish |
 | **S4** | W6 | 02/07 – 07/07 | Polish & Demo Day | **🎯 Demo Day (05-07/07)** | README, Pitch Deck, Video Demo, final QA, kiểm tra 10 deliverables |
 
 ### Module → Sprint mapping
@@ -132,8 +132,8 @@ gantt
 | Sprint | Hoàng (AI/PM) | Hưng (BE/DevOps) | Hiếu (FE/QA) |
 |:------:|:------|:-----|:-----|
 | **S1** | Crawl data thực tế, AI agent design, Architecture diagrams, PRD update | Interview stakeholder, DB schema, FastAPI + CRUD, **Docker + CI/CD** | Wireframes, Next.js setup, base components, Tree component (static) |
-| **S2** | LangGraph agent, ML baseline từng môn, tổng hợp tín chỉ, prompt tuning | Chốt ORM, Alembic baseline, reset rollout, DWH + ETL | Academic Tree ↔ API, Chat UI, prediction UI |
-| **S3** | Auto-analysis, ML evaluation, early warning, AI tuning | **Deploy** Render + Vercel, Auth, integration tests, DWH reconciliation | Integration test, responsive, dark mode, UX fixes, FE tests |
+| **S2** | LangGraph agent, Gate G2 eval, prompt tuning, README | ORM/Alembic baseline, tree/report/auth APIs, tests | Academic Tree ↔ API, Chat UI, dashboard/report flow |
+| **S3** | Guardrails, eval metrics, cost report, demo narrative | **Deploy** via ngrok/personal host or platform fallback, backend guardrails, release runbook | Public frontend URL, smoke test, demo video draft, final QA |
 | **S4** | README final, architecture diagram final, evaluation evidence | Final QA, security review, performance check | **Pitch Deck 10 slides**, **Video Demo**, UI polish |
 
 ---
@@ -180,6 +180,6 @@ gantt
 | File | Sprint | Trạng thái |
 |:-----|:------:|:----------:|
 | [Sprint1.md](./Sprint1.md) | S1 — Foundation & Research (W1–W2) | ✅ Hoàn thành |
-| [Sprint2.md](./Sprint2.md) | S2 — Core Agent & Demo 1 (W3–W4) | 🟡 Đang chạy |
-| Sprint3.md | S3 — Production & Demo 2 (W5) | ⬜ Chưa lập |
+| [Sprint2.md](./Sprint2.md) | S2 — Core Agent & Demo 1 (W3–W4) | ✅ Closed |
+| [Sprint3.md](./Sprint3.md) | S3 — Production & Gate G3 (21/06–28/06) | 🟢 Active |
 | Sprint4.md | S4 — Polish & Demo Day (W6) | ⬜ Chưa lập |

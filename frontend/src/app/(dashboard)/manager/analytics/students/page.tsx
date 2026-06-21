@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useSearchParams } from "next/navigation"
 import { AlertTriangle, BookOpen, CheckCircle2, TrendingDown, TrendingUp, UserRound } from "lucide-react"
 import {
   Bar,
@@ -17,7 +18,8 @@ import {
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import {
   api,
   type ApiCourse,
@@ -58,27 +60,51 @@ function resultLabel(grade: number | null) {
   return "Tốt"
 }
 
+function dateStartIso(value: string) {
+  return value ? new Date(`${value}T00:00:00`).toISOString() : undefined
+}
+
+function dateEndIso(value: string) {
+  return value ? new Date(`${value}T23:59:59.999`).toISOString() : undefined
+}
+
 export default function StudentAnalyticsPage() {
+  const searchParams = useSearchParams()
   const [raw, setRaw] = React.useState<Raw | null>(null)
   const [studentId, setStudentId] = React.useState("")
+  const [dateFrom, setDateFrom] = React.useState("")
+  const [dateTo, setDateTo] = React.useState("")
 
   React.useEffect(() => {
     Promise.all([
-      api.getStudents({ limit: 50000 }),
-      api.getEnrollments({ limit: 50000 }),
-      api.getSections({ limit: 50000 }),
-      api.getCourses({ limit: 5000 }),
+      api.getStudents({ limit: 1000 }),
+      api.getSections({ limit: 5000 }),
+      api.getCourses({ limit: 500 }),
       api.getSemesters(),
-      api.getPrograms({ limit: 1000 }),
+      api.getPrograms({ limit: 500 }),
     ])
-      .then(([students, enrollments, sections, courses, semesters, programs]) => {
-        setRaw({ students, enrollments, sections, courses, semesters, programs })
-        const queryStudent = new URLSearchParams(window.location.search).get("student")
+      .then(([students, sections, courses, semesters, programs]) => {
+        setRaw({ students, enrollments: [], sections, courses, semesters, programs })
+        const queryStudent = searchParams.get("student_id") ?? searchParams.get("student")
         const fallback = students[0]?.id
         setStudentId(queryStudent && students.some((student) => String(student.id) === queryStudent) ? queryStudent : String(fallback ?? ""))
       })
       .catch(console.error)
-  }, [])
+  }, [searchParams])
+
+  React.useEffect(() => {
+    if (!studentId) return
+    api.getEnrollments({
+      student_id: Number(studentId),
+      limit: 50000,
+      date_from: dateStartIso(dateFrom),
+      date_to: dateEndIso(dateTo),
+    })
+      .then((enrollments) => {
+        setRaw((current) => current ? { ...current, enrollments } : current)
+      })
+      .catch(console.error)
+  }, [studentId, dateFrom, dateTo])
 
   const data = React.useMemo(() => {
     if (!raw || !studentId) return null
@@ -190,6 +216,8 @@ export default function StudentAnalyticsPage() {
     { label: "Pass rate cá nhân", value: `${data.passRate}%`, icon: BookOpen },
     { label: "Risk level", value: data.riskLevel, icon: TrendingDown },
   ]
+  const selectedStudentLabel = `${data.student.student_code} - ${data.student.full_name}`
+  const selectedProgramLabel = data.program ? `${data.program.code} - ${data.program.name}` : "Chưa rõ ngành"
 
   return (
     <div className="flex flex-col gap-5">
@@ -199,7 +227,7 @@ export default function StudentAnalyticsPage() {
           <p className="text-sm text-muted-foreground">Sinh viên này đang học ra sao, yếu ở môn nào và có nguy cơ học vụ không?</p>
         </div>
         <Select value={studentId} onValueChange={(value) => setStudentId(value ?? "")}>
-          <SelectTrigger className="w-full lg:w-[360px]"><SelectValue placeholder="Chọn sinh viên" /></SelectTrigger>
+          <SelectTrigger className="w-full lg:w-[360px]"><span className="truncate">{selectedStudentLabel}</span></SelectTrigger>
           <SelectContent>
             {raw.students.map((student) => (
               <SelectItem key={student.id} value={String(student.id)}>
@@ -208,6 +236,15 @@ export default function StudentAnalyticsPage() {
             ))}
           </SelectContent>
         </Select>
+        <div className="flex flex-wrap gap-2">
+          <Input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} className="w-40" aria-label="Từ ngày" />
+          <Input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} className="w-40" aria-label="Đến ngày" />
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2 text-xs">
+        <Badge variant="outline">Sinh viên: {selectedStudentLabel}</Badge>
+        <Badge variant="outline">Ngành: {selectedProgramLabel}</Badge>
+        <Badge variant="outline">Thời gian: {dateFrom || "đầu dữ liệu"} → {dateTo || "hiện tại"}</Badge>
       </div>
 
       <Card className="border-primary/20 bg-primary/5">
