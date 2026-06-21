@@ -32,6 +32,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         import logging
         logging.getLogger(__name__).error(f"Failed to seed users on startup: {e}")
 
+    try:
+        from app.api.v1.endpoints.analytics import prewarm_dashboard_cache
+        await prewarm_dashboard_cache()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to prewarm dashboard cache on startup: {e}")
+
     from app.reports.scheduler import report_schedule_worker
 
     schedule_worker_stop = asyncio.Event()

@@ -55,6 +55,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  ReportBarChart,
+  ReportDonutChart,
+  ReportRadarChart,
+  ReportSectionBarChart,
+  ReportTrendLine,
+} from "@/components/reports/report-charts"
 
 type TemplateId = "department_report" | "program_report" | "course_report" | "section_report" | "school_report"
 type ReportPurpose = "operational" | "end_semester" | "accreditation"
@@ -312,6 +319,28 @@ function formatDate(value?: string) {
   return value ? new Date(value).toLocaleString("vi-VN") : "-"
 }
 
+function formatDateOnly(value?: string | null) {
+  return value ? new Date(value).toLocaleDateString("vi-VN") : "-"
+}
+
+function startOfDayIso(value: string) {
+  return value ? new Date(`${value}T00:00:00`).toISOString() : undefined
+}
+
+function endOfDayIso(value: string) {
+  return value ? new Date(`${value}T23:59:59.999`).toISOString() : undefined
+}
+
+function reportPeriodLabel(report: ApiReport) {
+  const start = report.period_start ?? (typeof report.metrics_json?.period_start === "string" ? report.metrics_json.period_start : null)
+  const end = report.period_end ?? (typeof report.metrics_json?.period_end === "string" ? report.metrics_json.period_end : null)
+  if (start && end) return `${formatDateOnly(start)} - ${formatDateOnly(end)}`
+  if (start) return `Từ ${formatDateOnly(start)}`
+  if (end) return `Đến ${formatDateOnly(end)}`
+  if (typeof report.metrics_json?.period_label === "string") return report.metrics_json.period_label
+  return "Toàn bộ dữ liệu hiện có"
+}
+
 function riskVariant(value: unknown): "destructive" | "secondary" | "outline" {
   if (value === "Cao") return "destructive"
   if (value === "Trung bình") return "secondary"
@@ -439,6 +468,83 @@ function reportHtmlList(items: string[], empty = "Chưa có nội dung ghi nhậ
   return list.map((item) => `<li>${reportHtmlText(item)}</li>`).join("")
 }
 
+function normalizeDeepDiveHref(href: unknown) {
+  if (typeof href !== "string" || !href.trim()) return null
+  const raw = href.trim()
+  if (!raw.startsWith("/manager/analytics")) return null
+  try {
+    const url = new URL(raw, "http://localhost")
+    if (!url.pathname.startsWith("/manager/analytics")) return null
+    const courseId = url.searchParams.get("course_id") ?? url.searchParams.get("course")
+    const programId = url.searchParams.get("program_id") ?? url.searchParams.get("program")
+    const sectionId = url.searchParams.get("section_id") ?? url.searchParams.get("section")
+    if (courseId && /^\d+$/.test(courseId)) {
+      url.searchParams.set("course_id", courseId)
+      url.searchParams.set("course", courseId)
+    }
+    if (programId && /^\d+$/.test(programId)) {
+      url.searchParams.set("program_id", programId)
+      url.searchParams.set("program", programId)
+    }
+    if (sectionId && /^\d+$/.test(sectionId)) {
+      url.searchParams.set("section_id", sectionId)
+      url.searchParams.set("section", sectionId)
+    }
+    return `${url.pathname}${url.search}`
+  } catch {
+    return null
+  }
+}
+
+function reportHtmlLink(href: unknown, label = "Mở") {
+  const safeHref = normalizeDeepDiveHref(href)
+  if (!safeHref) return "-"
+  return `<a href="${escapeHtml(safeHref)}">${escapeHtml(label)}</a>`
+}
+
+function reportHtmlRootCauseRows(metrics: Record<string, unknown>) {
+  const rows = Array.isArray(metrics.root_causes) ? (metrics.root_causes as Record<string, unknown>[]) : []
+  if (!rows.length) return `<tr><td colspan="5">Chưa có phân tích nguyên nhân khả dĩ.</td></tr>`
+  return rows
+    .map(
+      (item, index) =>
+        `<tr><td>${index + 1}</td><td>${reportHtmlText(item.evidence)}</td><td>${reportHtmlText(item.hypothesis)}</td><td>${reportHtmlText(item.next_check)}</td><td>${reportHtmlLink(item.href)}</td></tr>`,
+    )
+    .join("")
+}
+
+function reportHtmlDeepInsightRows(metrics: Record<string, unknown>) {
+  const rows = Array.isArray(metrics.deep_insights) ? (metrics.deep_insights as Record<string, unknown>[]) : []
+  if (!rows.length) return `<tr><td colspan="5">Chưa có insight phân tích sâu.</td></tr>`
+  return rows
+    .map(
+      (item, index) =>
+        `<tr><td>${index + 1}</td><td><strong>${reportHtmlText(item.title ?? "Insight")}</strong><br/>${reportHtmlText(item.finding)}</td><td>${reportHtmlText(item.evidence)}</td><td>${reportHtmlText(item.action)}</td><td>${reportHtmlLink(item.href)}</td></tr>`,
+    )
+    .join("")
+}
+
+function reportHtmlActionPlanRows(metrics: Record<string, unknown>, fallbackActions: string[], actorRole: string) {
+  const rows = Array.isArray(metrics.action_plan) ? (metrics.action_plan as Record<string, unknown>[]) : []
+  if (rows.length) {
+    return rows
+      .map(
+        (item, index) =>
+          `<tr><td>${index + 1}</td><td>${reportHtmlText(item.task)}</td><td>${reportHtmlText(item.owner)}</td><td>${reportHtmlText(item.reason)}</td><td>${reportHtmlText(item.deadline)}</td><td>${reportHtmlText(item.priority)}</td><td>${reportHtmlLink(item.href)}</td></tr>`,
+      )
+      .join("")
+  }
+  const owner = actorRole === "lecturer" ? "Giảng viên" : "Quản lý / trưởng đơn vị"
+  return fallbackActions.length
+    ? fallbackActions
+        .map(
+          (action, index) =>
+            `<tr><td>${index + 1}</td><td>${reportHtmlText(action)}</td><td>${reportHtmlText(owner)}</td><td>Theo khuyến nghị từ dữ liệu báo cáo.</td><td>${index === 0 ? "7 ngày" : "30 ngày"}</td><td>${index === 0 ? "Cao" : "Trung bình"}</td><td>-</td></tr>`,
+        )
+        .join("")
+    : `<tr><td colspan="7">Chưa có action plan.</td></tr>`
+}
+
 function reportHtmlMetricRows(metrics: Record<string, unknown>) {
   const labels: Record<string, string> = {
     pass_rate: "Tỷ lệ đạt",
@@ -563,6 +669,7 @@ function buildReportHtml(report: ApiReport) {
   <table>
     <tr><td><strong>Loại báo cáo</strong></td><td>${escapeHtml(labelFromMap(report.report_type, reportTypeLabels))}</td></tr>
     <tr><td><strong>Phạm vi</strong></td><td>${escapeHtml(labelFromMap(report.scope_type, scopeTypeLabels))}${report.scope_id ? ` - ${escapeHtml(report.scope_id)}` : ""}</td></tr>
+    <tr><td><strong>Kỳ dữ liệu phân tích</strong></td><td>${escapeHtml(reportPeriodLabel(report))}</td></tr>
     <tr><td><strong>Actor nhận báo cáo</strong></td><td>${escapeHtml(report.actor_role === "lecturer" ? "Giảng viên" : "Quản lý")}</td></tr>
     <tr><td><strong>Trạng thái</strong></td><td>${escapeHtml(labelFromMap(report.status, statusLabels))}</td></tr>
     <tr><td><strong>Độ tin cậy dữ liệu</strong></td><td>${confidence}% - ${reportHtmlText(dataConfidenceBasis(report))}</td></tr>
@@ -587,13 +694,27 @@ function buildReportHtml(report: ApiReport) {
   <h3>2. Điểm chưa tốt</h3>
   <ul>${reportHtmlList(issues, "Chưa có vấn đề nổi bật.")}</ul>
 
-  <h2>V. Rủi ro và nguyên nhân cần theo dõi</h2>
+  <h2>V. Phân tích sâu từ dữ liệu</h2>
+  <table>
+    <tr><th>#</th><th>Nhận định</th><th>Bằng chứng</th><th>Hành động</th><th>Mở sâu</th></tr>
+    ${reportHtmlDeepInsightRows(metrics)}
+  </table>
+
+  <h2>VI. Rủi ro và nguyên nhân cần theo dõi</h2>
   <ul>${reportHtmlList(risks, "Chưa có rủi ro rõ ràng trong snapshot.")}</ul>
+  <h3>Nguyên nhân khả dĩ cần kiểm chứng</h3>
+  <table>
+    <tr><th>#</th><th>Dấu hiệu từ dữ liệu</th><th>Giả thuyết</th><th>Cần kiểm chứng</th><th>Mở sâu</th></tr>
+    ${reportHtmlRootCauseRows(metrics)}
+  </table>
 
-  <h2>VI. Khuyến nghị và kế hoạch hành động</h2>
-  <ul>${reportHtmlList(actions, "Chưa có hành động đề xuất.")}</ul>
+  <h2>VII. Khuyến nghị và kế hoạch hành động</h2>
+  <table>
+    <tr><th>#</th><th>Hành động</th><th>Phụ trách</th><th>Lý do</th><th>Hạn</th><th>Ưu tiên</th><th>Mở sâu</th></tr>
+    ${reportHtmlActionPlanRows(metrics, actions, report.actor_role)}
+  </table>
 
-  <h2>VII. Kết luận</h2>
+  <h2>VIII. Kết luận</h2>
   <p>Báo cáo này là căn cứ ban đầu để actor phụ trách xem xét, xác minh dữ liệu chi tiết và triển khai hành động cải tiến. Các quyết định chính thức cần đối chiếu với minh chứng học vụ, điểm thành phần và quy định hiện hành của đơn vị.</p>
 
   <div class="signature">
@@ -620,6 +741,8 @@ export default function ReportsPage() {
   const [selectedCourseId, setSelectedCourseId] = React.useState("")
   const [selectedSectionId, setSelectedSectionId] = React.useState("")
   const [selectedSemesterId, setSelectedSemesterId] = React.useState("")
+  const [periodStartDate, setPeriodStartDate] = React.useState("")
+  const [periodEndDate, setPeriodEndDate] = React.useState("")
   const [courseSearch, setCourseSearch] = React.useState("")
   const [sectionSearch, setSectionSearch] = React.useState("")
   const [outputFormat, setOutputFormat] = React.useState<ReportOutputFormat>("web_preview")
@@ -640,6 +763,8 @@ export default function ReportsPage() {
   // Library filters
   const [librarySearch, setLibrarySearch] = React.useState("")
   const [libraryTypeFilter, setLibraryTypeFilter] = React.useState("all")
+  const [libraryDateFrom, setLibraryDateFrom] = React.useState("")
+  const [libraryDateTo, setLibraryDateTo] = React.useState("")
   // Semester range filter (theo thứ tự năm*10+kỳ); "" = không giới hạn đầu/cuối
   const [fromSemId, setFromSemId] = React.useState("")
   const [toSemId, setToSemId] = React.useState("")
@@ -717,9 +842,14 @@ export default function ReportsPage() {
         : null
       const matchFrom = fromOrder == null || order == null || order >= fromOrder
       const matchTo = toOrder == null || order == null || order <= toOrder
-      return matchType && matchSearch && matchFrom && matchTo
+      const createdAt = new Date(r.created_at).getTime()
+      const createdFrom = libraryDateFrom ? new Date(`${libraryDateFrom}T00:00:00`).getTime() : null
+      const createdTo = libraryDateTo ? new Date(`${libraryDateTo}T23:59:59.999`).getTime() : null
+      const matchCreatedFrom = createdFrom == null || createdAt >= createdFrom
+      const matchCreatedTo = createdTo == null || createdAt <= createdTo
+      return matchType && matchSearch && matchFrom && matchTo && matchCreatedFrom && matchCreatedTo
     })
-  }, [reports, libraryTypeFilter, librarySearch, fromOrder, toOrder])
+  }, [reports, libraryTypeFilter, librarySearch, fromOrder, toOrder, libraryDateFrom, libraryDateTo])
 
   const savedScheduleByName = React.useMemo(
     () => new Map(reportSchedules.map((item) => [item.name, item])),
@@ -825,6 +955,10 @@ export default function ReportsPage() {
       setError("Cần chọn phạm vi trước khi tạo báo cáo.")
       return
     }
+    if (periodStartDate && periodEndDate && new Date(periodStartDate) > new Date(periodEndDate)) {
+      setError("Khoảng thời gian chưa hợp lệ: ngày bắt đầu phải trước hoặc bằng ngày kết thúc.")
+      return
+    }
     setIsGenerating(true)
     try {
       const report = await api.generateReport({
@@ -833,6 +967,8 @@ export default function ReportsPage() {
         scope_type: selectedTemplate.scopeType,
         scope_id: scopeId,
         semester_id: selectedSemesterId ? Number(selectedSemesterId) : undefined,
+        period_start: startOfDayIso(periodStartDate),
+        period_end: endOfDayIso(periodEndDate),
       })
       await refreshReports()
       setSelectedReport(report)
@@ -996,6 +1132,20 @@ export default function ReportsPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <div className="grid grid-cols-2 gap-2 sm:w-[280px]">
+                <Input
+                  type="date"
+                  value={libraryDateFrom}
+                  onChange={(event) => setLibraryDateFrom(event.target.value)}
+                  aria-label="Lọc báo cáo từ ngày"
+                />
+                <Input
+                  type="date"
+                  value={libraryDateTo}
+                  onChange={(event) => setLibraryDateTo(event.target.value)}
+                  aria-label="Lọc báo cáo đến ngày"
+                />
+              </div>
               <Select value={libraryTypeFilter} onValueChange={(v) => { if (v) setLibraryTypeFilter(v) }}>
                 <SelectTrigger className="w-full sm:w-52">
                   <Filter className="mr-2 size-4 shrink-0 text-muted-foreground" />
@@ -1062,7 +1212,7 @@ export default function ReportsPage() {
                 )}
               </div>
 
-              <ReportPreview report={selectedReport} isLoading={isLoading} />
+              <ReportPreview report={selectedReport as ApiReport} isLoading={isLoading} />
             </div>
           </div>
 
@@ -1314,6 +1464,31 @@ export default function ReportsPage() {
                 </div>
               </div>
             )}
+
+            <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
+              <Label className="text-sm font-medium">Phạm vi thời gian dữ liệu</Label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Từ ngày</Label>
+                  <Input
+                    type="date"
+                    value={periodStartDate}
+                    onChange={(event) => setPeriodStartDate(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Đến ngày</Label>
+                  <Input
+                    type="date"
+                    value={periodEndDate}
+                    onChange={(event) => setPeriodEndDate(event.target.value)}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Để trống nếu muốn dùng toàn bộ dữ liệu. Khi chọn ngày, hệ thống chỉ tính các lượt học phần có ngày hoàn tất nằm trong khoảng này.
+              </p>
+            </div>
 
             <div className="space-y-2">
               <Label className="text-sm font-medium">Định dạng đầu ra</Label>
@@ -1623,6 +1798,18 @@ function ReportSimpleTable({
   )
 }
 
+function DeepDiveLink({ href, label = "Mở phân tích" }: { href?: unknown; label?: string }) {
+  const safeHref = normalizeDeepDiveHref(href)
+  if (!safeHref) {
+    return <span className="text-xs text-muted-foreground">Chưa có link</span>
+  }
+  return (
+    <a href={safeHref} className="font-medium text-primary underline underline-offset-2">
+      {label}
+    </a>
+  )
+}
+
 function buildOutcomeRows(attainment: Record<string, number> | null, target = 75) {
   if (!attainment) return []
   return Object.entries(attainment).map(([code, value]) => {
@@ -1638,6 +1825,55 @@ function buildOutcomeRows(attainment: Record<string, number> | null, target = 75
       status,
     ]
   })
+}
+
+function buildDeepInsightRows(metrics: Record<string, unknown>) {
+  const raw = Array.isArray(metrics.deep_insights) ? metrics.deep_insights : []
+  return (raw as Record<string, unknown>[]).map((item, index) => [
+    index + 1,
+    <div key="insight" className="space-y-1">
+      <div className="font-semibold">{localizeReportText(item.title ?? "Insight")}</div>
+      <div>{localizeReportText(item.finding ?? "")}</div>
+    </div>,
+    localizeReportText(item.evidence ?? ""),
+    localizeReportText(item.action ?? ""),
+    <DeepDiveLink key="deep-dive" href={item.href} />,
+  ])
+}
+
+function buildRootCauseRows(metrics: Record<string, unknown>) {
+  const raw = Array.isArray(metrics.root_causes) ? metrics.root_causes : []
+  return (raw as Record<string, unknown>[]).map((item, index) => [
+    index + 1,
+    localizeReportText(item.evidence ?? ""),
+    localizeReportText(item.hypothesis ?? ""),
+    localizeReportText(item.next_check ?? ""),
+    <DeepDiveLink key="deep-dive" href={item.href} />,
+  ])
+}
+
+function buildActionPlanRows(metrics: Record<string, unknown>, fallbackActions: string[], actorRole: string) {
+  const raw = Array.isArray(metrics.action_plan) ? metrics.action_plan : []
+  if (raw.length) {
+    return (raw as Record<string, unknown>[]).map((item, index) => [
+      index + 1,
+      localizeReportText(item.task ?? ""),
+      localizeReportText(item.owner ?? (actorRole === "lecturer" ? "Giảng viên" : "Quản lý / trưởng đơn vị")),
+      localizeReportText(item.reason ?? ""),
+      localizeReportText(item.deadline ?? (index === 0 ? "7 ngày" : "30 ngày")),
+      localizeReportText(item.priority ?? (index === 0 ? "Cao" : "Trung bình")),
+      <DeepDiveLink key="deep-dive" href={item.href} />,
+    ])
+  }
+  return fallbackActions.map((action, index) => [
+    index + 1,
+    localizeReportText(action),
+    actorRole === "lecturer" ? "Giảng viên" : "Quản lý / trưởng đơn vị",
+    "Theo khuyến nghị từ dữ liệu báo cáo.",
+    index === 0 ? "7 ngày" : "30 ngày",
+    index === 0 ? "Cao" : "Trung bình",
+    <DeepDiveLink key="deep-dive" href={undefined} />,
+  ])
 }
 
 function compactRows(rows: ReportTableRow[]) {
@@ -1673,6 +1909,35 @@ function ReportStandardDocument({
   const failed = Number(metrics.failed_enrollments ?? 0)
   const failRate = completed ? Math.round((failed / completed) * 1000) / 10 : null
   const weakClos = Array.isArray(metrics.weak_clos) ? metrics.weak_clos : []
+  const linkedBottlenecks = [
+    ...(Array.isArray(metrics.bottlenecks)
+      ? (metrics.bottlenecks as Record<string, unknown>[]).map((item) => ({
+          name: item.course ?? item.name,
+          type: "Môn học",
+          impact: item.failed != null ? `${item.failed} lượt chưa đạt` : "Cần theo dõi",
+          note: "Mở trang phân tích môn để xem phân bố điểm, lớp yếu và xu hướng.",
+          href: item.href,
+        }))
+      : []),
+    ...(Array.isArray(metrics.weak_programs)
+      ? (metrics.weak_programs as Record<string, unknown>[]).map((item) => ({
+          name: item.program ?? item.name,
+          type: "Ngành",
+          impact: item.failed != null ? `${item.failed} lượt chưa đạt` : "Cần theo dõi",
+          note: "Mở trang phân tích ngành để xem môn nghẽn và nhóm sinh viên rủi ro.",
+          href: item.href,
+        }))
+      : []),
+    ...(Array.isArray(metrics.weak_sections)
+      ? (metrics.weak_sections as Record<string, unknown>[]).map((item) => ({
+          name: item.section ?? item.name,
+          type: "Lớp học phần",
+          impact: item.pass_rate != null ? `Tỷ lệ đạt ${item.pass_rate}%` : "Cần theo dõi",
+          note: "Mở trang phân tích lớp để xem sinh viên, điểm thành phần và giáo viên phụ trách.",
+          href: item.href,
+        }))
+      : []),
+  ]
   const bottleneckRows = [
     ...weakClos.slice(0, 4).map((item, index) => {
       const record = item as Record<string, unknown>
@@ -1682,21 +1947,32 @@ function ReportStandardDocument({
         "CLO yếu",
         `${record.attainment ?? "?"}%`,
         "Cần rà soát rubric, đề và hoạt động luyện tập.",
+        <DeepDiveLink key="deep-dive" href={record.href} />,
       ]
     }),
-    ...coursesAtRisk.slice(0, 4).map((course, index) => [
+    ...linkedBottlenecks.slice(0, 6).map((item, index) => [
       weakClos.length + index + 1,
+      localizeReportText(item.name ?? "Chưa rõ"),
+      item.type,
+      item.impact,
+      item.note,
+      <DeepDiveLink key="deep-dive" href={item.href} />,
+    ]),
+    ...coursesAtRisk.slice(0, 4).map((course, index) => [
+      weakClos.length + linkedBottlenecks.length + index + 1,
       localizeReportText(course),
       "Học phần",
       "Cần theo dõi",
       "Học phần có dấu hiệu kéo kết quả xuống.",
+      <DeepDiveLink key="deep-dive" href={undefined} />,
     ]),
     ...issues.slice(0, 3).map((issue, index) => [
-      weakClos.length + coursesAtRisk.length + index + 1,
+      weakClos.length + linkedBottlenecks.length + coursesAtRisk.length + index + 1,
       localizeReportText(issue),
       "Vấn đề",
       "Cần kiểm chứng",
       "Cần truy vết thêm bằng dữ liệu thành phần.",
+      <DeepDiveLink key="deep-dive" href={undefined} />,
     ]),
   ]
 
@@ -1709,15 +1985,9 @@ function ReportStandardDocument({
       ])
     : []
 
-  const actionRows = actions.length
-    ? actions.map((action, index) => [
-        index + 1,
-        localizeReportText(action),
-        report.actor_role === "lecturer" ? "Giảng viên" : "Quản lý / trưởng đơn vị",
-        index === 0 ? "7 ngày" : "30 ngày",
-        index === 0 ? "Cao" : "Trung bình",
-      ])
-    : []
+  const deepInsightRows = buildDeepInsightRows(metrics)
+  const rootCauseRows = buildRootCauseRows(metrics)
+  const actionRows = buildActionPlanRows(metrics, actions, report.actor_role)
   const cloRows = buildOutcomeRows(cloAttainment)
   const ploRows = buildOutcomeRows(ploAttainment)
   const showCloSection = cloRows.length > 0
@@ -1806,6 +2076,7 @@ function ReportStandardDocument({
             { label: "Tên báo cáo", value: report.title },
             { label: "Loại báo cáo", value: labelFromMap(report.report_type, reportTypeLabels) },
             { label: "Phạm vi", value: labelFromMap(report.scope_type, scopeTypeLabels), note: report.scope_id ?? "Tất cả" },
+            { label: "Kỳ dữ liệu phân tích", value: reportPeriodLabel(report) },
             { label: "Người tạo", value: report.generated_by ? "Người dùng hệ thống" : "Hệ thống" },
             { label: "Dữ liệu tính đến", value: formatDate(report.created_at) },
             { label: "Phiên bản", value: "v1.0" },
@@ -1866,6 +2137,21 @@ function ReportStandardDocument({
         />
       </ReportSectionBlock>
 
+      {deepInsightRows.length ? (
+        <ReportSectionBlock
+          index={sectionIndex++}
+          title="Phân tích sâu từ dữ liệu"
+          purpose="Tổng hợp các lát cắt quan trọng nhất: điểm nghẽn, bằng chứng, hành động và nơi cần mở để xem sâu."
+          status="watch"
+        >
+          <ReportSimpleTable
+            columns={["#", "Nhận định", "Bằng chứng", "Hành động", "Mở sâu"]}
+            rows={deepInsightRows}
+            empty="Chưa có insight phân tích sâu."
+          />
+        </ReportSectionBlock>
+      ) : null}
+
       {showCloSection ? (
         <ReportSectionBlock
           index={sectionIndex++}
@@ -1903,11 +2189,26 @@ function ReportStandardDocument({
         status={bottleneckRows.length ? "watch" : "missing"}
       >
         <ReportSimpleTable
-          columns={["Hạng", "Điểm nghẽn", "Loại", "Mức ảnh hưởng", "Ghi chú"]}
+          columns={["Hạng", "Điểm nghẽn", "Loại", "Mức ảnh hưởng", "Ghi chú", "Phân tích sâu"]}
           rows={bottleneckRows}
           empty="Chưa đủ dữ liệu để truy vết bottleneck. Cần có CLO/PLO, điểm thành phần và mapping học phần."
         />
       </ReportSectionBlock>
+
+      {rootCauseRows.length ? (
+        <ReportSectionBlock
+          index={sectionIndex++}
+          title="Nguyên nhân khả dĩ cần kiểm chứng"
+          purpose="Tách rõ dấu hiệu đã thấy từ dữ liệu và giả thuyết cần mở dữ liệu để kiểm chứng."
+          status="watch"
+        >
+          <ReportSimpleTable
+            columns={["#", "Dấu hiệu từ dữ liệu", "Giả thuyết", "Cần kiểm chứng", "Mở sâu"]}
+            rows={rootCauseRows}
+            empty="Chưa có phân tích nguyên nhân khả dĩ."
+          />
+        </ReportSectionBlock>
+      ) : null}
 
       <ReportSectionBlock
         index={sectionIndex++}
@@ -1936,7 +2237,7 @@ function ReportStandardDocument({
         status={actionRows.length ? "good" : "missing"}
       >
         <ReportSimpleTable
-          columns={["#", "Hành động", "Phụ trách", "Hạn", "Ưu tiên"]}
+          columns={["#", "Hành động", "Phụ trách", "Lý do", "Hạn", "Ưu tiên", "Mở sâu"]}
           rows={actionRows}
           empty="Chưa có action plan. Có thể hỏi trợ lý báo cáo để đề xuất hành động từ dữ liệu hiện tại."
         />
@@ -1962,7 +2263,7 @@ function ReportStandardDocument({
 
 // ── Report Preview (Phase 2: per-type format) ─────────────────────────────────
 
-function ReportPreview({ report, isLoading }: { report: ApiReport | null; isLoading: boolean }) {
+function ReportPreview({ report, isLoading }: { report: ApiReport; isLoading: boolean }) {
   if (isLoading) {
     return (
       <Card>
@@ -1986,6 +2287,7 @@ function ReportPreview({ report, isLoading }: { report: ApiReport | null; isLoad
     )
   }
 
+  report = report as ApiReport
   const metrics = report.metrics_json ?? {}
   const issues = stringList(metrics.issues)
   const risks = stringList(metrics.risks)
@@ -1998,12 +2300,12 @@ function ReportPreview({ report, isLoading }: { report: ApiReport | null; isLoad
 
   // Per-type data — progressive enhancement when backend returns these keys
   const cloAttainment =
-    report.report_type === "section_intervention" &&
+    ["section_intervention", "course_health"].includes(report.report_type) &&
     metrics.clo_attainment != null &&
     typeof metrics.clo_attainment === "object" &&
     !Array.isArray(metrics.clo_attainment)
       ? (metrics.clo_attainment as Record<string, number>)
-      : null
+      : {}
 
   const ploAttainment =
     report.report_type === "program_health" &&
@@ -2011,7 +2313,7 @@ function ReportPreview({ report, isLoading }: { report: ApiReport | null; isLoad
     typeof metrics.plo_attainment === "object" &&
     !Array.isArray(metrics.plo_attainment)
       ? (metrics.plo_attainment as Record<string, number>)
-      : null
+      : {}
 
   const watchlistStudents =
     report.report_type === "section_intervention"
@@ -2020,6 +2322,37 @@ function ReportPreview({ report, isLoading }: { report: ApiReport | null; isLoad
 
   const coursesAtRisk =
     report.report_type === "program_health" ? stringList(metrics.courses_at_risk) : []
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3">
+        <div>
+          <div className="text-sm font-semibold">Bản xem báo cáo chuẩn PDF</div>
+          <div className="text-xs text-muted-foreground">
+            Layout A4 cũ, có thông tin báo cáo, phân tích sâu, nguyên nhân và kế hoạch hành động.
+          </div>
+        </div>
+        <Button onClick={() => printReport(report)}>
+          <Printer className="mr-2 size-4" />
+          Xuất PDF
+        </Button>
+      </div>
+
+      <ReportStandardDocument
+        report={report}
+        metrics={metrics}
+        issues={issues}
+        risks={risks}
+        actions={actions}
+        goodSignals={goodSignals}
+        confidence={confidence}
+        cloAttainment={cloAttainment}
+        ploAttainment={ploAttainment}
+        watchlistStudents={watchlistStudents}
+        coursesAtRisk={coursesAtRisk}
+      />
+    </div>
+  )
 
   return (
     <div className="space-y-4">
@@ -2049,26 +2382,8 @@ function ReportPreview({ report, isLoading }: { report: ApiReport | null; isLoad
         </div>
 
         <CardContent className="space-y-6 p-6">
-          <ReportStandardDocument
-            report={report}
-            metrics={metrics}
-            issues={issues}
-            risks={risks}
-            actions={actions}
-            goodSignals={goodSignals}
-            confidence={confidence}
-            cloAttainment={cloAttainment}
-            ploAttainment={ploAttainment}
-            watchlistStudents={watchlistStudents}
-            coursesAtRisk={coursesAtRisk}
-          />
-
-          <div className="rounded-lg border bg-muted/20 p-4">
-            <h3 className="font-semibold">Phần tương tác chi tiết</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Các bảng dưới đây dùng để drill-down nhanh, kiểm tra số liệu và mở phụ lục kỹ thuật của snapshot.
-            </p>
-          </div>
+          {/* Logic tree: who reads this + data-driven Q&A */}
+          <ReportContextPanel report={report} metrics={metrics} />
 
           {/* Main metric cards */}
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -2097,6 +2412,9 @@ function ReportPreview({ report, isLoading }: { report: ApiReport | null; isLoad
               tone="neutral"
             />
           </div>
+
+          {/* ── Charts section per report type ── */}
+          <ReportChartsSection report={report} metrics={metrics} />
 
           {/* Per-type: CLO attainment for section_intervention */}
           {cloAttainment && Object.keys(cloAttainment).length > 0 ? (
@@ -2228,33 +2546,26 @@ function ReportPreview({ report, isLoading }: { report: ApiReport | null; isLoad
             </div>
           </section>
 
-          {/* Generic lists */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <ReportListSection
-              icon={CheckCircle2}
-              title="Tín hiệu tốt"
-              empty="Chưa có tín hiệu tốt trong ảnh chụp."
-              items={goodSignals}
-            />
-            <ReportListSection
-              icon={AlertTriangle}
-              title="Điểm chưa tốt"
-              empty="Chưa có vấn đề trong ảnh chụp."
-              items={issues}
-            />
-            <ReportListSection
-              icon={Gauge}
-              title="Rủi ro cần chú ý"
-              empty="Chưa có rủi ro trong ảnh chụp."
-              items={risks}
-            />
-            <ReportListSection
-              icon={ClipboardCheck}
-              title="Hành động đề xuất"
-              empty="Chưa có hành động trong ảnh chụp."
-              items={actions}
-            />
-          </div>
+          {/* Action plan table */}
+          <ReportActionPanel actions={actions} risks={risks} actorRole={report.actor_role} />
+
+          {/* Signals + issues compact */}
+          {(goodSignals.length > 0 || issues.length > 0) && (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <ReportListSection
+                icon={CheckCircle2}
+                title="Tín hiệu tốt"
+                empty="Chưa có tín hiệu tốt trong ảnh chụp."
+                items={goodSignals}
+              />
+              <ReportListSection
+                icon={AlertTriangle}
+                title="Điểm cần cải thiện"
+                empty="Chưa có vấn đề trong ảnh chụp."
+                items={issues}
+              />
+            </div>
+          )}
 
           <details className="rounded-lg border">
             <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
@@ -2361,6 +2672,659 @@ function ReportListSection({
     </section>
   )
 }
+
+// ── ReportChartsSection — charts theo từng loại báo cáo ─────────────────────
+
+function ChartBlock({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-lg border p-4">
+      <h3 className="mb-4 font-semibold">{title}</h3>
+      {children}
+    </section>
+  )
+}
+
+function NoDataBanner({ message }: { message: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+      <Info className="size-3.5 shrink-0" />
+      {message}
+    </div>
+  )
+}
+
+function ReportChartsSection({
+  report,
+  metrics,
+}: {
+  report: ApiReport
+  metrics: Record<string, unknown>
+}) {
+  const passRate = typeof metrics.pass_rate === "number" ? metrics.pass_rate : null
+  const passedCount = typeof metrics.passed_enrollments === "number" ? metrics.passed_enrollments : null
+  const failedCount = typeof metrics.failed_enrollments === "number" ? metrics.failed_enrollments : null
+
+  // Trend data (Tier 2 — sẽ có sau khi backend thêm pass_rate_trend)
+  const trendRaw = Array.isArray(metrics.pass_rate_trend) ? metrics.pass_rate_trend : null
+  const trendData = trendRaw
+    ? (trendRaw as Record<string, unknown>[]).map((item) => ({
+        semester: String(item.semester ?? ""),
+        value: typeof item.pass_rate === "number" ? item.pass_rate : 0,
+        report_id: item.report_id ? String(item.report_id) : undefined,
+      }))
+    : null
+  const openReport = (reportId: string) => {
+    window.location.assign(reportUrl(reportId))
+  }
+
+  // ── school_overview ────────────────────────────────────────────────────────
+  if (report.report_type === "school_overview") {
+    const donutData =
+      passedCount != null && failedCount != null
+        ? [
+            { name: "Đạt", value: passedCount, color: "#22c55e" },
+            { name: "Chưa đạt", value: failedCount, color: "#ef4444" },
+          ]
+        : null
+
+    return (
+      <div className="space-y-4">
+        {donutData ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ChartBlock title="Phân phối kết quả học phần">
+              <ReportDonutChart
+                data={donutData}
+                centerText={passRate != null ? `${passRate}%` : undefined}
+              />
+            </ChartBlock>
+            {trendData && trendData.length >= 2 ? (
+              <ChartBlock title="Xu hướng tỷ lệ đạt theo kỳ">
+                <ReportTrendLine data={trendData} onDotClick={openReport} />
+              </ChartBlock>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
+  // ── department_health ──────────────────────────────────────────────────────
+  if (report.report_type === "department_health") {
+    const bottlenecks = Array.isArray(metrics.bottlenecks)
+      ? (metrics.bottlenecks as Record<string, unknown>[]).map((item) => ({
+          name: String(item.course ?? "").slice(0, 28),
+          value: typeof item.failed === "number" ? item.failed : 0,
+          fullName: String(item.course ?? ""),
+          href: typeof item.href === "string" ? item.href : undefined,
+        }))
+      : []
+    const weakPrograms = Array.isArray(metrics.weak_programs)
+      ? (metrics.weak_programs as Record<string, unknown>[]).map((item) => ({
+          name: String(item.program ?? "").slice(0, 28),
+          value: typeof item.failed === "number" ? item.failed : 0,
+          fullName: String(item.program ?? ""),
+          href: typeof item.href === "string" ? item.href : undefined,
+        }))
+      : []
+
+    return (
+      <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ChartBlock title="Môn nghẽn (số lượt trượt)">
+            {bottlenecks.length ? (
+              <ReportBarChart data={bottlenecks} target={0} unit=" lượt" label="Lượt trượt" />
+            ) : (
+              <NoDataBanner message="Chưa có dữ liệu lượt trượt theo môn." />
+            )}
+          </ChartBlock>
+          <ChartBlock title="Ngành yếu (số lượt trượt)">
+            {weakPrograms.length ? (
+              <ReportBarChart data={weakPrograms} target={0} unit=" lượt" label="Lượt trượt" />
+            ) : (
+              <NoDataBanner message="Chưa có dữ liệu lượt trượt theo ngành." />
+            )}
+          </ChartBlock>
+        </div>
+        {trendData && trendData.length >= 2 ? (
+          <ChartBlock title="Xu hướng tỷ lệ đạt theo kỳ">
+            <ReportTrendLine data={trendData} onDotClick={openReport} />
+          </ChartBlock>
+        ) : null}
+      </div>
+    )
+  }
+
+  // ── program_health ─────────────────────────────────────────────────────────
+  if (report.report_type === "program_health") {
+    const plo =
+      metrics.plo_attainment != null &&
+      typeof metrics.plo_attainment === "object" &&
+      !Array.isArray(metrics.plo_attainment)
+        ? (metrics.plo_attainment as Record<string, number>)
+        : null
+    const ploEntries = plo ? Object.entries(plo) : []
+    const radarData = ploEntries.map(([code, val]) => ({ subject: code, value: val }))
+    const barData = ploEntries.map(([code, val]) => ({
+      name: code,
+      value: val,
+      fullName: code,
+    }))
+    const bottlenecks = Array.isArray(metrics.bottlenecks)
+      ? (metrics.bottlenecks as Record<string, unknown>[]).map((item) => ({
+          name: String(item.course ?? "").slice(0, 28),
+          value: typeof item.failed === "number" ? item.failed : 0,
+          fullName: String(item.course ?? ""),
+          href: typeof item.href === "string" ? item.href : undefined,
+        }))
+      : []
+
+    return (
+      <div className="space-y-4">
+        {ploEntries.length > 0 ? (
+          <ChartBlock title="Mức đạt PLO (chuẩn đầu ra chương trình)">
+            {radarData.length >= 3 ? (
+              <ReportRadarChart data={radarData} target={75} />
+            ) : (
+              <ReportBarChart data={barData} target={75} />
+            )}
+          </ChartBlock>
+        ) : (
+          <NoDataBanner message="Chưa có dữ liệu PLO — cần hoàn thiện ma trận CLO→PLO trong hệ thống." />
+        )}
+        {bottlenecks.length > 0 ? (
+          <ChartBlock title="Môn nghẽn trong ngành">
+            <ReportBarChart data={bottlenecks} target={0} unit=" lượt" label="Lượt trượt" />
+          </ChartBlock>
+        ) : null}
+        {trendData && trendData.length >= 2 ? (
+          <ChartBlock title="Xu hướng tỷ lệ đạt theo kỳ">
+            <ReportTrendLine data={trendData} onDotClick={openReport} />
+          </ChartBlock>
+        ) : null}
+      </div>
+    )
+  }
+
+  // ── course_health ──────────────────────────────────────────────────────────
+  if (report.report_type === "course_health") {
+    const clo =
+      metrics.clo_attainment != null &&
+      typeof metrics.clo_attainment === "object" &&
+      !Array.isArray(metrics.clo_attainment)
+        ? (metrics.clo_attainment as Record<string, number>)
+        : null
+    const cloData = clo
+      ? Object.entries(clo).map(([code, val]) => ({ name: code, value: val, fullName: code }))
+      : []
+    const weakSections = Array.isArray(metrics.weak_sections)
+      ? (metrics.weak_sections as Record<string, unknown>[]).map((item) => ({
+          name: String(item.section ?? "").slice(0, 20),
+          pass_rate: typeof item.pass_rate === "number" ? item.pass_rate : 0,
+          teacher: item.teacher ? String(item.teacher) : undefined,
+          sample: typeof item.sample === "number" ? item.sample : undefined,
+          href: typeof item.href === "string" ? item.href : undefined,
+        }))
+      : []
+
+    return (
+      <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          {cloData.length > 0 ? (
+            <ChartBlock title="Mức đạt CLO (chuẩn đầu ra môn học)">
+              <ReportBarChart data={cloData} target={75} />
+            </ChartBlock>
+          ) : (
+            <div className="sm:col-span-2">
+              <NoDataBanner message="Chưa có dữ liệu CLO — cần gán thành phần điểm vào CLO trong cấu hình môn học." />
+            </div>
+          )}
+          {weakSections.length > 0 ? (
+            <ChartBlock title="So sánh tỷ lệ đạt giữa các lớp">
+              <ReportSectionBarChart data={weakSections} target={70} />
+            </ChartBlock>
+          ) : null}
+        </div>
+        {trendData && trendData.length >= 2 ? (
+          <ChartBlock title="Xu hướng tỷ lệ đạt theo kỳ">
+            <ReportTrendLine data={trendData} onDotClick={openReport} />
+          </ChartBlock>
+        ) : null}
+      </div>
+    )
+  }
+
+  // ── section_intervention ───────────────────────────────────────────────────
+  if (report.report_type === "section_intervention") {
+    const clo =
+      metrics.clo_attainment != null &&
+      typeof metrics.clo_attainment === "object" &&
+      !Array.isArray(metrics.clo_attainment)
+        ? (metrics.clo_attainment as Record<string, number>)
+        : null
+    const cloData = clo
+      ? Object.entries(clo).map(([code, val]) => ({ name: code, value: val, fullName: code }))
+      : []
+
+    const studentCount = typeof metrics.student_count === "number" ? metrics.student_count : 0
+    const gradedCount = typeof metrics.graded_count === "number" ? metrics.graded_count : 0
+    const watchlistCount = typeof metrics.watchlist_count === "number" ? metrics.watchlist_count : 0
+    const notGraded = Math.max(0, studentCount - gradedCount)
+    const safeCount = Math.max(0, gradedCount - watchlistCount)
+    const donutData = [
+      { name: "Đạt / An toàn", value: safeCount, color: "#22c55e" },
+      { name: "Cần chú ý", value: watchlistCount, color: "#f59e0b" },
+      { name: "Chưa có điểm", value: notGraded, color: "#94a3b8" },
+    ].filter((d) => d.value > 0)
+
+    return (
+      <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          {donutData.length > 0 ? (
+            <ChartBlock title="Phân phối sinh viên">
+              <ReportDonutChart
+                data={donutData}
+                centerText={passRate != null ? `${passRate}%` : undefined}
+              />
+            </ChartBlock>
+          ) : null}
+          {cloData.length > 0 ? (
+            <ChartBlock title="Mức đạt CLO">
+              <ReportBarChart data={cloData} target={75} />
+            </ChartBlock>
+          ) : (
+            <NoDataBanner message="Chưa có dữ liệu CLO — cần gán thành phần điểm vào CLO." />
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return null
+}
+
+// ── Quick agent prompts theo loại báo cáo ────────────────────────────────────
+
+const AGENT_QUICK_PROMPTS: Record<string, { label: string; question: string; mode: ApiReportAgentMode }[]> = {
+  school_overview: [
+    { label: "Khoa/Ngành nào rủi ro nhất?", question: "Phân tích khoa và ngành đang có rủi ro cao nhất trong báo cáo toàn trường này. Dấu hiệu nào là thật và cần hành động ngay?", mode: "root_cause" },
+    { label: "Xu hướng nhiều kỳ", question: "Tỷ lệ đạt toàn trường thay đổi thế nào qua các kỳ? Xu hướng đang tích cực hay đáng lo?", mode: "explain" },
+    { label: "Đề xuất hành động ưu tiên", question: "Từ báo cáo toàn trường này, đề xuất 3 hành động cần làm ngay trong tuần theo thứ tự ưu tiên", mode: "action_planning" },
+  ],
+  department_health: [
+    { label: "Môn nào cần cải thiện đề?", question: "Trong các môn nghẽn của khoa, môn nào có vấn đề cần xem lại đề thi và rubric? Phân tích từ dữ liệu lượt trượt.", mode: "root_cause" },
+    { label: "Ngành yếu: nguyên nhân gốc rễ", question: "Ngành có tỷ lệ đạt thấp nhất trong báo cáo này — nguyên nhân nào là gốc rễ: đề khó, giảng viên, hay sinh viên đầu vào yếu?", mode: "root_cause" },
+    { label: "Kế hoạch can thiệp ngay", question: "Tạo kế hoạch hành động 30 ngày cho khoa để giải quyết các vấn đề trong báo cáo này", mode: "action_planning" },
+  ],
+  program_health: [
+    { label: "PLO nào dưới mục tiêu?", question: "Giải thích chi tiết PLO đang thấp nhất: CLO nào kéo xuống, môn học nào liên quan và cần làm gì?", mode: "root_cause" },
+    { label: "Sẵn sàng kiểm định chưa?", question: "Báo cáo ngành này có đủ minh chứng CLO/PLO để nộp kiểm định chất lượng không? Còn thiếu phần nào?", mode: "explain" },
+    { label: "Cải tiến chương trình", question: "Từ dữ liệu PLO và bottleneck môn, đề xuất điều chỉnh cụ thể nào cho chương trình đào tạo?", mode: "action_planning" },
+  ],
+  course_health: [
+    { label: "CLO yếu: nguyên nhân?", question: "CLO nào thấp nhất trong môn học này? Giải thích: có thể do đề, rubric, phương pháp giảng hay sinh viên không đủ nền tảng?", mode: "root_cause" },
+    { label: "Lớp bất thường: vì sao?", question: "Lớp nào đang có kết quả thấp bất thường so với lớp khác trong cùng môn? Giải thích nguyên nhân có thể.", mode: "root_cause" },
+    { label: "Điều chỉnh đề / rubric", question: "Từ dữ liệu CLO và lớp yếu, đề xuất cụ thể: cần điều chỉnh đề, rubric hay hoạt động luyện tập nào?", mode: "action_planning" },
+  ],
+  section_intervention: [
+    { label: "Sinh viên nào cần gặp ngay?", question: "Từ danh sách cần chú ý, sinh viên nào cần liên hệ ngay và nên gặp theo nhóm nguyên nhân nào?", mode: "root_cause" },
+    { label: "CLO yếu: cần bổ sung gì?", question: "CLO nào cả lớp đang yếu nhất? Đề xuất bài tập bổ sung hoặc hoạt động luyện tập cụ thể để cải thiện.", mode: "action_planning" },
+    { label: "Tỷ lệ đạt lớp vs chuẩn", question: "So sánh tỷ lệ đạt của lớp này với mức trung bình môn và ngưỡng mục tiêu. Khoảng cách có đáng lo không?", mode: "compare" },
+  ],
+  "": [
+    { label: "Giải thích tỷ lệ đạt", question: "Chỉ số tỷ lệ đạt lấy từ đâu, công thức nào, cỡ mẫu có đủ không?", mode: "explain" },
+    { label: "Phân tích rủi ro", question: "Vì sao báo cáo này có rủi ro, dấu hiệu nào là thật và giả thuyết nào cần kiểm chứng?", mode: "root_cause" },
+    { label: "Đề xuất task", question: "Tạo task xử lý action quan trọng nhất từ báo cáo này", mode: "action_planning" },
+  ],
+}
+
+// ── ReportContextPanel — logic tree: ai đọc + dữ liệu trả lời gì ─────────────
+
+type QAResult = { q: string; answer: string | null }
+
+const REPORT_LOGIC_TREE: Record<
+  string,
+  { role: string; icon: string; questions: (m: Record<string, unknown>) => QAResult[] }
+> = {
+  school_overview: {
+    role: "Ban giám hiệu · Quản lý cấp trường",
+    icon: "🏛️",
+    questions: (m) => [
+      {
+        q: "Trường đang ở đâu về chất lượng đào tạo kỳ này?",
+        answer:
+          m.pass_rate != null
+            ? `Tỷ lệ đạt toàn trường ${m.pass_rate}%${m.avg_gpa != null ? ` · GPA trung bình ${m.avg_gpa}` : ""}${typeof m.active_students === "number" ? ` · ${m.active_students} sinh viên đang học` : ""}`
+            : null,
+      },
+      {
+        q: "Khoa / ngành nào đang rủi ro cao và cần can thiệp?",
+        answer: (() => {
+          const b = Array.isArray(m.bottlenecks) ? (m.bottlenecks as Record<string, unknown>[]) : []
+          if (b.length) {
+            const top = b
+              .slice(0, 3)
+              .map((x) => String(x.course ?? x.program ?? x.name ?? "?"))
+              .join(", ")
+            return `${b.length} điểm nghẽn: ${top}${b.length > 3 ? ` và ${b.length - 3} khác` : ""}`
+          }
+          return typeof m.at_risk_students === "number" ? `${m.at_risk_students} sinh viên GPA nguy cơ toàn trường` : null
+        })(),
+      },
+      {
+        q: "So kỳ trước, xu hướng chất lượng đang tăng hay giảm?",
+        answer: (() => {
+          const trend = Array.isArray(m.pass_rate_trend) ? (m.pass_rate_trend as Record<string, unknown>[]) : []
+          if (trend.length < 2) return null
+          const last = trend[trend.length - 1]
+          const prev = trend[trend.length - 2]
+          const delta = (Number(last.pass_rate) - Number(prev.pass_rate)).toFixed(1)
+          return `${last.semester}: ${last.pass_rate}% (${Number(delta) > 0 ? "+" : ""}${delta}% so kỳ trước)`
+        })(),
+      },
+    ],
+  },
+  department_health: {
+    role: "Trưởng khoa · Quản lý đào tạo",
+    icon: "🏢",
+    questions: (m) => [
+      {
+        q: "Ngành nào trong khoa đang có tỷ lệ đạt thấp nhất?",
+        answer: (() => {
+          const weak = Array.isArray(m.weak_programs) ? (m.weak_programs as Record<string, unknown>[]) : []
+          if (weak.length) {
+            const top = weak
+              .slice(0, 2)
+              .map((w) => `${w.program ?? w.name} (${w.failed ?? "?"} lượt trượt)`)
+              .join(", ")
+            return `${weak.length} ngành cần chú ý: ${top}`
+          }
+          return m.pass_rate != null
+            ? `Tỷ lệ đạt khoa: ${m.pass_rate}%${typeof m.at_risk_students === "number" ? ` · ${m.at_risk_students} SV nguy cơ` : ""}`
+            : null
+        })(),
+      },
+      {
+        q: "Môn nào đang gây nhiều lượt trượt nhất kỳ này?",
+        answer: (() => {
+          const b = Array.isArray(m.bottlenecks) ? (m.bottlenecks as Record<string, unknown>[]) : []
+          if (!b.length) return null
+          const top3 = b
+            .slice(0, 3)
+            .map((x) => `${x.course ?? x.name} (${x.failed ?? "?"} lượt)`)
+            .join(", ")
+          return `Top ${Math.min(3, b.length)}: ${top3}`
+        })(),
+      },
+      {
+        q: "Sinh viên nguy cơ tập trung ở đâu và mức nào?",
+        answer:
+          typeof m.at_risk_students === "number"
+            ? `${m.at_risk_students} SV GPA dưới ngưỡng rủi ro · Mức rủi ro khoa: ${m.risk_level ?? "Chưa rõ"}`
+            : null,
+      },
+    ],
+  },
+  program_health: {
+    role: "Trưởng ngành · Đảm bảo chất lượng",
+    icon: "📚",
+    questions: (m) => [
+      {
+        q: "PLO nào đang dưới mục tiêu 75% và cần cải thiện?",
+        answer: (() => {
+          const plo =
+            m.plo_attainment && typeof m.plo_attainment === "object" && !Array.isArray(m.plo_attainment)
+              ? Object.entries(m.plo_attainment as Record<string, number>)
+              : []
+          if (!plo.length) return null
+          const below = plo.filter(([, v]) => v < 75)
+          if (!below.length) return `Tất cả ${plo.length} PLO đều đạt ≥75% — chương trình đang ổn định`
+          return `${below.length}/${plo.length} PLO dưới mục tiêu: ${below.map(([k, v]) => `${k} (${v}%)`).join(", ")}`
+        })(),
+      },
+      {
+        q: "Học phần nào đang kéo tỷ lệ đạt / PLO xuống?",
+        answer: (() => {
+          const b = Array.isArray(m.bottlenecks) ? (m.bottlenecks as Record<string, unknown>[]) : []
+          const c = Array.isArray(m.courses_at_risk) ? (m.courses_at_risk as unknown[]) : []
+          if (b.length) return `${b.length} môn nghẽn: ${b.slice(0, 3).map((x) => x.course ?? x.name).join(", ")}`
+          if (c.length) return `${c.length} học phần cần chú ý: ${c.slice(0, 3).join(", ")}`
+          return null
+        })(),
+      },
+      {
+        q: "Minh chứng đo lường có đủ để đánh giá chương trình?",
+        answer: (() => {
+          const ploCount =
+            m.plo_attainment && typeof m.plo_attainment === "object" && !Array.isArray(m.plo_attainment)
+              ? Object.keys(m.plo_attainment as Record<string, number>).length
+              : 0
+          const cloCount =
+            m.clo_attainment && typeof m.clo_attainment === "object" && !Array.isArray(m.clo_attainment)
+              ? Object.keys(m.clo_attainment as Record<string, number>).length
+              : 0
+          const evCount = typeof m.evidence_count === "number" ? m.evidence_count : null
+          if (!ploCount && !cloCount && evCount == null) return null
+          const parts: string[] = []
+          if (ploCount) parts.push(`${ploCount} PLO đo được`)
+          if (cloCount) parts.push(`${cloCount} CLO có dữ liệu`)
+          if (evCount != null) parts.push(`${evCount} minh chứng`)
+          return parts.join(" · ")
+        })(),
+      },
+    ],
+  },
+  course_health: {
+    role: "Trưởng bộ môn · Giảng viên phụ trách môn",
+    icon: "📘",
+    questions: (m) => [
+      {
+        q: "CLO nào đang yếu nhất trong môn học này?",
+        answer: (() => {
+          const clo =
+            m.clo_attainment && typeof m.clo_attainment === "object" && !Array.isArray(m.clo_attainment)
+              ? Object.entries(m.clo_attainment as Record<string, number>)
+              : []
+          if (!clo.length) return null
+          const below = clo.filter(([, v]) => v < 70).sort((a, b) => a[1] - b[1])
+          if (!below.length) return `Tất cả ${clo.length} CLO đạt ≥70% — môn học ổn định`
+          const weakest = below[0]
+          return `${below.length} CLO dưới 70% · Yếu nhất: ${weakest[0]} (${weakest[1]}%)`
+        })(),
+      },
+      {
+        q: "Lớp nào có kết quả bất thường so với trung bình môn?",
+        answer: (() => {
+          const sects = Array.isArray(m.weak_sections) ? (m.weak_sections as Record<string, unknown>[]) : []
+          if (sects.length) {
+            const worst = sects[0]
+            return `${sects.length} lớp dưới chuẩn · Thấp nhất: ${worst.section ?? "Lớp?"} (${worst.pass_rate ?? "?"}%)`
+          }
+          return m.pass_rate != null
+            ? `Pass rate môn: ${m.pass_rate}%${typeof m.student_count === "number" ? ` · ${m.student_count} sinh viên` : ""}`
+            : null
+        })(),
+      },
+      {
+        q: "Mức rủi ro tổng thể và sinh viên cần theo dõi?",
+        answer:
+          m.risk_level != null
+            ? `Mức rủi ro: ${m.risk_level}${typeof m.at_risk_students === "number" && m.at_risk_students > 0 ? ` · ${m.at_risk_students} sinh viên cần theo dõi` : ""}`
+            : null,
+      },
+    ],
+  },
+  section_intervention: {
+    role: "Giảng viên · Cố vấn học tập",
+    icon: "🏫",
+    questions: (m) => [
+      {
+        q: "Có bao nhiêu sinh viên cần can thiệp ngay trong lớp?",
+        answer: (() => {
+          const wc = typeof m.watchlist_count === "number" ? m.watchlist_count : null
+          const total = typeof m.student_count === "number" ? m.student_count : null
+          if (wc == null && total == null) return null
+          return `${wc ?? 0} sinh viên cần chú ý${total != null ? ` / ${total} tổng lớp` : ""}${typeof m.pass_rate === "number" ? ` · Tỷ lệ đạt lớp: ${m.pass_rate}%` : ""}`
+        })(),
+      },
+      {
+        q: "CLO nào cả lớp đang yếu nhất, cần ưu tiên bổ sung?",
+        answer: (() => {
+          const clo =
+            m.clo_attainment && typeof m.clo_attainment === "object" && !Array.isArray(m.clo_attainment)
+              ? Object.entries(m.clo_attainment as Record<string, number>)
+              : []
+          if (!clo.length) return null
+          const below = [...clo].filter(([, v]) => v < 70).sort((a, b) => a[1] - b[1])
+          if (!below.length) return `Tất cả CLO đạt ≥70% — lớp đang tốt`
+          return `${below.length} CLO dưới 70%: ${below.slice(0, 2).map(([k, v]) => `${k} (${v}%)`).join(", ")}`
+        })(),
+      },
+      {
+        q: "Phân phối điểm lớp đang ở trạng thái nào?",
+        answer: (() => {
+          const graded = typeof m.graded_count === "number" ? m.graded_count : null
+          const total = typeof m.student_count === "number" ? m.student_count : null
+          const passed = typeof m.passed_enrollments === "number" ? m.passed_enrollments : null
+          if (graded == null && passed == null) return null
+          const parts: string[] = []
+          if (graded != null && total != null) parts.push(`${graded}/${total} đã có điểm`)
+          if (passed != null && graded != null && graded > 0) parts.push(`${passed} đạt (${Math.round((passed / graded) * 100)}%)`)
+          if (typeof m.avg_grade === "number") parts.push(`Điểm TB: ${m.avg_grade}`)
+          return parts.join(" · ")
+        })(),
+      },
+    ],
+  },
+}
+
+function ReportContextPanel({
+  report,
+  metrics,
+}: {
+  report: ApiReport
+  metrics: Record<string, unknown>
+}) {
+  const config = REPORT_LOGIC_TREE[report.report_type]
+  if (!config) return null
+  const qas = config.questions(metrics)
+
+  return (
+    <div className="rounded-xl border bg-card p-5 space-y-4">
+      <div className="flex items-center gap-3 border-b pb-4">
+        <div className="text-2xl">{config.icon}</div>
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Báo cáo phục vụ
+          </div>
+          <div className="mt-0.5 font-semibold text-foreground">{config.role}</div>
+        </div>
+        <Badge variant="outline" className="ml-auto shrink-0 text-[11px]">
+          {labelFromMap(report.report_type, reportTypeLabels)}
+        </Badge>
+      </div>
+
+      <div className="space-y-2">
+        <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+          Câu hỏi cốt lõi &amp; câu trả lời từ dữ liệu
+        </div>
+        {qas.map((qa, i) => (
+          <div
+            key={i}
+            className={`rounded-lg border p-3.5 ${
+              qa.answer
+                ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30"
+                : "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30"
+            }`}
+          >
+            <div className="text-[12px] font-medium text-muted-foreground">{qa.q}</div>
+            <div
+              className={`mt-1.5 text-sm font-semibold leading-snug ${
+                qa.answer ? "text-emerald-900 dark:text-emerald-100" : "text-amber-800 dark:text-amber-200"
+              }`}
+            >
+              {qa.answer ?? "Chưa đủ dữ liệu — hỏi trợ lý để phân tích sâu hơn"}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── ReportActionPanel — bảng kế hoạch hành động ưu tiên ──────────────────────
+
+function ReportActionPanel({
+  actions,
+  risks,
+  actorRole,
+}: {
+  actions: string[]
+  risks: string[]
+  actorRole: string
+}) {
+  if (!actions.length && !risks.length) return null
+  const owner = actorRole === "lecturer" ? "Giảng viên" : "Quản lý / Trưởng đơn vị"
+  const rows = actions.map((action, i) => ({
+    action: localizeReportText(action),
+    priority: i === 0 ? "Cao" : i === 1 ? "Trung bình" : "Bình thường",
+    owner,
+    deadline: i === 0 ? "7 ngày" : "30 ngày",
+  }))
+
+  return (
+    <section className="rounded-xl border p-5 space-y-3">
+      <div className="flex items-center gap-2">
+        <ClipboardCheck className="size-4 text-primary" />
+        <h3 className="font-semibold">Kế hoạch hành động</h3>
+        <Badge variant="secondary" className="ml-auto text-[11px]">{rows.length} hành động</Badge>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[480px] border-collapse text-sm">
+          <thead>
+            <tr className="border-b text-left">
+              <th className="py-2 pr-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground w-8">#</th>
+              <th className="py-2 pr-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Hành động</th>
+              <th className="py-2 pr-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground w-24">Phụ trách</th>
+              <th className="py-2 pr-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground w-20">Hạn</th>
+              <th className="py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground w-24">Ưu tiên</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={i} className="border-b last:border-0 hover:bg-muted/30">
+                <td className="py-2.5 pr-4 text-muted-foreground tabular-nums">{i + 1}</td>
+                <td className="py-2.5 pr-4 leading-relaxed">{row.action}</td>
+                <td className="py-2.5 pr-4 text-muted-foreground text-xs">{row.owner}</td>
+                <td className="py-2.5 pr-4 text-muted-foreground text-xs tabular-nums">{row.deadline}</td>
+                <td className="py-2.5">
+                  <Badge
+                    variant={row.priority === "Cao" ? "destructive" : row.priority === "Trung bình" ? "secondary" : "outline"}
+                    className="text-[10px]"
+                  >
+                    {row.priority}
+                  </Badge>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {risks.length > 0 && (
+        <div className="space-y-1.5 border-t pt-3">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Rủi ro cần theo dõi</div>
+          {risks.map((r, i) => (
+            <div key={i} className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/30 dark:border-amber-900 dark:text-amber-100">
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+              {localizeReportText(r)}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function FloatingAgent({
   open,
@@ -2502,42 +3466,11 @@ function AgentPanel({
           </Button>
 
           <div className="grid gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                onQuickAsk(
-                  "Chỉ số tỷ lệ đạt lấy từ đâu, công thức nào, cỡ mẫu có đủ không?",
-                  "explain",
-                )
-              }
-            >
-              Giải thích tỷ lệ đạt
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                onQuickAsk(
-                  "Vì sao báo cáo này có rủi ro, dấu hiệu nào là thật và giả thuyết nào cần kiểm chứng?",
-                  "root_cause",
-                )
-              }
-            >
-              Phân tích rủi ro
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                onQuickAsk(
-                  "Tạo task xử lý action quan trọng nhất từ báo cáo này",
-                  "action_planning",
-                )
-              }
-            >
-              Đề xuất task
-            </Button>
+            {AGENT_QUICK_PROMPTS[selectedReport?.report_type ?? ""].map((p) => (
+              <Button key={p.label} variant="outline" size="sm" onClick={() => onQuickAsk(p.question, p.mode)}>
+                {p.label}
+              </Button>
+            ))}
           </div>
         </CardContent>
       </Card>

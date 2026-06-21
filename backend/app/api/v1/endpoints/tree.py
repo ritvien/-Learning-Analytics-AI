@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from time import monotonic
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
@@ -18,6 +19,29 @@ router = APIRouter()
 
 
 TreeNode = dict[str, Any]
+TREE_CACHE_TTL_SECONDS = 60
+_TREE_CACHE: dict[str, tuple[float, TreeNode]] = {}
+
+
+def _tree_cache_key(current_user: CurrentUser) -> str:
+    role = getattr(current_user.role, "value", current_user.role)
+    return f"{current_user.id}:{role}"
+
+
+def _get_cached_tree(current_user: CurrentUser) -> TreeNode | None:
+    cached = _TREE_CACHE.get(_tree_cache_key(current_user))
+    if cached is None:
+        return None
+    created_at, tree = cached
+    if monotonic() - created_at > TREE_CACHE_TTL_SECONDS:
+        _TREE_CACHE.pop(_tree_cache_key(current_user), None)
+        return None
+    return tree
+
+
+def _set_cached_tree(current_user: CurrentUser, tree: TreeNode) -> TreeNode:
+    _TREE_CACHE[_tree_cache_key(current_user)] = (monotonic(), tree)
+    return tree
 
 
 def _pct(part: int, total: int) -> float:
@@ -219,7 +243,10 @@ def _find_node(node: TreeNode, node_type: str, node_id: str) -> TreeNode | None:
 @router.get("")
 async def get_academic_tree(db: DBSession, current_user: CurrentUser) -> TreeNode:
     """Return Department -> Program -> Course tree with roll-up metrics."""
-    return _build_tree(await _load_visible_tree_data(db, current_user))
+    cached = _get_cached_tree(current_user)
+    if cached is not None:
+        return cached
+    return _set_cached_tree(current_user, _build_tree(await _load_visible_tree_data(db, current_user)))
 
 
 @router.get("/{node_type}/{node_id}/metrics")
@@ -227,7 +254,9 @@ async def get_tree_node_metrics(
     node_type: str, node_id: str, db: DBSession, current_user: CurrentUser
 ) -> dict[str, Any]:
     """Return metrics for one tree node."""
-    tree = _build_tree(await _load_visible_tree_data(db, current_user))
+    tree = _get_cached_tree(current_user)
+    if tree is None:
+        tree = _set_cached_tree(current_user, _build_tree(await _load_visible_tree_data(db, current_user)))
     node = _find_node(tree, node_type, node_id)
     if node is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tree node not found")

@@ -1,6 +1,8 @@
 """Analytics warehouse and prediction read/operation endpoints."""
 
-from fastapi import APIRouter, HTTPException, status
+from time import monotonic
+
+from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import text
 
 from app.analytics.etl import refresh_dwh
@@ -11,12 +13,31 @@ from app.analytics.health_score import (
     get_course_health_batch
 )
 from app.config import get_settings
+from app.database import AsyncSessionLocal
 from app.dependencies import DBSession
 from app.ml.scoring import aggregate_student_semester_predictions
 
 router = APIRouter()
 
 settings = get_settings()
+_DASHBOARD_CACHE_TTL_SECONDS = 300
+_dashboard_cache: dict[tuple, tuple[float, dict]] = {}
+
+
+def _dashboard_cache_get(key: tuple) -> dict | None:
+    cached = _dashboard_cache.get(key)
+    if cached is None:
+        return None
+    cached_at, payload = cached
+    if monotonic() - cached_at > _DASHBOARD_CACHE_TTL_SECONDS:
+        _dashboard_cache.pop(key, None)
+        return None
+    return payload
+
+
+def _dashboard_cache_set(key: tuple, payload: dict) -> dict:
+    _dashboard_cache[key] = (monotonic(), payload)
+    return payload
 
 
 @router.get("/health", tags=["system"])
@@ -97,6 +118,721 @@ async def analytics_trends(
     return [dict(row) for row in result.mappings().all()]
 
 
+def _dashboard_filter_sql(
+    *,
+    semester_code: str | None = None,
+    department_id: int | None = None,
+    program_id: int | None = None,
+    cohort_id: int | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> tuple[str, dict]:
+    clauses: list[str] = []
+    params: dict = {}
+    if semester_code:
+        clauses.append("dsem.code = :semester_code")
+        params["semester_code"] = semester_code
+    if department_id is not None:
+        clauses.append("dp.department_id = :department_id")
+        params["department_id"] = department_id
+    if program_id is not None:
+        clauses.append("ds.program_id = :program_id")
+        params["program_id"] = program_id
+    if cohort_id is not None:
+        clauses.append("ds.cohort_id = :cohort_id")
+        params["cohort_id"] = cohort_id
+    if date_from:
+        clauses.append("f.updated_at >= CAST(:date_from AS timestamptz)")
+        params["date_from"] = date_from
+    if date_to:
+        clauses.append("f.updated_at <= CAST(:date_to AS timestamptz)")
+        params["date_to"] = date_to
+    return ("WHERE " + " AND ".join(clauses)) if clauses else "", params
+
+
+async def _fetch_all(db: DBSession, sql: str, params: dict | None = None) -> list[dict]:
+    result = await db.execute(text(sql), params or {})
+    return [dict(row) for row in result.mappings().all()]
+
+
+async def _fetch_one(db: DBSession, sql: str, params: dict | None = None) -> dict:
+    row = (await db.execute(text(sql), params or {})).mappings().one()
+    return dict(row)
+
+
+async def _dashboard_meta(db: DBSession) -> dict:
+    departments = await _fetch_all(
+        db,
+        """
+        SELECT id, code, name
+        FROM departments
+        WHERE is_active IS TRUE
+        ORDER BY name
+        """,
+    )
+    programs = await _fetch_all(
+        db,
+        """
+        SELECT program_id AS id, code, name, department_id
+        FROM dwh.dim_program
+        ORDER BY name
+        """,
+    )
+    semesters = await _fetch_all(
+        db,
+        """
+        SELECT semester_id AS id, code, name, year, term
+        FROM dwh.dim_semester
+        ORDER BY year, term
+        """,
+    )
+    cohorts = await _fetch_all(
+        db,
+        """
+        SELECT cohort_id AS id, code, year_start
+        FROM dwh.dim_cohort
+        ORDER BY year_start, code
+        """,
+    )
+    return {"departments": departments, "programs": programs, "semesters": semesters, "cohorts": cohorts}
+
+
+@router.get("/analytics/dashboard/overview")
+async def analytics_dashboard_overview(
+    db: DBSession,
+    semester_code: str | None = None,
+    department_id: int | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> dict:
+    """Return pre-aggregated school dashboard metrics from the DWH."""
+    cache_key = ("overview", semester_code, department_id, date_from, date_to)
+    cached = _dashboard_cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    where_sql, params = _dashboard_filter_sql(
+        semester_code=semester_code,
+        department_id=department_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    scoped_program_clause = "WHERE dp.department_id = :department_id" if department_id is not None else ""
+    scoped_student_clause = """
+        JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+        WHERE ds.status = 'active' AND dp.department_id = :department_id
+    """ if department_id is not None else "WHERE ds.status = 'active'"
+
+    kpis = await _fetch_one(
+        db,
+        f"""
+        WITH filtered AS (
+            SELECT f.*, ds.program_id, ds.cohort_id, dp.department_id, dsem.code AS semester_code
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            {where_sql}
+        )
+        SELECT
+            (SELECT COUNT(*)::INTEGER FROM dwh.dim_student ds {scoped_student_clause}) AS total_active_students,
+            (SELECT COUNT(*)::INTEGER FROM dwh.dim_program dp {scoped_program_clause}) AS program_count,
+            COUNT(*)::INTEGER AS completed_enrollments,
+            COUNT(*) FILTER (WHERE is_passed IS FALSE)::INTEGER AS failed_enrollments,
+            COUNT(DISTINCT CASE WHEN is_passed IS FALSE THEN student_id END)::INTEGER AS risk_student_count,
+            COALESCE(ROUND(COUNT(*) FILTER (WHERE is_passed IS TRUE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 1), 0)::FLOAT AS pass_rate,
+            COALESCE(ROUND(AVG(final_grade), 2), 0)::FLOAT AS avg_grade
+        FROM filtered
+        """,
+        params,
+    )
+
+    trend = await _fetch_all(
+        db,
+        f"""
+        WITH filtered AS (
+            SELECT f.*, dp.department_id, dsem.semester_id AS dim_semester_id, dsem.code, dsem.year, dsem.term
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            {where_sql}
+        )
+        SELECT
+            dim_semester_id AS id,
+            code AS semester,
+            year,
+            term,
+            COUNT(*)::INTEGER AS count,
+            COALESCE(ROUND(COUNT(*) FILTER (WHERE is_passed IS TRUE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 1), 0)::FLOAT AS pass_rate,
+            COALESCE(ROUND(AVG(final_grade), 2), 0)::FLOAT AS avg_grade
+        FROM filtered
+        GROUP BY dim_semester_id, code, year, term
+        ORDER BY year, term
+        """,
+        params,
+    )
+
+    program_rows = await _fetch_all(
+        db,
+        f"""
+        WITH filtered AS (
+            SELECT f.*, ds.program_id, dp.department_id, dsem.code AS semester_code
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            {where_sql}
+        ),
+        worst_course AS (
+            SELECT DISTINCT ON (program_id)
+                program_id,
+                dc.name AS worst_course,
+                COUNT(*) FILTER (WHERE is_passed IS FALSE) AS failed_count
+            FROM filtered f
+            JOIN dwh.dim_course dc ON dc.course_id = f.course_id
+            GROUP BY program_id, dc.course_id, dc.name
+            ORDER BY program_id, failed_count DESC, dc.name
+        )
+        SELECT
+            dp.program_id AS id,
+            dp.code,
+            dp.name,
+            dep.name AS department,
+            COUNT(DISTINCT ds.student_id)::INTEGER AS active_students,
+            COUNT(DISTINCT f.section_id)::INTEGER AS sections,
+            COALESCE(ROUND(COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 1), 0)::FLOAT AS pass_rate,
+            COALESCE(ROUND(AVG(f.final_grade), 2), 0)::FLOAT AS avg_grade,
+            COUNT(DISTINCT CASE WHEN f.is_passed IS FALSE THEN f.student_id END)::INTEGER AS at_risk,
+            COALESCE(wc.worst_course, 'Chưa có dữ liệu') AS worst_course
+        FROM dwh.dim_program dp
+        LEFT JOIN departments dep ON dep.id = dp.department_id
+        LEFT JOIN dwh.dim_student ds ON ds.program_id = dp.program_id AND ds.status = 'active'
+        LEFT JOIN filtered f ON f.student_id = ds.student_id
+        LEFT JOIN worst_course wc ON wc.program_id = dp.program_id
+        {scoped_program_clause}
+        GROUP BY dp.program_id, dp.code, dp.name, dep.name, wc.worst_course
+        ORDER BY at_risk DESC, pass_rate ASC, avg_grade ASC
+        LIMIT 60
+        """,
+        params,
+    )
+
+    department_rows = await _fetch_all(
+        db,
+        f"""
+        WITH filtered AS (
+            SELECT f.*, dp.department_id
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            {where_sql}
+        )
+        SELECT
+            dep.id,
+            dep.name,
+            COUNT(*)::INTEGER AS count,
+            COALESCE(ROUND(COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 1), 0)::FLOAT AS pass_rate
+        FROM departments dep
+        LEFT JOIN filtered f ON f.department_id = dep.id
+        WHERE dep.is_active IS TRUE
+        GROUP BY dep.id, dep.name
+        ORDER BY pass_rate ASC, count DESC
+        """,
+        params,
+    )
+
+    cohort_rows = await _fetch_all(
+        db,
+        f"""
+        WITH filtered AS (
+            SELECT f.*, ds.cohort_id
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            {where_sql}
+        )
+        SELECT
+            dc.cohort_id AS id,
+            dc.code AS cohort,
+            dc.year_start,
+            COUNT(*)::INTEGER AS count,
+            COALESCE(ROUND(COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 1), 0)::FLOAT AS pass_rate,
+            COALESCE(ROUND(COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 1), 0)::FLOAT AS fail_rate
+        FROM dwh.dim_cohort dc
+        LEFT JOIN filtered f ON f.cohort_id = dc.cohort_id
+        GROUP BY dc.cohort_id, dc.code, dc.year_start
+        HAVING COUNT(*) > 0
+        ORDER BY dc.year_start, dc.code
+        """,
+        params,
+    )
+
+    grade_distribution = await _fetch_all(
+        db,
+        f"""
+        WITH filtered AS (
+            SELECT f.final_grade
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            {where_sql}
+        )
+        SELECT
+            bucket AS name,
+            COUNT(*)::INTEGER AS value
+        FROM (
+            SELECT CASE
+                WHEN final_grade < 4 THEN 'Trượt nặng'
+                WHEN final_grade < 5 THEN 'Cận trượt'
+                WHEN final_grade < 6.5 THEN 'Trung bình'
+                WHEN final_grade < 8 THEN 'Khá'
+                ELSE 'Tốt'
+            END AS bucket
+            FROM filtered
+            WHERE final_grade IS NOT NULL
+        ) s
+        GROUP BY bucket
+        ORDER BY MIN(CASE bucket WHEN 'Trượt nặng' THEN 1 WHEN 'Cận trượt' THEN 2 WHEN 'Trung bình' THEN 3 WHEN 'Khá' THEN 4 ELSE 5 END)
+        """,
+        params,
+    )
+
+    heatmap = await _fetch_all(
+        db,
+        f"""
+        WITH filtered AS (
+            SELECT f.*, ds.program_id, dsem.semester_id AS dim_semester_id, dsem.code, dsem.year, dsem.term
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            {where_sql}
+        ),
+        top_programs AS (
+            SELECT program_id
+            FROM filtered
+            GROUP BY program_id
+            ORDER BY COUNT(*) FILTER (WHERE is_passed IS FALSE) DESC
+            LIMIT 10
+        )
+        SELECT
+            dp.program_id AS program_id,
+            dp.name AS program_name,
+            f.dim_semester_id AS semester_id,
+            f.code AS semester,
+            f.year,
+            f.term,
+            COALESCE(ROUND(COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 0), 0)::INTEGER AS pass_rate
+        FROM filtered f
+        JOIN top_programs tp ON tp.program_id = f.program_id
+        JOIN dwh.dim_program dp ON dp.program_id = f.program_id
+        GROUP BY dp.program_id, dp.name, f.dim_semester_id, f.code, f.year, f.term
+        ORDER BY dp.name, f.year, f.term
+        """,
+        params,
+    )
+
+    meta = await _dashboard_meta(db)
+    return _dashboard_cache_set(cache_key, {
+        **meta,
+        "kpis": kpis,
+        "trend": trend,
+        "program_rows": program_rows,
+        "department_rows": department_rows,
+        "cohort_rows": cohort_rows,
+        "grade_distribution": grade_distribution,
+        "heatmap": heatmap,
+    })
+
+
+async def prewarm_dashboard_cache() -> None:
+    """Warm the most common aggregate dashboard after backend startup."""
+    async with AsyncSessionLocal() as session:
+        await analytics_dashboard_overview(session)
+
+
+@router.get("/analytics/dashboard/departments")
+async def analytics_dashboard_departments(
+    db: DBSession,
+    semester_code: str | None = None,
+    department_id: int | None = None,
+    program_id: int | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> dict:
+    """Return pre-aggregated department dashboard metrics from the DWH."""
+    cache_key = ("departments", semester_code, department_id, program_id, date_from, date_to)
+    cached = _dashboard_cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    where_sql, params = _dashboard_filter_sql(
+        semester_code=semester_code,
+        department_id=department_id,
+        program_id=program_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+    dept_stats = await _fetch_all(
+        db,
+        f"""
+        WITH filtered AS (
+            SELECT f.*, dp.department_id
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            {where_sql}
+        )
+        SELECT
+            dep.id,
+            dep.name,
+            REGEXP_REPLACE(REGEXP_REPLACE(dep.name, '^Khoa\\s+', '', 'i'), '^Bộ môn\\s+', '', 'i') AS short_name,
+            COUNT(DISTINCT f.student_id)::INTEGER AS student_count,
+            COALESCE(ROUND(COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 1), 0)::FLOAT AS pass_rate,
+            COALESCE(ROUND(AVG(f.final_grade), 2), 0)::FLOAT AS avg_grade,
+            COUNT(DISTINCT CASE WHEN f.is_passed IS FALSE THEN f.student_id END)::INTEGER AS at_risk
+        FROM departments dep
+        LEFT JOIN filtered f ON f.department_id = dep.id
+        WHERE dep.is_active IS TRUE
+        GROUP BY dep.id, dep.name
+        ORDER BY student_count DESC, pass_rate ASC
+        """,
+        params,
+    )
+
+    heatmap = await _fetch_all(
+        db,
+        f"""
+        WITH filtered AS (
+            SELECT f.*, dp.department_id, dsem.semester_id AS dim_semester_id, dsem.code, dsem.year, dsem.term
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            {where_sql}
+        )
+        SELECT
+            dep.id AS department_id,
+            REGEXP_REPLACE(REGEXP_REPLACE(dep.name, '^Khoa\\s+', '', 'i'), '^Bộ môn\\s+', '', 'i') AS department,
+            f.dim_semester_id AS semester_id,
+            f.code AS semester,
+            f.year,
+            f.term,
+            COALESCE(ROUND(COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 0), 0)::INTEGER AS pass_rate
+        FROM filtered f
+        JOIN departments dep ON dep.id = f.department_id
+        GROUP BY dep.id, dep.name, f.dim_semester_id, f.code, f.year, f.term
+        ORDER BY dep.name, f.year, f.term
+        """,
+        params,
+    )
+
+    drill_course_fail = await _fetch_all(
+        db,
+        f"""
+        WITH filtered AS (
+            SELECT f.*, dp.department_id
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            {where_sql}
+        )
+        SELECT
+            dc.course_id AS id,
+            dc.name,
+            COUNT(*)::INTEGER AS total,
+            COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::INTEGER AS failed,
+            COALESCE(ROUND(COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 1), 0)::FLOAT AS rate
+        FROM filtered f
+        JOIN dwh.dim_course dc ON dc.course_id = f.course_id
+        GROUP BY dc.course_id, dc.name
+        HAVING COUNT(*) >= 5
+        ORDER BY rate DESC, failed DESC
+        LIMIT 10
+        """,
+        params,
+    )
+
+    drill_section_abnormal = await _fetch_all(
+        db,
+        f"""
+        WITH filtered AS (
+            SELECT f.*, dp.department_id, ds.program_id
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            {where_sql}
+        ),
+        section_stats AS (
+            SELECT
+                f.section_id,
+                f.course_id,
+                COUNT(*)::INTEGER AS total,
+                COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::INTEGER AS failed
+            FROM filtered f
+            GROUP BY f.section_id, f.course_id
+            HAVING COUNT(*) >= 5
+        ),
+        course_stats AS (
+            SELECT
+                f.course_id,
+                COUNT(*)::INTEGER AS total,
+                COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::INTEGER AS failed
+            FROM filtered f
+            GROUP BY f.course_id
+        )
+        SELECT
+            ss.section_id AS id,
+            dsec.section_code AS code,
+            dc.name AS course_name,
+            COALESCE(ROUND(ss.failed::DECIMAL / NULLIF(ss.total, 0) * 100, 1), 0)::FLOAT AS fail_rate,
+            COALESCE(ROUND(cs.failed::DECIMAL / NULLIF(cs.total, 0) * 100, 1), 0)::FLOAT AS avg_fail,
+            COALESCE(ROUND((ss.failed::DECIMAL / NULLIF(ss.total, 0) - cs.failed::DECIMAL / NULLIF(cs.total, 0)) * 100, 1), 0)::FLOAT AS diff
+        FROM section_stats ss
+        JOIN course_stats cs ON cs.course_id = ss.course_id
+        JOIN dwh.dim_section dsec ON dsec.section_id = ss.section_id
+        JOIN dwh.dim_course dc ON dc.course_id = ss.course_id
+        WHERE (ss.failed::DECIMAL / NULLIF(ss.total, 0) - cs.failed::DECIMAL / NULLIF(cs.total, 0)) * 100 >= 15
+        ORDER BY fail_rate DESC, diff DESC
+        LIMIT 10
+        """,
+        params,
+    )
+
+    meta = await _dashboard_meta(db)
+    return _dashboard_cache_set(cache_key, {
+        **meta,
+        "dept_stats": dept_stats,
+        "heatmap": heatmap,
+        "drill_course_fail": drill_course_fail,
+        "drill_section_abnormal": drill_section_abnormal,
+    })
+
+
+@router.get("/analytics/dashboard/programs/{program_id}")
+async def analytics_dashboard_program(
+    program_id: int,
+    db: DBSession,
+    semester_code: str | None = None,
+    cohort_id: int | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> dict:
+    """Return pre-aggregated program dashboard metrics from the DWH."""
+    cache_key = ("program", program_id, semester_code, cohort_id, date_from, date_to)
+    cached = _dashboard_cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    where_sql, params = _dashboard_filter_sql(
+        program_id=program_id,
+        semester_code=semester_code,
+        cohort_id=cohort_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+    program = (
+        await db.execute(
+            text(
+                """
+                SELECT program_id AS id, code, name, department_id
+                FROM dwh.dim_program
+                WHERE program_id = :program_id
+                """
+            ),
+            {"program_id": program_id},
+        )
+    ).mappings().one_or_none()
+    if program is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Program not found")
+
+    kpis = await _fetch_one(
+        db,
+        f"""
+        WITH filtered AS (
+            SELECT f.*, ds.cohort_id
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            {where_sql}
+        )
+        SELECT
+            (SELECT COUNT(*)::INTEGER FROM dwh.dim_student WHERE program_id = :program_id AND status = 'active') AS students,
+            COUNT(*)::INTEGER AS completed_enrollments,
+            COALESCE(ROUND(COUNT(*) FILTER (WHERE is_passed IS TRUE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 1), 0)::FLOAT AS pass_rate,
+            COALESCE(ROUND(AVG(final_grade), 2), 0)::FLOAT AS avg_grade,
+            COUNT(DISTINCT CASE WHEN is_passed IS FALSE THEN student_id END)::INTEGER AS at_risk,
+            COUNT(DISTINCT CASE WHEN is_passed IS FALSE THEN course_id END)::INTEGER AS bottlenecks
+        FROM filtered
+        """,
+        params,
+    )
+
+    trend = await _fetch_all(
+        db,
+        f"""
+        WITH filtered AS (
+            SELECT f.*, dsem.semester_id AS dim_semester_id, dsem.code, dsem.year, dsem.term
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            {where_sql}
+        )
+        SELECT
+            dim_semester_id AS id,
+            code AS semester,
+            year,
+            term,
+            COUNT(*)::INTEGER AS count,
+            COALESCE(ROUND(COUNT(*) FILTER (WHERE is_passed IS TRUE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 1), 0)::FLOAT AS pass_rate,
+            COALESCE(ROUND(AVG(final_grade), 2), 0)::FLOAT AS avg_grade
+        FROM filtered
+        GROUP BY dim_semester_id, code, year, term
+        ORDER BY year, term
+        """,
+        params,
+    )
+
+    course_stats = await _fetch_all(
+        db,
+        f"""
+        WITH filtered AS (
+            SELECT f.*
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            {where_sql}
+        )
+        SELECT
+            dc.course_id AS id,
+            dc.code,
+            dc.name,
+            CASE
+                WHEN dc.credits <= 2 THEN 'Nhóm 1-2 tín chỉ'
+                WHEN dc.credits = 3 THEN 'Nhóm 3 tín chỉ'
+                ELSE 'Nhóm 4+ tín chỉ'
+            END AS "group",
+            COUNT(*)::INTEGER AS total,
+            COALESCE(ROUND(COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 1), 0)::FLOAT AS pass_rate,
+            COALESCE(ROUND(AVG(f.final_grade), 2), 0)::FLOAT AS avg_grade,
+            COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::INTEGER AS failed,
+            COUNT(*) FILTER (WHERE f.final_grade >= 4 AND f.final_grade < 5)::INTEGER AS near_fail
+        FROM filtered f
+        JOIN dwh.dim_course dc ON dc.course_id = f.course_id
+        GROUP BY dc.course_id, dc.code, dc.name, dc.credits
+        ORDER BY pass_rate ASC, failed DESC
+        LIMIT 80
+        """,
+        params,
+    )
+
+    groups = await _fetch_all(
+        db,
+        f"""
+        WITH filtered AS (
+            SELECT f.*
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            {where_sql}
+        )
+        SELECT
+            CASE
+                WHEN dc.credits <= 2 THEN 'Nhóm 1-2 tín chỉ'
+                WHEN dc.credits = 3 THEN 'Nhóm 3 tín chỉ'
+                ELSE 'Nhóm 4+ tín chỉ'
+            END AS name,
+            COALESCE(ROUND(COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 1), 0)::FLOAT AS pass_rate
+        FROM filtered f
+        JOIN dwh.dim_course dc ON dc.course_id = f.course_id
+        GROUP BY 1
+        ORDER BY pass_rate ASC
+        """,
+        params,
+    )
+
+    distribution = await _fetch_all(
+        db,
+        f"""
+        WITH filtered AS (
+            SELECT f.final_grade
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            {where_sql}
+        )
+        SELECT bucket AS name, COUNT(*)::INTEGER AS value
+        FROM (
+            SELECT CASE
+                WHEN final_grade < 4 THEN 'Trượt nặng'
+                WHEN final_grade < 5 THEN 'Cận trượt'
+                WHEN final_grade < 6.5 THEN 'Trung bình'
+                WHEN final_grade < 8 THEN 'Khá'
+                ELSE 'Tốt'
+            END AS bucket
+            FROM filtered
+            WHERE final_grade IS NOT NULL
+        ) s
+        GROUP BY bucket
+        ORDER BY MIN(CASE bucket WHEN 'Trượt nặng' THEN 1 WHEN 'Cận trượt' THEN 2 WHEN 'Trung bình' THEN 3 WHEN 'Khá' THEN 4 ELSE 5 END)
+        """,
+        params,
+    )
+
+    cohort_heatmap = await _fetch_all(
+        db,
+        f"""
+        WITH filtered AS (
+            SELECT f.*, ds.cohort_id, dsem.semester_id AS dim_semester_id, dsem.code, dsem.year, dsem.term
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            {where_sql}
+        )
+        SELECT
+            dc.cohort_id,
+            dc.code AS cohort,
+            f.dim_semester_id AS semester_id,
+            f.code AS semester,
+            f.year,
+            f.term,
+            COALESCE(ROUND(COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 0), 0)::INTEGER AS pass_rate
+        FROM filtered f
+        JOIN dwh.dim_cohort dc ON dc.cohort_id = f.cohort_id
+        GROUP BY dc.cohort_id, dc.code, f.dim_semester_id, f.code, f.year, f.term
+        ORDER BY dc.code, f.year, f.term
+        """,
+        params,
+    )
+
+    meta = await _dashboard_meta(db)
+    return _dashboard_cache_set(cache_key, {
+        **meta,
+        "program": dict(program),
+        "kpis": kpis,
+        "trend": trend,
+        "course_stats": course_stats,
+        "groups": groups,
+        "distribution": distribution,
+        "cohort_heatmap": cohort_heatmap,
+    })
+
+
 @router.get("/analytics/refresh-status")
 async def analytics_refresh_status(db: DBSession) -> dict:
     """Return the most recent DWH ETL run status."""
@@ -121,6 +857,7 @@ async def analytics_refresh_status(db: DBSession) -> dict:
 async def trigger_dwh_refresh() -> dict[str, int | str]:
     """Run the idempotent OLTP-to-DWH refresh."""
     run_id = await refresh_dwh()
+    _dashboard_cache.clear()
     return {"status": "completed", "etl_run_id": run_id}
 
 
@@ -215,7 +952,6 @@ async def read_course_health(course_id: int, db: DBSession) -> dict:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-from fastapi import Query
 @router.get("/analytics/health/courses/batch", summary="Get Multiple Course Health Scores")
 async def read_course_health_batch(
     db: DBSession,

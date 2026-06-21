@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
 import { AppSidebar } from "@/components/layout/app-sidebar"
+import { DashboardPreloader } from "@/components/layout/dashboard-preloader"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -12,7 +13,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { api, clearAccessToken, getAccessToken, type ApiUser } from "@/lib/api"
+import { api, clearAccessToken, getAccessToken, getCachedCurrentUser, type ApiUser } from "@/lib/api"
 import { OnboardingTour } from "@/components/onboarding-tour"
 
 export default function DashboardLayout({
@@ -30,13 +31,25 @@ export default function DashboardLayout({
       return
     }
 
+    const cachedUser = getCachedCurrentUser()
+    if (cachedUser) {
+      setUser(cachedUser)
+      setIsChecking(false)
+      return
+    }
+
     api.me()
-      .then(setUser)
+      .then((freshUser) => {
+        setUser(freshUser)
+        setIsChecking(false)
+      })
       .catch(() => {
         clearAccessToken()
         router.replace("/login")
       })
-      .finally(() => setIsChecking(false))
+      .finally(() => {
+        setIsChecking(false)
+      })
   }, [router])
 
   function logout() {
@@ -54,7 +67,7 @@ export default function DashboardLayout({
 
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <AppSidebar userRole={user?.role ?? null} />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
           <div className="flex items-center gap-2">
@@ -81,6 +94,7 @@ export default function DashboardLayout({
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4">
           <OnboardingTour />
+          <DashboardPreloader userRole={user?.role ?? null} />
           {children}
         </div>
       </SidebarInset>

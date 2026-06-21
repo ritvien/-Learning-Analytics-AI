@@ -20,6 +20,8 @@ class ReportGenerateRequest(BaseModel):
     scope_type: str | None = None
     scope_id: str | None = None
     semester_id: int | None = None
+    period_start: datetime | None = None
+    period_end: datetime | None = None
 
 
 class ReportFeedbackCreate(BaseModel):
@@ -56,6 +58,8 @@ class ReportResponse(OrmBase):
     metrics_json: dict
     content_markdown: str
     generated_by: str | None
+    period_start: datetime | None = None
+    period_end: datetime | None = None
     created_at: datetime
     feedback_items: list[ReportFeedbackResponse] = Field(default_factory=list)
 
