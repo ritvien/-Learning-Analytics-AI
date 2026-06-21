@@ -243,7 +243,7 @@
 
 | # | Task | Mô tả chi tiết | Deadline | Status | Depends on |
 |:-:|:-----|:----------------|:--------:|:------:|:-----------|
-| V36 | Academic Tree — Khoa → Chuyên ngành | Sửa Academic Tree: expand node **Khoa** hiển thị danh sách **Chuyên ngành** (không còn nhảy thẳng Ngành). Cập nhật labels, drill-down, multi-prompt, context chat | 21/06 | ➜ Sprint 3 | T44 |
+| V36 | Academic Tree — Khoa → Chuyên ngành | Sửa Academic Tree: expand node **Khoa** hiển thị danh sách **Chuyên ngành** (không còn nhảy thẳng Ngành). Cập nhật labels, drill-down, multi-prompt, context chat | 21/06 | ✅ | T44 |
 
 ---
 
