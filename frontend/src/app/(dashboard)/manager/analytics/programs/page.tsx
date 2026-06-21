@@ -53,10 +53,10 @@ export default function ProgramAnalyticsPage() {
       setProgramId(String(parsedProgramId))
       return
     }
-    api.getPrograms({ limit: 100 })
-      .then((programs) => {
-        setProgramOptions(programs)
-        setProgramId(String(programs[0]?.id ?? ""))
+    api.getDashboardOverview()
+      .then((overview) => {
+        setProgramOptions(overview.programs)
+        setProgramId(String(overview.programs[0]?.id ?? ""))
       })
       .catch(console.error)
   }, [searchParams])

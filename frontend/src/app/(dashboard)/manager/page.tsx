@@ -39,12 +39,16 @@ function mapTreeToDepartments(tree: ApiTreeNode | null): Department[] {
       moTa: department.code,
       nganhs: department.children
         .filter((node) => node.type === "program")
-        .map((program) => ({
-          id: String(program.id),
-          tenNganh: program.label,
-          khoaId: String(department.id),
-          moTa: program.code,
-        })),
+        .flatMap((program) =>
+          program.children
+            .filter((node) => node.type === "specialization")
+            .map((specialization) => ({
+              id: String(specialization.id),
+              tenNganh: specialization.label === "Chưa phân loại" ? program.label : specialization.label,
+              khoaId: String(department.id),
+              moTa: specialization.code,
+            }))
+        ),
     }))
 }
 
@@ -119,7 +123,7 @@ export default function ManagerDashboard() {
 
   const selectedMetrics = useMemo(() => {
     if (!selection) return emptyMetrics
-    const key = selection.type === "major" ? `program_${selection.id}` : `department_${selection.id}`
+    const key = selection.type === "major" ? `specialization_${selection.id}` : `department_${selection.id}`
     return metricsByNode[key] ?? emptyMetrics
   }, [selection, metricsByNode])
 
@@ -300,7 +304,7 @@ export default function ManagerDashboard() {
                       >
                         {dept.nganhs.map((major) => {
                           const getMajorStatus = (majorId: string) => {
-                            const hScore = metricsByNode[`program_${majorId}`]?.health_score
+                            const hScore = metricsByNode[`specialization_${majorId}`]?.health_score
                             const percent = hScore !== undefined ? hScore : 0
                             
                             if (hScore === undefined) {
@@ -337,7 +341,7 @@ export default function ManagerDashboard() {
 
                           const handleChatNavigate = (e: React.MouseEvent) => {
                             e.stopPropagation()
-                            const question = `Cho tôi biết thông tin chi tiết về ngành ${major.tenNganh}: chương trình đào tạo, các môn học chính, chuẩn đầu ra và triển vọng nghề nghiệp.`
+                            const question = `Cho tôi biết thông tin chi tiết về chuyên ngành ${major.tenNganh}: chương trình đào tạo, các môn học chính, chuẩn đầu ra và triển vọng nghề nghiệp.`
                             router.push(`/chat?q=${encodeURIComponent(question)}`)
                           }
 
@@ -368,7 +372,7 @@ export default function ManagerDashboard() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-64 p-1.5 bg-white border-primary/10 shadow-xl rounded-xl">
                                   <DropdownMenuGroup className="flex flex-col gap-0.5">
-                                    {["Điểm trung bình và tỷ lệ qua môn của ngành này?", "Các môn học nào sinh viên ngành này hay gặp khó khăn nhất?", "Gợi ý cải thiện chuẩn đầu ra (PLO) cho ngành này?"].map((prompt, i) => (
+                                    {["Điểm trung bình và tỷ lệ qua môn của chuyên ngành này?", "Các môn học nào sinh viên chuyên ngành này hay gặp khó khăn nhất?", "Gợi ý cải thiện chuẩn đầu ra (PLO) cho chuyên ngành này?"].map((prompt, i) => (
                                       <DropdownMenuItem
                                         key={i}
                                         className="text-xs py-2 px-2.5 rounded-lg cursor-pointer flex items-start gap-2 hover:bg-primary/5 hover:text-primary transition-colors group/item"
@@ -399,7 +403,7 @@ export default function ManagerDashboard() {
           <div className="mt-6">
             <DetailPanel
               title={selectedMajor ? selectedMajor.tenNganh : selectedDepartment?.tenKhoa ?? "Chưa chọn"}
-              subtitle={selectedMajor ? selectedMajor.moTa : selectedDepartment?.moTa ?? "Chọn một khoa hoặc ngành để xem chi tiết."}
+              subtitle={selectedMajor ? selectedMajor.moTa : selectedDepartment?.moTa ?? "Chọn một khoa hoặc chuyên ngành để xem chi tiết."}
               studentCount={selectedMetrics.student_count}
               averageGpa={averageGpa}
               failRate={failRate}
