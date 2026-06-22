@@ -272,7 +272,7 @@ export default function ManagerDashboard() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start" className="w-64 p-1.5 bg-white border-primary/10 shadow-xl rounded-xl">
                           <DropdownMenuGroup className="flex flex-col gap-0.5">
-                            {["Đánh giá sức khỏe đào tạo tổng quan của khoa này?", "Các ngành nào trong khoa có tỷ lệ trượt cao nhất?", "Phân tích CLO các môn học thuộc khoa này?"].map((prompt, i) => (
+                            {[`Khoa ${dept.tenKhoa.toLowerCase()} có tổng cộng bao nhiêu sinh viên đang học?`, `Điểm GPA trung bình của toàn bộ sinh viên khoa ${dept.tenKhoa.toLowerCase()} là bao nhiêu?`, `Thống kê số lượng sinh viên theo từng trạng thái (đang học, đã tốt nghiệp, buộc thôi học) của khoa ${dept.tenKhoa.toLowerCase()}?`].map((prompt, i) => (
                               <DropdownMenuItem
                                 key={i}
                                 className="text-xs py-2 px-2.5 rounded-lg cursor-pointer flex items-start gap-2 hover:bg-primary/5 hover:text-primary transition-colors group/item"
@@ -372,7 +372,7 @@ export default function ManagerDashboard() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-64 p-1.5 bg-white border-primary/10 shadow-xl rounded-xl">
                                   <DropdownMenuGroup className="flex flex-col gap-0.5">
-                                    {["Điểm trung bình và tỷ lệ qua môn của chuyên ngành này?", "Các môn học nào sinh viên chuyên ngành này hay gặp khó khăn nhất?", "Gợi ý cải thiện chuẩn đầu ra (PLO) cho chuyên ngành này?"].map((prompt, i) => (
+                                    {[`Điểm GPA trung bình của sinh viên thuộc chuyên ngành ${major.tenNganh.toLowerCase()} là bao nhiêu?`, `Top 3 môn học có nhiều sinh viên trượt nhất của chuyên ngành ${major.tenNganh.toLowerCase()}?`, `Có bao nhiêu sinh viên chuyên ngành ${major.tenNganh.toLowerCase()} đang bị cảnh báo học vụ hoặc buộc thôi học?`].map((prompt, i) => (
                                       <DropdownMenuItem
                                         key={i}
                                         className="text-xs py-2 px-2.5 rounded-lg cursor-pointer flex items-start gap-2 hover:bg-primary/5 hover:text-primary transition-colors group/item"

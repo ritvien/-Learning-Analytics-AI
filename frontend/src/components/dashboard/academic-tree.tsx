@@ -71,7 +71,7 @@ export function AcademicTree({
         {isActive && (
           <div className="ml-4 mt-2 grid gap-2 border-l-2 border-primary/20 pl-4">
             <p className="text-xs font-medium text-muted-foreground">Gợi ý phân tích (Click để hỏi Chatbot):</p>
-            {["Điểm trung bình và tỷ lệ qua môn của ngành này?", "Các môn học nào sinh viên ngành này hay gặp khó khăn nhất?", "Gợi ý cải thiện chuẩn đầu ra (PLO) cho ngành này?"].map((prompt, i) => (
+            {[`Điểm GPA trung bình của sinh viên thuộc chuyên ngành ${major.tenNganh.toLowerCase()} là bao nhiêu?`, `Top 3 môn học có nhiều sinh viên trượt nhất của chuyên ngành ${major.tenNganh.toLowerCase()}?`, `Có bao nhiêu sinh viên chuyên ngành ${major.tenNganh.toLowerCase()} đang bị cảnh báo học vụ hoặc buộc thôi học?`].map((prompt, i) => (
               <button
                 key={i}
                 type="button"
@@ -143,7 +143,7 @@ export function AcademicTree({
                 {isActive && (
                   <div className="mt-2 ml-4 mb-3 grid gap-2 border-l-2 border-primary/20 pl-4 pr-2">
                     <p className="text-xs font-medium text-muted-foreground">Gợi ý phân tích (Click để hỏi Chatbot):</p>
-                    {["Đánh giá sức khỏe đào tạo tổng quan của khoa này?", "Các ngành nào trong khoa có tỷ lệ trượt cao nhất?", "Phân tích CLO các môn học thuộc khoa này?"].map((prompt, i) => (
+                    {[`Khoa ${department.tenKhoa.toLowerCase()} có tổng cộng bao nhiêu sinh viên đang học?`, `Điểm GPA trung bình của toàn bộ sinh viên khoa ${department.tenKhoa.toLowerCase()} là bao nhiêu?`, `Thống kê số lượng sinh viên theo từng trạng thái (đang học, đã tốt nghiệp, buộc thôi học) của khoa ${department.tenKhoa.toLowerCase()}?`].map((prompt, i) => (
                       <button
                         key={i}
                         type="button"

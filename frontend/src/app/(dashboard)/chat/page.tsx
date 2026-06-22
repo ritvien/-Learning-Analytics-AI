@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-import { Send, Bot, User, Sparkles, BarChart2, BookOpen, AlertTriangle, MessageSquare, Plus, Trash2 } from "lucide-react"
+import { Send, Bot, User, Sparkles, BarChart2, BookOpen, AlertTriangle, MessageSquare, Plus, Trash2, ChevronDown } from "lucide-react"
 import { api, chatStreamV2, ChatSessionSummary } from "@/lib/api"
 
 interface Message {
@@ -85,6 +85,7 @@ export default function ChatPage() {
   const [activeSessionId, setActiveSessionId] = React.useState<string | undefined>()
   const [input, setInput] = React.useState("")
   const [isLoading, setIsLoading] = React.useState(false)
+  const [expandedStatuses, setExpandedStatuses] = React.useState<Record<string, boolean>>({})
   
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
@@ -365,13 +366,11 @@ export default function ChatPage() {
                   ) : (
                     <div className="space-y-1">
                       {msg.statuses && msg.statuses.length > 0 && (
-                        <div className="flex flex-col gap-1.5 mb-3 mt-1">
-                          {msg.statuses.map((status, idx) => {
-                            const isLast = idx === msg.statuses!.length - 1
-                            const isActive = isLast && msg.isStreaming
-                            return (
-                              <div key={idx} className="flex items-center gap-2 text-xs text-muted-foreground bg-background/50 rounded-md py-1.5 px-2.5 border border-border/50 w-fit max-w-full">
-                                {isActive ? (
+                        <div className="mb-3 mt-1 space-y-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {!expandedStatuses[msg.id] && (
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-background/50 rounded-md py-1.5 px-2.5 border border-border/50 w-fit max-w-full truncate">
+                                {msg.isStreaming ? (
                                   <span className="relative flex h-2 w-2 shrink-0">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
@@ -379,10 +378,60 @@ export default function ChatPage() {
                                 ) : (
                                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
                                 )}
-                                <span className="truncate font-medium">{status}</span>
+                                <span className="truncate font-medium">{msg.statuses[msg.statuses.length - 1]}</span>
                               </div>
-                            )
-                          })}
+                            )}
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-[11px] font-semibold text-primary hover:bg-primary/5 px-2 flex items-center gap-1"
+                              onClick={() => {
+                                setExpandedStatuses(prev => ({
+                                  ...prev,
+                                  [msg.id]: !prev[msg.id]
+                                }))
+                              }}
+                              aria-expanded={!!expandedStatuses[msg.id]}
+                            >
+                              {expandedStatuses[msg.id] ? (
+                                <>
+                                  <span>Thu gọn tiến trình</span>
+                                  <ChevronDown className="h-3 w-3 rotate-180 transition-transform duration-200" />
+                                </>
+                              ) : (
+                                <>
+                                  <span>Xem tiến trình ({msg.statuses.length})</span>
+                                  <ChevronDown className="h-3 w-3 transition-transform duration-200" />
+                                </>
+                              )}
+                            </Button>
+                          </div>
+
+                          {expandedStatuses[msg.id] && (
+                            <div className="flex flex-col gap-1.5 p-2 bg-muted/40 rounded-xl border border-border/40 max-h-48 overflow-y-auto transition-all motion-reduce:transition-none duration-250">
+                              {msg.statuses.map((status, idx) => {
+                                const isLast = idx === msg.statuses!.length - 1
+                                const isActive = isLast && msg.isStreaming
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center gap-2 text-xs text-muted-foreground py-1 px-1.5 rounded w-fit max-w-full"
+                                  >
+                                    {isActive ? (
+                                      <span className="relative flex h-2 w-2 shrink-0">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                                      </span>
+                                    ) : (
+                                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                    )}
+                                    <span className="font-medium">{status}</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
                         </div>
                       )}
                       
