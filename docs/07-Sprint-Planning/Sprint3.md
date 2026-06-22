@@ -114,11 +114,11 @@
 
 | Task | Mô tả | Khung thời gian | Priority | Depends on | Trạng thái |
 |:-----|:------|:--------------:|:--------:|:-----------|:----------:|
-| T50 | ML Schema Ownership & Verification — duy trì migration `ml`, model run/prediction tables, verify upgrade/downgrade và storage contract | 21/06 – 22/06 | P0 | T26 | [ ] |
-| T51 | Fix Reload Page — sửa lỗi refresh/deep-link làm mất session, 404 hoặc sai state; verify trên các route authenticated | 21/06 | P0 | - | [ ] |
-| T42 | DWH + ETL Access Foundation — hoàn thiện dữ liệu analytics, lịch ETL idempotent, DQ check và query contract cho chatbot | 21/06 – 22/06 | P0 | T44 | [ ] |
-| T43 | Report/Analytics Tool Backend — API/tool truy vấn report, metrics và dữ liệu đa module; có RBAC, source metadata, timeout/error contract | 21/06 – 22/06 | P0 | T42 | [ ] |
-| T41 | User Behavior Observability — session/cookie, structured event log, correlation/trace ID cho page, chat, tool và retrieval để quan sát hành vi người dùng | 21/06 – 22/06 | P0 | - | [ ] |
+| T50 | ML Schema Ownership & Verification — duy trì migration `ml`, model run/prediction tables, verify upgrade/downgrade và storage contract | 21/06 – 22/06 | P0 | T26 | [x] |
+| T51 | Fix Reload Page — sửa lỗi refresh/deep-link làm mất session, 404 hoặc sai state; verify trên các route authenticated | 21/06 | P0 | - | [x] |
+| T42 | DWH + ETL Access Foundation — hoàn thiện dữ liệu analytics, lịch ETL idempotent, DQ check và query contract cho chatbot | 21/06 – 22/06 | P0 | T44 | [x] |
+| T43 | Report/Analytics Tool Backend — API/tool truy vấn report, metrics và dữ liệu đa module; có RBAC, source metadata, timeout/error contract | 21/06 – 22/06 | P0 | T42 | [x] |
+| T41 | User Behavior Observability — session/cookie, structured event log, correlation/trace ID cho page, chat, tool và retrieval để quan sát hành vi người dùng | 21/06 – 22/06 | P0 | - | [x] |
 | T49 | RAG Corpus Preparation — tổng hợp, làm sạch, phân loại, access scope và manifest tài liệu; bàn giao corpus dùng được cho Hoàng | 21/06 – 23/06 | P0 | - | [ ] |
 | T40 | Guardrails — Backend & RBAC | 25/06 | P1 | T41, T43 | [ ] |
 | T45 | Deployment/Proxy Recovery Runbook — lệnh restart Next.js/FastAPI/Ngrok, health check, URL fallback, owner và checklist xác minh | 25/06 | P2 | - | [ ] |
@@ -377,7 +377,7 @@ Tài liệu phải được deduplicate, bỏ nội dung lỗi/encoding xấu, g
 
 - [x] Chuỗi `H45 -> T44 -> H46` hoàn tất; evidence H46 đã đối soát trên DB hiện hữu và clean seed
 - [ ] Chuỗi `T50 + H46 -> H25 -> H26 -> V23` hoàn tất hoặc chốt blocker rõ
-- [ ] `T42 + T43 + T41` hoàn tất trước batch chatbot và có contract/evidence dùng được
+- [x] `T42 + T43 + T41` hoàn tất trước batch chatbot và có contract/evidence dùng được
 - [ ] Batch `V19 + V20 + V22 + V23` hoàn tất hoặc tách phần còn lại sang Sprint 4
 - [ ] `H48 + H49 + H50 + H51 + V40` chạy end-to-end: data tools, corpus retrieval, inline/full-page routing và citation
 - [ ] `T49` có corpus/manifest RAG được review; tài liệu bị loại có lý do rõ

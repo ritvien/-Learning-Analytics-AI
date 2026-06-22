@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { DashboardPreloader } from "@/components/layout/dashboard-preloader"
@@ -13,7 +13,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { api, clearAccessToken, getAccessToken, getCachedCurrentUser, type ApiUser } from "@/lib/api"
+import { api, clearAccessToken, getAccessToken, getCachedCurrentUser, startPageTrace, type ApiUser } from "@/lib/api"
 import { OnboardingTour } from "@/components/onboarding-tour"
 
 export default function DashboardLayout({
@@ -22,6 +22,7 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [user, setUser] = useState<ApiUser | null>(null)
   const [isChecking, setIsChecking] = useState(true)
 
@@ -56,6 +57,25 @@ export default function DashboardLayout({
     clearAccessToken()
     router.replace("/login")
   }
+
+  useEffect(() => {
+    if (!user || !pathname) return
+    const traceId = startPageTrace(pathname)
+    void api.trackEvent({
+      event_name: "page_view",
+      route: pathname,
+      module: pathname.includes("/manager/analytics")
+        ? "analytics"
+        : pathname.includes("/manager/reports")
+          ? "reports"
+          : "manager",
+      status: "ok",
+      payload: {
+        trace_id: traceId,
+        user_role: user.role,
+      },
+    }).catch(() => undefined)
+  }, [pathname, user])
 
   if (isChecking) {
     return (
