@@ -14,7 +14,7 @@ import uuid
 import asyncio
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, Request, status, Depends
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, messages_from_dict, messages_to_dict
 from pydantic import BaseModel, Field
@@ -28,6 +28,7 @@ from app.database import get_db, AsyncSessionLocal
 from app.models.chat import ChatSession
 from app.dependencies import get_current_user
 from app.models.people import User
+from app.observability import log_event, new_id, request_context, stable_hash
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -141,11 +142,14 @@ async def delete_session(
 
 @router.post("", response_model=ChatResponse)
 async def chat(
+    request: Request,
     payload: ChatRequest,
     current_user: User = Depends(get_current_user),
 ) -> ChatResponse:
     """Invoke the EduInsight LangGraph agent and return the result."""
     start = time.perf_counter()
+    obs_context = request_context(request)
+    agent_run_id = new_id()
 
     async with AsyncSessionLocal() as db:
         history_msgs = []
@@ -169,6 +173,33 @@ async def chat(
             await db.commit()
             await db.refresh(db_session)
 
+        await log_event(
+            "chat_message_submitted",
+            user_id=str(current_user.id),
+            user_role=current_user.role.value,
+            department_id=current_user.department_id,
+            conversation_id=str(db_session.id),
+            agent_run_id=agent_run_id,
+            status="started",
+            payload={
+                "prompt_hash": stable_hash(payload.message),
+                "prompt_length": len(payload.message),
+                "context_keys": sorted(payload.context.keys()),
+            },
+            **obs_context,
+        )
+        await log_event(
+            "agent_run_started",
+            user_id=str(current_user.id),
+            user_role=current_user.role.value,
+            department_id=current_user.department_id,
+            conversation_id=str(db_session.id),
+            agent_run_id=agent_run_id,
+            status="started",
+            payload={"mode": "standard"},
+            **obs_context,
+        )
+
         input_messages = history_msgs + [HumanMessage(content=payload.message)]
 
         try:
@@ -178,12 +209,38 @@ async def chat(
             })
         except MissingLLMCredentialsError as exc:
             logger.warning("Agent invocation blocked by missing LLM credentials")
+            await log_event(
+                "agent_run_failed",
+                user_id=str(current_user.id),
+                user_role=current_user.role.value,
+                department_id=current_user.department_id,
+                conversation_id=str(db_session.id),
+                agent_run_id=agent_run_id,
+                status="error",
+                duration_ms=int((time.perf_counter() - start) * 1000),
+                error_code="MissingLLMCredentialsError",
+                payload={"mode": "standard"},
+                **obs_context,
+            )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=str(exc),
             ) from exc
         except Exception as exc:
             logger.exception("Agent invocation failed")
+            await log_event(
+                "agent_run_failed",
+                user_id=str(current_user.id),
+                user_role=current_user.role.value,
+                department_id=current_user.department_id,
+                conversation_id=str(db_session.id),
+                agent_run_id=agent_run_id,
+                status="error",
+                duration_ms=int((time.perf_counter() - start) * 1000),
+                error_code=exc.__class__.__name__,
+                payload={"mode": "standard"},
+                **obs_context,
+            )
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Agent error: {exc}") from exc
 
         # Lấy thông tin
@@ -201,6 +258,7 @@ async def chat(
         for i, msg in enumerate(messages):
             if isinstance(msg, AIMessage) and hasattr(msg, "tool_calls") and msg.tool_calls:
                 for tc in msg.tool_calls:
+                    tool_call_id = new_id()
                     tool_output = ""
                     if i + 1 < len(messages) and isinstance(messages[i + 1], ToolMessage):
                         tool_output = messages[i + 1].content[:500]
@@ -209,12 +267,45 @@ async def chat(
                         tool_input=tc.get("args", {}),
                         tool_output=tool_output,
                     ))
+                    await log_event(
+                        "tool_call_completed",
+                        user_id=str(current_user.id),
+                        user_role=current_user.role.value,
+                        department_id=current_user.department_id,
+                        conversation_id=str(db_session.id),
+                        agent_run_id=agent_run_id,
+                        tool_call_id=tool_call_id,
+                        status="ok",
+                        payload={
+                            "tool_name": tc.get("name", "unknown"),
+                            "input_keys": sorted((tc.get("args") or {}).keys()),
+                            "output_length": len(tool_output),
+                        },
+                        **obs_context,
+                    )
 
         # Lưu lại messages vào DB
         db_session.messages = messages_to_dict(messages)
         await db.commit()
 
         elapsed_ms = int((time.perf_counter() - start) * 1000)
+        await log_event(
+            "agent_run_completed",
+            user_id=str(current_user.id),
+            user_role=current_user.role.value,
+            department_id=current_user.department_id,
+            conversation_id=str(db_session.id),
+            agent_run_id=agent_run_id,
+            status="ok",
+            duration_ms=elapsed_ms,
+            payload={
+                "mode": "standard",
+                "intent": intent,
+                "tool_count": len(tool_calls_info),
+                "response_length": len(final_response),
+            },
+            **obs_context,
+        )
 
         return ChatResponse(
             response=final_response,
@@ -224,17 +315,15 @@ async def chat(
             thread_id=str(db_session.id)
         )
 
-
-from fastapi import Request
-
 @router.post("/stream")
 async def chat_stream(
     request: Request,
     payload: ChatRequest,
     current_user: User = Depends(get_current_user),
 ):
-    print("INCOMING HEADERS:", request.headers)
     """Invoke the agent and stream the response via SSE."""
+    obs_context = request_context(request)
+    agent_run_id = new_id()
     
     async def event_generator():
         start = time.perf_counter()
@@ -270,8 +359,38 @@ async def chat_stream(
                 # Báo cho frontend biết session ID vừa được tạo
                 yield f"data: {json.dumps({'type': 'session_created', 'thread_id': str(db_session.id), 'title': title})}\n\n"
 
+            await log_event(
+                "chat_message_submitted",
+                user_id=str(current_user.id),
+                user_role=current_user.role.value,
+                department_id=current_user.department_id,
+                conversation_id=str(db_session.id),
+                agent_run_id=agent_run_id,
+                status="started",
+                payload={
+                    "prompt_hash": stable_hash(payload.message),
+                    "prompt_length": len(payload.message),
+                    "context_keys": sorted(payload.context.keys()),
+                    "mode": "stream",
+                },
+                **obs_context,
+            )
+            await log_event(
+                "agent_run_started",
+                user_id=str(current_user.id),
+                user_role=current_user.role.value,
+                department_id=current_user.department_id,
+                conversation_id=str(db_session.id),
+                agent_run_id=agent_run_id,
+                status="started",
+                payload={"mode": "stream"},
+                **obs_context,
+            )
+
             input_messages = history_msgs + [HumanMessage(content=payload.message)]
             final_state_messages = []
+            tool_call_ids: dict[str, str] = {}
+            tool_count = 0
 
             try:
                 async for event in _agent.astream_events(
@@ -292,11 +411,46 @@ async def chat_stream(
                             yield f"data: {json.dumps({'type': 'router', 'intent': intent})}\n\n"
 
                     elif kind == "on_tool_start":
+                        tool_call_id = new_id()
+                        tool_call_ids[name] = tool_call_id
+                        tool_count += 1
+                        await log_event(
+                            "tool_call_started",
+                            user_id=str(current_user.id),
+                            user_role=current_user.role.value,
+                            department_id=current_user.department_id,
+                            conversation_id=str(db_session.id),
+                            agent_run_id=agent_run_id,
+                            tool_call_id=tool_call_id,
+                            status="started",
+                            payload={
+                                "tool_name": name,
+                                "input_keys": sorted((event["data"].get("input") or {}).keys())
+                                if isinstance(event["data"].get("input"), dict)
+                                else [],
+                            },
+                            **obs_context,
+                        )
                         yield f"data: {json.dumps({'type': 'tool_call', 'tool': name, 'input': event['data'].get('input')})}\n\n"
 
                     elif kind == "on_tool_end":
                         output = event['data'].get('output')
                         output_str = str(output)[:500] if output else ""
+                        await log_event(
+                            "tool_call_completed",
+                            user_id=str(current_user.id),
+                            user_role=current_user.role.value,
+                            department_id=current_user.department_id,
+                            conversation_id=str(db_session.id),
+                            agent_run_id=agent_run_id,
+                            tool_call_id=tool_call_ids.get(name),
+                            status="ok",
+                            payload={
+                                "tool_name": name,
+                                "output_length": len(output_str),
+                            },
+                            **obs_context,
+                        )
                         yield f"data: {json.dumps({'type': 'tool_result', 'output': output_str})}\n\n"
 
                     elif kind == "on_chat_model_stream":
@@ -312,6 +466,18 @@ async def chat_stream(
                             final_state_messages = final_state["messages"]
 
                 elapsed_ms = int((time.perf_counter() - start) * 1000)
+                await log_event(
+                    "agent_run_completed",
+                    user_id=str(current_user.id),
+                    user_role=current_user.role.value,
+                    department_id=current_user.department_id,
+                    conversation_id=str(db_session.id),
+                    agent_run_id=agent_run_id,
+                    status="ok",
+                    duration_ms=elapsed_ms,
+                    payload={"mode": "stream", "tool_count": tool_count},
+                    **obs_context,
+                )
                 yield f"data: {json.dumps({'type': 'done', 'latency_ms': elapsed_ms, 'thread_id': str(db_session.id)})}\n\n"
                 
                 # Update DB after streaming finishes
@@ -321,9 +487,35 @@ async def chat_stream(
 
             except MissingLLMCredentialsError as exc:
                 logger.warning("Agent stream blocked by missing LLM credentials")
+                await log_event(
+                    "agent_run_failed",
+                    user_id=str(current_user.id),
+                    user_role=current_user.role.value,
+                    department_id=current_user.department_id,
+                    conversation_id=str(db_session.id) if db_session else None,
+                    agent_run_id=agent_run_id,
+                    status="error",
+                    duration_ms=int((time.perf_counter() - start) * 1000),
+                    error_code="MissingLLMCredentialsError",
+                    payload={"mode": "stream"},
+                    **obs_context,
+                )
                 yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
             except Exception as exc:
                 logger.exception("Agent stream failed")
+                await log_event(
+                    "agent_run_failed",
+                    user_id=str(current_user.id),
+                    user_role=current_user.role.value,
+                    department_id=current_user.department_id,
+                    conversation_id=str(db_session.id) if db_session else None,
+                    agent_run_id=agent_run_id,
+                    status="error",
+                    duration_ms=int((time.perf_counter() - start) * 1000),
+                    error_code=exc.__class__.__name__,
+                    payload={"mode": "stream"},
+                    **obs_context,
+                )
                 yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
 
     return StreamingResponse(

@@ -442,6 +442,69 @@ export interface ChatResponse {
   latency_ms: number
 }
 
+type ClientEvent = {
+  event_name: string
+  route?: string | null
+  module?: string | null
+  entity_type?: string | null
+  entity_id?: string | null
+  status?: string | null
+  duration_ms?: number | null
+  payload?: Record<string, unknown>
+}
+
+const TRACE_ID_KEY = "eduinsight_trace_id"
+const TRACE_ROUTE_KEY = "eduinsight_trace_route"
+
+function randomId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID()
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+    const value = Math.floor(Math.random() * 16)
+    const next = char === "x" ? value : (value & 0x3) | 0x8
+    return next.toString(16)
+  })
+}
+
+export function startPageTrace(route?: string) {
+  if (typeof window === "undefined") return ""
+  const nextRoute = route ?? window.location.pathname
+  const traceId = randomId()
+  sessionStorage.setItem(TRACE_ID_KEY, traceId)
+  sessionStorage.setItem(TRACE_ROUTE_KEY, nextRoute)
+  return traceId
+}
+
+export function getCurrentTraceId() {
+  if (typeof window === "undefined") return randomId()
+  const existing = sessionStorage.getItem(TRACE_ID_KEY)
+  if (existing) return existing
+  return startPageTrace(window.location.pathname)
+}
+
+function currentRoute() {
+  if (typeof window === "undefined") return ""
+  return window.location.pathname
+}
+
+function currentModule(route = currentRoute()) {
+  if (route.includes("/manager/analytics")) return "analytics"
+  if (route.includes("/manager/reports")) return "reports"
+  if (route.includes("/manager/students")) return "students"
+  if (route.includes("/manager/courses")) return "courses"
+  if (route.includes("/chat")) return "chat"
+  if (route.includes("/manager")) return "manager"
+  return "public"
+}
+
+function pageContext(route = currentRoute()) {
+  return {
+    route,
+    module: currentModule(route),
+  }
+}
+
 async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null
   const method = (init?.method ?? "GET").toUpperCase()
@@ -458,6 +521,9 @@ async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
   customInit.headers = {
     ...customInit.headers,
     "ngrok-skip-browser-warning": "true",
+    "x-trace-id": getCurrentTraceId(),
+    "x-page-route": currentRoute(),
+    "x-page-context": JSON.stringify(pageContext()),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   }
 
@@ -604,6 +670,19 @@ function qs(params: Record<string, string | number | undefined>): string {
 }
 
 export const api = {
+  // --- Observability ---
+  trackEvent: (event: ClientEvent) =>
+    fetcher<{ status: string }>("/api/v1/observability/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...event,
+        route: event.route ?? currentRoute(),
+        module: event.module ?? currentModule(),
+        payload: event.payload ?? {},
+      }),
+    }),
+
   // --- Auth ---
   login: async (body: { email: string; password: string }) => {
     const form = new URLSearchParams()
@@ -872,6 +951,9 @@ export async function* chatStreamV2(
     headers: {
       "Content-Type": "application/json",
       "ngrok-skip-browser-warning": "true",
+      "x-trace-id": getCurrentTraceId(),
+      "x-page-route": currentRoute(),
+      "x-page-context": JSON.stringify(pageContext()),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(body),
