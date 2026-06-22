@@ -138,9 +138,9 @@
 
 | Task | Mô tả | Khung thời gian | Priority | Depends on | Trạng thái |
 |:-----|:------|:--------------:|:--------:|:-----------|:----------:|
-| V36 | Academic Tree — hoàn thiện UI 5 tầng Trường → Khoa → Ngành → Chuyên ngành → Môn, metrics không đếm trùng | 21/06 – 22/06 | P0 | T44 | [ ] |
-| V38 | Chat Thinking Status Stack — status chồng trong vùng cố định; chỉ xổ toàn bộ tiến trình khi bấm nút | 21/06 – 22/06 | P1 | - | [ ] |
-| V39 | Playwright E2E + UI Test — auth/reload/deep-link, Tree, Report, chat inline/full-page, responsive và error/loading states | 22/06 – 24/06 | P0 | V36, V38, T51 | [ ] |
+| V36 | Academic Tree — hoàn thiện UI 5 tầng Trường → Khoa → Ngành → Chuyên ngành → Môn, metrics không đếm trùng | 21/06 – 22/06 | P0 | T44 | [x] |
+| V38 | Chat Thinking Status Stack — status chồng trong vùng cố định; chỉ xổ toàn bộ tiến trình khi bấm nút | 21/06 – 22/06 | P1 | - | [x] |
+| V39 | Playwright E2E + UI Test — auth/reload/deep-link, Tree, Report, chat inline/full-page, responsive và error/loading states | 22/06 – 24/06 | P0 | V36, V38, T51 | [x] |
 | V40 | Global Chat Shell & Route Handoff — chatbot trên mọi page; câu đơn giản chat tại page, câu phức tạp chuyển `/chatbot` theo route decision của LLM | 23/06 – 24/06 | P0 | H48 contract, T41 | [ ] |
 | V34 | Demo Slides + Recording Setup | 25/06 | P1 | V39 | [ ] |
 | H44 | Demo Video Narrative | 25/06 | P1 | H40 | [ ] |
@@ -390,8 +390,8 @@ Tài liệu phải được deduplicate, bỏ nội dung lỗi/encoding xấu, g
 - [ ] Batch `V19 + V20 + V22 + V23` hoàn tất hoặc tách phần còn lại sang Sprint 4
 - [ ] `H48 + H49 + H50 + H51 + V40` chạy end-to-end: data tools, corpus retrieval, inline/full-page routing và citation
 - [ ] `T49` có corpus/manifest RAG được review; tài liệu bị loại có lý do rõ
-- [ ] `V38` không làm status chat trượt thành nhiều dòng khi collapsed và mở được timeline đầy đủ
-- [ ] `V39` có Playwright/UI report cho reload, Tree, Report và chat inline/full-page
+- [x] `V38` không làm status chat trượt thành nhiều dòng khi collapsed và mở được timeline đầy đủ
+- [x] `V39` có Playwright/UI report cho reload, Tree, Report và chat inline/full-page
 
 ### Backlog nếu phải đẩy sang Sprint 4
 
