@@ -1,0 +1,352 @@
+{
+  "timestamp": "2026-06-22T11:36:19.147219+00:00",
+  "model": "gpt-5.4-nano",
+  "test_case_count": 18,
+  "results": [
+    {
+      "tc": "TC01",
+      "status": "OK",
+      "latency_ms": 9272,
+      "response": "Thầy/cô, đây là **Top 5 môn có tỷ lệ trượt cao nhất** thuộc **ngành Công nghệ thông tin** (lọc môn có **≥ 5** lượt đăng ký):\n\n| STT | Mã môn | Tên môn | Tổng SV đăng ký | Tổng SV trượt | Tỷ lệ trượt |\n|---:|---|---|---:|---:|---:|\n| 1 | CRS0330 | Những Nguyên lý cơ bản của chủ nghĩa Mác – Lênin 1 | 5 | 4 | 80.00% |\n| 2 | CRS0259 | Hành chính điện tử | 20 | 10 | 50.00% |\n| 3 | CRS0017 | Vẽ kỹ thuật 1 | 69 | 34 | 49.28% |\n| 4 | CRS0101 | Hệ quản trị cơ sở dữ liệu | 109 | 51 | 46.79% |\n| 5 | CRS0024 | Toán cao cấp 3 | 64 | 29 | 45.31% |\n\n> 💡 **Nhận xét:** Môn có tỷ lệ trượt cao nhất đang tập trung ở nhóm học phần có mức số lượt đăng ký không quá lớn; thầy/cô có thể chỉ đạo rà soát đề/tiêu chí chấm và biểu đồ phân bố điểm để xác định nguyên nhân cốt lõi.",
+      "intent": "core_agent",
+      "tool_calls": [
+        {
+          "tool_name": "execute_sql_query",
+          "tool_input": {
+            "query": "SELECT c.id, c.code, c.name,\n       SUM(COALESCE(s.enrollment_count,0)) AS total_enrollments,\n       SUM(COALESCE(s.fail_count,0)) AS total_fails,\n       CASE WHEN SUM(COALESCE(s.enrollment_count,0)) = 0 THEN NULL\n            ELSE SUM(COALESCE(s.fail_count,0))::decimal / SUM(COALESCE(s.enrollment_count,0)) END AS fail_rate\nFROM vw_section_stats s\nJOIN courses c ON c.id = s.course_id\nJOIN program_courses pc ON pc.course_id = c.id\nJOIN programs p ON p.id = pc.program_id\nWHERE p.name ILIKE '%Công nghệ thông tin%'\nGROUP BY c.id, c.code, c.name\nHAVING SUM(COALESCE(s.enrollment_count,0)) >= 5\nORDER BY fail_rate DESC NULLS LAST\nLIMIT 5;"
+          },
+          "tool_output": "[{\"id\": 330, \"code\": \"CRS0330\", \"name\": \"Những Nguyên lý cơ bản của chủ nghĩa Mác – Lênin 1\", \"total_enrollments\": \"5\", \"total_fails\": \"4\", \"fail_rate\": \"0.80000000000000000000\"}, {\"id\": 259, \"code\": \"CRS0259\", \"name\": \"Hành chính điện tử\", \"total_enrollments\": \"20\", \"total_fails\": \"10\", \"fail_rate\": \"0.50000000000000000000\"}, {\"id\": 17, \"code\": \"CRS0017\", \"name\": \"Vẽ kỹ thuật 1\", \"total_enrollments\": \"69\", \"total_fails\": \"34\", \"fail_rate\": \"0.49275362318840579710\"}, {\"id\": 101, \"code\": \"CRS0101"
+        }
+      ],
+      "thread_id": "f859941d-6723-446c-9899-f155763a82ba"
+    },
+    {
+      "tc": "TC02",
+      "status": "OK",
+      "latency_ms": 4133,
+      "response": "Theo dữ liệu hệ thống, **GPA trung bình khóa K21 ngành Công nghệ thông tin là 2.59**.\n\n> 💡 **Nhận xét:** Nếu thầy/cô muốn, tôi có thể tách thêm theo từng lớp/sĩ số hoặc theo từng học kỳ để thấy xu hướng.",
+      "intent": "core_agent",
+      "tool_calls": [
+        {
+          "tool_name": "execute_sql_query",
+          "tool_input": {
+            "query": "SELECT AVG(s.gpa_cumulative)::numeric(10,2) AS gpa_avg\nFROM students s\nJOIN programs p ON p.id = s.program_id\nJOIN cohorts c ON c.id = s.cohort_id\nWHERE c.code = 'K21'\n  AND p.name ILIKE '%Công nghệ thông tin%'\n  AND s.status = 'active';"
+          },
+          "tool_output": "[{\"gpa_avg\": \"2.59\"}]"
+        }
+      ],
+      "thread_id": "cebf102e-c8ea-4ec5-9a65-bec0e1141d9f"
+    },
+    {
+      "tc": "TC03",
+      "status": "OK",
+      "latency_ms": 6584,
+      "response": "Thầy/cô quan tâm tỷ lệ trượt môn **Cơ sở dữ liệu** của **K21** và **K22**. Theo dữ liệu hiện có (chỉ tính các lần học đã hoàn thành):\n\n| Khóa | Số SV bị trượt (fail_count) | Số lượt học (enrollment_count) | Tỷ lệ trượt (%) |\n|---|---:|---:|---:|\n| K21 | 66 | 207 | 31.88% |\n| K22 | 34 | 109 | 31.19% |\n\n**Kết luận:** Tỷ lệ trượt của **K21 (31.88%)** cao hơn **K22 (31.19%)** khoảng **0.69 điểm %**.  \n\n> 💡 **Nhận xét:** Hai khóa có tỷ lệ trượt **gần như tương đương**; chênh lệch không lớn dù sĩ số/lượt học của K21 cao hơn.",
+      "intent": "core_agent",
+      "tool_calls": [
+        {
+          "tool_name": "execute_sql_query",
+          "tool_input": {
+            "query": "SELECT cohorts.code AS cohort_code,\n       SUM(CASE WHEN e.status='completed' AND e.is_passed = false THEN 1 ELSE 0 END)::numeric AS fail_count,\n       COUNT(*) FILTER (WHERE e.status='completed')::numeric AS enrollment_count,\n       (SUM(CASE WHEN e.status='completed' AND e.is_passed = false THEN 1 ELSE 0 END)::numeric\n        / NULLIF(COUNT(*) FILTER (WHERE e.status='completed'),0)) * 100 AS fail_rate_pct\nFROM enrollments e\nJOIN students s ON s.id = e.student_id\nJOIN sections sec ON sec.id = e.section_id\nJOIN courses c ON c.id = sec.course_id\nJOIN cohorts ON cohorts.id = s.cohort_id\nWHERE e.status='completed'\n  AND c.name ILIKE '%Cơ sở dữ liệu%'\n  AND cohorts.code IN ('K21','K22')\nGROUP BY cohorts.code\nORDER BY cohorts.code;"
+          },
+          "tool_output": "[{\"cohort_code\": \"K21\", \"fail_count\": \"66\", \"enrollment_count\": \"207\", \"fail_rate_pct\": \"31.88405797101449275400\"}, {\"cohort_code\": \"K22\", \"fail_count\": \"34\", \"enrollment_count\": \"109\", \"fail_rate_pct\": \"31.19266055045871559600\"}]"
+        }
+      ],
+      "thread_id": "97404c64-a8cc-49bf-a34d-198887114be4"
+    },
+    {
+      "tc": "TC04",
+      "status": "OK",
+      "latency_ms": 2791,
+      "response": "Chào bạn! Tôi là EduInsight AI của Đại học Điện Lực, hỗ trợ bạn phân tích và trả lời các câu hỏi học vụ theo dạng giao tiếp đơn giản. Nếu bạn cần dữ liệu học tập, tôi sẽ hướng dẫn bạn đặt câu hỏi cụ thể hơn để tra cứu chính xác. Bạn muốn hỏi về môn học, tiến độ, hay chỉ tiêu/đăng ký?",
+      "intent": "fast_response",
+      "tool_calls": [],
+      "thread_id": "af648c6a-e6dc-46c0-b470-5f87275a16ca"
+    },
+    {
+      "tc": "TC05",
+      "status": "OK",
+      "latency_ms": 9102,
+      "response": "Thầy/Cô cho phép tôi kiểm tra theo dữ liệu hệ thống: **CLO đạt thấp nhất ở môn “Tiếng Anh 1” là CLO3 – “Evaluate Tiếng Anh 1”** (điểm trung bình xấp xỉ **0** theo dữ liệu hiện có).\n\n| Mã CLO | Tên CLO | Số ghi nhận | Điểm trung bình (achievement_score) |\n|---|---|---:|---:|\n| CLO3 | Evaluate Tiếng Anh 1 | 1 | ~0 |\n\n> 💡 **Nhận xét:** Dữ liệu ghi nhận của môn “Tiếng Anh 1” hiện đang cho thấy chỉ có **1** bản ghi CLO, nên kết quả “thấp nhất” đang dựa trên tập dữ liệu rất nhỏ. Nếu thầy/cô muốn, tôi có thể liệt kê **tất cả CLO** của môn này kèm điểm trung bình để đối chiếu.",
+      "intent": "core_agent",
+      "tool_calls": [
+        {
+          "tool_name": "execute_sql_query",
+          "tool_input": {
+            "query": "SELECT cl.code, cl.name, COUNT(*) AS n, AVG(sca.achievement_score) AS avg_score\nFROM clos cl\nJOIN courses c ON c.id = cl.course_id\nJOIN enrollments e ON e.id = (SELECT enrollment_id FROM student_clo_achievements WHERE clo_id = cl.id LIMIT 1)\nJOIN student_clo_achievements sca ON sca.clo_id = cl.id AND sca.enrollment_id = e.id\nJOIN sections s ON s.id = e.section_id\nJOIN semesters sem ON sem.id = s.semester_id\nWHERE c.name ILIKE '%Tiếng Anh 1%'\n  AND e.status = 'completed'\nGROUP BY cl.id, cl.code, cl.name\nORDER BY avg_score ASC NULLS LAST\nLIMIT 1;"
+          },
+          "tool_output": "[{\"code\": \"CLO3\", \"name\": \"Evaluate Tiếng Anh 1\", \"n\": 1, \"avg_score\": \"0E-20\"}]"
+        }
+      ],
+      "thread_id": "153fc55f-3ac0-4f52-9973-22b28fb343f1"
+    },
+    {
+      "tc": "TC06",
+      "status": "OK",
+      "latency_ms": 4323,
+      "response": "Theo dữ liệu hệ thống, **khóa K21 ngành Công nghệ thông tin có 100 sinh viên**.\n\n> 💡 **Nhận xét:** Nếu thầy/cô cần thêm cơ cấu theo lớp tín chỉ/nhóm học phần hoặc theo trạng thái (đang học/đã thôi học/nghỉ học), tôi có thể thống kê tiếp.",
+      "intent": "core_agent",
+      "tool_calls": [
+        {
+          "tool_name": "execute_sql_query",
+          "tool_input": {
+            "query": "SELECT COUNT(*)::int AS total_students\nFROM students s\nJOIN programs p ON p.id = s.program_id\nJOIN cohorts c ON c.id = s.cohort_id\nWHERE c.code = 'K21' AND p.name ILIKE '%Công nghệ thông tin%';"
+          },
+          "tool_output": "[{\"total_students\": 100}]"
+        }
+      ],
+      "thread_id": "2757a824-ba40-4ca0-8f69-0ae0ff6db984"
+    },
+    {
+      "tc": "TC07",
+      "status": "OK",
+      "latency_ms": 5647,
+      "response": "Dạ thầy/cô, theo dữ liệu hiện có, tôi chỉ tìm thấy **1 sinh viên** thuộc **ngành Trí tuệ nhân tạo**. Sinh viên có **GPA tích lũy cao nhất** (và cũng là Top 3 do chỉ có 1 SV) như sau:\n\n| STT | Mã sinh viên | Họ tên | GPA tích lũy | Khóa |\n|---:|---|---|---:|---|\n| 1 | 25810460057 | AN VIẾT TÙNG | 2.50 | K25 |\n\n> 💡 **Nhận xét:** Cơ sở dữ liệu hiện chỉ có 1 sinh viên ngành “Trí tuệ nhân tạo”, nên không thể liệt kê đủ 3 người. Nếu thầy/cô muốn, tôi có thể kiểm tra lại theo **tên ngành gần đúng** (ví dụ có/không dấu, viết tắt) hoặc mở rộng sang các chương trình/chuyên ngành liên quan.",
+      "intent": "core_agent",
+      "tool_calls": [
+        {
+          "tool_name": "execute_sql_query",
+          "tool_input": {
+            "query": "SELECT s.student_code, s.full_name, s.gpa_cumulative, p.name AS program_name, c.code AS cohort_code\nFROM students s\nJOIN programs p ON p.id = s.program_id\nLEFT JOIN cohorts c ON c.id = s.cohort_id\nWHERE p.name ILIKE '%Trí tuệ nhân tạo%'\nORDER BY s.gpa_cumulative DESC NULLS LAST\nLIMIT 3;"
+          },
+          "tool_output": "[{\"student_code\": \"25810460057\", \"full_name\": \"AN VIẾT TÙNG\", \"gpa_cumulative\": \"2.50\", \"program_name\": \"Trí tuệ nhân tạo\", \"cohort_code\": \"K25\"}]"
+        },
+        {
+          "tool_name": "execute_sql_query",
+          "tool_input": {
+            "query": "SELECT COUNT(*) AS total\nFROM students s\nJOIN programs p ON p.id = s.program_id\nWHERE p.name ILIKE '%Trí tuệ nhân tạo%';"
+          },
+          "tool_output": "[{\"total\": 1}]"
+        }
+      ],
+      "thread_id": "b5c15d0d-6954-489d-b762-8efabecfa3b3"
+    },
+    {
+      "tc": "TC08",
+      "status": "OK",
+      "latency_ms": 9783,
+      "response": "Thầy/cô hỏi “tỷ lệ qua môn (pass) của môn **Hệ quản trị cơ sở dữ liệu**”. Theo dữ liệu hệ thống, kết quả như sau:\n\n| Môn học | Sĩ số xét hoàn thành | Số qua môn | Tỷ lệ qua môn |\n|---|---:|---:|---:|\n| Hệ quản trị cơ sở dữ liệu | 109 | 58 | 53.21% |\n\n> 💡 **Nhận xét:** Tỷ lệ pass của môn khoảng **53.21%** (58/109). Nếu thầy/cô muốn, tôi có thể tách theo từng học kỳ/ lớp học để xem nhóm nào có tỷ lệ pass thấp.",
+      "intent": "core_agent",
+      "tool_calls": [
+        {
+          "tool_name": "execute_sql_query",
+          "tool_input": {
+            "query": "SELECT SUM(vs.pass_count)::float / NULLIF(SUM(vs.enrollment_count),0) AS pass_rate, SUM(vs.pass_count) AS pass_count, SUM(vs.enrollment_count) AS enrollment_count\nFROM vw_section_stats vs\nJOIN courses c ON c.id = vs.course_id\nWHERE c.name ILIKE '%Hệ quản trị cơ sở dữ liệu%';"
+          },
+          "tool_output": "[{\"pass_rate\": 0.5321100917431193, \"pass_count\": \"58\", \"enrollment_count\": \"109\"}]"
+        }
+      ],
+      "thread_id": "b0ceebc4-f629-4c7c-82e9-4dec9555b930"
+    },
+    {
+      "tc": "TC09",
+      "status": "OK",
+      "latency_ms": 6526,
+      "response": "Thưa thầy/cô, **có**.\n\n| Khóa | Điểm trung bình môn (Toán cao cấp 1) |\n|---|---:|\n| K21 | 2.86 |\n| K22 | 1.97 |\n\nNhư vậy, **điểm trung bình của K22 thấp hơn K21**.\n\n> 💡 **Nhận xét:** Chênh lệch trung bình khoảng **0.89 điểm (theo thang điểm 10)**.",
+      "intent": "core_agent",
+      "tool_calls": [
+        {
+          "tool_name": "execute_sql_query",
+          "tool_input": {
+            "query": "SELECT cohort_code, AVG(gpa) AS avg_grade_10\nFROM (\n  SELECT c.cohort_code,\n         es.grade_4 AS gpa\n  FROM enrollments es\n  JOIN students s ON s.id = es.student_id\n  JOIN cohorts c ON c.id = s.cohort_id\n  JOIN sections sec ON sec.id = es.section_id\n  JOIN courses crs ON crs.id = sec.course_id\n  WHERE es.status = 'completed'\n    AND c.cohort_code IN ('K21','K22')\n    AND crs.name ILIKE '%Toán cao cấp 1%'\n) t\nGROUP BY cohort_code\nORDER BY cohort_code;"
+          },
+          "tool_output": "ERROR: Lỗi SQL — ERROR:  column c.cohort_code does not exist\nLINE 3:   SELECT c.cohort_code,\n                 ^\n"
+        },
+        {
+          "tool_name": "execute_sql_query",
+          "tool_input": {
+            "query": "SELECT c.code AS cohort_code, AVG(es.grade_4) AS avg_grade_10\nFROM enrollments es\nJOIN students s ON s.id = es.student_id\nJOIN cohorts c ON c.id = s.cohort_id\nJOIN sections sec ON sec.id = es.section_id\nJOIN courses crs ON crs.id = sec.course_id\nWHERE es.status = 'completed'\n  AND c.code IN ('K21','K22')\n  AND crs.name ILIKE '%Toán cao cấp 1%'\nGROUP BY c.code\nORDER BY c.code;"
+          },
+          "tool_output": "[{\"cohort_code\": \"K21\", \"avg_grade_10\": \"2.8558282208588957\"}, {\"cohort_code\": \"K22\", \"avg_grade_10\": \"1.9703557312252964\"}]"
+        }
+      ],
+      "thread_id": "a070c262-570c-4a8c-8caf-3699083cd7e0"
+    },
+    {
+      "tc": "TC10",
+      "status": "OK",
+      "latency_ms": 4833,
+      "response": "Theo dữ liệu hiện có, **môn có số sinh viên đăng ký nhiều nhất** thuộc **ngành Công nghệ kỹ thuật cơ điện tử** là:\n\n| Mã môn | Tên môn | Số SV đăng ký (tổng) |\n|---|---|---:|\n| CRS0058 | Điện đại cương | 22 |\n\n> 💡 **Nhận xét:** Môn “Điện đại cương” đang chiếm lượt đăng ký cao nhất trong ngành Cơ điện tử theo thống kê từ dữ liệu ghi nhận điểm hoàn thành.",
+      "intent": "core_agent",
+      "tool_calls": [
+        {
+          "tool_name": "execute_sql_query",
+          "tool_input": {
+            "query": "SELECT c.code, c.name, SUM(v.enrollment_count) AS total_registered\nFROM vw_section_stats v\nJOIN courses c ON c.id = v.course_id\nJOIN sections s ON s.id = v.section_id\nJOIN enrollments e ON e.section_id = s.id\nJOIN students st ON st.id = e.student_id\nJOIN program_courses pc ON pc.program_id = st.program_id AND pc.course_id = c.id\nJOIN programs p ON p.id = pc.program_id\nWHERE p.name ILIKE '%Cơ điện tử%' AND e.status = 'completed'\nGROUP BY c.code, c.name\nORDER BY total_registered DESC\nLIMIT 1;"
+          },
+          "tool_output": "[{\"code\": \"CRS0058\", \"name\": \"Điện đại cương\", \"total_registered\": \"22\"}]"
+        }
+      ],
+      "thread_id": "6641dbed-bfd1-42dc-8e22-004fb76c0ff1"
+    },
+    {
+      "tc": "TC11",
+      "status": "OK",
+      "latency_ms": 4083,
+      "response": "Thưa thầy/cô, theo dữ liệu hiện có, **tổng số sinh viên đang học tại trường (trạng thái active)** là:\n\n- **1.157 sinh viên**\n\n> 💡 **Nhận xét:** Con số này được lấy theo trạng thái sinh viên “đang học/active” trong hệ thống. Nếu thầy/cô muốn tách theo ngành/khóa hoặc theo học kỳ hiện tại, tôi có thể thống kê tiếp.",
+      "intent": "core_agent",
+      "tool_calls": [
+        {
+          "tool_name": "execute_sql_query",
+          "tool_input": {
+            "query": "SELECT COUNT(*)::int AS total_students_current\nFROM students s\nJOIN cohorts c ON c.id = s.cohort_id\nWHERE s.status = 'active' AND s.status IS NOT NULL;"
+          },
+          "tool_output": "[{\"total_students_current\": 1157}]"
+        }
+      ],
+      "thread_id": "61b9cd46-f42b-42ff-bb62-135a4efbdb4c"
+    },
+    {
+      "tc": "TC12",
+      "status": "OK",
+      "latency_ms": 5419,
+      "response": "Theo dữ liệu hệ thống, **ngành Công nghệ thông tin** (gộp toàn bộ học kỳ), **tỷ lệ trượt trung bình** là:\n\n- **Tỷ lệ trượt**: **12.58%**  \n  (tổng số ghi nhận: **37,207** lượt học / trượt: **4,682** lượt)\n\n> 💡 **Nhận xét:** Tỷ lệ trượt ngành CNTT ở mức ~12.58% khi gộp tất cả học kỳ theo số lượt ghi nhận môn học.",
+      "intent": "core_agent",
+      "tool_calls": [
+        {
+          "tool_name": "execute_sql_query",
+          "tool_input": {
+            "query": "SELECT SUM(v.pass_count)::numeric / NULLIF(SUM(v.enrollment_count),0) AS pass_rate, SUM(v.fail_count)::numeric / NULLIF(SUM(v.enrollment_count),0) AS fail_rate, SUM(v.enrollment_count) AS total_enrollments, SUM(v.pass_count) AS total_pass, SUM(v.fail_count) AS total_fail\nFROM vw_section_stats v\nJOIN courses c ON c.id = v.course_id\nJOIN program_courses pc ON pc.course_id = c.id\nJOIN programs p ON p.id = pc.program_id\nWHERE p.name ILIKE '%Công nghệ thông tin%';"
+          },
+          "tool_output": "[{\"pass_rate\": \"0.87416346386432660521\", \"fail_rate\": \"0.12583653613567339479\", \"total_enrollments\": \"37207\", \"total_pass\": \"32525\", \"total_fail\": \"4682\"}]"
+        }
+      ],
+      "thread_id": "a19e9cfa-11af-4fb8-8b5b-dc122705ebf7"
+    },
+    {
+      "tc": "TC13",
+      "status": "OK",
+      "latency_ms": 3770,
+      "response": "Thầy/cô, theo dữ liệu hiện có thì **ngành Công nghệ thông tin có 2 chuyên ngành** (không bao gồm chuyên ngành dạng placeholder).\n\n> 💡 **Nhận xét:** Nếu thầy/cô muốn, tôi có thể liệt kê tên 2 chuyên ngành này để đối chiếu với danh mục đào tạo của khoa.",
+      "intent": "core_agent",
+      "tool_calls": [
+        {
+          "tool_name": "execute_sql_query",
+          "tool_input": {
+            "query": "SELECT COUNT(*)::int AS specialization_count\nFROM specializations s\nJOIN programs p ON p.id = s.program_id\nWHERE p.name ILIKE '%Công nghệ thông tin%'\n  AND COALESCE(s.is_placeholder,false) = false;"
+          },
+          "tool_output": "[{\"specialization_count\": 2}]"
+        }
+      ],
+      "thread_id": "6cebc3ef-5137-48f0-b616-dd76260d3846"
+    },
+    {
+      "tc": "TC14",
+      "status": "OK",
+      "latency_ms": 2335,
+      "response": "Xin lỗi thầy/cô, câu hỏi này nằm ngoài phạm vi dữ liệu học vụ mà tôi có thể truy cập.",
+      "intent": "core_agent",
+      "tool_calls": [],
+      "thread_id": "b9691186-abd0-4d65-823b-f5b438be490d"
+    },
+    {
+      "tc": "TC15",
+      "status": "OK",
+      "latency_ms": 5080,
+      "response": "Xin lỗi thầy/cô, tôi không thể công bố schema/database nội bộ (tên bảng/cột, cấu trúc dữ liệu) hoặc liệt kê toàn bộ tên bảng.  \n\nNếu thầy/cô cho biết mục tiêu phân tích (ví dụ: “thống kê tỉ lệ trượt theo môn trong K21”, “Top môn khó theo ngành CNTT”), tôi sẽ truy xuất dữ liệu và báo cáo kết quả theo nhu cầu.  \n\n> 💡 **Nhận xét:** Thầy/cô vui lòng nêu rõ môn/ngành/khoá và chỉ tiêu cần thống kê để tôi thực hiện truy vấn phù hợp.",
+      "intent": "core_agent",
+      "tool_calls": [],
+      "thread_id": "e898230d-4401-4e62-975c-a35737c284a3"
+    },
+    {
+      "tc": "TC16",
+      "status": "OK",
+      "latency_ms": 2698,
+      "response": "Cảm ơn bạn đã sử dụng EduInsight AI! Tạm biệt bạn và chúc bạn học tập tốt. Bạn muốn tôi hỗ trợ thêm gì về học vụ trước khi bạn rời đi?",
+      "intent": "fast_response",
+      "tool_calls": [],
+      "thread_id": "2f670776-0df1-494f-949c-3aebeae200dc"
+    },
+    {
+      "tc": "TC17",
+      "status": "OK",
+      "latency_ms": 4262,
+      "response": "Thưa thầy/cô, theo dữ liệu hiện có, **ngành có GPA trung bình cao nhất trong trường là: _Kiểm toán_** với **GPA trung bình ~ 3.0105**.\n\n| Xếp hạng | Ngành | GPA trung bình |\n|---:|---|---:|\n| 1 | Kiểm toán | 3.0105 |\n\n> 💡 **Nhận xét:** Kết quả trên được tính theo **GPA tích lũy của sinh viên** và **trung bình theo từng ngành**. Nếu thầy/cô muốn “trong từng học kỳ” hoặc “cho khóa Kxx” cụ thể, tôi có thể trích lại theo điều kiện đó.",
+      "intent": "core_agent",
+      "tool_calls": [
+        {
+          "tool_name": "execute_sql_query",
+          "tool_input": {
+            "query": "SELECT p.name, AVG(s.gpa_cumulative) AS gpa_avg\nFROM students s\nJOIN programs p ON p.id = s.program_id\nGROUP BY p.name\nORDER BY gpa_avg DESC\nLIMIT 10;"
+          },
+          "tool_output": "[{\"name\": \"Kiểm toán\", \"gpa_avg\": \"3.0105000000000000\"}, {\"name\": \"Thương mại điện tử\", \"gpa_avg\": \"2.9035000000000000\"}, {\"name\": \"Logistics và quản lý chuỗi cung ứng\", \"gpa_avg\": \"2.7826829268292683\"}, {\"name\": \"Quản trị dịch vụ du lịch và lữ hành\", \"gpa_avg\": \"2.6902500000000000\"}, {\"name\": \"Công nghệ kỹ thuật điện, điện tử\", \"gpa_avg\": \"2.6880434782608696\"}, {\"name\": \"Tài chính - Ngân hàng\", \"gpa_avg\": \"2.6837500000000000\"}, {\"name\": \"Công nghệ thông tin\", \"gpa_avg\": \"2.5518796992481203\"}, {"
+        }
+      ],
+      "thread_id": "adc43033-9567-4d28-a79d-f62c04432b27"
+    },
+    {
+      "tc": "TC18",
+      "status": "OK",
+      "latency_ms": 3594,
+      "response": "Thưa thầy/cô, môn **Lập trình hướng đối tượng** hiện có **10** lớp học phần đã được mở (tương ứng 10 mã lớp/section).\n\n> 💡 **Nhận xét:** Nếu thầy/cô muốn, tôi có thể thống kê chi tiết theo **từng học kỳ** hoặc theo **giảng viên**.",
+      "intent": "core_agent",
+      "tool_calls": [
+        {
+          "tool_name": "execute_sql_query",
+          "tool_input": {
+            "query": "SELECT COUNT(DISTINCT s.section_code) AS opened_sections\nFROM sections s\nJOIN courses c ON c.id = s.course_id\nWHERE c.name ILIKE '%Lập trình hướng đối tượng%';"
+          },
+          "tool_output": "[{\"opened_sections\": 10}]"
+        }
+      ],
+      "thread_id": "ce43d1d2-3645-4464-ab74-401ae9860af6"
+    }
+  ],
+  "quality_verdicts": [
+    "Pass",
+    "Pass",
+    "Pass",
+    "Pass",
+    "Pass",
+    "Pass",
+    "Pass",
+    "Pass",
+    "Pass",
+    "Pass",
+    "Pass",
+    "Pass",
+    "Pass",
+    "Pass",
+    "Pass",
+    "Pass",
+    "Pass",
+    "Pass"
+  ],
+  "intent_matches": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+  ],
+  "metrics": {
+    "latency_p95_ms": 9783,
+    "latency_avg_ms": 5235,
+    "tool_success_rate": 93.75,
+    "quality_score": 100.0,
+    "cost_per_query_usd": 0.00074
+  },
+  "cost_breakdown": {
+    "cost_per_query_usd": 0.00074,
+    "router_cost": 4.9e-05,
+    "core_cost": 0.000764,
+    "fast_cost": 0.000106,
+    "core_ratio": 0.8889,
+    "fast_ratio": 0.1111,
+    "avg_tool_calls": 1.0,
+    "model": "gpt-5.4-nano"
+  }
+}
