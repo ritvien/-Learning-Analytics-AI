@@ -94,9 +94,9 @@ function prefetchNavData(url: string) {
     return
   }
   if (url === "/manager/analytics/programs") {
-    void api.getPrograms({ limit: 100 })
-      .then((programs) => {
-        const firstProgramId = programs[0]?.id
+    void api.getDashboardOverview()
+      .then((overview) => {
+        const firstProgramId = overview.programs[0]?.id
         if (firstProgramId) return api.getDashboardProgram(firstProgramId)
         return undefined
       })
