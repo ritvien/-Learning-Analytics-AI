@@ -20,18 +20,18 @@
 ### Checklist Deliverable Gate G3
 
 - [ ] G3-1: Có public URL dùng chung; frontend và backend qua `/api/v1` proxy đều smoke test pass
-- [ ] G3-2: Có ít nhất 3 evaluation metrics với baseline số
+- [x] G3-2: Có ít nhất 3 evaluation metrics với baseline số
 - [ ] G3-3: Có evidence guardrails phía AI và backend
 - [ ] G3-4: Có demo video draft 3-5 phút
-- [ ] G3-5: Có cost report rõ assumption và công thức tính
+- [x] G3-5: Có cost report rõ assumption và công thức tính
 
 | # | Deliverable | Định nghĩa done | Owner chính | Deadline nội bộ | Trạng thái |
 |:-:|:------------|:----------------|:-----------:|:---------------:|:----------:|
 | G3-1 | Public production URL | URL Ngrok dùng chung truy cập được; frontend + backend proxy `/api/v1` chạy login/chat/dashboard | Hưng + Hiếu | 23/06 | [ ] |
-| G3-2 | Evaluation metrics | Có ít nhất 3 metric có baseline số: latency p95, tool success rate, answer quality; khuyến khích thêm cost/query | Hoàng | 24/06 | [ ] |
+| G3-2 | Evaluation metrics | Có ít nhất 3 metric có baseline số: latency p95, tool success rate, answer quality; khuyến khích thêm cost/query | Hoàng | 24/06 | [x] |
 | G3-3 | Guardrails | Có guardrails ở AI + backend: scope, fallback, tool limits, RBAC, error log | Hoàng + Hưng | 25/06 | [ ] |
 | G3-4 | Demo video draft | Video 3-5 phút gồm slide pitch ngắn + live demo trên public URL | Hiếu | 25/06 | [ ] |
-| G3-5 | Cost report | Ước tính cost / user / month dựa trên usage và routing model hiện tại | Hoàng | 25/06 | [ ] |
+| G3-5 | Cost report | Ước tính cost / user / month dựa trên usage và routing model hiện tại | Hoàng | 25/06 | [x] |
 
 ---
 
@@ -99,8 +99,8 @@
 | H45 | Nâng architecture 3-tier Khoa → Ngành → Chuyên ngành | 21/06 – 22/06 | P0 | - | [x] |
 | T44 | Tree API + Migration 3-tier — chuyển ownership từ Hưng sang Hoàng | 21/06 – 22/06 | P0 | H45 | [x] |
 | H46 | Seed 1.277 sinh viên thực, không trùng MSSV — upsert không reset DB | 21/06 – 25/06 | P0 | H45, T44 | [x] |
-| H42 | Evaluation Metrics Framework | 21/06 – 22/06 | P1 | H46 | [ ] |
-| H43 | Cost Report | 22/06 | P1 | H42 | [ ] |
+| H42 | Evaluation Metrics Framework | 21/06 – 22/06 | P1 | H46 | [x] |
+| H43 | Cost Report | 22/06 | P1 | H42 | [x] |
 | H48 | Universal Chatbot Core — phân loại ý định/độ phức tạp, orchestration hội thoại và route decision contract cho inline/full chatbot | 23/06 – 24/06 | P0 | T41, T42, T43 | [ ] |
 | H49 | Cross-module Data Access — chatbot truy vấn dashboard/report/khoa/ngành/môn/lớp/sinh viên/CLO-PLO đúng RBAC | 23/06 – 24/06 | P0 | H48, T42, T43 | [ ] |
 | H50 | Expanded Agent Tool Registry — bộ read tools đa module, source/audit, timeout/fallback và confirmation cho write tools | 23/06 – 24/06 | P0 | H49, T42, T43 | [ ] |
