@@ -125,6 +125,15 @@
 | T46 | Integration Defect Fix Window — triage/fix blocker auth, reload, proxy, API và chat do Playwright/UI test phát hiện; có issue list + retest evidence | 25/06 | P1 | T40, V39 | [ ] |
 | T48 | Release Candidate Verification — freeze version/env, chạy migration/seed/health/Playwright, lưu evidence và rollback commands | 25/06 | P1 | T45, T46, V39 | [ ] |
 
+**Hưng đã hoàn thiện trong Sprint 3 tính đến 22/06/2026**
+
+- [x] `T50`: đã kéo main, xử lý lệch migration/DB, đưa DB local lên Alembic head và xác nhận schema mới chạy ổn.
+- [x] `T51`: đã khôi phục frontend từ main, xử lý lỗi reload/deep-link và xác nhận route authenticated chạy lại.
+- [x] `T42`: đã import dataset main lên `1,277` sinh viên, `56,301` enrollments, `147,286` grade components; chạy lại DWH ETL và CLO refresh.
+- [x] `T43`: analytics/report API và dashboard dùng dữ liệu mới trả `200`, có RBAC/query contract nền để chatbot đọc tiếp.
+- [x] `T41`: đã triển khai `obs.event_log`, session cookie `ei_session_id`, `request_id`, `trace_id`, frontend `page_view`, backend HTTP/chat/agent/tool structured events; evidence nằm ở `docs/19-User-Behavior-Observability/README.md`.
+- [ ] `T49`: đã xác định nguồn dữ liệu/tài liệu nằm ở `crawl/`, `sample_syllabus.pdf`, `epu_data.json`, `backend/db/` và tạo TODO tại `docs/20-RAG-Corpus-Preparation/README.md`; chưa hoàn tất corpus sạch + manifest bàn giao cho H51 nên chưa tick done.
+
 ### Hiếu — Frontend / QA
 
 | Task | Mô tả | Khung thời gian | Priority | Depends on | Trạng thái |
@@ -343,7 +352,7 @@ Tài liệu phải được deduplicate, bỏ nội dung lỗi/encoding xấu, g
 - [ ] RBAC cho manager / lecturer / admin
 - [ ] Giới hạn tool execution / tool confirmation
 - [ ] Timeout + retry + fallback response
-- [ ] Structured logs cho error và agent run
+- [x] Structured logs cho error và agent run
 - [ ] CORS/env production được chốt ổn định trước ngày quay video
 
 ---

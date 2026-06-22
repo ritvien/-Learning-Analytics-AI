@@ -88,13 +88,13 @@ Báo cáo "có chất" cần (đã/đang triển khai ở backend `app/reports/s
 
 ### 6.1. Frontend — `manager/reports/page.tsx`
 
-- [ ] Bỏ toàn bộ `Tabs/TabsList/TabsContent` → layout một màn hình (list trái + `ReportPreview` phải).
-- [ ] Header thêm 2 nút: **+ Tạo báo cáo**, **⚙ Lịch tự động** (mở Dialog).
-- [ ] Dialog Tạo: tái dùng 3 thẻ cấp + pills mục đích + chọn phạm vi; gọi `handleGenerate("final")`, đóng dialog khi xong.
-- [ ] Dialog Lịch: chuyển nội dung tab "Lịch tự động" cũ vào (read-only ở MVP).
-- [ ] Chuyển `AgentPanel` thành **widget nổi** góc phải dưới (toggle mở/đóng, nút X).
-- [ ] Xóa component `WizardPanel`, `ComparePanel` và state liên quan (`wizardMode`, `wizardStep`, `compareReportId`…).
-- [ ] Dọn import không dùng (Tabs, ArrowLeftRight…).
+- [x] Bỏ toàn bộ `Tabs/TabsList/TabsContent` → layout một màn hình (list trái + `ReportPreview` phải).
+- [x] Header thêm 2 nút: **+ Tạo báo cáo**, **⚙ Lịch tự động** (mở Dialog).
+- [x] Dialog Tạo: tái dùng 3 thẻ cấp + pills mục đích + chọn phạm vi; gọi generate final, đóng dialog khi xong.
+- [x] Dialog Lịch: chuyển nội dung tab "Lịch tự động" cũ vào (read-only ở MVP).
+- [x] Chuyển `AgentPanel` thành **widget nổi** góc phải dưới (toggle mở/đóng, nút X).
+- [x] Xóa component `WizardPanel`, `ComparePanel` và state liên quan (`wizardMode`, `wizardStep`, `compareReportId`…).
+- [x] Dọn import không dùng (Tabs, ArrowLeftRight…).
 
 ### 6.2. Backend — `app/reports/service.py` (đã làm phần lớn)
 

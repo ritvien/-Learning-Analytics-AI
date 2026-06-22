@@ -639,14 +639,14 @@ Khong nen de tat ca trong 3 card ngan. Bao cao phai co table, chart, insight va 
 Mot report duoc coi la dat chuan khi:
 
 - [ ] Co summary 3-5 cau, khong phai 1 cau.
-- [ ] Co it nhat 3 `deep_insights`.
-- [ ] Moi insight co bang chung so lieu.
-- [ ] Moi diem yeu co link mo sau neu co route.
-- [ ] Co phan chat luong du lieu/co mau.
-- [ ] Co phan phan bo, khong chi diem trung binh.
-- [ ] Co chart meaningful theo report type.
-- [ ] Co action plan co owner, viec can lam, uu tien va deadline.
-- [ ] Neu thieu CLO/PLO mapping thi noi ro thieu gi va can cap nhat gi.
+- [x] Co it nhat 3 `deep_insights`.
+- [x] Moi insight co bang chung so lieu.
+- [x] Moi diem yeu co link mo sau neu co route.
+- [x] Co phan chat luong du lieu/co mau.
+- [x] Co phan phan bo, khong chi diem trung binh.
+- [x] Co chart meaningful theo report type.
+- [x] Co action plan co owner, viec can lam, uu tien va deadline.
+- [x] Neu thieu CLO/PLO mapping thi noi ro thieu gi va can cap nhat gi.
 - [ ] Export markdown/PDF va UI preview dung cung mot logic, khong lech noi dung.
 
 ---
