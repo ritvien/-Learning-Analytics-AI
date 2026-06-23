@@ -101,7 +101,7 @@
 | H46 | Seed 1.277 sinh viên thực, không trùng MSSV — upsert không reset DB | 21/06 – 25/06 | P0 | H45, T44 | [x] |
 | H42 | Evaluation Metrics Framework | 21/06 – 22/06 | P1 | H46 | [x] |
 | H43 | Cost Report | 22/06 | P1 | H42 | [x] |
-| H48 | Universal Chatbot Core — phân loại ý định/độ phức tạp, orchestration hội thoại và route decision contract cho inline/full chatbot | 23/06 – 24/06 | P0 | T41, T42, T43 | [ ] |
+| H48 | Universal Chatbot Core — phân loại ý định/độ phức tạp, orchestration hội thoại và route decision contract cho inline/full chatbot | 23/06 – 24/06 | P0 | T41, T42, T43 | [x] |
 | H49 | Cross-module Data Access — chatbot truy vấn dashboard/report/khoa/ngành/môn/lớp/sinh viên/CLO-PLO đúng RBAC | 23/06 – 24/06 | P0 | H48, T42, T43 | [ ] |
 | H50 | Expanded Agent Tool Registry — bộ read tools đa module, source/audit, timeout/fallback và confirmation cho write tools | 23/06 – 24/06 | P0 | H49, T42, T43 | [ ] |
 | H51 | RAG Retrieval Integration — truy vấn toàn bộ corpus Hưng bàn giao, citation, scope filter và fallback khi thiếu tài liệu | 23/06 – 24/06 | P0 | H48, T49 | [ ] |

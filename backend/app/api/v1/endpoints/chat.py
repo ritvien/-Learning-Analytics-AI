@@ -17,13 +17,15 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request, status, Depends
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, messages_from_dict, messages_to_dict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from langchain_openai import ChatOpenAI
 
 from app.agent import create_agent
+from app.agent.context_rbac import validate_and_merge_context
 from app.agent.nodes import MissingLLMCredentialsError
+from app.agent.route_decision import RouteDecision
 from app.database import get_db, AsyncSessionLocal
 from app.models.chat import ChatSession
 from app.dependencies import get_current_user
@@ -54,18 +56,22 @@ class ToolCallInfo(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     intent: str = "unknown"
+    intent_category: str | None = None
+    complexity: str | None = None
+    route_decision: RouteDecision | None = None
     tool_calls: list[ToolCallInfo] = Field(default_factory=list)
     latency_ms: int = 0
     thread_id: str | None = None
 
 
 class SessionSummaryResponse(BaseModel):
+    """Summary row for a stored chat session."""
+
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     title: str
     updated_at: str
-
-    class Config:
-        from_attributes = True
 
 
 # ── Helper to generate title ───────────────────────────────────────────
@@ -150,6 +156,7 @@ async def chat(
     start = time.perf_counter()
     obs_context = request_context(request)
     agent_run_id = new_id()
+    merged_context = validate_and_merge_context(current_user, payload.context)
 
     async with AsyncSessionLocal() as db:
         history_msgs = []
@@ -205,7 +212,7 @@ async def chat(
         try:
             result = await _agent.ainvoke({
                 "messages": input_messages,
-                "context": payload.context,
+                "context": merged_context,
             })
         except MissingLLMCredentialsError as exc:
             logger.warning("Agent invocation blocked by missing LLM credentials")
@@ -247,26 +254,29 @@ async def chat(
         messages = result.get("messages", [])
         context = result.get("context", {})
         intent = context.get("intent", "unknown")
+        intent_category = context.get("intent_category")
+        complexity = context.get("complexity")
+        route_decision_raw = context.get("route_decision")
+        route_decision = RouteDecision.model_validate(route_decision_raw) if route_decision_raw else None
 
-        mode = "inline" if intent == "fast_response" else "full_chat"
-        target_route = None if mode == "inline" else "/chat"
-        reason = "Chit-chat/general greeting" if mode == "inline" else "Academic analytics query requiring data tools"
-        await log_event(
-            "route_decision",
-            user_id=str(current_user.id),
-            user_role=current_user.role.value,
-            department_id=current_user.department_id,
-            conversation_id=str(db_session.id),
-            agent_run_id=agent_run_id,
-            status="ok",
-            payload={
-                "mode": mode,
-                "target_route": target_route,
-                "reason": reason,
-                "intent": intent,
-            },
-            **obs_context,
-        )
+        if route_decision is not None:
+            await log_event(
+                "route_decision",
+                user_id=str(current_user.id),
+                user_role=current_user.role.value,
+                department_id=current_user.department_id,
+                conversation_id=str(db_session.id),
+                agent_run_id=agent_run_id,
+                status="ok",
+                payload={
+                    "mode": route_decision.mode,
+                    "target_route": route_decision.target_route,
+                    "reason": route_decision.reason,
+                    "intent": intent,
+                    "preserve_context": route_decision.preserve_context,
+                },
+                **obs_context,
+            )
 
         final_response = ""
         for msg in reversed(messages):
@@ -330,6 +340,9 @@ async def chat(
         return ChatResponse(
             response=final_response,
             intent=intent,
+            intent_category=intent_category,
+            complexity=complexity,
+            route_decision=route_decision,
             tool_calls=tool_calls_info,
             latency_ms=elapsed_ms,
             thread_id=str(db_session.id)
@@ -344,7 +357,8 @@ async def chat_stream(
     """Invoke the agent and stream the response via SSE."""
     obs_context = request_context(request)
     agent_run_id = new_id()
-    
+    merged_context = validate_and_merge_context(current_user, payload.context)
+
     async def event_generator():
         start = time.perf_counter()
         
@@ -416,7 +430,7 @@ async def chat_stream(
                 async for event in _agent.astream_events(
                     {
                         "messages": input_messages,
-                        "context": payload.context
+                        "context": merged_context,
                     },
                     version="v2",
                 ):
@@ -427,27 +441,39 @@ async def chat_stream(
                     if kind == "on_chain_end" and name == "router":
                         output = event["data"].get("output", {})
                         if isinstance(output, dict):
-                            intent = output.get("context", {}).get("intent", "unknown")
-                            mode = "inline" if intent == "fast_response" else "full_chat"
-                            target_route = None if mode == "inline" else "/chat"
-                            reason = "Chit-chat/general greeting" if mode == "inline" else "Academic analytics query requiring data tools"
-                            await log_event(
-                                "route_decision",
-                                user_id=str(current_user.id),
-                                user_role=current_user.role.value,
-                                department_id=current_user.department_id,
-                                conversation_id=str(db_session.id),
-                                agent_run_id=agent_run_id,
-                                status="ok",
-                                payload={
-                                    "mode": mode,
-                                    "target_route": target_route,
-                                    "reason": reason,
-                                    "intent": intent,
-                                },
-                                **obs_context,
-                            )
-                            yield f"data: {json.dumps({'type': 'router', 'intent': intent})}\n\n"
+                            ctx = output.get("context", {})
+                            intent = ctx.get("intent", "unknown")
+                            router_payload = {
+                                "type": "router",
+                                "intent": intent,
+                                "intent_category": ctx.get("intent_category"),
+                                "complexity": ctx.get("complexity"),
+                            }
+                            yield f"data: {json.dumps(router_payload)}\n\n"
+                            if ctx.get("route_decision"):
+                                rd = ctx["route_decision"]
+                                await log_event(
+                                    "route_decision",
+                                    user_id=str(current_user.id),
+                                    user_role=current_user.role.value,
+                                    department_id=current_user.department_id,
+                                    conversation_id=str(db_session.id),
+                                    agent_run_id=agent_run_id,
+                                    status="ok",
+                                    payload={
+                                        "mode": rd.get("mode"),
+                                        "target_route": rd.get("target_route"),
+                                        "reason": rd.get("reason"),
+                                        "intent": intent,
+                                        "preserve_context": rd.get("preserve_context"),
+                                    },
+                                    **obs_context,
+                                )
+                                route_payload = {
+                                    "type": "route_decision",
+                                    "route_decision": rd,
+                                }
+                                yield f"data: {json.dumps(route_payload)}\n\n"
 
                     elif kind == "on_tool_start":
                         tool_call_id = new_id()

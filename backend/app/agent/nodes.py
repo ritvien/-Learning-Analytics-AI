@@ -13,6 +13,7 @@ from app.agent.prompts import (
     FAST_RESPONSE_SYSTEM_PROMPT,
     ROUTER_SYSTEM_PROMPT,
 )
+from app.agent.route_decision import build_route_decision, parse_router_response
 from app.agent.state import AgentState
 from app.agent.tools import calculate_student_clo_scores, execute_sql_query
 from app.config import get_settings
@@ -87,26 +88,42 @@ def get_model(model_name: str, temperature: float = 0) -> BaseChatModel:
 
 
 async def router_node(state: AgentState) -> dict:
-    """Classify the intent of the latest user message."""
+    """Classify intent, complexity, and produce route_decision for the client."""
     llm = get_model(settings.agent_router_model, temperature=0)
 
     messages = state.get("messages", [])
     if not messages:
         return {"error": "No messages found"}
 
+    page_context = dict(state.get("context", {}))
     last_user_msg = messages[-1].content if messages else ""
+    context_hint = ""
+    if page_context:
+        context_hint = f"\n\nPage context (JSON): {page_context}"
     eval_messages = [
         SystemMessage(content=ROUTER_SYSTEM_PROMPT),
-        HumanMessage(content=last_user_msg),
+        HumanMessage(content=f"{last_user_msg}{context_hint}"),
     ]
 
     response = await llm.ainvoke(eval_messages)
-    intent = response.content.strip().lower()
-    decision = "core_agent" if "core_agent" in intent else "fast_response"
-    logger.info("Router decision: %s (raw: %s)", decision, intent)
+    classification = parse_router_response(str(response.content))
+    route_decision = build_route_decision(classification, page_context)
 
-    context = dict(state.get("context", {}))
-    context["intent"] = decision
+    logger.info(
+        "Router: graph=%s intent=%s complexity=%s mode=%s",
+        classification.graph_route,
+        classification.intent_category.value,
+        classification.complexity.value,
+        route_decision.mode.value,
+    )
+
+    context = dict(page_context)
+    context["intent"] = classification.graph_route
+    context["intent_category"] = classification.intent_category.value
+    context["complexity"] = classification.complexity.value
+    context["needs_tools"] = classification.needs_tools
+    context["route_decision"] = route_decision.model_dump()
+
     return {"context": context}
 
 
@@ -120,7 +137,11 @@ async def core_agent_node(state: AgentState) -> dict:
     messages = list(state.get("messages", []))
     has_system = any(isinstance(message, SystemMessage) for message in messages)
     if not has_system:
-        messages = [SystemMessage(content=CORE_AGENT_SYSTEM_PROMPT), *messages]
+        context_note = ""
+        page_context = state.get("context", {})
+        if page_context:
+            context_note = f"\n\nPage context:\n{page_context}"
+        messages = [SystemMessage(content=CORE_AGENT_SYSTEM_PROMPT + context_note), *messages]
 
     response = await llm_with_tools.ainvoke(messages)
     if hasattr(response, "tool_calls") and not response.tool_calls and isinstance(response.content, str):
@@ -130,22 +151,27 @@ async def core_agent_node(state: AgentState) -> dict:
 
 
 async def fast_response_node(state: AgentState) -> dict:
-    """Answer simple chit-chat queries using a lightweight LLM call."""
+    """Answer simple queries using page context when available."""
     try:
         llm = get_model(settings.agent_router_model, temperature=0.7)
 
         messages = state.get("messages", [])
         last_user_msg = messages[-1].content if messages else ""
+        page_context = state.get("context", {})
+        context_block = ""
+        if page_context:
+            context_block = f"\n\nNgữ cảnh trang hiện tại:\n{page_context}"
+
         eval_messages = [
             SystemMessage(content=FAST_RESPONSE_SYSTEM_PROMPT),
-            HumanMessage(content=last_user_msg),
+            HumanMessage(content=f"{last_user_msg}{context_block}"),
         ]
 
         response = await llm.ainvoke(eval_messages)
         return {"messages": [response]}
     except Exception:
         logger.exception("fast_response_node LLM call failed, using static fallback")
-        fallback = AIMessage(content=FAST_RESPONSE_SYSTEM_PROMPT)
+        fallback = AIMessage(content="Xin chào! Tôi là EduInsight AI. Bạn có thể hỏi tôi về thống kê học vụ.")
         return {"messages": [fallback]}
 
 
