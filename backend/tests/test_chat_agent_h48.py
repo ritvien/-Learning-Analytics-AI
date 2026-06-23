@@ -266,6 +266,46 @@ class TestContextRbac:
         assert exc.value.status_code == 403
         assert "mismatch" in exc.value.detail.lower()
 
+    def test_allows_manager_route_with_dashboard_module_for_manager_role(self):
+        user = User(
+            id="u4",
+            email="m2@example.com",
+            hashed_password="x",
+            full_name="Manager",
+            role=UserRole.manager,
+            department_id=3,
+        )
+        merged = validate_and_merge_context(
+            user,
+            {"route": "/manager", "module": "dashboard"},
+        )
+        assert merged["route"] == "/manager"
+        assert merged["module"] == "dashboard"
+
+
+class TestChatContextMerge:
+    def test_merge_client_context_fills_from_headers(self):
+        from unittest.mock import MagicMock
+
+        from app.api.v1.endpoints.chat import _merge_client_context
+
+        request = MagicMock()
+        request.state.page_context = {"route": "/manager", "module": "dashboard"}
+        merged = _merge_client_context(request, {})
+        assert merged["route"] == "/manager"
+        assert merged["module"] == "dashboard"
+
+    def test_merge_client_context_body_overrides_headers(self):
+        from unittest.mock import MagicMock
+
+        from app.api.v1.endpoints.chat import _merge_client_context
+
+        request = MagicMock()
+        request.state.page_context = {"route": "/manager", "module": "dashboard"}
+        merged = _merge_client_context(request, {"route": "/tree", "module": "tree"})
+        assert merged["route"] == "/tree"
+        assert merged["module"] == "tree"
+
 
 # ── Router node tests ───────────────────────────────────────────────────
 

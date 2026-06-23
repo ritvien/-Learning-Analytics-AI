@@ -252,6 +252,15 @@ export default function ChatPage() {
             ))
             break
 
+          case "route_decision":
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMsgId ? {
+                ...m,
+                statuses: [...(m.statuses || []), `📍 ${event.route_decision.mode === "full_chat" ? "Chế độ phân tích đầy đủ" : "Trả lời tại trang hiện tại"}: ${event.route_decision.reason}`],
+              } : m
+            ))
+            break
+
           case "tool_call": {
             const toolNameMap: Record<string, string> = {
               "sql_query_tool": "Truy vấn Cơ sở dữ liệu học vụ",

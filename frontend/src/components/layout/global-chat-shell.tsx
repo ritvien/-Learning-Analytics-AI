@@ -6,7 +6,7 @@ import { MessageSquare, X, Send, Bot, User, ChevronDown, Sparkles, Maximize2, Lo
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { api, chatStreamV2 } from "@/lib/api"
+import { chatStreamV2, resolveChatHandoffRoute } from "@/lib/api"
 
 interface Message {
   id: string
@@ -29,10 +29,16 @@ export function GlobalChatShell() {
     return null
   }
 
-  return <GlobalChatWindow router={router} />
+  return <GlobalChatWindow router={router} pathname={pathname} />
 }
 
-function GlobalChatWindow({ router }: { router: ReturnType<typeof useRouter> }) {
+function GlobalChatWindow({
+  router,
+  pathname,
+}: {
+  router: ReturnType<typeof useRouter>
+  pathname: string
+}) {
   const [isOpen, setIsOpen] = React.useState(false)
   const [messages, setMessages] = React.useState<Message[]>([
     {
@@ -101,46 +107,65 @@ function GlobalChatWindow({ router }: { router: ReturnType<typeof useRouter> }) 
       let hasStartedAnswering = false
       let currentSessionId = activeSessionId
 
-      for await (const event of chatStreamV2({ message: text.trim(), thread_id: currentSessionId }, controller.signal)) {
+      let handoffHandled = false
+
+      for await (const event of chatStreamV2(
+        { message: text.trim(), thread_id: currentSessionId },
+        controller.signal,
+      )) {
         switch (event.type) {
           case "session_created":
             currentSessionId = event.thread_id
             setActiveSessionId(event.thread_id)
             break
             
-          case "router":
-            // Route decision handoff!
-            if (event.intent === "core_agent") {
-              // complex query -> full_chat handoff
+          case "router": {
+            const routingLabel =
+              event.intent === "core_agent" ? "Suy luận phức tạp" : "Suy luận đơn giản"
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMsgId ? { 
+                ...m, 
+                statuses: [...(m.statuses || []), `🧠 Định tuyến: ${routingLabel}`]
+              } : m
+            ))
+            break
+          }
+
+          case "route_decision":
+            if (event.route_decision.mode === "full_chat") {
+              handoffHandled = true
               setMessages(prev => prev.map(m =>
                 m.id === assistantMsgId ? { 
                   ...m, 
                   statuses: [...(m.statuses || []), "🚀 Phát hiện câu hỏi phức tạp. Đang chuyển hướng sang trang phân tích chuyên sâu..."]
                 } : m
               ))
-              
-              // Abort stream first
+
               controller.abort()
-              
-              // Redirect to full chat page with query and thread ID
+
+              const target = resolveChatHandoffRoute(event.route_decision.target_route)
+              const query = new URLSearchParams({
+                q: text.trim(),
+                ...(currentSessionId ? { thread_id: currentSessionId } : {}),
+              })
               setTimeout(() => {
                 setIsOpen(false)
                 setIsLoading(false)
-                router.push(`/chat?q=${encodeURIComponent(text)}&thread_id=${currentSessionId}`)
+                router.push(`${target}?${query.toString()}`)
               }, 1200)
               return
-            } else {
-              // simple query -> inline response
-              setMessages(prev => prev.map(m =>
-                m.id === assistantMsgId ? { 
-                  ...m, 
-                  statuses: [...(m.statuses || []), "💬 Câu hỏi đơn giản, trả lời trực tiếp tại đây."]
-                } : m
-              ))
             }
+
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMsgId ? { 
+                ...m, 
+                statuses: [...(m.statuses || []), `💬 Trả lời tại ${pathname} (${event.route_decision.reason})`]
+              } : m
+            ))
             break
 
           case "tool_call":
+            if (handoffHandled) break
             setMessages(prev => prev.map(m =>
               m.id === assistantMsgId ? { 
                 ...m, 

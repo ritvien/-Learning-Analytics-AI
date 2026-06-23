@@ -489,13 +489,18 @@ function currentRoute() {
 }
 
 function currentModule(route = currentRoute()) {
-  if (route.includes("/manager/analytics")) return "analytics"
-  if (route.includes("/manager/reports")) return "reports"
-  if (route.includes("/manager/students")) return "students"
-  if (route.includes("/manager/courses")) return "courses"
+  // Map App Router paths to RBAC module keys (backend context_rbac allowlist).
+  // `route` keeps the exact pathname for route_decision.target_route.
+  if (route.includes("/manager/analytics")) return "report"
+  if (route.includes("/manager/reports")) return "report"
+  if (route.includes("/manager/students")) return "dashboard"
+  if (route.includes("/manager/courses")) return "tree"
   if (route.includes("/chat")) return "chat"
-  if (route.includes("/manager")) return "manager"
-  return "public"
+  if (route.includes("/manager")) return "dashboard"
+  if (route.includes("/tree")) return "tree"
+  if (route.includes("/settings")) return "settings"
+  if (route.includes("/admin")) return "admin"
+  return "dashboard"
 }
 
 function pageContext(route = currentRoute()) {
@@ -503,6 +508,19 @@ function pageContext(route = currentRoute()) {
     route,
     module: currentModule(route),
   }
+}
+
+/** Page context for chat requests (route + module from pathname). */
+export function buildPageContext(route?: string) {
+  return pageContext(route ?? currentRoute())
+}
+
+/** Map H48 target_route to an App Router path the UI actually serves. */
+export function resolveChatHandoffRoute(targetRoute: string): string {
+  if (targetRoute === "/chatbot" || targetRoute === "/chat") {
+    return "/chat"
+  }
+  return targetRoute
 }
 
 async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
@@ -931,8 +949,16 @@ export const api = {
     fetcher<{ id: string; status: string; result: Record<string, unknown> }>(`/api/v1/report-agent/tools/confirm/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
 }
 
+export interface RouteDecisionPayload {
+  mode: "inline" | "full_chat"
+  target_route: string
+  reason: string
+  preserve_context: boolean
+}
+
 export type SSEEvent =
-  | { type: "router"; intent: string }
+  | { type: "router"; intent: string; intent_category?: string; complexity?: string }
+  | { type: "route_decision"; route_decision: RouteDecisionPayload }
   | { type: "tool_call"; tool: string; input: unknown }
   | { type: "tool_result"; output: string }
   | { type: "token"; content: string }
@@ -946,6 +972,10 @@ export async function* chatStreamV2(
 ): AsyncGenerator<SSEEvent> {
   const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null
   console.log("chatStreamV2 called. Token present:", !!token)
+  const payload: ChatRequest = {
+    ...body,
+    context: { ...buildPageContext(), ...(body.context ?? {}) },
+  }
   const res = await fetch("/api/v1/chat/stream", {
     method: "POST",
     headers: {
@@ -956,7 +986,7 @@ export async function* chatStreamV2(
       "x-page-context": JSON.stringify(pageContext()),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
     signal,
   })
 

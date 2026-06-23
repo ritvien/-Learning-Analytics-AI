@@ -39,6 +39,16 @@ router = APIRouter()
 _agent = create_agent()
 
 
+def _merge_client_context(request: Request, client_context: dict[str, Any] | None) -> dict[str, Any]:
+    """Merge observability header context; JSON body fields take precedence."""
+    merged = dict(client_context or {})
+    header_context = getattr(request.state, "page_context", None) or {}
+    for key, value in header_context.items():
+        if key not in merged and value is not None:
+            merged[key] = value
+    return merged
+
+
 # ── Request / Response schemas ─────────────────────────────────────────
 class ChatRequest(BaseModel):
     """Incoming chat message from the frontend."""
@@ -156,7 +166,7 @@ async def chat(
     start = time.perf_counter()
     obs_context = request_context(request)
     agent_run_id = new_id()
-    merged_context = validate_and_merge_context(current_user, payload.context)
+    merged_context = validate_and_merge_context(current_user, _merge_client_context(request, payload.context))
 
     async with AsyncSessionLocal() as db:
         history_msgs = []
@@ -357,7 +367,7 @@ async def chat_stream(
     """Invoke the agent and stream the response via SSE."""
     obs_context = request_context(request)
     agent_run_id = new_id()
-    merged_context = validate_and_merge_context(current_user, payload.context)
+    merged_context = validate_and_merge_context(current_user, _merge_client_context(request, payload.context))
 
     async def event_generator():
         start = time.perf_counter()
