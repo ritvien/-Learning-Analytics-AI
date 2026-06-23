@@ -18,14 +18,28 @@ export async function POST(request: Request) {
 
   const authHeader = request.headers.get("authorization")
 
-  const backendRes = await fetch(`${BACKEND_URL}/api/v1/chat/stream`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(authHeader ? { Authorization: authHeader } : {}),
-    },
-    body,
-  })
+  let backendRes: Response
+  try {
+    backendRes = await fetch(`${BACKEND_URL}/api/v1/chat/stream`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(authHeader ? { Authorization: authHeader } : {}),
+      },
+      body,
+    })
+  } catch {
+    return new Response(
+      JSON.stringify({
+        detail: "Backend chat stream target is unavailable",
+        backend: BACKEND_URL,
+      }),
+      {
+        status: 502,
+        headers: { "Content-Type": "application/json" },
+      },
+    )
+  }
 
   if (!backendRes.ok) {
     return new Response(await backendRes.text(), {

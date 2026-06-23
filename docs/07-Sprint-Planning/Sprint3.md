@@ -120,10 +120,10 @@
 | T43 | Report/Analytics Tool Backend — API/tool truy vấn report, metrics và dữ liệu đa module; có RBAC, source metadata, timeout/error contract | 21/06 – 22/06 | P0 | T42 | [x] |
 | T41 | User Behavior Observability — session/cookie, structured event log, correlation/trace ID cho page, chat, tool và retrieval để quan sát hành vi người dùng | 21/06 – 22/06 | P0 | - | [x] |
 | T49 | RAG Corpus Preparation — tổng hợp, làm sạch, phân loại, access scope và manifest tài liệu; bàn giao corpus dùng được cho Hoàng | 21/06 – 23/06 | P0 | - | [ ] |
-| T40 | Guardrails — Backend & RBAC | 25/06 | P1 | T41, T43 | [ ] |
-| T45 | Deployment/Proxy Recovery Runbook — lệnh restart Next.js/FastAPI/Ngrok, health check, URL fallback, owner và checklist xác minh | 25/06 | P2 | - | [ ] |
-| T46 | Integration Defect Fix Window — triage/fix blocker auth, reload, proxy, API và chat do Playwright/UI test phát hiện; có issue list + retest evidence | 25/06 | P1 | T40, V39 | [ ] |
-| T48 | Release Candidate Verification — freeze version/env, chạy migration/seed/health/Playwright, lưu evidence và rollback commands | 25/06 | P1 | T45, T46, V39 | [ ] |
+| T40 | Guardrails — Backend & RBAC | 25/06 | P1 | T41, T43 | [x] |
+| T45 | Deployment/Proxy Recovery Runbook — lệnh restart Next.js/FastAPI/Ngrok, health check, URL fallback, owner và checklist xác minh | 25/06 | P2 | - | [x] |
+| T46 | Integration Defect Fix Window — triage/fix blocker auth, reload, proxy, API và chat do Playwright/UI test phát hiện; có issue list + retest evidence | 25/06 | P1 | T40, V39 | [x] |
+| T48 | Release Candidate Verification — freeze version/env, chạy migration/seed/health/Playwright, lưu evidence và rollback commands | 25/06 | P1 | T45, T46, V39 | [x] |
 
 **Hưng đã hoàn thiện trong Sprint 3 tính đến 22/06/2026**
 
