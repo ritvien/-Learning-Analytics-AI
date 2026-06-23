@@ -17,8 +17,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "EPU Analytics — Trường Đại học Điện Lực",
-  description: "Hệ thống quản lý đào tạo và phân tích học tập — Trường Đại học Điện Lực (EPU)",
+  title: "VinUni Analytics — Trường Đại học VinUniversity",
+  description: "Hệ thống quản lý đào tạo và phân tích học tập — Trường Đại học VinUniversity (VinUni)",
 };
 
 export default function RootLayout({

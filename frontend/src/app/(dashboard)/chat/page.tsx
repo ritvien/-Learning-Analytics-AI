@@ -27,7 +27,7 @@ const SUGGESTED_PROMPTS = [
   { icon: Sparkles, text: "GPA trung bình khóa 2022 so với khóa 2021 như thế nào?" },
 ]
 
-const WELCOME_MESSAGE = `Xin chào! Tôi là **EPU AI Analytics Assistant** 🎓
+const WELCOME_MESSAGE = `Xin chào! Tôi là **VinUni AI Analytics Assistant** 🎓
 
 Tôi có thể giúp bạn:
 - 📊 **Phân tích điểm số** — Xem xu hướng GPA, tỷ lệ trượt theo khóa/ngành/môn
@@ -113,7 +113,15 @@ export default function ChatPage() {
 
   React.useEffect(() => {
     const q = searchParams.get("q")
-    if (q && !autoSentRef.current) {
+    const threadId = searchParams.get("thread_id")
+    if (threadId && !autoSentRef.current) {
+      autoSentRef.current = true
+      loadSession(threadId).then(() => {
+        if (q) {
+          setTimeout(() => sendMessage(q, threadId), 300)
+        }
+      })
+    } else if (q && !autoSentRef.current) {
       autoSentRef.current = true
       setTimeout(() => sendMessage(q), 300)
     }
@@ -197,7 +205,7 @@ export default function ChatPage() {
     }])
   }
 
-  async function sendMessage(text: string) {
+  async function sendMessage(text: string, threadIdOverride?: string) {
     if (!text.trim() || isLoading) return
 
     const userMsg: Message = {
@@ -225,8 +233,9 @@ export default function ChatPage() {
     try {
       let fullContent = ""
       let hasStartedAnswering = false
+      const targetThreadId = threadIdOverride !== undefined ? threadIdOverride : activeSessionId
 
-      for await (const event of chatStreamV2({ message: text.trim(), thread_id: activeSessionId })) {
+      for await (const event of chatStreamV2({ message: text.trim(), thread_id: targetThreadId })) {
         switch (event.type) {
           case "session_created":
             setActiveSessionId(event.thread_id)
@@ -329,7 +338,7 @@ export default function ChatPage() {
             <Bot className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-xl font-bold tracking-tight truncate">EPU AI Analytics</h1>
+            <h1 className="text-xl font-bold tracking-tight truncate">VinUni AI Analytics</h1>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>

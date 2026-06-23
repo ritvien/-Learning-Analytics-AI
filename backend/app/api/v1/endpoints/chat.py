@@ -248,6 +248,26 @@ async def chat(
         context = result.get("context", {})
         intent = context.get("intent", "unknown")
 
+        mode = "inline" if intent == "fast_response" else "full_chat"
+        target_route = None if mode == "inline" else "/chat"
+        reason = "Chit-chat/general greeting" if mode == "inline" else "Academic analytics query requiring data tools"
+        await log_event(
+            "route_decision",
+            user_id=str(current_user.id),
+            user_role=current_user.role.value,
+            department_id=current_user.department_id,
+            conversation_id=str(db_session.id),
+            agent_run_id=agent_run_id,
+            status="ok",
+            payload={
+                "mode": mode,
+                "target_route": target_route,
+                "reason": reason,
+                "intent": intent,
+            },
+            **obs_context,
+        )
+
         final_response = ""
         for msg in reversed(messages):
             if isinstance(msg, AIMessage) and msg.content:
@@ -408,6 +428,25 @@ async def chat_stream(
                         output = event["data"].get("output", {})
                         if isinstance(output, dict):
                             intent = output.get("context", {}).get("intent", "unknown")
+                            mode = "inline" if intent == "fast_response" else "full_chat"
+                            target_route = None if mode == "inline" else "/chat"
+                            reason = "Chit-chat/general greeting" if mode == "inline" else "Academic analytics query requiring data tools"
+                            await log_event(
+                                "route_decision",
+                                user_id=str(current_user.id),
+                                user_role=current_user.role.value,
+                                department_id=current_user.department_id,
+                                conversation_id=str(db_session.id),
+                                agent_run_id=agent_run_id,
+                                status="ok",
+                                payload={
+                                    "mode": mode,
+                                    "target_route": target_route,
+                                    "reason": reason,
+                                    "intent": intent,
+                                },
+                                **obs_context,
+                            )
                             yield f"data: {json.dumps({'type': 'router', 'intent': intent})}\n\n"
 
                     elif kind == "on_tool_start":

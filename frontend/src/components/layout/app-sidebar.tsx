@@ -125,12 +125,17 @@ export function AppSidebar({ userRole, ...props }: React.ComponentProps<typeof S
               size="lg"
               render={<Link href="/manager" prefetch onMouseEnter={() => prefetchNavData("/manager")} onFocus={() => prefetchNavData("/manager")} />}
             >
-              <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-[#1B3A5C] text-white shadow-sm">
-                <Zap className="size-5" />
+              <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-primary text-white shadow-sm border border-accent/20">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="size-5 text-[var(--accent)]">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M8 10c2 0 3-1 4-3 1 2 2 3 4 3" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M12 7v8" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M10 15h4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
-                <span className="text-sm font-bold tracking-tight">ĐH Điện Lực</span>
-                <span className="text-xs font-medium text-muted-foreground">EPU Analytics</span>
+                <span className="text-sm font-bold tracking-tight">VinUniversity</span>
+                <span className="text-xs font-medium text-muted-foreground">VinUni Analytics</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -173,7 +178,7 @@ export function AppSidebar({ userRole, ...props }: React.ComponentProps<typeof S
             <span className="text-xs font-medium text-muted-foreground">Hệ thống hoạt động</span>
           </div>
           <p className="mt-2 text-center text-[10px] font-medium text-muted-foreground/50">
-            © 2026 Trường ĐH Điện Lực
+            © 2026 Trường ĐH VinUniversity
           </p>
         </div>
       </SidebarFooter>

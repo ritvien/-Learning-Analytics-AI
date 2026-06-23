@@ -187,7 +187,7 @@ export default function ManagerDashboard() {
                               shadow-[0_2px_10px_rgba(27,58,92,0.3)] border border-white/10 flex items-center gap-1.5"
                 >
                   <School className="h-4 w-4" />
-                  EPU
+                  VinUni
                 </div>
               </div>
 
@@ -372,7 +372,7 @@ export default function ManagerDashboard() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-64 p-1.5 bg-white border-primary/10 shadow-xl rounded-xl">
                                   <DropdownMenuGroup className="flex flex-col gap-0.5">
-                                    {[`Điểm GPA trung bình của sinh viên thuộc chuyên ngành ${major.tenNganh.toLowerCase()} là bao nhiêu?`, `Top 3 môn học có nhiều sinh viên trượt nhất của chuyên ngành ${major.tenNganh.toLowerCase()}?`, `Có bao nhiêu sinh viên chuyên ngành ${major.tenNganh.toLowerCase()} đang bị cảnh báo học vụ hoặc buộc thôi học?`].map((prompt, i) => (
+                                    {[`Điểm GPA trung bình của sinh viên thuộc ngành/chuyên ngành ${major.tenNganh.toLowerCase()} là bao nhiêu?`, `Top 3 môn học có nhiều sinh viên trượt nhất của ngành/chuyên ngành ${major.tenNganh.toLowerCase()}?`, `Có bao nhiêu sinh viên ngành/chuyên ngành ${major.tenNganh.toLowerCase()} đang bị cảnh báo học vụ hoặc buộc thôi học?`].map((prompt, i) => (
                                       <DropdownMenuItem
                                         key={i}
                                         className="text-xs py-2 px-2.5 rounded-lg cursor-pointer flex items-start gap-2 hover:bg-primary/5 hover:text-primary transition-colors group/item"

@@ -118,6 +118,8 @@ async def analytics_trends(
     return [dict(row) for row in result.mappings().all()]
 
 
+from datetime import datetime
+
 def _dashboard_filter_sql(
     *,
     semester_code: str | None = None,
@@ -142,11 +144,17 @@ def _dashboard_filter_sql(
         clauses.append("ds.cohort_id = :cohort_id")
         params["cohort_id"] = cohort_id
     if date_from:
-        clauses.append("f.updated_at >= CAST(:date_from AS timestamptz)")
-        params["date_from"] = date_from
+        clauses.append("f.updated_at >= :date_from")
+        try:
+            params["date_from"] = datetime.fromisoformat(date_from.replace("Z", "+00:00"))
+        except Exception:
+            params["date_from"] = date_from
     if date_to:
-        clauses.append("f.updated_at <= CAST(:date_to AS timestamptz)")
-        params["date_to"] = date_to
+        clauses.append("f.updated_at <= :date_to")
+        try:
+            params["date_to"] = datetime.fromisoformat(date_to.replace("Z", "+00:00"))
+        except Exception:
+            params["date_to"] = date_to
     return ("WHERE " + " AND ".join(clauses)) if clauses else "", params
 
 
