@@ -1,20 +1,27 @@
 """Analytics warehouse and prediction read/operation endpoints."""
 
+from datetime import datetime
 from time import monotonic
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import text
 
+from app.access_control import (
+    can_access_course,
+    can_access_department,
+    can_access_program,
+    can_access_student,
+)
 from app.analytics.etl import refresh_dwh
 from app.analytics.health_score import (
+    get_course_health_batch,
     get_course_health_score,
-    get_program_health_score,
     get_department_health_score,
-    get_course_health_batch
+    get_program_health_score,
 )
 from app.config import get_settings
 from app.database import AsyncSessionLocal
-from app.dependencies import DBSession
+from app.dependencies import CurrentUser, DBSession, require_admin_access
 from app.ml.scoring import aggregate_student_semester_predictions
 
 router = APIRouter()
@@ -22,6 +29,41 @@ router = APIRouter()
 settings = get_settings()
 _DASHBOARD_CACHE_TTL_SECONDS = 300
 _dashboard_cache: dict[tuple, tuple[float, dict]] = {}
+
+
+def _parse_dashboard_datetime(value: str, param_name: str) -> datetime:
+    """Parse browser ISO timestamps before passing them to asyncpg."""
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid {param_name}; expected ISO datetime",
+        ) from exc
+
+
+def _deny_out_of_scope() -> None:
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Analytics scope is outside your permissions")
+
+
+async def _require_program_scope(db: DBSession, user: CurrentUser, program_id: int) -> None:
+    if not await can_access_program(db, user, program_id):
+        _deny_out_of_scope()
+
+
+async def _require_course_scope(db: DBSession, user: CurrentUser, course_id: int) -> None:
+    if not await can_access_course(db, user, course_id):
+        _deny_out_of_scope()
+
+
+async def _require_department_scope(db: DBSession, user: CurrentUser, department_id: int) -> None:
+    if not await can_access_department(db, user, department_id):
+        _deny_out_of_scope()
+
+
+async def _require_student_scope(db: DBSession, user: CurrentUser, student_id: int) -> None:
+    if not await can_access_student(db, user, student_id):
+        _deny_out_of_scope()
 
 
 def _dashboard_cache_get(key: tuple) -> dict | None:
@@ -143,10 +185,10 @@ def _dashboard_filter_sql(
         params["cohort_id"] = cohort_id
     if date_from:
         clauses.append("f.updated_at >= CAST(:date_from AS timestamptz)")
-        params["date_from"] = date_from
+        params["date_from"] = _parse_dashboard_datetime(date_from, "date_from")
     if date_to:
         clauses.append("f.updated_at <= CAST(:date_to AS timestamptz)")
-        params["date_to"] = date_to
+        params["date_to"] = _parse_dashboard_datetime(date_to, "date_to")
     return ("WHERE " + " AND ".join(clauses)) if clauses else "", params
 
 
@@ -853,7 +895,7 @@ async def analytics_refresh_status(db: DBSession) -> dict:
     return dict(row)
 
 
-@router.post("/admin/dwh/refresh")
+@router.post("/admin/dwh/refresh", dependencies=[Depends(require_admin_access)])
 async def trigger_dwh_refresh() -> dict[str, int | str]:
     """Run the idempotent OLTP-to-DWH refresh."""
     run_id = await refresh_dwh()
@@ -861,7 +903,7 @@ async def trigger_dwh_refresh() -> dict[str, int | str]:
     return {"status": "completed", "etl_run_id": run_id}
 
 
-@router.post("/admin/ml/train")
+@router.post("/admin/ml/train", dependencies=[Depends(require_admin_access)])
 async def trigger_ml_train() -> dict[str, str]:
     """Train and evaluate the ML pass/fail prediction model.
 
@@ -876,14 +918,14 @@ async def trigger_ml_train() -> dict[str, str]:
     )
 
 
-@router.post("/admin/ml/score")
+@router.post("/admin/ml/score", dependencies=[Depends(require_admin_access)])
 async def trigger_ml_score(model_run_id: int) -> dict[str, int | str]:
     """Batch-score all enrollments for a completed model run and aggregate per student-semester."""
     rows = await aggregate_student_semester_predictions(model_run_id)
     return {"status": "completed", "rows_upserted": rows}
 
 
-@router.post("/admin/ml/aggregate/{model_run_id}")
+@router.post("/admin/ml/aggregate/{model_run_id}", dependencies=[Depends(require_admin_access)])
 async def trigger_prediction_aggregation(model_run_id: int) -> dict[str, int | str]:
     """Aggregate enrollment predictions into expected student-semester credits."""
     rows = await aggregate_student_semester_predictions(model_run_id)
@@ -891,7 +933,7 @@ async def trigger_prediction_aggregation(model_run_id: int) -> dict[str, int | s
 
 
 @router.get("/predictions/enrollments/{enrollment_id}")
-async def get_enrollment_prediction(enrollment_id: int, db: DBSession) -> dict:
+async def get_enrollment_prediction(enrollment_id: int, db: DBSession, current_user: CurrentUser) -> dict:
     """Return the latest prediction for an enrollment."""
     row = (
         (
@@ -918,8 +960,14 @@ async def get_enrollment_prediction(enrollment_id: int, db: DBSession) -> dict:
 
 
 @router.get("/predictions/students/{student_id}/semesters/{semester_id}")
-async def get_student_semester_prediction(student_id: int, semester_id: int, db: DBSession) -> dict:
+async def get_student_semester_prediction(
+    student_id: int,
+    semester_id: int,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> dict:
     """Return the latest expected-credit prediction for a student-semester."""
+    await _require_student_scope(db, current_user, student_id)
     row = (
         (
             await db.execute(
@@ -945,36 +993,50 @@ async def get_student_semester_prediction(student_id: int, semester_id: int, db:
 
 
 @router.get("/analytics/health/course/{course_id}", summary="Get Course Health Score")
-async def read_course_health(course_id: int, db: DBSession) -> dict:
+async def read_course_health(course_id: int, db: DBSession, current_user: CurrentUser) -> dict:
     """Lấy Health Score cho Môn học (dựa trên GPA, Pass Rate và CLO)."""
+    await _require_course_scope(db, current_user, course_id)
     try:
         return await get_course_health_score(db, course_id)
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get("/analytics/health/courses/batch", summary="Get Multiple Course Health Scores")
 async def read_course_health_batch(
     db: DBSession,
+    current_user: CurrentUser,
     course_ids: list[int] | None = Query(None)
 ) -> list[dict]:
     """Lấy Health Score cho nhiều Môn học."""
+    for course_id in course_ids or []:
+        await _require_course_scope(db, current_user, course_id)
     try:
         return await get_course_health_batch(db, course_ids or [])
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get("/analytics/health/program/{program_id}", summary="Get Program Health Score")
-async def read_program_health(program_id: int, db: DBSession) -> dict:
+async def read_program_health(program_id: int, db: DBSession, current_user: CurrentUser) -> dict:
     """Lấy Health Score cho Ngành đào tạo."""
+    await _require_program_scope(db, current_user, program_id)
     try:
         return await get_program_health_score(db, program_id)
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get("/analytics/health/department/{department_id}", summary="Get Department Health Score")
-async def read_department_health(department_id: int, db: DBSession) -> dict:
+async def read_department_health(department_id: int, db: DBSession, current_user: CurrentUser) -> dict:
     """Lấy Health Score cho Khoa."""
+    await _require_department_scope(db, current_user, department_id)
     try:
         return await get_department_health_score(db, department_id)
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
