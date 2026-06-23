@@ -10,6 +10,7 @@ from app.access_control import (
     can_access_course,
     can_access_department,
     can_access_program,
+    can_access_section,
     can_access_student,
 )
 from app.analytics.etl import refresh_dwh
@@ -23,6 +24,7 @@ from app.config import get_settings
 from app.database import AsyncSessionLocal
 from app.dependencies import CurrentUser, DBSession, require_admin_access
 from app.ml.scoring import aggregate_student_semester_predictions
+from app.models.teaching import Enrollment
 
 router = APIRouter()
 
@@ -63,6 +65,14 @@ async def _require_department_scope(db: DBSession, user: CurrentUser, department
 
 async def _require_student_scope(db: DBSession, user: CurrentUser, student_id: int) -> None:
     if not await can_access_student(db, user, student_id):
+        _deny_out_of_scope()
+
+
+async def _require_enrollment_scope(db: DBSession, user: CurrentUser, enrollment_id: int) -> None:
+    enrollment = await db.get(Enrollment, enrollment_id)
+    if enrollment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prediction not found")
+    if not await can_access_section(db, user, enrollment.section_id):
         _deny_out_of_scope()
 
 
@@ -935,6 +945,7 @@ async def trigger_prediction_aggregation(model_run_id: int) -> dict[str, int | s
 @router.get("/predictions/enrollments/{enrollment_id}")
 async def get_enrollment_prediction(enrollment_id: int, db: DBSession, current_user: CurrentUser) -> dict:
     """Return the latest prediction for an enrollment."""
+    await _require_enrollment_scope(db, current_user, enrollment_id)
     row = (
         (
             await db.execute(
@@ -1010,6 +1021,8 @@ async def read_course_health_batch(
     course_ids: list[int] | None = Query(None)
 ) -> list[dict]:
     """Lấy Health Score cho nhiều Môn học."""
+    if not course_ids:
+        return []
     for course_id in course_ids or []:
         await _require_course_scope(db, current_user, course_id)
     try:
