@@ -185,7 +185,7 @@ async def log_event(
         async with AsyncSessionLocal() as db:
             await db.execute(statement, params)
             await db.commit()
-    except SQLAlchemyError as exc:
+    except (SQLAlchemyError, OSError) as exc:
         logger.debug("Failed to write observability event %s: %s", event_name, exc)
 
 

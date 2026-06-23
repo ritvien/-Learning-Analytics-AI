@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-const BACKEND = "http://127.0.0.1:8000"
+const BACKEND = process.env.BACKEND_URL || "http://127.0.0.1:8000"
 
 const SKIP_REQ = new Set(["host", "connection", "expect", "transfer-encoding"])
 const SKIP_RES = new Set(["transfer-encoding", "connection"])
@@ -17,7 +17,18 @@ async function proxy(req: NextRequest, { params }: { params: Promise<{ path: str
   const isBodyMethod = !["GET", "HEAD"].includes(req.method)
   const body = isBodyMethod ? await req.arrayBuffer() : undefined
 
-  const res = await fetch(url, { method: req.method, headers, body })
+  let res: Response
+  try {
+    res = await fetch(url, { method: req.method, headers, body })
+  } catch {
+    return NextResponse.json(
+      {
+        detail: "Backend proxy target is unavailable",
+        backend: BACKEND,
+      },
+      { status: 502 },
+    )
+  }
 
   const resHeaders = new Headers()
   res.headers.forEach((v, k) => {
