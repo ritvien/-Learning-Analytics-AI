@@ -141,7 +141,7 @@
 | V36 | Academic Tree — hoàn thiện UI 5 tầng Trường → Khoa → Ngành → Chuyên ngành → Môn, metrics không đếm trùng | 21/06 – 22/06 | P0 | T44 | [x] |
 | V38 | Chat Thinking Status Stack — status chồng trong vùng cố định; chỉ xổ toàn bộ tiến trình khi bấm nút | 21/06 – 22/06 | P1 | - | [x] |
 | V39 | Playwright E2E + UI Test — auth/reload/deep-link, Tree, Report, chat inline/full-page, responsive và error/loading states | 22/06 – 24/06 | P0 | V36, V38, T51 | [x] |
-| V40 | Global Chat Shell & Route Handoff — chatbot trên mọi page; câu đơn giản chat tại page, câu phức tạp chuyển `/chatbot` theo route decision của LLM | 23/06 – 24/06 | P0 | H48 contract, T41 | [ ] |
+| V40 | Global Chat Shell & Route Handoff — chatbot trên mọi page; câu đơn giản chat tại page, câu phức tạp chuyển `/chatbot` theo route decision của LLM | 23/06 – 24/06 | P0 | H48 contract, T41 | [x] |
 | V34 | Demo Slides + Recording Setup | 25/06 | P1 | V39 | [ ] |
 | H44 | Demo Video Narrative | 25/06 | P1 | H40 | [ ] |
 | V35 | Demo Video Draft Recording | 25/06 | P1 | V34, H44 | [ ] |
