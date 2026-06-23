@@ -658,7 +658,7 @@ function buildReportHtml(report: ApiReport) {
 </head>
 <body><main>
   <div class="topline">
-    <div>TRƯỜNG ĐẠI HỌC ĐIỆN LỰC<br/><span class="underline">HỆ THỐNG PHÂN TÍCH HỌC TẬP</span></div>
+    <div>TRƯỜNG ĐẠI HỌC VINUNIVERSITY<br/><span class="underline">HỆ THỐNG PHÂN TÍCH HỌC TẬP</span></div>
     <div>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM<br/><span class="underline">Độc lập - Tự do - Hạnh phúc</span></div>
   </div>
 
@@ -2049,7 +2049,7 @@ function ReportStandardDocument({
     >
       <div className="grid gap-4 text-center text-[13px] font-bold uppercase sm:grid-cols-2">
         <div>
-          TRƯỜNG ĐẠI HỌC ĐIỆN LỰC
+          TRƯỜNG ĐẠI HỌC VINUNIVERSITY
           <div className="mx-auto mt-1 w-fit border-b border-slate-900 pb-0.5">HỆ THỐNG PHÂN TÍCH HỌC TẬP</div>
         </div>
         <div>

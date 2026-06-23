@@ -21,7 +21,7 @@ export function OnboardingTour() {
       steps = [
         {
           popover: {
-            title: "Chào mừng đến với hệ thống EPUInsight!",
+            title: "Chào mừng đến với hệ thống VinUniInsight!",
             description: "Hãy để chúng tôi hướng dẫn bạn làm quen với trang Tổng quan (Cơ cấu đào tạo).",
             side: "left",
             align: "start"

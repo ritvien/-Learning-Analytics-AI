@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/sidebar"
 import { api, clearAccessToken, getAccessToken, getCachedCurrentUser, startPageTrace, type ApiUser } from "@/lib/api"
 import { OnboardingTour } from "@/components/onboarding-tour"
+import { GlobalChatShell } from "@/components/layout/global-chat-shell"
 
 export default function DashboardLayout({
   children,
@@ -94,7 +95,7 @@ export default function DashboardLayout({
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="hidden font-semibold text-foreground/80 sm:inline-block">Đại học Điện Lực</span>
+              <span className="hidden font-semibold text-foreground/80 sm:inline-block">VinUniversity</span>
               <span className="hidden sm:inline-block">/</span>
               <span>Hệ thống Quản lý</span>
             </div>
@@ -116,6 +117,7 @@ export default function DashboardLayout({
           <OnboardingTour />
           <DashboardPreloader userRole={user?.role ?? null} />
           {children}
+          <GlobalChatShell />
         </div>
       </SidebarInset>
     </SidebarProvider>

@@ -47,8 +47,13 @@ export default function LoginPage() {
         <Card>
           <CardHeader className="space-y-2 text-center">
             <div className="mb-4 flex justify-center">
-              <div className="flex aspect-square size-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <GraduationCap className="size-6" />
+              <div className="flex aspect-square size-12 items-center justify-center rounded-lg bg-primary text-white shadow-sm border border-accent/20">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="size-6 text-[var(--accent)]">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M8 10c2 0 3-1 4-3 1 2 2 3 4 3" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M12 7v8" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M10 15h4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </div>
             </div>
             <CardTitle className="text-2xl font-bold tracking-tight">

@@ -46,16 +46,16 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
-  /* EPU Brand Colors */
-  --color-epu-navy: #1B3A5C;
-  --color-epu-navy-light: #2A5280;
-  --color-epu-gold: #F5A623;
-  --color-epu-gold-light: #FBC96B;
+  /* VinUni Brand Colors */
+  --color-vinuni-blue: #002060;
+  --color-vinuni-blue-light: #0C2E5C;
+  --color-vinuni-gold: #C5A059;
+  --color-vinuni-gold-light: #D4AF37;
 }
 
 /* ═══════════════════════════════════════════════
-   EPU Light Theme — Navy Blue + Gold
-   Trường Đại học Điện Lực Brand Identity
+   VinUni Light Theme — Royal Blue + Imperial Gold
+   Trường Đại học VinUniversity Brand Identity
    ═══════════════════════════════════════════════ */
 :root {
   --background: oklch(0.985 0.003 230);
@@ -64,37 +64,37 @@
   --card-foreground: oklch(0.16 0.03 235);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.16 0.03 235);
-  /* Navy Blue primary — EPU brand */
-  --primary: oklch(0.35 0.08 245);
+  /* Royal Blue primary — VinUni brand */
+  --primary: oklch(0.28 0.08 255);
   --primary-foreground: oklch(0.99 0.002 230);
   /* Warm secondary with gold undertone */
   --secondary: oklch(0.95 0.012 80);
-  --secondary-foreground: oklch(0.25 0.04 245);
+  --secondary-foreground: oklch(0.20 0.04 255);
   --muted: oklch(0.955 0.008 230);
   --muted-foreground: oklch(0.50 0.025 235);
-  /* Gold-tinted accent — EPU brand */
-  --accent: oklch(0.94 0.025 80);
-  --accent-foreground: oklch(0.20 0.04 245);
+  /* Imperial Gold accent — VinUni brand */
+  --accent: oklch(0.72 0.10 80);
+  --accent-foreground: oklch(0.15 0.03 255);
   --destructive: oklch(0.58 0.20 22);
   --border: oklch(0.91 0.008 230);
   --input: oklch(0.91 0.008 230);
-  --ring: oklch(0.35 0.08 245);
-  /* Chart: Navy → Teal → Gold gradient */
-  --chart-1: oklch(0.35 0.08 245);
-  --chart-2: oklch(0.50 0.10 230);
-  --chart-3: oklch(0.62 0.12 180);
-  --chart-4: oklch(0.72 0.14 85);
-  --chart-5: oklch(0.78 0.15 75);
+  --ring: oklch(0.28 0.08 255);
+  /* Chart: Royal Blue → Teal → Gold gradient */
+  --chart-1: oklch(0.28 0.08 255);
+  --chart-2: oklch(0.42 0.09 230);
+  --chart-3: oklch(0.60 0.10 180);
+  --chart-4: oklch(0.70 0.11 85);
+  --chart-5: oklch(0.75 0.12 75);
   --radius: 0.75rem;
-  /* Sidebar — Navy tinted */
-  --sidebar: oklch(0.97 0.005 235);
-  --sidebar-foreground: oklch(0.22 0.03 240);
-  --sidebar-primary: oklch(0.35 0.08 245);
+  /* Sidebar — Royal Blue tinted */
+  --sidebar: oklch(0.97 0.005 255);
+  --sidebar-foreground: oklch(0.22 0.03 250);
+  --sidebar-primary: oklch(0.28 0.08 255);
   --sidebar-primary-foreground: oklch(0.99 0.002 230);
   --sidebar-accent: oklch(0.94 0.02 80);
-  --sidebar-accent-foreground: oklch(0.20 0.04 245);
-  --sidebar-border: oklch(0.90 0.01 230);
-  --sidebar-ring: oklch(0.35 0.08 245);
+  --sidebar-accent-foreground: oklch(0.20 0.04 255);
+  --sidebar-border: oklch(0.90 0.01 250);
+  --sidebar-ring: oklch(0.28 0.08 255);
 }
 
 /* ═══════════════════════════════════════════════

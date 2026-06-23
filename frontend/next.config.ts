@@ -9,6 +9,15 @@ const nextConfig: NextConfig = {
     "spectrum-dullness-ambiguous.ngrok-free.dev",
     "spectrum-dullness-ambiguous.ngrok-free.app"
   ],
+  async redirects() {
+    return [
+      {
+        source: "/chatbot",
+        destination: "/chat",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

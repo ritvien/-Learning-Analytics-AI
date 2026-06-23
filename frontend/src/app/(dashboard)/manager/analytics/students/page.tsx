@@ -296,8 +296,8 @@ export default function StudentAnalyticsPage() {
                 <YAxis domain={[0, 10]} />
                 <Tooltip formatter={(value, _name, item) => [value, item.payload.fullName]} />
                 <Bar dataKey="grade" radius={[4, 4, 0, 0]}>
-                  {data.courseGrades.slice(-12).map((row) => (
-                    <Cell key={row.name} fill={row.grade < 5 ? "#ef4444" : row.grade < 6.5 ? "#f59e0b" : "#22c55e"} />
+                  {data.courseGrades.slice(-12).map((row, index) => (
+                    <Cell key={`${row.name}-${index}`} fill={row.grade < 5 ? "#ef4444" : row.grade < 6.5 ? "#f59e0b" : "#22c55e"} />
                   ))}
                 </Bar>
               </BarChart>
