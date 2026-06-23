@@ -21,11 +21,11 @@ from langgraph.prebuilt import ToolNode
 from langgraph.types import RetryPolicy
 
 from app.agent.nodes import (
+    TOOLS,
     core_agent_node,
     fast_response_node,
     route_after_router,
     router_node,
-    TOOLS,
 )
 from app.agent.state import AgentState
 
