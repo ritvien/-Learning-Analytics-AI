@@ -195,6 +195,7 @@
 - Trả `route_decision` có schema tối thiểu: `mode: inline | full_chat`, `target_route`, `reason`, `preserve_context`.
 - Câu hỏi đơn giản trả lời ngắn bằng page context; câu phức tạp, nhiều bước hoặc cần nhiều tool được chuyển sang full chatbot.
 - Dùng chung session/memory store; route decision không làm mất lịch sử và luôn để backend kiểm tra lại RBAC/scope.
+- **Integration (2026-06-23):** Frontend gửi `context.route` trong body stream; global chat shell đọc SSE `route_decision` (không suy từ `intent`). Smoke Ngrok: inline tại `/manager`, `target_route` đúng pathname.
 
 ### H49 — Page Context & Cross-module Data Access
 
@@ -389,6 +390,7 @@ Tài liệu phải được deduplicate, bỏ nội dung lỗi/encoding xấu, g
 - [x] `T42 + T43 + T41` hoàn tất trước batch chatbot và có contract/evidence dùng được
 - [ ] Batch `V19 + V20 + V22 + V23` hoàn tất hoặc tách phần còn lại sang Sprint 4
 - [ ] `H48 + H49 + H50 + H51 + V40` chạy end-to-end: data tools, corpus retrieval, inline/full-page routing và citation
+- [x] H48 + V40 route handoff smoke: page context → `target_route` đúng pathname; SSE `route_decision` + inline/full_chat trên Ngrok (2026-06-23)
 - [ ] `T49` có corpus/manifest RAG được review; tài liệu bị loại có lý do rõ
 - [x] `V38` không làm status chat trượt thành nhiều dòng khi collapsed và mở được timeline đầy đủ
 - [x] `V39` có Playwright/UI report cho reload, Tree, Report và chat inline/full-page

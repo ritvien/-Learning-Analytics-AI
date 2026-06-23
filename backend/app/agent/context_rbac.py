@@ -12,9 +12,15 @@ from app.models.people import User, UserRole
 _TRUSTED_KEYS = frozenset({"user_role", "department_scope", "department_id"})
 
 _ROLE_MODULE_ACCESS: dict[UserRole, frozenset[str]] = {
-    UserRole.superadmin: frozenset({"dashboard", "report", "tree", "chat", "admin", "settings"}),
-    UserRole.admin: frozenset({"dashboard", "report", "tree", "chat", "admin", "settings"}),
-    UserRole.manager: frozenset({"dashboard", "report", "tree", "chat", "settings"}),
+    UserRole.superadmin: frozenset(
+        {"dashboard", "report", "tree", "chat", "admin", "settings", "manager", "analytics", "reports", "students", "courses"}
+    ),
+    UserRole.admin: frozenset(
+        {"dashboard", "report", "tree", "chat", "admin", "settings", "manager", "analytics", "reports", "students", "courses"}
+    ),
+    UserRole.manager: frozenset(
+        {"dashboard", "report", "tree", "chat", "settings", "manager", "analytics", "reports", "students", "courses"}
+    ),
     UserRole.lecturer: frozenset({"dashboard", "report", "tree", "chat"}),
     UserRole.viewer: frozenset({"dashboard", "report", "tree", "chat"}),
 }
