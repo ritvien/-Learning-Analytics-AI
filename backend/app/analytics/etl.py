@@ -7,6 +7,50 @@ from sqlalchemy import text
 from app.analytics.clo import refresh_student_clo_achievements
 from app.database import engine
 
+DROPOUT_FEATURE_VIEW_SQL = """
+CREATE OR REPLACE VIEW dwh.v_student_dropout_features AS
+SELECT
+    ds.student_id,
+    ds.student_code,
+    dc.year_start AS cohort_year,
+    ds.program_id,
+    ds.status,
+    COALESCE(agg.total_registered_credits, 0) AS total_registered_credits,
+    COALESCE(agg.total_failed_credits, 0) AS total_failed_credits,
+    CASE
+        WHEN COALESCE(agg.total_registered_credits, 0) = 0 THEN 0
+        ELSE ROUND(agg.total_failed_credits::numeric / agg.total_registered_credits, 4)
+    END AS fail_rate,
+    agg.cumulative_gpa,
+    COALESCE(agg.semesters_enrolled, 0) AS semesters_enrolled,
+    agg.latest_semester_id,
+    agg.avg_semester_gpa
+FROM dwh.dim_student ds
+JOIN dwh.dim_cohort dc ON dc.cohort_id = ds.cohort_id
+LEFT JOIN (
+    SELECT
+        fss.student_id,
+        SUM(fss.registered_credits) AS total_registered_credits,
+        SUM(fss.failed_credits) AS total_failed_credits,
+        COUNT(*) AS semesters_enrolled,
+        ROUND(
+            SUM(fss.gpa_semester * fss.attempted_course_count)
+            / NULLIF(SUM(fss.attempted_course_count), 0),
+            2
+        ) AS cumulative_gpa,
+        ROUND(AVG(fss.gpa_semester), 2) AS avg_semester_gpa,
+        (
+            SELECT fss2.semester_id
+            FROM dwh.fact_student_semester fss2
+            WHERE fss2.student_id = fss.student_id
+            ORDER BY fss2.semester_id DESC
+            LIMIT 1
+        ) AS latest_semester_id
+    FROM dwh.fact_student_semester fss
+    GROUP BY fss.student_id
+) agg ON agg.student_id = ds.student_id
+"""
+
 DIMENSION_SQL = [
     """
     INSERT INTO dwh.dim_student (student_id, student_code, full_name, program_id, cohort_id, status, updated_at)
@@ -206,6 +250,8 @@ async def refresh_dwh() -> int:
 
             for statement in DIMENSION_SQL + FACT_SQL:
                 await connection.execute(text(statement))
+
+            await connection.execute(text(DROPOUT_FEATURE_VIEW_SQL))
 
             oltp_count = (await connection.execute(text("SELECT COUNT(*) FROM public.enrollments"))).scalar_one()
             dwh_count = (

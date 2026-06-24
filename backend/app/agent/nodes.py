@@ -26,7 +26,12 @@ from app.agent.route_decision import (
     parse_router_response,
 )
 from app.agent.state import AgentState
-from app.agent.tools import calculate_student_clo_scores, execute_sql_query
+from app.agent.tools import (
+    calculate_student_clo_scores,
+    execute_sql_query,
+    get_student_dropout_risk,
+    lookup_student_by_code,
+)
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -36,7 +41,7 @@ settings = get_settings()
 __all__ = ["TOOLS", "MissingLLMCredentialsError", "route_after_router"]
 
 
-TOOLS = [execute_sql_query, calculate_student_clo_scores]
+TOOLS = [execute_sql_query, calculate_student_clo_scores, lookup_student_by_code, get_student_dropout_risk]
 
 _SCHEMA_PATTERNS = re.compile(
     r"(?:"

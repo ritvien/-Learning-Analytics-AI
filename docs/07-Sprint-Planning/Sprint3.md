@@ -32,7 +32,7 @@
 | RBAC UI — nav, route, CRUD | **V41** | Hiếu | [ ] |
 | Error handling 3 tầng + HTTP | **H52** | Hoàng | [x] |
 | Prompt scope + injection | **H40** | Hoàng | [ ] |
-| LLM chỉ explain `ml` (ADR-006) | **T52d** | Hoàng | [ ] |
+| LLM chỉ explain `ml` (ADR-006) | **T52d** | Hoàng | [x] |
 
 ### G3-4 — Kịch bản quay (V35, nộp 25/06)
 
@@ -70,12 +70,12 @@
 | H43 | Cost report G3-5 | 22/06 | P1 | H42 | [x] |
 | H48 | Universal chatbot core; `route_decision` inline/full_chat | 23–24/06 | P0 | T41, T42, T43 | [x] |
 | **H52** | Error handling 3 tầng — ref `docs/4.9-error-handling.md`; tool/node/graph + HTTP | 24–25/06 | **P0** | H48 | [x] |
-| **T52a** | Dropout labels — `STATUS_MAP`, `is_active`, verify ~120 SV | 24/06 | **P0** | H46, T50 | [ ] |
-| **T52b** | DWH feature view cho ML (GPA, fail rate, cohort…) | 24–25/06 | **P0** | T52a | [ ] |
-| **H25a** | Feature spec + label rule + anti-leakage (`ml-dropout-features.md`) | 24–25/06 | **P0** | T52a | [ ] |
-| **T52c** | Train classifier → `ml.model_run`; `/admin/ml/train` | 25/06 | **P0** | T52b, H25a | [ ] |
-| **T52d** | API dropout-risk + RBAC; agent tool đọc `ml` | 25/06 | **P0** | T52c | [ ] |
-| **H25b** | ML eval report P/R/F1/PR-AUC (`ml-dropout-baseline.md`) | 26/06 | P1 | T52d | [ ] |
+| **T52a** | Dropout labels — `STATUS_MAP`, `is_active`, verify ~120 SV | 24/06 | **P0** | H46, T50 | [x] |
+| **T52b** | DWH feature view cho ML (GPA, fail rate, cohort…) | 24–25/06 | **P0** | T52a | [x] |
+| **H25a** | Feature spec + label rule + anti-leakage (`ml-dropout-features.md`) | 24–25/06 | **P0** | T52a | [x] |
+| **T52c** | Train classifier → `ml.model_run`; `/admin/ml/train` | 25/06 | **P0** | T52b, H25a | [x] |
+| **T52d** | API dropout-risk + RBAC; agent tool đọc `ml` | 25/06 | **P0** | T52c | [x] |
+| **H25b** | ML eval report P/R/F1/PR-AUC (`ml-dropout-baseline.md`) | 26/06 | P1 | T52d | [x] |
 | H44 | Demo video script / narrative cho Hiếu | 24–25/06 | P1 | — | [ ] |
 | H40 | Guardrails prompt — scope + injection (G3-3) | 25/06 | P1 | H52 | [ ] |
 | H49 | Cross-module data access chatbot | — | P2 | H48 | [ ] S4 |
