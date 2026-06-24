@@ -20,6 +20,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.types import RetryPolicy
 
+from app.agent.errors import tool_error_handler
 from app.agent.nodes import (
     TOOLS,
     core_agent_node,
@@ -65,7 +66,7 @@ def create_agent() -> CompiledStateGraph:
     # ── Tier 3: ToolNode with automatic error handling ──────────────
     tool_node = ToolNode(
         tools=TOOLS,
-        handle_tool_errors=True,
+        handle_tool_errors=tool_error_handler,
     )
 
     # ── Register nodes ─────────────────────────────────────────────

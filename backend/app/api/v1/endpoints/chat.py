@@ -14,7 +14,7 @@ import uuid
 import asyncio
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, status, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, messages_from_dict, messages_to_dict
 from pydantic import BaseModel, ConfigDict, Field
@@ -24,8 +24,13 @@ from langchain_openai import ChatOpenAI
 
 from app.agent import create_agent
 from app.agent.context_rbac import validate_and_merge_context
-from app.agent.nodes import MissingLLMCredentialsError
+from app.agent.errors import (
+    MissingLLMCredentialsError,
+    map_agent_exception_to_http,
+    stream_error_message,
+)
 from app.agent.route_decision import RouteDecision
+from app.config import get_settings
 from app.database import get_db, AsyncSessionLocal
 from app.models.chat import ChatSession
 from app.dependencies import get_current_user
@@ -34,9 +39,14 @@ from app.observability import log_event, new_id, request_context, stable_hash
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+_settings = get_settings()
 
 # ── Singleton agent (created once at import time) ──────────────────────
 _agent = create_agent()
+
+
+def _is_development() -> bool:
+    return _settings.app_env.lower().strip() in {"development", "dev", "debug"}
 
 
 def _merge_client_context(request: Request, client_context: dict[str, Any] | None) -> dict[str, Any]:
@@ -226,6 +236,9 @@ async def chat(
             })
         except MissingLLMCredentialsError as exc:
             logger.warning("Agent invocation blocked by missing LLM credentials")
+            status_code, detail = map_agent_exception_to_http(
+                exc, is_development=_is_development()
+            )
             await log_event(
                 "agent_run_failed",
                 user_id=str(current_user.id),
@@ -239,12 +252,12 @@ async def chat(
                 payload={"mode": "standard"},
                 **obs_context,
             )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=str(exc),
-            ) from exc
+            raise HTTPException(status_code=status_code, detail=detail) from exc
         except Exception as exc:
             logger.exception("Agent invocation failed")
+            status_code, detail = map_agent_exception_to_http(
+                exc, is_development=_is_development()
+            )
             await log_event(
                 "agent_run_failed",
                 user_id=str(current_user.id),
@@ -258,7 +271,7 @@ async def chat(
                 payload={"mode": "standard"},
                 **obs_context,
             )
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Agent error: {exc}") from exc
+            raise HTTPException(status_code=status_code, detail=detail) from exc
 
         # Lấy thông tin
         messages = result.get("messages", [])
@@ -575,7 +588,8 @@ async def chat_stream(
                     payload={"mode": "stream"},
                     **obs_context,
                 )
-                yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
+                message = stream_error_message(exc, is_development=_is_development())
+                yield f"data: {json.dumps({'type': 'error', 'message': message})}\n\n"
             except Exception as exc:
                 logger.exception("Agent stream failed")
                 await log_event(
@@ -591,7 +605,8 @@ async def chat_stream(
                     payload={"mode": "stream"},
                     **obs_context,
                 )
-                yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
+                message = stream_error_message(exc, is_development=_is_development())
+                yield f"data: {json.dumps({'type': 'error', 'message': message})}\n\n"
 
     return StreamingResponse(
         event_generator(),

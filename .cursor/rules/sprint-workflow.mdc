@@ -1,0 +1,40 @@
+---
+description: Sprint 3 task workflow and branch conventions
+globs: docs/07-Sprint-Planning/**
+alwaysApply: false
+---
+
+# Sprint Workflow
+
+Active sprint: [Sprint3.md](../../docs/07-Sprint-Planning/Sprint3.md)
+
+## Task ownership
+
+| Prefix | Owner |
+|:-------|:------|
+| `H*` | Hoàng |
+| `T*` | Hưng |
+| `V*` | Hiếu |
+
+**Exception (Sprint 3):** `T52a–d` → **Hoàng** — see [Sprint3.md](../../docs/07-Sprint-Planning/Sprint3.md) and [stories/T52.md](../../docs/07-Sprint-Planning/stories/T52.md).
+
+## Before starting a task
+
+1. Check task status and dependencies in Sprint3.md
+2. Read story packet if exists: `docs/07-Sprint-Planning/stories/<TASK-ID>.md`
+3. Confirm "Do not touch" scope — avoid cross-owner conflicts
+
+## Branch and commit
+
+- Branch: `feature/<task-id>-<short-name>` (e.g. `feature/H48-chatbot-core`)
+- Commits: conventional prefixes (`feat:`, `fix:`, `docs:`, `test:`, `chore:`)
+
+## Done criteria
+
+- Copy "Done when" from Sprint3.md or story packet
+- Run verify command listed in story packet
+- Update task checkbox in Sprint3.md when complete
+
+## Gate G3 priority (until 25/06)
+
+Deliverables G3-1 through G3-5 take precedence over carry-over P2 tasks.

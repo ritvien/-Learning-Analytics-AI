@@ -1,12 +1,13 @@
 # Sprint 3 — Gate G3 & scope pivot
 
-> **21/06 – 28/06/2026** · Cập nhật **24/06/2026**  
+> **21/06 – 28/06/2026** · Cập nhật **24/06/2026** (T52a–d → Hoàng)  
 > **Goal:** Đóng Gate G3 trước **25/06 23:59**; sau đó ML eval + polish Demo 2.  
 > **Tham chiếu:** [Sprint2.md](./Sprint2.md) · [H46-Implementation.md](./H46-Implementation.md) · [gate3_eval_metrics.md](../12-Evaluation/gate3_eval_metrics.md)
 
-**Pivot 24/06:** Ưu tiên **ML dropout** (T52), **error handling** (H52), **FE RBAC** (V41). `H49–H51`, `T49` → Sprint 4.
+**Pivot 24/06:** Ưu tiên **ML dropout** (T52), **error handling** (H52), **FE RBAC** (V41). `H49–H51`, `T49` → Sprint 4.  
+**Reassign 24/06:** **T52a–d** (ML dropout pipeline) → **Hoàng** — giữ task ID `T52*`; Hưng giữ backend/DevOps đã xong (T40–T48).
 
-**Dữ liệu ML:** Nhãn trong `backend/db/seed-academic-v2.json.gz` (`expelled` 87 + `withdrawn` 33). Hưng `git pull` + seed + ETL — không cần crawl trên máy Hoàng.
+**Dữ liệu ML:** Nhãn trong `backend/db/seed-academic-v2.json.gz` (`expelled` 87 + `withdrawn` 33). Hoàng `git pull` + seed + ETL trên máy dev — không cần crawl.
 
 **URL demo:** Ngrok + `/api/v1` proxy **ổn định** (G3-1 ✅).
 
@@ -29,9 +30,9 @@
 | RBAC API, tool scope, timeout | **T40** | Hưng | [x] |
 | Structured logs, trace ID | **T41** | Hưng | [x] |
 | RBAC UI — nav, route, CRUD | **V41** | Hiếu | [ ] |
-| Error handling 3 tầng + HTTP | **H52** | Hoàng | [ ] |
+| Error handling 3 tầng + HTTP | **H52** | Hoàng | [x] |
 | Prompt scope + injection | **H40** | Hoàng | [ ] |
-| LLM chỉ explain `ml` (ADR-006) | **T52d** | Hưng | [ ] |
+| LLM chỉ explain `ml` (ADR-006) | **T52d** | Hoàng | [ ] |
 
 ### G3-4 — Kịch bản quay (V35, nộp 25/06)
 
@@ -47,8 +48,8 @@
 
 | Ngày | Hưng | Hoàng | Hiếu |
 |:-----|:-----|:------|:-----|
-| **24/06** | T52a → T52b | H52 + H25a + H44 draft | V41 + V34 draft |
-| **25/06** | T52c → T52d | H52 + H40 + H44 finalize | V41 + V20* + V35 quay + V34 finalize |
+| **24/06** | RC support / unblock | T52a → T52b + H25a + H44 draft | V41 + V34 draft |
+| **25/06** | RC support / unblock | T52c → T52d + H40 + H44 finalize | V41 + V20* + V35 quay + V34 finalize |
 
 \* V20 fallback: DWH at-risk nếu T52d chưa kịp — không trễ G3-4.
 
@@ -68,8 +69,12 @@
 | H42 | Evaluation metrics framework + baseline G3 | 21–22/06 | P1 | H46 | [x] |
 | H43 | Cost report G3-5 | 22/06 | P1 | H42 | [x] |
 | H48 | Universal chatbot core; `route_decision` inline/full_chat | 23–24/06 | P0 | T41, T42, T43 | [x] |
-| **H52** | Error handling 3 tầng — ref `docs/4.9-error-handling.md`; tool/node/graph + HTTP | 24–25/06 | **P0** | H48 | [ ] |
+| **H52** | Error handling 3 tầng — ref `docs/4.9-error-handling.md`; tool/node/graph + HTTP | 24–25/06 | **P0** | H48 | [x] |
+| **T52a** | Dropout labels — `STATUS_MAP`, `is_active`, verify ~120 SV | 24/06 | **P0** | H46, T50 | [ ] |
+| **T52b** | DWH feature view cho ML (GPA, fail rate, cohort…) | 24–25/06 | **P0** | T52a | [ ] |
 | **H25a** | Feature spec + label rule + anti-leakage (`ml-dropout-features.md`) | 24–25/06 | **P0** | T52a | [ ] |
+| **T52c** | Train classifier → `ml.model_run`; `/admin/ml/train` | 25/06 | **P0** | T52b, H25a | [ ] |
+| **T52d** | API dropout-risk + RBAC; agent tool đọc `ml` | 25/06 | **P0** | T52c | [ ] |
 | **H25b** | ML eval report P/R/F1/PR-AUC (`ml-dropout-baseline.md`) | 26/06 | P1 | T52d | [ ] |
 | H44 | Demo video script / narrative cho Hiếu | 24–25/06 | P1 | — | [ ] |
 | H40 | Guardrails prompt — scope + injection (G3-3) | 25/06 | P1 | H52 | [ ] |
@@ -78,11 +83,22 @@
 | H51 | RAG retrieval integration | — | P2 | H48, T49 | [ ] S4 |
 | H30 | Agent safety eval mở rộng | 28/06 | P2 | H52 | [ ] |
 
-**Verify:** `cd backend && pytest -v` · **Không sửa:** `import_academic_dataset.py` (T52a), train (T52c), FE (V41).
+**Verify:** `cd backend && pytest -v` · **Không sửa:** `frontend/` (V41).
+
+**Bootstrap DB** (T52a — nếu chưa có 1.277 SV):
+
+```powershell
+git pull origin main && docker compose up -d
+cd backend && alembic upgrade head
+python scripts/import_academic_dataset.py --artifact db/seed-academic-v2.json.gz --apply --expected-students 1277 --database-url postgresql://eduinsight:eduinsight_dev@localhost:5433/eduinsight
+docker compose exec backend python -m app.analytics.etl
+```
+
+**T52 paths:** `import_academic_dataset.py`, `app/analytics/etl.py`, `app/ml/*`, dropout API, agent tool đọc `ml` (T52d — ADR-006).
 
 ---
 
-### Hưng — Backend / DevOps / ML
+### Hưng — Backend / DevOps
 
 | Task | Mô tả | Khung | P | Depends | Status |
 |:-----|:------|:-----|:-:|:--------|:------:|
@@ -95,23 +111,10 @@
 | T45 | Deploy runbook — Ngrok, restart, health check | 25/06 | P2 | — | [x] |
 | T46 | Integration defect fix (từ V39) | 25/06 | P1 | T40, V39 | [x] |
 | T48 | Release candidate verification | 25/06 | P1 | T45, T46, V39 | [x] |
-| **T52a** | Dropout labels — `STATUS_MAP`, `is_active`, verify ~120 SV | 24/06 | **P0** | H46, T50 | [ ] |
-| **T52b** | DWH feature view cho ML (GPA, fail rate, cohort…) | 24–25/06 | **P0** | T52a | [ ] |
-| **T52c** | Train classifier → `ml.model_run`; `/admin/ml/train` | 25/06 | **P0** | T52b, H25a | [ ] |
-| **T52d** | API dropout-risk + RBAC; agent tool đọc `ml` | 25/06 | **P0** | T52c | [ ] |
+| **T53** | Superadmin observability API — list/filter sessions, `obs.event_log`, aggregates theo user; RBAC `superadmin` only | 26–27/06 | **P1** | T41 | [ ] |
 | T49 | RAG corpus preparation | — | P2 | — | [ ] S4 |
 
-**Bootstrap DB** (nếu chưa có 1.277 SV):
-
-```powershell
-git pull origin main && docker compose up -d
-cd backend && alembic upgrade head
-python scripts/import_academic_dataset.py --artifact db/seed-academic-v2.json.gz --apply --expected-students 1277 --database-url postgresql://eduinsight:eduinsight_dev@localhost:5433/eduinsight
-docker compose exec backend python -m app.analytics.etl
-```
-
-**Verify:** `ruff check . && pytest -v` · SQL: `SELECT status, COUNT(*) FROM students GROUP BY status;`  
-**Không sửa:** agent graph (H52), frontend (V41/V20).
+**Verify:** `ruff check . && pytest -v` · **Không sửa:** agent graph topology (H48/H52), frontend (V41/V20/V43), T52 pipeline (Hoàng).
 
 ---
 
@@ -128,17 +131,19 @@ docker compose exec backend python -m app.analytics.etl
 | V34 | Demo slides — pitch + metric/cost | 24–25/06 | P1 | V39 | [ ] |
 | V35 | Demo video recording 3–5 phút (G3-4) | **25/06** | P1 | V34, H44, V41 | [ ] |
 | V37 | Final QA + chỉnh video | 26–27/06 | P1 | V35 | [ ] |
+| **V42** | Filter mặc định kỳ học mới nhất — dashboard/report/analytics; vẫn cho đổi semester | 26/06 | **P1** | T43 | [ ] |
+| **V43** | Superadmin observability UI — sessions, event log, trace, metric tổng quan theo user | 26–27/06 | **P1** | T53, V41 | [ ] |
 | V18 + V21 | CRUD polish + responsive/dark | — | P2 | — | [ ] S4 |
 | V19, V22, V23 | Chart, FE unit tests, credit prediction UI | — | P2 | — | [ ] S4 |
 
 **Verify:** `cd frontend && npm run lint && npm test` · Playwright sau V41.  
-**Phụ thuộc:** V20 ← T52d · V35 ← V34 + H44 + V41.
+**Phụ thuộc:** V20 ← T52d · V35 ← V34 + H44 + V41 · **V43 ← T53** · V42 dùng semester API từ T43.
 
 ---
 
 ## Phụ thuộc chính
 
-`T52a → T52b → T52c → T52d → V20` · `T52a → H25a → T52c` · `T40 ✅ + V41 → G3-3` · `H52 + H40 → G3-3` · `V34 + H44 → V35`
+`T52a → T52b → T52c → T52d → V20` · `T52a → H25a → T52c` · `T40 ✅ + V41 → G3-3` · `H52 + H40 → G3-3` · `V34 + H44 → V35` · **`T53 → V43`**
 
 ## Sprint 4 (không block Gate)
 
