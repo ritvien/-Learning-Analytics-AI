@@ -42,11 +42,36 @@ function dateEndIso(value: string) {
 export default function SectionsRiskPage() {
   const searchParams = useSearchParams()
   const [raw, setRaw]           = React.useState<Raw | null>(null)
-  const [selSem, setSelSem]     = React.useState("all")
+  const [selSem, setSelSem]     = React.useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("vinuni_selected_semester") || "all"
+    }
+    return "all"
+  })
   const [selCourse, setSelCourse] = React.useState("all")
   const [selSection, setSelSection] = React.useState("all")
   const [dateFrom, setDateFrom] = React.useState("")
   const [dateTo, setDateTo] = React.useState("")
+
+  React.useEffect(() => {
+    if (raw?.semesters && raw.semesters.length > 0) {
+      const querySemester = searchParams.get("semester") ?? searchParams.get("semester_id")
+      const querySection = searchParams.get("section_id") ?? searchParams.get("section")
+      if (querySemester || querySection) return
+
+      const saved = sessionStorage.getItem("vinuni_selected_semester")
+      if (!saved) {
+        const sorted = [...raw.semesters].sort((a, b) => b.year * 10 + b.term - (a.year * 10 + a.term))
+        const latest = sorted[0]?.code
+        if (latest) {
+          setTimeout(() => {
+            setSelSem(latest)
+          }, 0)
+          sessionStorage.setItem("vinuni_selected_semester", latest)
+        }
+      }
+    }
+  }, [raw, searchParams])
 
   React.useEffect(() => {
     const querySection = searchParams.get("section_id") ?? searchParams.get("section")
@@ -261,7 +286,13 @@ export default function SectionsRiskPage() {
           <div className="flex flex-wrap gap-3 items-center">
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground w-4">1</span>
-              <Select value={selSem} onValueChange={v => { setSelSem(v ?? "all"); setSelCourse("all"); setSelSection("all") }}>
+              <Select value={selSem} onValueChange={v => {
+                const nextVal = v ?? "all"
+                setSelSem(nextVal)
+                sessionStorage.setItem("vinuni_selected_semester", nextVal)
+                setSelCourse("all")
+                setSelSection("all")
+              }}>
                 <SelectTrigger className="w-48">
                   <span className="truncate">{semLabel}</span>
                 </SelectTrigger>

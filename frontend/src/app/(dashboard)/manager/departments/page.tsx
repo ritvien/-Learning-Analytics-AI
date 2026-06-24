@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import type { Department, Major } from "@/types"
-import { api } from "@/lib/api"
+import { api, getCachedCurrentUser } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -44,6 +44,15 @@ export default function DepartmentsPage() {
   const [createMajorParent, setCreateMajorParent] = React.useState<string | null>(null)
   const [editDept, setEditDept] = React.useState<Department | null>(null)
   const [editMajor, setEditMajor] = React.useState<Major | null>(null)
+  const [userRole] = React.useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      const u = getCachedCurrentUser()
+      return u ? u.role : null
+    }
+    return null
+  })
+
+  const hasWriteAccess = userRole === "superadmin" || userRole === "admin" || userRole === "manager"
 
   const toggleExpand = (id: string) => {
     setExpandedDepts((prev) => {
@@ -122,27 +131,29 @@ export default function DepartmentsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Quản lý Khoa & Ngành</h1>
         </div>
-        <Dialog open={isCreateDeptOpen} onOpenChange={setIsCreateDeptOpen}>
-          <DialogTrigger render={<Button />}>
-            <Plus className="mr-2 h-4 w-4" /> Thêm Khoa
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[400px]">
-            <form onSubmit={handleCreateDept}>
-              <DialogHeader>
-                <DialogTitle>Thêm Khoa mới</DialogTitle>
-                <DialogDescription>Nhập tên và mô tả.</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="space-y-2"><Label>Tên Khoa</Label><Input name="tenKhoa" required /></div>
-                <div className="space-y-2"><Label>Mô tả</Label><Input name="moTa" /></div>
-              </div>
-              <DialogFooter>
-                <DialogClose render={<Button type="button" variant="outline" />}>Hủy</DialogClose>
-                <Button type="submit">Tạo mới</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        {hasWriteAccess && (
+          <Dialog open={isCreateDeptOpen} onOpenChange={setIsCreateDeptOpen}>
+            <DialogTrigger render={<Button />}>
+              <Plus className="mr-2 h-4 w-4" /> Thêm Khoa
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[400px]">
+              <form onSubmit={handleCreateDept}>
+                <DialogHeader>
+                  <DialogTitle>Thêm Khoa mới</DialogTitle>
+                  <DialogDescription>Nhập tên và mô tả.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="space-y-2"><Label>Tên Khoa</Label><Input name="tenKhoa" required /></div>
+                  <div className="space-y-2"><Label>Mô tả</Label><Input name="moTa" /></div>
+                </div>
+                <DialogFooter>
+                  <DialogClose render={<Button type="button" variant="outline" />}>Hủy</DialogClose>
+                  <Button type="submit">Tạo mới</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="grid gap-3">
@@ -157,15 +168,21 @@ export default function DepartmentsPage() {
                   <Badge variant="secondary" className="ml-2">{dept.nganhs.length} ngành</Badge>
                 </div>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon-sm" onClick={() => { setCreateMajorParent(dept.id); setIsCreateMajorOpen(true) }}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon-sm" onClick={() => setEditDept(dept)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon-sm" onClick={() => deleteDept(dept.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  {hasWriteAccess && (
+                    <Button variant="ghost" size="icon-sm" onClick={() => { setCreateMajorParent(dept.id); setIsCreateMajorOpen(true) }}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {hasWriteAccess && (
+                    <Button variant="ghost" size="icon-sm" onClick={() => setEditDept(dept)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {hasWriteAccess && (
+                    <Button variant="ghost" size="icon-sm" onClick={() => deleteDept(dept.id)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  )}
                 </div>
               </div>
               {dept.moTa && <p className="text-sm text-muted-foreground ml-11">{dept.moTa}</p>}
@@ -179,14 +196,16 @@ export default function DepartmentsPage() {
                         <span className="font-medium">{major.tenNganh}</span>
                         {major.moTa && <p className="text-xs text-muted-foreground">{major.moTa}</p>}
                       </div>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon-xs" onClick={() => setEditMajor(major)}>
-                          <Pencil className="h-3 w-3" />
-                        </Button>
-                        <Button variant="ghost" size="icon-xs" onClick={() => deleteMajor(dept.id, major.id)}>
-                          <Trash2 className="h-3 w-3 text-destructive" />
-                        </Button>
-                      </div>
+                      {hasWriteAccess && (
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon-xs" onClick={() => setEditMajor(major)}>
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon-xs" onClick={() => deleteMajor(dept.id, major.id)}>
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

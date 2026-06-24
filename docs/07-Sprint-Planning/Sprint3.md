@@ -126,12 +126,12 @@ docker compose exec backend python -m app.analytics.etl
 | V38 | Chat thinking status stack — collapsed + timeline | 21–22/06 | P1 | — | [x] |
 | V39 | Playwright E2E — auth, tree, report, chat, responsive | 22–24/06 | P0 | V36, V38, T51 | [x] |
 | V40 | Global chat shell + route handoff `/chatbot` | 23–24/06 | P0 | H48, T41 | [x] |
-| **V41** | FE RBAC — route guard, nav/CRUD theo role, `/forbidden` | 24–25/06 | **P0** | T40 | [ ] |
+| **V41** | FE RBAC — route guard, nav/CRUD theo role, `/forbidden` | 24–25/06 | **P0** | T40 | [x] |
 | **V20** | Dropout risk UI — badge + probability (T52d API) | 25/06 | P1 | T52d | [ ] |
 | V34 | Demo slides — pitch + metric/cost | 24–25/06 | P1 | V39 | [ ] |
 | V35 | Demo video recording 3–5 phút (G3-4) | **25/06** | P1 | V34, H44, V41 | [ ] |
 | V37 | Final QA + chỉnh video | 26–27/06 | P1 | V35 | [ ] |
-| **V42** | Filter mặc định kỳ học mới nhất — dashboard/report/analytics; vẫn cho đổi semester | 26/06 | **P1** | T43 | [ ] |
+| **V42** | Filter mặc định kỳ học mới nhất — dashboard/report/analytics; vẫn cho đổi semester | 26/06 | **P1** | T43 | [x] |
 | **V43** | Superadmin observability UI — sessions, event log, trace, metric tổng quan theo user | 26–27/06 | **P1** | T53, V41 | [ ] |
 | V18 + V21 | CRUD polish + responsive/dark | — | P2 | — | [ ] S4 |
 | V19, V22, V23 | Chart, FE unit tests, credit prediction UI | — | P2 | — | [ ] S4 |
