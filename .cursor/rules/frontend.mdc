@@ -1,0 +1,35 @@
+---
+description: Next.js 16 and Vitest conventions
+globs: frontend/**
+alwaysApply: false
+---
+
+# Frontend Rules
+
+## Next.js 16
+
+This is NOT the Next.js from older training data. Read [frontend/AGENTS.md](../../frontend/AGENTS.md) and `node_modules/next/dist/docs/` before writing code.
+
+## Layout
+
+- App Router: `frontend/src/app/`
+- Components: `frontend/src/components/`
+- Path alias: `@/` (configured in `vitest.config.ts`)
+
+## Verify
+
+```powershell
+cd frontend
+npm run lint
+npm test
+npm run build
+```
+
+## API proxy
+
+Production/demo uses `/api/v1` proxy to backend. Check env and CORS when touching auth or API routes.
+
+## Testing
+
+- Vitest + Testing Library; setup in `vitest.setup.ts`
+- E2E (when available): Playwright per task V39

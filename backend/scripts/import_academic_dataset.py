@@ -73,6 +73,11 @@ STATUS_MAP = {
     "thoi hoc": "withdrawn",
 }
 
+
+def is_student_active(status: str) -> bool:
+    """Return whether a student row should remain active in OLTP CRUD surfaces."""
+    return status == "active"
+
 GRADE_4_MAP = {
     "A+": 4.0,
     "A": 4.0,
@@ -748,6 +753,7 @@ async def apply_artifact(
                     student["class_code"],
                     student["status"],
                     student["gpa_cumulative"],
+                    is_student_active(student["status"]),
                 )
             )
         await _executemany(
@@ -756,7 +762,7 @@ async def apply_artifact(
             INSERT INTO students
                 (program_id, specialization_id, cohort_id, student_code, full_name, gender,
                  class_code, status, gpa_cumulative, is_active)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             ON CONFLICT (student_code) DO UPDATE SET
                 program_id = EXCLUDED.program_id,
                 specialization_id = EXCLUDED.specialization_id,
@@ -766,7 +772,7 @@ async def apply_artifact(
                 class_code = EXCLUDED.class_code,
                 status = EXCLUDED.status,
                 gpa_cumulative = EXCLUDED.gpa_cumulative,
-                is_active = TRUE,
+                is_active = EXCLUDED.is_active,
                 updated_at = NOW()
             """,
             student_args,

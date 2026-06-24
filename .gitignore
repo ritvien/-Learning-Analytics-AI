@@ -31,3 +31,4 @@ node_modules/
 .ruff_cache/
 .coverage
 ngrok_dir/
+backend/ml_artifacts/

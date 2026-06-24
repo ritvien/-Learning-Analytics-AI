@@ -1,0 +1,38 @@
+---
+description: EduInsight project-wide conventions for agents
+alwaysApply: true
+---
+
+# EduInsight — Project Rules
+
+Read [AGENTS.md](../../AGENTS.md) first, then [docs/README.md](../../docs/README.md).
+
+## Authority
+
+- Product scope: `docs/02-PRD/PRD.md`
+- Architecture: `docs/10-References/SystemArchitecture.md` + `docs/decisions/`
+- Active work: `docs/07-Sprint-Planning/Sprint3.md`
+
+## Code style
+
+- Python: type hints required; `snake_case` functions, `PascalCase` classes ([CodeStyleGuide](../../docs/10-References/CodeStyleGuide.md))
+- Agent tools: docstrings required — LLM uses them to call tools correctly
+- Comments explain *why*, not *what*
+
+## Testing
+
+- Backend: `pytest` + `ruff check` in `backend/`
+- Frontend: `npm run lint` + `npm test` in `frontend/`
+- Full verify: `.\scripts\verify.ps1` from repo root
+- Agent evaluation (slow, costs tokens): `.\scripts\verify.ps1 -AgentEval`
+
+## Boundaries
+
+- LLM does not generate ML probabilities — only explains predictions from schema `ml`
+- DWH analytics use schema `dwh`, not raw OLTP CRUD tables
+- Do not modify `.ai-log/` or course logging hooks
+
+## On agent failure
+
+Ask: what capability was missing, and how can it be made legible and enforceable?
+Record friction in `docs/harness/friction-log.md`; fix via rules, decisions, or verify commands.

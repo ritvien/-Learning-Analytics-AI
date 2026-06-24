@@ -184,3 +184,131 @@ def calculate_student_clo_scores(student_code: str, course_name: str) -> str:
     finally:
         if conn is not None:
             conn.close()
+
+
+@tool
+def lookup_student_by_code(student_code: str) -> str:
+    """Tra cứu sinh viên theo mã MSSV (student_code) và trả về student_id nội bộ.
+
+    Dùng tool này khi người dùng cung cấp mã sinh viên (ví dụ "21810310019") và bạn cần
+    student_id để gọi API hoặc truy vấn khác dùng khóa số. Cũng dùng để xác nhận SV tồn tại
+    trước khi phân tích dropout hoặc điểm số.
+
+    Args:
+        student_code: Mã sinh viên / MSSV (ví dụ: "21810310019", "21000000001").
+
+    Returns:
+        JSON string chứa student_id, student_code, full_name, status, program_id, cohort_id;
+        hoặc thông báo lỗi nếu không tìm thấy.
+
+    """
+    settings = get_settings()
+    conn = None
+    try:
+        conn = psycopg2.connect(settings.agent_db_url)
+        conn.set_session(readonly=True, autocommit=True)
+
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, student_code, full_name, status, program_id, cohort_id, gpa_cumulative
+                FROM students
+                WHERE student_code = %s
+                LIMIT 1
+                """,
+                (student_code.strip(),),
+            )
+            row = cur.fetchone()
+            if row is None:
+                return f"ERROR: Không tìm thấy sinh viên với mã '{student_code}'."
+
+            payload = {
+                "student_id": row[0],
+                "student_code": row[1],
+                "full_name": row[2],
+                "status": row[3],
+                "program_id": row[4],
+                "cohort_id": row[5],
+                "gpa_cumulative": float(row[6]) if row[6] is not None else None,
+            }
+            return json.dumps(payload, ensure_ascii=False, indent=2)
+    except psycopg2.Error as exc:
+        logger.warning("lookup_student_tool DB error: %s", exc)
+        return f"ERROR: Lỗi CSDL khi tra cứu sinh viên — {exc}"
+    except Exception as exc:
+        logger.exception("lookup_student_tool unexpected error")
+        return f"ERROR: Lỗi không xác định — {exc}"
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+@tool
+def get_student_dropout_risk(student_code: str) -> str:
+    """Lấy xác suất dropout đã được mô hình ML tính sẵn từ schema ml.
+
+    Dùng tool này khi người dùng hỏi về nguy cơ bỏ học / dropout của một sinh viên.
+    KHÔNG tự ước lượng hoặc bịa xác suất — chỉ đọc prediction đã lưu trong ml.student_dropout_prediction.
+
+    Args:
+        student_code: Mã sinh viên (ví dụ: "21000000001").
+
+    Returns:
+        JSON string chứa dropout_probability, risk_level, model_version và top_factors,
+        hoặc thông báo lỗi nếu chưa có prediction.
+
+    """
+    settings = get_settings()
+    conn = None
+    try:
+        conn = psycopg2.connect(settings.agent_db_url)
+        conn.set_session(readonly=True, autocommit=True)
+
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    s.full_name,
+                    s.student_code,
+                    p.dropout_probability,
+                    p.risk_level,
+                    p.top_factors,
+                    p.scored_at,
+                    r.model_name,
+                    r.model_version
+                FROM ml.student_dropout_prediction p
+                JOIN ml.model_run r ON r.id = p.model_run_id
+                JOIN students s ON s.id = p.student_id
+                WHERE s.student_code = %s AND r.status = 'completed'
+                ORDER BY p.scored_at DESC
+                LIMIT 1
+                """,
+                (student_code,),
+            )
+            row = cur.fetchone()
+            if row is None:
+                return (
+                    f"ERROR: Chưa có dự đoán dropout ML cho sinh viên '{student_code}'. "
+                    "Cần chạy train/score trước."
+                )
+
+            payload = {
+                "student_name": row[0],
+                "student_code": row[1],
+                "dropout_probability": float(row[2]),
+                "risk_level": row[3],
+                "top_factors": row[4],
+                "scored_at": row[5].isoformat() if row[5] else None,
+                "model_name": row[6],
+                "model_version": row[7],
+            }
+            return json.dumps(payload, ensure_ascii=False, indent=2, default=str)
+    except psycopg2.Error as exc:
+        logger.warning("dropout_risk_tool DB error: %s", exc)
+        return f"ERROR: Lỗi CSDL khi đọc prediction dropout — {exc}"
+    except Exception as exc:
+        logger.exception("dropout_risk_tool unexpected error")
+        return f"ERROR: Lỗi không xác định — {exc}"
+    finally:
+        if conn is not None:
+            conn.close()

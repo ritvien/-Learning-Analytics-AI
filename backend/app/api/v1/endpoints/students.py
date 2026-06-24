@@ -68,6 +68,18 @@ async def list_students(
     return await crud.list_students(db, pagination.skip, pagination.limit, program_id, cohort_id)
 
 
+@router.get("/by-code/{student_code}", response_model=StudentResponse)
+async def get_student_by_code(student_code: str, db: DBSession, current_user: CurrentUser) -> Student:
+    """Resolve a student_code (MSSV) to the canonical student record including internal id."""
+    result = await db.execute(select(Student).where(Student.student_code == student_code.strip()))
+    obj = result.scalar_one_or_none()
+    if obj is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
+    if not await can_access_student(db, current_user, obj.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
+    return obj
+
+
 @router.get("/{student_id}", response_model=StudentResponse)
 async def get_student(student_id: int, db: DBSession, current_user: CurrentUser) -> Student:
     """Retrieve a student by ID."""

@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     agent_core_model: str = "deepseek-chat"
     agent_db_url: str = "postgresql://eduinsight:eduinsight_dev@localhost:5433/eduinsight"
 
+    # ---------------------------------------------------------------------- ml
+    # Writable in Docker (non-root app user); override via ML_ARTIFACT_DIR.
+    ml_artifact_dir: str = "/tmp/ml_artifacts"
+
     model_config = SettingsConfigDict(env_file=(".env", "../.env"), env_file_encoding="utf-8", extra="ignore")
 
     @field_validator("debug", mode="before")

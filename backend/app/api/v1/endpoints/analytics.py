@@ -1,10 +1,11 @@
 """Analytics warehouse and prediction read/operation endpoints."""
 
+import asyncio
 from datetime import datetime
 from time import monotonic
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from app.access_control import (
     can_access_course,
@@ -23,7 +24,11 @@ from app.analytics.health_score import (
 from app.config import get_settings
 from app.database import AsyncSessionLocal
 from app.dependencies import CurrentUser, DBSession, require_admin_access
+from app.ml.dropout import predict_dropout_risk_for_student, score_dropout_predictions, train_dropout_model
+from app.ml.dropout.score import DropoutModelNotFoundError, DropoutStudentNotFoundError
+from app.ml.dropout.types import DropoutRiskResult
 from app.ml.scoring import aggregate_student_semester_predictions
+from app.models.people import Student
 from app.models.teaching import Enrollment
 
 router = APIRouter()
@@ -914,18 +919,37 @@ async def trigger_dwh_refresh() -> dict[str, int | str]:
 
 
 @router.post("/admin/ml/train", dependencies=[Depends(require_admin_access)])
-async def trigger_ml_train() -> dict[str, str]:
-    """Train and evaluate the ML pass/fail prediction model.
+async def trigger_ml_train(model: str = Query(default="dropout")) -> dict[str, str | int | float]:
+    """Train an ML model. Currently supports dropout classifier only."""
+    if model != "dropout":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only model=dropout is supported",
+        )
+    try:
+        result = await asyncio.to_thread(train_dropout_model)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return {
+        "status": "completed",
+        "model": model,
+        "model_run_id": result.model_run_id,
+        "model_version": result.model_version,
+        "selected_model": result.selected_model,
+        "threshold": result.threshold,
+    }
 
-    Full training pipeline is planned for M8. Returns 501 until implemented.
-    """
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail=(
-            "ML training pipeline not yet implemented. "
-            "Seed ml.model_run and ml.enrollment_prediction directly for now."
-        ),
-    )
+
+@router.post("/admin/ml/score-dropout", dependencies=[Depends(require_admin_access)])
+async def trigger_dropout_score(model_run_id: int) -> dict[str, int | str]:
+    """Batch-score active students for a completed dropout model run."""
+    try:
+        rows = await asyncio.to_thread(score_dropout_predictions, model_run_id)
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return {"status": "completed", "rows_upserted": rows}
 
 
 @router.post("/admin/ml/score", dependencies=[Depends(require_admin_access)])
@@ -1001,6 +1025,120 @@ async def get_student_semester_prediction(
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prediction not found")
     return dict(row)
+
+
+@router.get("/predictions/students/{student_id}/dropout-risk")
+async def get_student_dropout_risk(
+    student_id: int,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> dict:
+    """Return the latest ML dropout-risk prediction for a student."""
+    await _require_student_scope(db, current_user, student_id)
+    row = (
+        (
+            await db.execute(
+                text(
+                    """
+                SELECT
+                    p.student_id,
+                    p.dropout_probability,
+                    p.risk_level,
+                    p.top_factors,
+                    p.scored_at,
+                    r.model_name,
+                    r.model_version
+                FROM ml.student_dropout_prediction p
+                JOIN ml.model_run r ON r.id = p.model_run_id
+                WHERE p.student_id = :student_id AND r.status = 'completed'
+                ORDER BY p.scored_at DESC
+                LIMIT 1
+                """
+                ),
+                {"student_id": student_id},
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dropout prediction not found")
+    payload = dict(row)
+    payload["dropout_probability"] = float(payload["dropout_probability"])
+    return payload
+
+
+def _dropout_risk_payload(result: DropoutRiskResult) -> dict:
+    """Serialize a dropout prediction for API consumers."""
+    return {
+        "student_id": result.student_id,
+        "student_code": result.student_code,
+        "dropout_probability": result.dropout_probability,
+        "risk_level": result.risk_level,
+        "top_factors": result.top_factors,
+        "model_run_id": result.model_run_id,
+        "model_name": result.model_name,
+        "model_version": result.model_version,
+        "scored_at": result.scored_at,
+        "source": result.source,
+    }
+
+
+@router.post("/predictions/students/{student_id}/dropout-risk/predict")
+async def predict_student_dropout_risk(
+    student_id: int,
+    db: DBSession,
+    current_user: CurrentUser,
+    model_run_id: int | None = Query(default=None, description="Optional model run; defaults to latest completed"),
+    persist: bool = Query(default=False, description="Upsert result into ml.student_dropout_prediction"),
+) -> dict:
+    """Run live ML dropout inference for one student without a prior batch score."""
+    await _require_student_scope(db, current_user, student_id)
+    try:
+        result = await asyncio.to_thread(
+            predict_dropout_risk_for_student,
+            student_id,
+            model_run_id=model_run_id,
+            persist=persist,
+        )
+    except DropoutStudentNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except DropoutModelNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    return _dropout_risk_payload(result)
+
+
+@router.post("/predictions/students/by-code/{student_code}/dropout-risk/predict")
+async def predict_dropout_risk_by_student_code(
+    student_code: str,
+    db: DBSession,
+    current_user: CurrentUser,
+    model_run_id: int | None = Query(default=None, description="Optional model run; defaults to latest completed"),
+    persist: bool = Query(default=False, description="Upsert result into ml.student_dropout_prediction"),
+) -> dict:
+    """Run live ML dropout inference using student_code (MSSV) instead of internal id."""
+    student_id = (
+        await db.execute(select(Student.id).where(Student.student_code == student_code.strip()))
+    ).scalar_one_or_none()
+    if student_id is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
+    await _require_student_scope(db, current_user, student_id)
+    try:
+        result = await asyncio.to_thread(
+            predict_dropout_risk_for_student,
+            student_id,
+            model_run_id=model_run_id,
+            persist=persist,
+        )
+    except DropoutStudentNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except DropoutModelNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    return _dropout_risk_payload(result)
 
 
 @router.get("/analytics/health/course/{course_id}", summary="Get Course Health Score")

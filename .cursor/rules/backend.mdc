@@ -1,0 +1,45 @@
+---
+description: FastAPI, LangGraph, Alembic, and pytest conventions
+globs: backend/**
+alwaysApply: false
+---
+
+# Backend Rules
+
+## Layout
+
+- App entry: `backend/app/main.py`
+- Models (source of truth): `backend/app/models/`
+- Agent graph: `backend/app/agent/`
+- Migrations: `backend/alembic/versions/`
+
+## Database
+
+- PostgreSQL schemas: `public` (OLTP), `dwh`, `ml`, `pgvector`
+- Schema changes: new Alembic migration only — never edit applied migrations
+- ORM models in `backend/app/models/` are canonical ([ADR-007](../../docs/decisions/0007-sqlalchemy-alembic.md))
+
+## Agent
+
+- LangGraph ReAct loop with tool error handling — see [LangGraphAgent.md](../../docs/10-References/LangGraphAgent.md)
+- ML predictions: read from `ml` schema; LLM explains, does not invent probabilities ([ADR-006](../../docs/decisions/0006-ml-agent-boundary.md))
+- Observability: propagate `trace_id`, `session_id` per [observability contract](../../docs/19-User-Behavior-Observability/README.md)
+
+## Verify
+
+```powershell
+cd backend
+ruff check .
+pytest -v
+```
+
+Docker:
+
+```powershell
+docker compose exec backend pytest
+docker compose exec backend alembic current
+```
+
+## Academic tree
+
+`Department -> Program -> Specialization -> Course`. Read [H45-Plan.md](../../docs/07-Sprint-Planning/H45-Plan.md) and [ADR-008](../../docs/decisions/0008-academic-tree.md) before changing tree APIs.
