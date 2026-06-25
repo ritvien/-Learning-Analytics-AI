@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.access_control import can_view_report, can_view_report_scope
+from app.access_control import can_create_report_scope, can_view_report, can_view_report_scope
 from app.agent.report_prompts import REPORT_AGENT_PROMPT_VERSION, REPORT_AGENT_SYSTEM_PROMPT
 from app.agent.report_tools import (
     TOOL_REGISTRY,
@@ -35,10 +35,28 @@ from app.models.agent import (
     ReportAgentToolCall,
 )
 from app.models.people import User
+from app.models.academic import Semester
 from app.models.report import Report
+from app.reports.service import generate_report
 
 
 WRITE_INTENT_WORDS = ("tạo task", "tao task", "giao việc", "schedule", "hẹn lịch", "gửi report", "send report")
+
+REPORT_BUILD_DEFAULTS: dict[str, dict[str, str]] = {
+    "school_overview": {"scope_type": "school", "actor_role": "manager"},
+    "department_health": {"scope_type": "department", "actor_role": "manager"},
+    "program_health": {"scope_type": "program", "actor_role": "manager"},
+    "course_health": {"scope_type": "course", "actor_role": "lecturer"},
+    "section_intervention": {"scope_type": "section", "actor_role": "lecturer"},
+}
+
+REPORT_BUILD_DESIGNS: dict[str, dict[str, Any]] = {
+    "school_overview": {"label": "Tóm tắt điều hành toàn trường", "outline": ["Tóm tắt điều hành", "Chỉ số học vụ cốt lõi", "Đơn vị và môn cần chú ý", "Hành động ưu tiên"], "visuals": ["Xu hướng tỷ lệ đạt", "Phân bố kết quả", "Top đơn vị/môn rủi ro"]},
+    "department_health": {"label": "Sức khỏe khoa", "outline": ["Tóm tắt khoa", "So sánh ngành", "Môn nghẽn", "Kế hoạch xử lý"], "visuals": ["Pass rate theo ngành", "Xu hướng theo kỳ", "Bảng môn nghẽn"]},
+    "program_health": {"label": "Sức khỏe ngành và PLO", "outline": ["Tóm tắt ngành", "PLO/CLO", "Môn và lớp bất thường", "Minh chứng và hành động"], "visuals": ["Xu hướng điểm/pass rate", "PLO/CLO attainment", "Danh sách môn kéo kết quả xuống"]},
+    "course_health": {"label": "Sức khỏe môn học", "outline": ["Tóm tắt môn", "Xu hướng qua học kỳ", "CLO và phân bố điểm", "Lớp học phần cần chú ý"], "visuals": ["Xu hướng điểm trung bình", "Phân bổ điểm", "So sánh lớp học phần"]},
+    "section_intervention": {"label": "Can thiệp lớp học phần", "outline": ["Tình hình lớp", "Tiến độ nhập điểm", "Sinh viên cần can thiệp", "Kế hoạch hành động"], "visuals": ["Phân loại học lực", "Tiến độ đầu điểm", "Roster đã lọc theo nguy cơ"]},
+}
 
 
 async def ensure_report_agent_prompt(db: AsyncSession) -> None:
@@ -249,6 +267,57 @@ async def confirm_pending_action(
     if decision == "cancel":
         action.status = "cancelled"
         action.result_json = {"message": "Action cancelled by user"}
+    elif action.action_type == "create_report_snapshot":
+        definition = action.payload_json.get("definition") if isinstance(action.payload_json, dict) else None
+        if not isinstance(definition, dict):
+            raise ValueError("Report definition is missing")
+        allowed = await can_create_report_scope(
+            db,
+            user,
+            str(definition.get("report_type") or ""),
+            str(definition.get("scope_type") or ""),
+            definition.get("scope_id"),
+        )
+        if not allowed:
+            raise ValueError("Report scope is outside your permissions")
+        report = await generate_report(
+            db,
+            report_type=str(definition["report_type"]),
+            actor_role=str(definition.get("actor_role") or "manager"),
+            generated_by=user.id,
+            scope_type=str(definition["scope_type"]),
+            scope_id=definition.get("scope_id"),
+            semester_id=_as_optional_int(definition.get("semester_id")),
+            period_start=_as_optional_datetime(definition.get("period_start")),
+            period_end=_as_optional_datetime(definition.get("period_end")),
+        )
+        if definition.get("custom_request"):
+            report.title = f"Báo cáo tùy chỉnh - {report.title}"
+            report.metrics_json = {
+                **(report.metrics_json or {}),
+                "agent_custom_request": definition["custom_request"],
+                "agent_report_outline": definition.get("outline", []),
+            }
+            report.content_markdown = f"{report.content_markdown}\n\n## Yêu cầu tùy chỉnh\n{definition['custom_request']}\n"
+        db.add(
+            ReportAgentToolCall(
+                session_id=action.session_id,
+                user_id=user.id,
+                tool_name="create_report_snapshot",
+                tool_input_json={"definition": definition},
+                tool_output_json={"report_id": report.id, "report_type": report.report_type},
+                status="success",
+            )
+        )
+        action.status = "confirmed"
+        action.confirmed_at = datetime.now(UTC)
+        report_url = f"/manager/reports?report={report.id}"
+        action.result_json = {
+            "message": "Report snapshot created",
+            "report_id": report.id,
+            "report_url": report_url,
+            "output_format": "link",
+        }
     else:
         action.status = "confirmed"
         action.confirmed_at = datetime.now(UTC)
@@ -272,6 +341,136 @@ def tool_registry_payload() -> list[dict[str, Any]]:
         }
         for item in TOOL_REGISTRY
     ]
+
+
+async def plan_report_build(
+    db: AsyncSession,
+    user: User,
+    message: str,
+    context: dict[str, Any],
+    session_id: str | None = None,
+) -> dict[str, Any]:
+    """Create a permission-checked report plan that remains pending until confirmed."""
+    scope_context = context.get("scope") if isinstance(context.get("scope"), dict) else context
+    if _needs_report_discovery(message, context):
+        definition = _discovery_report_definition(message, context)
+        session = await _get_or_create_session(db, user, session_id, None, "workflow", {"build_definition": definition})
+        return {
+            "session_id": session.id,
+            "definition": definition,
+            "data_quality": {
+                "status": "needs_discovery",
+                "message": "Chưa đủ brief để chọn tool và filter báo cáo.",
+            },
+            "missing_fields": ["report_type", "scope", "period", "purpose"],
+            "requires_confirmation": True,
+            "message": _build_report_discovery_question(),
+        }
+    report_type = _infer_report_type(message, context)
+    defaults = REPORT_BUILD_DEFAULTS[report_type]
+    design = REPORT_BUILD_DESIGNS[report_type]
+    scope_type = defaults["scope_type"]
+    supplied_scope_type = scope_context.get("scope_type")
+    scope_id = scope_context.get("scope_id") if supplied_scope_type in {None, scope_type} else None
+    semester_id = _as_optional_int(scope_context.get("semester_id") or context.get("semester_id"))
+    if semester_id is None:
+        current_semester = (
+            await db.execute(select(Semester).where(Semester.is_current.is_(True)).limit(1))
+        ).scalar_one_or_none()
+        semester_id = current_semester.id if current_semester is not None else None
+    period = scope_context.get("period") if isinstance(scope_context.get("period"), dict) else context.get("period")
+    period = period if isinstance(period, dict) else {}
+    custom_request = context.get("custom_request")
+    is_custom = isinstance(custom_request, str) and bool(custom_request.strip())
+    brief = _extract_report_brief(message, context)
+    definition = {
+        "report_type": report_type,
+        "actor_role": defaults["actor_role"],
+        "scope_type": scope_type,
+        "scope_id": str(scope_id) if scope_id is not None else None,
+        "scope_hint": _extract_scope_hint(message, context),
+        "semester_id": semester_id,
+        "period_start": period.get("from") or context.get("period_start"),
+        "period_end": period.get("to") or context.get("period_end"),
+        "assessment_stage": _infer_assessment_stage(message),
+        "output_format": "link",
+        "template_label": "Báo cáo tùy chỉnh" if is_custom else design["label"],
+        "base_design": design["label"],
+        "outline": design["outline"],
+        "visuals": design["visuals"],
+        "custom_request": custom_request,
+        "audience": brief.get("audience"),
+        "purpose": brief.get("purpose"),
+        "decision": brief.get("decision"),
+        "comparison": brief.get("comparison"),
+        "is_custom": is_custom,
+        "source": context.get("source", "global_chat"),
+    }
+    missing_fields = _missing_report_brief_fields(definition, message, context)
+    session = await _get_or_create_session(db, user, session_id, None, "workflow", {"build_definition": definition})
+    if missing_fields:
+        question = _build_report_brief_question(definition, missing_fields)
+        return {
+            "session_id": session.id,
+            "definition": definition,
+            "data_quality": {
+                "status": "incomplete",
+                "message": "Cần chốt đủ ngữ cảnh trước khi xem trước dữ liệu hoặc tạo snapshot.",
+            },
+            "missing_fields": missing_fields,
+            "requires_confirmation": True,
+            "message": question,
+        }
+
+    allowed = await can_create_report_scope(
+        db,
+        user,
+        definition["report_type"],
+        definition["scope_type"],
+        definition["scope_id"],
+    )
+    if not allowed:
+        return {
+            "session_id": session.id,
+            "definition": definition,
+            "data_quality": {"status": "blocked", "message": "Phạm vi yêu cầu nằm ngoài quyền của bạn."},
+            "missing_fields": [],
+            "requires_confirmation": True,
+            "message": "Tôi không thể tạo báo cáo cho phạm vi này vì nó nằm ngoài quyền của bạn.",
+        }
+
+    action = ReportAgentPendingAction(
+        session_id=session.id,
+        user_id=user.id,
+        action_type="create_report_snapshot",
+        payload_json={"definition": definition, "request": message},
+    )
+    db.add(action)
+    db.add(
+        ReportAgentToolCall(
+            session_id=session.id,
+            user_id=user.id,
+            tool_name="draft_report_definition",
+            tool_input_json={"message": message, "context": context},
+            tool_output_json={"definition": definition, "data_quality": {"status": "scope_verified"}},
+            status="success",
+        )
+    )
+    await db.flush()
+    return {
+        "session_id": session.id,
+        "action_id": action.id,
+        "definition": definition,
+        "data_quality": {
+            "status": "scope_verified",
+            "message": "Phạm vi đã được kiểm tra quyền. Snapshot sẽ dùng dữ liệu tại thời điểm bạn xác nhận.",
+            "snapshot_warning": "Chất lượng điểm và cỡ mẫu sẽ được ghi trong report sau khi tạo.",
+            "assessment_warning": "Yêu cầu giữa kỳ sẽ được ghi nhận, nhưng aggregate report hiện dùng dữ liệu kết quả sẵn có trong phạm vi; chưa có aggregate giữa kỳ riêng.",
+        },
+        "missing_fields": [],
+        "requires_confirmation": True,
+        "message": "Bản nháp báo cáo đã sẵn sàng. Hãy xác nhận để tạo snapshot báo cáo bất biến.",
+    }
 
 
 async def _get_or_create_session(
@@ -585,6 +784,283 @@ def _update_short_summary(previous: str | None, question: str, answer: str) -> s
     new_line = f"Q: {question[:160]} | A: {answer[:220]}"
     combined = f"{previous}\n{new_line}" if previous else new_line
     return combined[-2000:]
+
+
+def _infer_report_type(message: str, context: dict[str, Any]) -> str:
+    requested = context.get("report_type")
+    if isinstance(requested, str) and requested in REPORT_BUILD_DEFAULTS:
+        return requested
+    normalized = _normalized_text(message)
+    if any(word in normalized for word in ("toan truong", "tong quan truong", "ban giam hieu")):
+        return "school_overview"
+    if any(word in normalized for word in ("khoa", "faculty")):
+        return "department_health"
+    if any(word in normalized for word in ("nganh", "chuong trinh", "plo")):
+        return "program_health"
+    if any(word in normalized for word in ("lop", "sinh vien nguy co", "giua ky")):
+        return "section_intervention"
+    if any(word in normalized for word in ("mon", "hoc phan", "clo")):
+        return "course_health"
+    scope = context.get("scope") if isinstance(context.get("scope"), dict) else context
+    scope_type = scope.get("scope_type")
+    by_scope = {
+        "school": "school_overview",
+        "department": "department_health",
+        "program": "program_health",
+        "course": "course_health",
+        "section": "section_intervention",
+    }
+    if isinstance(scope_type, str) and scope_type in by_scope:
+        return by_scope[scope_type]
+    return "program_health"
+
+
+def _needs_report_discovery(message: str, context: dict[str, Any]) -> bool:
+    if context.get("report_type"):
+        return False
+    scope = context.get("scope") if isinstance(context.get("scope"), dict) else context
+    if scope.get("scope_type") or scope.get("scope_id"):
+        return False
+    normalized = _normalized_text(message)
+    intent_terms = ("bao cao", "report")
+    if not any(term in normalized for term in intent_terms):
+        return False
+    specific_terms = (
+        "toan truong", "tong quan truong", "ban giam hieu",
+        "khoa", "nganh", "chuong trinh", "cntt", "cong nghe thong tin",
+        "mon", "hoc phan", "lop", "sinh vien", "canh bao", "nguy co",
+        "plo", "clo", "kiem dinh", "ty le truot", "gpa",
+    )
+    return not any(term in normalized for term in specific_terms)
+
+
+def _discovery_report_definition(message: str, context: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "report_type": None,
+        "actor_role": "manager",
+        "scope_type": None,
+        "scope_id": None,
+        "scope_hint": None,
+        "semester_id": None,
+        "period_start": None,
+        "period_end": None,
+        "assessment_stage": _infer_assessment_stage(message),
+        "output_format": "link",
+        "template_label": "Chưa chọn loại báo cáo",
+        "base_design": None,
+        "outline": [],
+        "visuals": [],
+        "custom_request": context.get("custom_request"),
+        "audience": None,
+        "purpose": None,
+        "decision": None,
+        "comparison": None,
+        "is_custom": True,
+        "source": context.get("source", "global_chat"),
+    }
+
+
+def _build_report_discovery_question() -> str:
+    return (
+        "Mình có thể giúp bạn xây báo cáo, nhưng hiện yêu cầu còn quá rộng nên chưa thể chọn đúng tool và filter.\n\n"
+        "Bạn chọn hoặc mô tả giúp tôi 5 ý sau:\n"
+        "- Loại báo cáo: tổng quan trường, sức khỏe khoa, sức khỏe ngành, sức khỏe môn học, can thiệp lớp học phần, sinh viên nguy cơ, hoặc báo cáo tùy chỉnh.\n"
+        "- Phạm vi: toàn trường, khoa/ngành/môn/lớp nào, hoặc nhóm sinh viên nào.\n"
+        "- Thời gian: học kỳ hiện tại, một học kỳ cụ thể, năm học, hoặc khoảng ngày.\n"
+        "- Mục tiêu sử dụng: họp quản lý, cảnh báo học vụ, cải thiện môn học, kiểm định/minh chứng, hay so sánh chất lượng.\n"
+        "- Bộ lọc: chỉ SV nguy cơ, môn tỷ lệ trượt cao, điểm thiếu, khóa/ngành cụ thể, hoặc không lọc đặc biệt.\n\n"
+        "Ví dụ: Tạo báo cáo tổng quan trường học kỳ 2025-2 để họp quản lý, tập trung GPA, tỷ lệ trượt và SV nguy cơ."
+    )
+
+
+def _normalized_text(value: str) -> str:
+    replacements = {
+        "à": "a", "á": "a", "ạ": "a", "ả": "a", "ã": "a",
+        "â": "a", "ầ": "a", "ấ": "a", "ậ": "a", "ẩ": "a", "ẫ": "a",
+        "ă": "a", "ằ": "a", "ắ": "a", "ặ": "a", "ẳ": "a", "ẵ": "a",
+        "è": "e", "é": "e", "ẹ": "e", "ẻ": "e", "ẽ": "e",
+        "ê": "e", "ề": "e", "ế": "e", "ệ": "e", "ể": "e", "ễ": "e",
+        "ì": "i", "í": "i", "ị": "i", "ỉ": "i", "ĩ": "i",
+        "ò": "o", "ó": "o", "ọ": "o", "ỏ": "o", "õ": "o",
+        "ô": "o", "ồ": "o", "ố": "o", "ộ": "o", "ổ": "o", "ỗ": "o",
+        "ơ": "o", "ờ": "o", "ớ": "o", "ợ": "o", "ở": "o", "ỡ": "o",
+        "ù": "u", "ú": "u", "ụ": "u", "ủ": "u", "ũ": "u",
+        "ư": "u", "ừ": "u", "ứ": "u", "ự": "u", "ử": "u", "ữ": "u",
+        "ỳ": "y", "ý": "y", "ỵ": "y", "ỷ": "y", "ỹ": "y",
+        "đ": "d",
+    }
+    lower = value.lower()
+    return "".join(replacements.get(char, char) for char in lower)
+
+
+def _extract_report_brief(message: str, context: dict[str, Any]) -> dict[str, Any]:
+    normalized = _normalized_text(message)
+    brief = context.get("brief") if isinstance(context.get("brief"), dict) else {}
+    purpose = brief.get("purpose") or context.get("purpose")
+    audience = brief.get("audience") or context.get("audience")
+    decision = brief.get("decision") or context.get("decision")
+    comparison = brief.get("comparison") or context.get("comparison")
+
+    if not purpose:
+        if any(word in normalized for word in ("canh bao", "nguy co", "can thiep", "hoc vu")):
+            purpose = "Cảnh báo học vụ và ưu tiên can thiệp"
+        elif any(word in normalized for word in ("kiem dinh", "minh chung", "plo", "clo")):
+            purpose = "Minh chứng đảm bảo chất lượng/kiểm định"
+        elif any(word in normalized for word in ("hop", "ban giam hieu", "quan ly", "tong quan")):
+            purpose = "Họp quản lý và theo dõi chất lượng đào tạo"
+        elif any(word in normalized for word in ("cai thien", "mon yeu", "ty le truot", "diem thap")):
+            purpose = "Cải thiện môn học và giảm rủi ro kết quả"
+
+    if not audience:
+        if any(word in normalized for word in ("ban giam hieu", "bgh", "lanh dao")):
+            audience = "Ban giám hiệu/lãnh đạo"
+        elif any(word in normalized for word in ("truong khoa", "khoa")):
+            audience = "Trưởng khoa"
+        elif any(word in normalized for word in ("truong nganh", "nganh")):
+            audience = "Trưởng ngành"
+        elif any(word in normalized for word in ("giang vien", "lop hoc phan")):
+            audience = "Giảng viên phụ trách"
+
+    if not comparison:
+        if any(word in normalized for word in ("so sanh", "ky truoc", "cung ky", "benchmark", "muc tieu")):
+            comparison = "So sánh theo kỳ hoặc mốc mục tiêu do người dùng yêu cầu"
+
+    return {
+        "purpose": purpose,
+        "audience": audience,
+        "decision": decision,
+        "comparison": comparison,
+    }
+
+
+def _extract_scope_hint(message: str, context: dict[str, Any]) -> str | None:
+    normalized = _normalized_text(message)
+    if "cntt" in normalized or "cong nghe thong tin" in normalized:
+        return "Công nghệ thông tin"
+    if "toan truong" in normalized or "tong quan truong" in normalized or "ban giam hieu" in normalized:
+        return "Toàn trường"
+
+    scope = context.get("scope") if isinstance(context.get("scope"), dict) else context
+    for key in ("scope_label", "scope_name", "program_name", "department_name", "course_name", "section_name"):
+        value = scope.get(key) or context.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    markers = (
+        ("nganh ", "ngành"),
+        ("khoa ", "khoa"),
+        ("mon ", "môn học"),
+        ("hoc phan ", "môn học"),
+        ("lop ", "lớp học phần"),
+    )
+    for marker, label in markers:
+        index = normalized.find(marker)
+        if index >= 0:
+            raw_tail = message[index + len(marker):].strip(" .,:;!?")
+            if raw_tail:
+                return f"{label} {raw_tail[:80]}"
+    return None
+
+
+def _message_has_period(message: str, context: dict[str, Any]) -> bool:
+    if (
+        context.get("semester_id")
+        or context.get("period")
+        or context.get("period_start")
+        or context.get("period_end")
+        or context.get("period_label")
+    ):
+        return True
+    normalized = _normalized_text(message)
+    return any(
+        token in normalized
+        for token in (
+            "hoc ky", "hk", "nam hoc", "ky nay", "ky hien tai", "ky truoc",
+            "2020", "2021", "2022", "2023", "2024", "2025", "2026",
+            "thang", "quy", "tu ngay", "den ngay",
+        )
+    )
+
+
+def _missing_report_brief_fields(definition: dict[str, Any], message: str, context: dict[str, Any]) -> list[str]:
+    missing: list[str] = []
+    if definition["scope_type"] != "school" and not definition.get("scope_id"):
+        missing.append("scope_id")
+    if not _message_has_period(message, context):
+        missing.append("period")
+    if not definition.get("purpose"):
+        missing.append("purpose")
+    return missing
+
+
+def _build_report_brief_question(definition: dict[str, Any], missing_fields: list[str]) -> str:
+    scope_label = {
+        "department": "khoa",
+        "program": "ngành",
+        "course": "môn học",
+        "section": "lớp học phần",
+    }.get(str(definition.get("scope_type") or ""), "phạm vi")
+    period_label = "Theo kỳ hiện tại" if definition.get("semester_id") else "Chưa xác định"
+    if definition.get("period_start") or definition.get("period_end"):
+        period_label = f"{definition.get('period_start') or '?'} đến {definition.get('period_end') or '?'}"
+    if "period" in missing_fields:
+        period_label = "Chưa chốt; có thể dùng kỳ hiện tại nếu bạn xác nhận"
+    understood = [
+        f"Loại báo cáo: {definition.get('template_label') or definition.get('base_design') or definition.get('report_type')}",
+        f"Phạm vi: {definition.get('scope_hint') or definition.get('scope_id') or 'Chưa xác định'}",
+        f"Thời gian: {period_label}",
+        f"Mục tiêu: {definition.get('purpose') or 'Chưa xác định'}",
+    ]
+    questions = []
+    if "scope_id" in missing_fields:
+        if definition.get("scope_hint"):
+            questions.append(f"xác nhận đúng {scope_label} '{definition['scope_hint']}' và mã/id nếu bạn biết")
+        else:
+            questions.append(f"phạm vi chính xác: {scope_label} nào, mã/tên cụ thể là gì")
+    if "period" in missing_fields:
+        questions.append("thời gian: học kỳ, năm học hoặc khoảng ngày nào")
+    if "purpose" in missing_fields:
+        questions.append("mục tiêu: họp quản lý, cảnh báo học vụ, cải thiện môn học, kiểm định hay so sánh chất lượng")
+    joined = "; ".join(questions)
+    understood_text = "\n".join(f"- {item}" for item in understood)
+    return (
+        "Tôi đã nhận diện đây là yêu cầu tạo báo cáo.\n\n"
+        f"Ngữ cảnh tôi đang hiểu:\n{understood_text}\n\n"
+        "Phần còn thiếu để gọi tool đúng:\n"
+        f"- {joined}\n\n"
+        "Bạn chỉ cần trả lời các ý còn thiếu. Tôi sẽ giữ lại ngữ cảnh đã hiểu và cập nhật brief ở lượt tiếp theo."
+    )
+
+
+def _as_optional_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _as_optional_datetime(value: Any) -> datetime | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _infer_assessment_stage(message: str) -> str:
+    normalized = message.lower()
+    if "giữa kỳ" in normalized or "giua ky" in normalized or "midterm" in normalized:
+        return "midterm_requested"
+    if "cuối kỳ" in normalized or "cuoi ky" in normalized or "final" in normalized:
+        return "final_requested"
+    return "available_results"
 
 
 def _session_title(mode: str, report_id: str | None) -> str:

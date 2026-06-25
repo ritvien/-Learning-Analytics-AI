@@ -50,6 +50,7 @@ export default function ProgramAnalyticsPage() {
   const [dateFrom, setDateFrom] = React.useState("")
   const [dateTo, setDateTo] = React.useState("")
   const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     if (data?.semesters && data.semesters.length > 0) {
@@ -72,24 +73,40 @@ export default function ProgramAnalyticsPage() {
     const parsedProgramId = queryProgram ? Number(queryProgram) : NaN
     if (Number.isFinite(parsedProgramId)) {
       setTimeout(() => {
+        setError(null)
         setProgramId(String(parsedProgramId))
       }, 0)
       return
     }
+    setTimeout(() => {
+      setLoading(true)
+      setError(null)
+    }, 0)
     api.getDashboardOverview()
       .then((overview) => {
         setTimeout(() => {
           setProgramOptions(overview.programs)
-          setProgramId(String(overview.programs[0]?.id ?? ""))
+          const firstProgramId = overview.program_rows[0]?.id ?? overview.programs[0]?.id
+          if (firstProgramId) {
+            setProgramId(String(firstProgramId))
+          } else {
+            setLoading(false)
+            setError("Không tìm thấy ngành đào tạo nào trong dữ liệu dashboard.")
+          }
         }, 0)
       })
-      .catch(console.error)
+      .catch((err) => {
+        console.error(err)
+        setError(err instanceof Error ? err.message : "Không tải được danh sách ngành đào tạo.")
+        setLoading(false)
+      })
   }, [searchParams])
 
   React.useEffect(() => {
     if (!programId) return
     setTimeout(() => {
       setLoading(true)
+      setError(null)
     }, 0)
     api.getDashboardProgram(Number(programId), {
       semester_code: semester === "all" ? undefined : semester,
@@ -101,7 +118,11 @@ export default function ProgramAnalyticsPage() {
         setData(payload)
         setProgramOptions(payload.programs)
       })
-      .catch(console.error)
+      .catch((err) => {
+        console.error(err)
+        setData(null)
+        setError(err instanceof Error ? err.message : "Không tải được dashboard ngành đào tạo.")
+      })
       .finally(() => setLoading(false))
   }, [programId, semester, cohort, dateFrom, dateTo])
 
@@ -123,8 +144,35 @@ export default function ProgramAnalyticsPage() {
     }))
   }, [data, heatSemesters])
 
-  if (loading || !data) {
+  if (loading) {
     return <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">Đang tải dashboard ngành từ DWH...</div>
+  }
+
+  if (error) {
+    return (
+      <Card className="border-destructive/30 bg-destructive/5">
+        <CardHeader>
+          <CardTitle className="text-sm text-destructive">Không tải được dashboard ngành</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <p>{error}</p>
+          <p className="text-muted-foreground">Hãy kiểm tra backend `/api/v1/analytics/dashboard/overview` và `/api/v1/analytics/dashboard/programs/:id` đang chạy đúng dữ liệu DWH.</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!data) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Chưa có dữ liệu ngành</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          Chưa tìm thấy ngành phù hợp để hiển thị. Hãy chọn ngành từ dashboard tổng quan hoặc kiểm tra dữ liệu chương trình đào tạo.
+        </CardContent>
+      </Card>
+    )
   }
 
   const programLabel = `${data.program.code} - ${data.program.name}`

@@ -34,8 +34,8 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
 
     # --------------------------------------------------------------------- llm
-    llm_provider: str = "openai"  # gemini | openai (openai-compatible includes deepseek)
-    llm_model: str = "gpt-4o"
+    llm_provider: str = "openai"  # gemini | openai-compatible providers, including DeepSeek
+    llm_model: str = ""
     llm_api_key: str = ""
     llm_base_url: str = ""  # override API base, e.g. https://api.deepseek.com/v1
     # Standard provider env vars — used as fallback when llm_api_key is not set.
@@ -43,8 +43,9 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
 
     # ------------------------------------------------------------------- agent
-    agent_router_model: str = "deepseek-chat"
-    agent_core_model: str = "deepseek-chat"
+    agent_router_model: str = ""
+    agent_core_model: str = ""
+    chat_title_model: str = ""
     agent_db_url: str = "postgresql://eduinsight:eduinsight_dev@localhost:5433/eduinsight"
 
     # ---------------------------------------------------------------------- ml
@@ -78,6 +79,14 @@ class Settings(BaseSettings):
                 self.llm_api_key = self.openai_api_key.strip()
             elif provider == "gemini" and self.gemini_api_key.strip():
                 self.llm_api_key = self.gemini_api_key.strip()
+        default_model = self.llm_model.strip()
+        if default_model:
+            if not self.agent_router_model.strip():
+                self.agent_router_model = default_model
+            if not self.agent_core_model.strip():
+                self.agent_core_model = default_model
+            if not self.chat_title_model.strip():
+                self.chat_title_model = default_model
         return self
 
     @property

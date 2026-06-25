@@ -139,8 +139,13 @@ All variables in `.env.example`. Key ones:
 | `DATABASE_URL` | `sqlite+aiosqlite:///./eduinsight.db` | Async DB URL |
 | `SECRET_KEY` | _(placeholder)_ | JWT signing key — **change in prod** |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins |
-| `LLM_PROVIDER` | `gemini` | `gemini` \| `mistral` \| `openai` |
+| `LLM_PROVIDER` | `openai` | `gemini` \| `openai` / OpenAI-compatible providers |
+| `LLM_MODEL` | _(required for LLM calls)_ | Default model for report/chat helpers |
 | `LLM_API_KEY` | _(empty)_ | API key for chosen LLM provider |
+| `LLM_BASE_URL` | _(empty)_ | Optional OpenAI-compatible base URL, for example DeepSeek |
+| `AGENT_ROUTER_MODEL` | `LLM_MODEL` | Optional router model override |
+| `AGENT_CORE_MODEL` | `LLM_MODEL` | Optional core agent model override |
+| `CHAT_TITLE_MODEL` | `LLM_MODEL` | Optional chat title summarizer model override |
 
 For Docker Compose, variables are read from a `.env` file at the repo root.
 

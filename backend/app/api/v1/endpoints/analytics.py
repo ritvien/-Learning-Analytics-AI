@@ -230,24 +230,25 @@ async def _dashboard_meta(db: DBSession) -> dict:
     programs = await _fetch_all(
         db,
         """
-        SELECT program_id AS id, code, name, department_id
-        FROM dwh.dim_program
+        SELECT id, code, name, department_id
+        FROM programs
+        WHERE is_active IS TRUE
         ORDER BY name
         """,
     )
     semesters = await _fetch_all(
         db,
         """
-        SELECT semester_id AS id, code, name, year, term
-        FROM dwh.dim_semester
+        SELECT id, code, name, year, term
+        FROM semesters
         ORDER BY year, term
         """,
     )
     cohorts = await _fetch_all(
         db,
         """
-        SELECT cohort_id AS id, code, year_start
-        FROM dwh.dim_cohort
+        SELECT id, code, year_start
+        FROM cohorts
         ORDER BY year_start, code
         """,
     )
@@ -407,7 +408,6 @@ async def analytics_dashboard_overview(
             SELECT f.*, ds.cohort_id
             FROM dwh.fact_enrollment_outcome f
             JOIN dwh.dim_student ds ON ds.student_id = f.student_id
-            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
             JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
             {where_sql}
         )
@@ -710,6 +710,19 @@ async def analytics_dashboard_program(
         )
     ).mappings().one_or_none()
     if program is None:
+        program = (
+            await db.execute(
+                text(
+                    """
+                    SELECT id, code, name, department_id
+                    FROM programs
+                    WHERE id = :program_id AND is_active IS TRUE
+                    """
+                ),
+                {"program_id": program_id},
+            )
+        ).mappings().one_or_none()
+    if program is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Program not found")
 
     kpis = await _fetch_one(
@@ -724,9 +737,20 @@ async def analytics_dashboard_program(
             {where_sql}
         )
         SELECT
-            (SELECT COUNT(*)::INTEGER FROM dwh.dim_student WHERE program_id = :program_id AND status = 'active') AS students,
-            COUNT(*)::INTEGER AS completed_enrollments,
-            COALESCE(ROUND(COUNT(*) FILTER (WHERE is_passed IS TRUE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 1), 0)::FLOAT AS pass_rate,
+            (
+                SELECT COUNT(*)::INTEGER
+                FROM dwh.dim_student
+                WHERE program_id = :program_id AND status = 'active'
+            ) AS students,
+            COUNT(*) FILTER (WHERE is_passed IS NOT NULL)::INTEGER AS completed_enrollments,
+            COALESCE(
+                ROUND(
+                    COUNT(*) FILTER (WHERE is_passed IS TRUE)::DECIMAL
+                    / NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) * 100,
+                    1
+                ),
+                0
+            )::FLOAT AS pass_rate,
             COALESCE(ROUND(AVG(final_grade), 2), 0)::FLOAT AS avg_grade,
             COUNT(DISTINCT CASE WHEN is_passed IS FALSE THEN student_id END)::INTEGER AS at_risk,
             COUNT(DISTINCT CASE WHEN is_passed IS FALSE THEN course_id END)::INTEGER AS bottlenecks
@@ -742,7 +766,6 @@ async def analytics_dashboard_program(
             SELECT f.*, dsem.semester_id AS dim_semester_id, dsem.code, dsem.year, dsem.term
             FROM dwh.fact_enrollment_outcome f
             JOIN dwh.dim_student ds ON ds.student_id = f.student_id
-            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
             JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
             {where_sql}
         )
@@ -751,10 +774,18 @@ async def analytics_dashboard_program(
             code AS semester,
             year,
             term,
-            COUNT(*)::INTEGER AS count,
-            COALESCE(ROUND(COUNT(*) FILTER (WHERE is_passed IS TRUE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 1), 0)::FLOAT AS pass_rate,
+            COUNT(*) FILTER (WHERE is_passed IS NOT NULL)::INTEGER AS count,
+            COALESCE(
+                ROUND(
+                    COUNT(*) FILTER (WHERE is_passed IS TRUE)::DECIMAL
+                    / NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) * 100,
+                    1
+                ),
+                0
+            )::FLOAT AS pass_rate,
             COALESCE(ROUND(AVG(final_grade), 2), 0)::FLOAT AS avg_grade
         FROM filtered
+        WHERE is_passed IS NOT NULL
         GROUP BY dim_semester_id, code, year, term
         ORDER BY year, term
         """,
@@ -768,7 +799,6 @@ async def analytics_dashboard_program(
             SELECT f.*
             FROM dwh.fact_enrollment_outcome f
             JOIN dwh.dim_student ds ON ds.student_id = f.student_id
-            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
             JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
             {where_sql}
         )
@@ -781,14 +811,23 @@ async def analytics_dashboard_program(
                 WHEN dc.credits = 3 THEN 'Nhóm 3 tín chỉ'
                 ELSE 'Nhóm 4+ tín chỉ'
             END AS "group",
-            COUNT(*)::INTEGER AS total,
-            COALESCE(ROUND(COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 1), 0)::FLOAT AS pass_rate,
+            COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL)::INTEGER AS total,
+            COUNT(*) FILTER (WHERE f.is_passed IS NULL)::INTEGER AS missing_result,
+            COALESCE(
+                ROUND(
+                    COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::DECIMAL
+                    / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) * 100,
+                    1
+                ),
+                0
+            )::FLOAT AS pass_rate,
             COALESCE(ROUND(AVG(f.final_grade), 2), 0)::FLOAT AS avg_grade,
             COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::INTEGER AS failed,
             COUNT(*) FILTER (WHERE f.final_grade >= 4 AND f.final_grade < 5)::INTEGER AS near_fail
         FROM filtered f
         JOIN dwh.dim_course dc ON dc.course_id = f.course_id
         GROUP BY dc.course_id, dc.code, dc.name, dc.credits
+        HAVING COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL) > 0
         ORDER BY pass_rate ASC, failed DESC
         LIMIT 80
         """,
@@ -802,7 +841,6 @@ async def analytics_dashboard_program(
             SELECT f.*
             FROM dwh.fact_enrollment_outcome f
             JOIN dwh.dim_student ds ON ds.student_id = f.student_id
-            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
             JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
             {where_sql}
         )
@@ -812,10 +850,18 @@ async def analytics_dashboard_program(
                 WHEN dc.credits = 3 THEN 'Nhóm 3 tín chỉ'
                 ELSE 'Nhóm 4+ tín chỉ'
             END AS name,
-            COALESCE(ROUND(COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 1), 0)::FLOAT AS pass_rate
+            COALESCE(
+                ROUND(
+                    COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::DECIMAL
+                    / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) * 100,
+                    1
+                ),
+                0
+            )::FLOAT AS pass_rate
         FROM filtered f
         JOIN dwh.dim_course dc ON dc.course_id = f.course_id
         GROUP BY 1
+        HAVING COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL) > 0
         ORDER BY pass_rate ASC
         """,
         params,
@@ -828,7 +874,6 @@ async def analytics_dashboard_program(
             SELECT f.final_grade
             FROM dwh.fact_enrollment_outcome f
             JOIN dwh.dim_student ds ON ds.student_id = f.student_id
-            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
             JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
             {where_sql}
         )
@@ -857,7 +902,6 @@ async def analytics_dashboard_program(
             SELECT f.*, ds.cohort_id, dsem.semester_id AS dim_semester_id, dsem.code, dsem.year, dsem.term
             FROM dwh.fact_enrollment_outcome f
             JOIN dwh.dim_student ds ON ds.student_id = f.student_id
-            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
             JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
             {where_sql}
         )
@@ -868,10 +912,18 @@ async def analytics_dashboard_program(
             f.code AS semester,
             f.year,
             f.term,
-            COALESCE(ROUND(COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::DECIMAL / NULLIF(COUNT(*), 0) * 100, 0), 0)::INTEGER AS pass_rate
+            COALESCE(
+                ROUND(
+                    COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::DECIMAL
+                    / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) * 100,
+                    0
+                ),
+                0
+            )::INTEGER AS pass_rate
         FROM filtered f
         JOIN dwh.dim_cohort dc ON dc.cohort_id = f.cohort_id
         GROUP BY dc.cohort_id, dc.code, f.dim_semester_id, f.code, f.year, f.term
+        HAVING COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL) > 0
         ORDER BY dc.code, f.year, f.term
         """,
         params,

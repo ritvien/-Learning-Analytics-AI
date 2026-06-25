@@ -149,6 +149,16 @@ export interface ApiUser {
   created_at: string
 }
 
+export interface ApiReportBuildPlan {
+  session_id: string
+  action_id?: string | null
+  definition: Record<string, unknown>
+  data_quality: Record<string, unknown>
+  missing_fields: string[]
+  requires_confirmation: boolean
+  message: string
+}
+
 export interface LoginResponse {
   access_token: string
   token_type: "bearer"
@@ -455,6 +465,37 @@ type ClientEvent = {
 
 const TRACE_ID_KEY = "eduinsight_trace_id"
 const TRACE_ROUTE_KEY = "eduinsight_trace_route"
+const REPORT_BUILD_CONTEXT_KEY = "report_build_context_v1"
+
+export type ReportBuildContext = {
+  source: string
+  route: string
+  scope?: {
+    scope_type?: string
+    scope_id?: string
+    semester_id?: string | number
+    period?: { from?: string; to?: string }
+  }
+  filters?: Record<string, string | undefined>
+}
+
+export function setReportBuildContext(context: ReportBuildContext) {
+  if (typeof window === "undefined") return
+  sessionStorage.setItem(REPORT_BUILD_CONTEXT_KEY, JSON.stringify(context))
+  window.dispatchEvent(new CustomEvent("report-build-context", { detail: context }))
+}
+
+export function getReportBuildContext(route?: string): ReportBuildContext | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = sessionStorage.getItem(REPORT_BUILD_CONTEXT_KEY)
+    if (!raw) return null
+    const context = JSON.parse(raw) as ReportBuildContext
+    return !route || context.route === route ? context : null
+  } catch {
+    return null
+  }
+}
 
 function randomId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -945,6 +986,8 @@ export const api = {
   // --- Report Agent ---
   askReportAgent: (body: { message: string; session_id?: string; report_id?: string; mode?: ApiReportAgentMode; context?: Record<string, unknown> }) =>
     fetcher<ApiReportAgentAskResponse>("/api/v1/report-agent/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  planReportBuild: (body: { message: string; session_id?: string; context?: Record<string, unknown> }) =>
+    fetcher<ApiReportBuildPlan>("/api/v1/report-agent/build/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
   confirmReportAgentAction: (id: string, body: { action: "confirm" | "cancel" }) =>
     fetcher<{ id: string; status: string; result: Record<string, unknown> }>(`/api/v1/report-agent/tools/confirm/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
 }

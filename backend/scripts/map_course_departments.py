@@ -8,7 +8,15 @@ def main():
     env_path = os.path.join(repo_root, ".env")
     load_dotenv(env_path)
 
-    client = OpenAI()
+    model = os.getenv("LLM_MODEL") or os.getenv("OPENAI_MODEL")
+    if not model:
+        raise RuntimeError("Missing model. Set LLM_MODEL or OPENAI_MODEL before running this script.")
+    client_kwargs = {}
+    if os.getenv("LLM_API_KEY"):
+        client_kwargs["api_key"] = os.environ["LLM_API_KEY"]
+    if os.getenv("LLM_BASE_URL"):
+        client_kwargs["base_url"] = os.environ["LLM_BASE_URL"]
+    client = OpenAI(**client_kwargs)
     candidates = [
         os.path.join(repo_root, "..", "crawl", "epu_data_batch.json"),
         os.path.join(repo_root, "crawl", "epu_data_batch.json"),
@@ -68,7 +76,7 @@ Output format: Return ONLY a valid JSON dictionary where keys are course names a
 
     print("Calling OpenAI to classify...")
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=model,
         messages=[
             {"role": "system", "content": "You are a helpful university administration assistant."},
             {"role": "user", "content": prompt}
