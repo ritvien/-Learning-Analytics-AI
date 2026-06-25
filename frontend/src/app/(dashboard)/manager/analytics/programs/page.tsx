@@ -40,30 +40,57 @@ export default function ProgramAnalyticsPage() {
   const [programOptions, setProgramOptions] = React.useState<ApiDashboardProgramOption[]>([])
   const [data, setData] = React.useState<ApiDashboardProgram | null>(null)
   const [programId, setProgramId] = React.useState("")
-  const [semester, setSemester] = React.useState("all")
+  const [semester, setSemester] = React.useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("vinuni_selected_semester") || "all"
+    }
+    return "all"
+  })
   const [cohort, setCohort] = React.useState("all")
   const [dateFrom, setDateFrom] = React.useState("")
   const [dateTo, setDateTo] = React.useState("")
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
+    if (data?.semesters && data.semesters.length > 0) {
+      const saved = sessionStorage.getItem("vinuni_selected_semester")
+      if (!saved) {
+        const sorted = [...data.semesters].sort((a, b) => b.year * 10 + b.term - (a.year * 10 + a.term))
+        const latest = sorted[0]?.code
+        if (latest) {
+          setTimeout(() => {
+            setSemester(latest)
+          }, 0)
+          sessionStorage.setItem("vinuni_selected_semester", latest)
+        }
+      }
+    }
+  }, [data])
+
+  React.useEffect(() => {
     const queryProgram = searchParams.get("program_id") ?? searchParams.get("program")
     const parsedProgramId = queryProgram ? Number(queryProgram) : NaN
     if (Number.isFinite(parsedProgramId)) {
-      setProgramId(String(parsedProgramId))
+      setTimeout(() => {
+        setProgramId(String(parsedProgramId))
+      }, 0)
       return
     }
     api.getDashboardOverview()
       .then((overview) => {
-        setProgramOptions(overview.programs)
-        setProgramId(String(overview.programs[0]?.id ?? ""))
+        setTimeout(() => {
+          setProgramOptions(overview.programs)
+          setProgramId(String(overview.programs[0]?.id ?? ""))
+        }, 0)
       })
       .catch(console.error)
   }, [searchParams])
 
   React.useEffect(() => {
     if (!programId) return
-    setLoading(true)
+    setTimeout(() => {
+      setLoading(true)
+    }, 0)
     api.getDashboardProgram(Number(programId), {
       semester_code: semester === "all" ? undefined : semester,
       cohort_id: cohort === "all" ? undefined : Number(cohort),
@@ -118,7 +145,11 @@ export default function ProgramAnalyticsPage() {
             {programOptions.map((item) => <SelectItem key={item.id} value={String(item.id)}>{item.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={semester} onValueChange={(value) => setSemester(value ?? "all")}>
+        <Select value={semester} onValueChange={(value) => {
+          const nextVal = value ?? "all"
+          setSemester(nextVal)
+          sessionStorage.setItem("vinuni_selected_semester", nextVal)
+        }}>
           <SelectTrigger className="w-52"><span className="truncate">{semesterLabel}</span></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tất cả học kỳ</SelectItem>

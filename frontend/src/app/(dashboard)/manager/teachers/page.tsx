@@ -3,7 +3,7 @@
 import * as React from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { Teacher } from "@/types"
-import { api, type ApiDepartment, type ApiTeacher } from "@/lib/api"
+import { api, getCachedCurrentUser, type ApiDepartment, type ApiTeacher } from "@/lib/api"
 import { DataTable } from "@/components/crud/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -53,6 +53,15 @@ export default function TeachersPage() {
   const [accountTarget, setAccountTarget] = React.useState<TeacherRow | null>(null)
   const [isCreateOpen, setIsCreateOpen] = React.useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = React.useState(false)
+  const [userRole] = React.useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      const u = getCachedCurrentUser()
+      return u ? u.role : null
+    }
+    return null
+  })
+
+  const hasWriteAccess = userRole === "superadmin" || userRole === "admin" || userRole === "manager"
 
   const loadTeachers = React.useCallback(async () => {
     setIsLoading(true)
@@ -186,10 +195,10 @@ export default function TeachersPage() {
         return <Badge variant={status === ACTIVE_STATUS ? "default" : "secondary"}>{status}</Badge>
       },
     },
-    {
+    ...(hasWriteAccess ? [{
       id: "actions",
       header: "Thao tác",
-      cell: ({ row }) => {
+      cell: ({ row }: { row: { original: TeacherRow } }) => {
         const teacher = row.original
         return (
           <div className="flex gap-1">
@@ -205,7 +214,7 @@ export default function TeachersPage() {
           </div>
         )
       },
-    },
+    } as ColumnDef<TeacherRow>] : []),
   ]
 
   return (
@@ -217,24 +226,26 @@ export default function TeachersPage() {
             {isLoading ? "Đang tải dữ liệu..." : `${teachers.length} giảng viên theo phạm vi tài khoản hiện tại`}
           </p>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger render={<Button disabled={!defaultDepartmentId} />}>
-            <Plus className="mr-2 h-4 w-4" /> Thêm GV
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[520px]">
-            <form onSubmit={handleCreate}>
-              <DialogHeader>
-                <DialogTitle>Thêm Giảng viên</DialogTitle>
-                <DialogDescription>Nhập mật khẩu nếu muốn cấp tài khoản đăng nhập ngay.</DialogDescription>
-              </DialogHeader>
-              <TeacherForm departments={departments} />
-              <DialogFooter>
-                <DialogClose render={<Button type="button" variant="outline" />}>Hủy</DialogClose>
-                <Button type="submit">Tạo mới</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        {hasWriteAccess && (
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger render={<Button disabled={!defaultDepartmentId} />}>
+              <Plus className="mr-2 h-4 w-4" /> Thêm GV
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[520px]">
+              <form onSubmit={handleCreate}>
+                <DialogHeader>
+                  <DialogTitle>Thêm Giảng viên</DialogTitle>
+                  <DialogDescription>Nhập mật khẩu nếu muốn cấp tài khoản đăng nhập ngay.</DialogDescription>
+                </DialogHeader>
+                <TeacherForm departments={departments} />
+                <DialogFooter>
+                  <DialogClose render={<Button type="button" variant="outline" />}>Hủy</DialogClose>
+                  <Button type="submit">Tạo mới</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {error && (

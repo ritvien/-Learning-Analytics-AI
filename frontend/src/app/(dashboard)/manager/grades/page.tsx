@@ -3,7 +3,7 @@
 import * as React from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { GradeRecord } from "@/types"
-import { api, type ApiSection, type ApiStudent } from "@/lib/api"
+import { api, getCachedCurrentUser, type ApiStudent, type ApiSection } from "@/lib/api"
 import { DataTable } from "@/components/crud/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -106,7 +106,16 @@ export default function GradesPage() {
   const [sectionFilter, setSectionFilter] = React.useState("all")
   const [importMessage, setImportMessage] = React.useState<string | null>(null)
   const [editGrade, setEditGrade] = React.useState<GradeRecord | null>(null)
+  const [userRole] = React.useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      const u = getCachedCurrentUser()
+      return u ? u.role : null
+    }
+    return null
+  })
   const importInputRef = React.useRef<HTMLInputElement | null>(null)
+
+  const hasWriteAccess = userRole === "superadmin" || userRole === "admin" || userRole === "manager"
 
   const loadGrades = React.useCallback(() => {
     return Promise.all([
@@ -326,15 +335,17 @@ export default function GradesPage() {
         return <Badge variant={["F", "D", "D+"].includes(grade) ? "destructive" : "default"}>{grade}</Badge>
       },
     },
-    {
-      id: "actions",
-      header: "Nhập tay",
-      cell: ({ row }) => (
-        <Button variant="ghost" size="icon-sm" onClick={() => setEditGrade(row.original)}>
-          <Pencil className="h-4 w-4" />
-        </Button>
-      ),
-    },
+    ...(hasWriteAccess ? [
+      {
+        id: "actions",
+        header: "Nhập tay",
+        cell: ({ row }) => (
+          <Button variant="ghost" size="icon-sm" onClick={() => setEditGrade(row.original)}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+        ),
+      } as ColumnDef<GradeRecord>
+    ] : [])
   ]
 
   return (
@@ -350,13 +361,17 @@ export default function GradesPage() {
           <Button variant="outline" onClick={handleDownloadTemplate}>
             <FileSpreadsheet className="mr-2 h-4 w-4" /> Xuất mẫu lớp
           </Button>
-          <Button variant="outline" onClick={() => importInputRef.current?.click()}>
-            <Upload className="mr-2 h-4 w-4" /> Nhập Excel
-          </Button>
+          {hasWriteAccess && (
+            <>
+              <Button variant="outline" onClick={() => importInputRef.current?.click()}>
+                <Upload className="mr-2 h-4 w-4" /> Nhập Excel
+              </Button>
+              <input ref={importInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportExcel} />
+            </>
+          )}
           <Button variant="outline" onClick={handleExportExcel}>
             <FileDown className="mr-2 h-4 w-4" /> Xuất điểm
           </Button>
-          <input ref={importInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportExcel} />
         </div>
       </div>
 

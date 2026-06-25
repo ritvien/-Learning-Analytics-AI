@@ -37,7 +37,9 @@ export default function DepartmentsAnalyticsPage() {
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
-    setLoading(true)
+    setTimeout(() => {
+      setLoading(true)
+    }, 0)
     api.getDashboardDepartments({
       semester_code: selSem === "all" ? undefined : selSem,
       department_id: selDept === "all" ? undefined : Number(selDept),

@@ -70,9 +70,11 @@ export default function UsersPage() {
   }, [])
 
   React.useEffect(() => {
-    refreshUsers()
-      .catch(() => setError("Bạn không có quyền quản trị tài khoản."))
-      .finally(() => setIsLoading(false))
+    setTimeout(() => {
+      refreshUsers()
+        .catch(() => setError("Bạn không có quyền quản trị tài khoản."))
+        .finally(() => setIsLoading(false))
+    }, 0)
   }, [refreshUsers])
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {

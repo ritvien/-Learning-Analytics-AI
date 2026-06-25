@@ -6,14 +6,19 @@ import type { DriveStep } from "driver.js"
 import "driver.js/dist/driver.css"
 
 import { usePathname } from "next/navigation"
+import { getCachedCurrentUser } from "@/lib/api"
 
 export function OnboardingTour() {
   const pathname = usePathname()
 
   useEffect(() => {
     // Only run on client
-    // const hasSeenTour = localStorage.getItem(`hasSeenTour_${pathname}`)
-    // if (hasSeenTour) return
+    const user = getCachedCurrentUser()
+    const userKey = user ? user.id || user.email : "anonymous"
+    const tourKey = `hasSeenTour_${userKey}_${pathname}`
+
+    const hasSeenTour = localStorage.getItem(tourKey)
+    if (hasSeenTour) return
 
     let steps: DriveStep[] = []
 
@@ -365,7 +370,7 @@ export function OnboardingTour() {
         onDestroyStarted: () => {
           if (!driverObj.hasNextStep() || confirm("Bạn có chắc muốn thoát hướng dẫn?")) {
             driverObj.destroy()
-            // localStorage.setItem(`hasSeenTour_${pathname}`, "true")
+            localStorage.setItem(tourKey, "true")
           }
         },
       })

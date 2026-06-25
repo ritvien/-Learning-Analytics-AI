@@ -909,9 +909,14 @@ export default function ReportsPage() {
         setSelectedDepartmentId(departmentList[0] ? String(departmentList[0].id) : "")
         setSelectedProgramId(programList[0] ? String(programList[0].id) : "")
         setSelectedCourseId(courseList[0] ? String(courseList[0].id) : "")
-        const currentSem = semesterList.find((s) => s.is_current) ?? semesterList[0]
+        const savedCode = typeof window !== "undefined" ? sessionStorage.getItem("vinuni_selected_semester") : null
+        const savedSem = savedCode ? semesterList.find((s) => s.code === savedCode) : null
+        const currentSem = savedSem ?? semesterList.find((s) => s.is_current) ?? semesterList[0]
         if (currentSem) {
           setSelectedSemesterId(String(currentSem.id))
+          if (typeof window !== "undefined" && !savedCode) {
+            sessionStorage.setItem("vinuni_selected_semester", currentSem.code)
+          }
           const semSections = sectionList.filter((s) => s.semester_id === currentSem.id)
           setSelectedSectionId(semSections[0] ? String(semSections[0].id) : "")
         } else {
@@ -1287,7 +1292,15 @@ export default function ReportsPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Học kỳ</Label>
-                  <Select value={selectedSemesterId} onValueChange={(v) => { if (v) setSelectedSemesterId(v) }}>
+                  <Select value={selectedSemesterId} onValueChange={(v) => {
+                    if (v) {
+                      setSelectedSemesterId(v)
+                      const matchedSem = semesters.find((s) => String(s.id) === v)
+                      if (matchedSem && typeof window !== "undefined") {
+                        sessionStorage.setItem("vinuni_selected_semester", matchedSem.code)
+                      }
+                    }
+                  }}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Chọn học kỳ">
                         {selectedSemester
