@@ -408,6 +408,7 @@ async def analytics_dashboard_overview(
             SELECT f.*, ds.cohort_id
             FROM dwh.fact_enrollment_outcome f
             JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
             JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
             {where_sql}
         )
