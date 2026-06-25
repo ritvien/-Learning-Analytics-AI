@@ -43,18 +43,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from app.reports.scheduler import report_schedule_worker
 
     schedule_worker_stop = asyncio.Event()
-    schedule_worker_task = asyncio.create_task(report_schedule_worker(stop_event=schedule_worker_stop))
-    app.state.report_schedule_worker_task = schedule_worker_task
+    schedule_worker_task: asyncio.Task[None] | None = None
+    if settings.app_env not in {"test", "testing"}:
+        schedule_worker_task = asyncio.create_task(
+            report_schedule_worker(stop_event=schedule_worker_stop),
+        )
+        app.state.report_schedule_worker_task = schedule_worker_task
 
     try:
         yield
     finally:
-        schedule_worker_stop.set()
-        schedule_worker_task.cancel()
-        try:
-            await schedule_worker_task
-        except asyncio.CancelledError:
-            pass
+        if schedule_worker_task is not None:
+            schedule_worker_stop.set()
+            schedule_worker_task.cancel()
+            try:
+                await schedule_worker_task
+            except asyncio.CancelledError:
+                pass
 
     # Shutdown: dispose engine connections.
     from app.database import engine
