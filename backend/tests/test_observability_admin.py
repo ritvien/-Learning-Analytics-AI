@@ -6,6 +6,7 @@ from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.endpoints.observability import _event_filters
 from app.dependencies import create_access_token, hash_password
 from app.models.people import User, UserRole
 
@@ -136,6 +137,35 @@ async def test_observability_admin_requires_superadmin(
     superadmin_headers = {"Authorization": f"Bearer {create_access_token(superadmin.id, superadmin.role)}"}
     allowed = await client.get("/api/v1/observability/admin/sessions", headers=superadmin_headers)
     assert allowed.status_code == 200
+
+
+def test_event_filters_use_fixed_columns() -> None:
+    where_sql, params = _event_filters(
+        user_id="user-1",
+        session_id="session-1",
+        trace_id="trace-1",
+        event_name="page_view",
+        status="ok",
+        route="/manager",
+        module="analytics",
+    )
+
+    assert "e.user_id = :user_id" in where_sql
+    assert "e.session_id = :session_id" in where_sql
+    assert "e.trace_id = :trace_id" in where_sql
+    assert "e.event_name = :event_name" in where_sql
+    assert "e.status = :status" in where_sql
+    assert "e.route = :route" in where_sql
+    assert "e.module = :module" in where_sql
+    assert params == {
+        "user_id": "user-1",
+        "session_id": "session-1",
+        "trace_id": "trace-1",
+        "event_name": "page_view",
+        "status": "ok",
+        "route": "/manager",
+        "module": "analytics",
+    }
 
 
 async def test_observability_events_can_be_filtered(

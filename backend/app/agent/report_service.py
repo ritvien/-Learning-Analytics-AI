@@ -270,22 +270,31 @@ async def confirm_pending_action(
         definition = action.payload_json.get("definition") if isinstance(action.payload_json, dict) else None
         if not isinstance(definition, dict):
             raise ValueError("Report definition is missing")
+        report_type = definition.get("report_type")
+        scope_type = definition.get("scope_type")
+        if not isinstance(report_type, str) or not report_type:
+            raise ValueError("Report definition is missing report_type")
+        if not isinstance(scope_type, str) or not scope_type:
+            raise ValueError("Report definition is missing scope_type")
+        scope_id = _as_optional_int(definition.get("scope_id"))
+        if scope_type != "school" and scope_id is None:
+            raise ValueError("Report definition has invalid scope_id")
         allowed = await can_create_report_scope(
             db,
             user,
-            str(definition.get("report_type") or ""),
-            str(definition.get("scope_type") or ""),
-            definition.get("scope_id"),
+            report_type,
+            scope_type,
+            str(scope_id) if scope_id is not None else None,
         )
         if not allowed:
             raise ValueError("Report scope is outside your permissions")
         report = await generate_report(
             db,
-            report_type=str(definition["report_type"]),
+            report_type=report_type,
             actor_role=str(definition.get("actor_role") or "manager"),
             generated_by=user.id,
-            scope_type=str(definition["scope_type"]),
-            scope_id=definition.get("scope_id"),
+            scope_type=scope_type,
+            scope_id=str(scope_id) if scope_id is not None else None,
             semester_id=_as_optional_int(definition.get("semester_id")),
             period_start=_as_optional_datetime(definition.get("period_start")),
             period_end=_as_optional_datetime(definition.get("period_end")),
@@ -370,7 +379,8 @@ async def plan_report_build(
     design = REPORT_BUILD_DESIGNS[report_type]
     scope_type = defaults["scope_type"]
     supplied_scope_type = scope_context.get("scope_type")
-    scope_id = scope_context.get("scope_id") if supplied_scope_type in {None, scope_type} else None
+    raw_scope_id = scope_context.get("scope_id") if supplied_scope_type in {None, scope_type} else None
+    scope_id = _as_optional_int(raw_scope_id)
     semester_id = _as_optional_int(scope_context.get("semester_id") or context.get("semester_id"))
     if semester_id is None:
         current_semester = (

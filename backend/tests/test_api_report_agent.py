@@ -131,6 +131,25 @@ async def test_report_build_plan_asks_for_missing_context(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_report_build_plan_rejects_non_numeric_scope_id(client: AsyncClient):
+    response = await client.post(
+        "/api/v1/report-agent/build/plan",
+        json={
+            "message": "Tạo báo cáo sức khỏe ngành học kỳ 2025-2 để họp quản lý",
+            "context": {
+                "source": "global_chat",
+                "scope": {"scope_type": "program", "scope_id": "1 OR 1=1"},
+            },
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["action_id"] is None
+    assert data["definition"]["scope_id"] is None
+    assert "scope_id" in data["missing_fields"]
+
+
+@pytest.mark.asyncio
 async def test_report_build_plan_guides_vague_report_request(client: AsyncClient):
     response = await client.post(
         "/api/v1/report-agent/build/plan",

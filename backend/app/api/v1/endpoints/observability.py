@@ -135,19 +135,27 @@ def _event_filters(
 ) -> tuple[str, dict[str, Any]]:
     clauses: list[str] = []
     params: dict[str, Any] = {}
-    filters = {
-        "user_id": user_id,
-        "session_id": session_id,
-        "trace_id": trace_id,
-        "event_name": event_name,
-        "status": status,
-        "route": route,
-        "module": module,
-    }
-    for column, value in filters.items():
-        if value is not None:
-            clauses.append(f"e.{column} = :{column}")
-            params[column] = value
+    if user_id is not None:
+        clauses.append("e.user_id = :user_id")
+        params["user_id"] = user_id
+    if session_id is not None:
+        clauses.append("e.session_id = :session_id")
+        params["session_id"] = session_id
+    if trace_id is not None:
+        clauses.append("e.trace_id = :trace_id")
+        params["trace_id"] = trace_id
+    if event_name is not None:
+        clauses.append("e.event_name = :event_name")
+        params["event_name"] = event_name
+    if status is not None:
+        clauses.append("e.status = :status")
+        params["status"] = status
+    if route is not None:
+        clauses.append("e.route = :route")
+        params["route"] = route
+    if module is not None:
+        clauses.append("e.module = :module")
+        params["module"] = module
     if from_time is not None:
         clauses.append("e.occurred_at >= :from_time")
         params["from_time"] = from_time
