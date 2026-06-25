@@ -521,6 +521,72 @@ async def _resolve_report_scope(db: AsyncSession, definition: dict[str, Any]) ->
             definition["scope_resolution"] = {"source": "course_hint", "matched_id": course.id}
 
 
+async def _extract_report_build_intent(
+    message: str,
+    context: dict[str, Any],
+    previous_definition: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Use the configured LLM to extract report-build intent, falling back to rules when unavailable."""
+    if not get_settings().llm_api_key:
+        return {}
+    prompt = {
+        "task": "Extract report build brief from a Vietnamese academic analytics chat turn.",
+        "allowed_report_type": list(REPORT_BUILD_DEFAULTS),
+        "allowed_scope_type": ["school", "department", "program", "course", "section"],
+        "return_json_only": True,
+        "schema": {
+            "report_type": "school_overview|department_health|program_health|course_health|section_intervention|null",
+            "scope": {"scope_type": "school|department|program|course|section|null", "scope_label": "string|null"},
+            "period_label": "string|null",
+            "purpose": "string|null",
+            "filters": {"focus": ["string"]},
+            "is_custom_report": "boolean",
+        },
+        "previous_definition": previous_definition or {},
+        "context": context,
+        "message": message,
+    }
+    try:
+        llm_kwargs = {"model": get_settings().llm_model, "api_key": get_settings().llm_api_key, "temperature": 0}
+        if get_settings().llm_base_url:
+            llm_kwargs["base_url"] = get_settings().llm_base_url
+        response = await ChatOpenAI(**llm_kwargs).ainvoke(
+            [
+                SystemMessage(content="You extract structured JSON only. Do not add prose."),
+                HumanMessage(content=json.dumps(prompt, ensure_ascii=False)),
+            ]
+        )
+        raw = response.content if isinstance(response.content, str) else json.dumps(response.content)
+        data = json.loads(raw)
+    except Exception:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    sanitized: dict[str, Any] = {}
+    report_type = data.get("report_type")
+    if isinstance(report_type, str) and report_type in REPORT_BUILD_DEFAULTS:
+        sanitized["report_type"] = report_type
+    scope = data.get("scope") if isinstance(data.get("scope"), dict) else {}
+    scope_type = scope.get("scope_type")
+    if isinstance(scope_type, str) and scope_type in {"school", "department", "program", "course", "section"}:
+        sanitized["scope"] = {
+            "scope_type": scope_type,
+            "scope_label": scope.get("scope_label") if isinstance(scope.get("scope_label"), str) else None,
+        }
+    for key in ("period_label", "purpose"):
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            sanitized[key] = value.strip()
+    filters = data.get("filters")
+    if isinstance(filters, dict):
+        focus = filters.get("focus")
+        if isinstance(focus, list):
+            sanitized["filters"] = {"focus": [str(item) for item in focus if str(item).strip()]}
+    if isinstance(data.get("is_custom_report"), bool):
+        sanitized["is_custom_report"] = data["is_custom_report"]
+    return sanitized
+
+
 async def plan_report_build(
     db: AsyncSession,
     user: User,
@@ -531,6 +597,8 @@ async def plan_report_build(
     """Create a permission-checked report plan that remains pending until confirmed."""
     previous_definition = await _get_previous_build_definition(db, user, session_id)
     context = _merge_report_build_context(context, previous_definition)
+    llm_context = await _extract_report_build_intent(message, context, previous_definition)
+    context = _merge_report_build_context({**context, **llm_context}, previous_definition)
     scope_context = context.get("scope") if isinstance(context.get("scope"), dict) else context
     if _needs_report_discovery(message, context):
         definition = _discovery_report_definition(message, context)
@@ -562,7 +630,7 @@ async def plan_report_build(
     period = scope_context.get("period") if isinstance(scope_context.get("period"), dict) else context.get("period")
     period = period if isinstance(period, dict) else {}
     custom_request = context.get("custom_request")
-    is_custom = isinstance(custom_request, str) and bool(custom_request.strip())
+    is_custom = bool(context.get("is_custom_report"))
     brief = _extract_report_brief(message, context)
     definition = {
         "report_type": report_type,
@@ -581,6 +649,7 @@ async def plan_report_build(
         "outline": design["outline"],
         "visuals": design["visuals"],
         "custom_request": custom_request,
+        "filters": context.get("filters"),
         "audience": brief.get("audience"),
         "purpose": brief.get("purpose"),
         "decision": brief.get("decision"),
@@ -972,7 +1041,7 @@ def _update_short_summary(previous: str | None, question: str, answer: str) -> s
 
 def _infer_report_type(message: str, context: dict[str, Any]) -> str:
     normalized = _normalized_text(message)
-    if any(word in normalized for word in ("toan truong", "tong quan truong", "ban giam hieu")):
+    if any(word in normalized for word in ("toan truong", "tong quan truong", "bao cao tong quan", "tong quan", "ban giam hieu")):
         return "school_overview"
     if any(word in normalized for word in ("khoa", "faculty")):
         return "department_health"

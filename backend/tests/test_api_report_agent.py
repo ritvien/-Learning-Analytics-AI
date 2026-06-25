@@ -193,6 +193,71 @@ async def test_report_build_plan_accumulates_brief_across_turns(
 
 
 @pytest.mark.asyncio
+async def test_report_build_plan_school_overview_keeps_base_template_label(client: AsyncClient):
+    discovery = await client.post(
+        "/api/v1/report-agent/build/plan",
+        json={"message": "hỗ trợ build báo cáo", "context": {"source": "full_chat"}},
+    )
+    assert discovery.status_code == 200
+
+    response = await client.post(
+        "/api/v1/report-agent/build/plan",
+        json={
+            "session_id": discovery.json()["session_id"],
+            "message": "tổng quan trường",
+            "context": {
+                "source": "full_chat",
+                "custom_request": "hỗ trợ build báo cáo\nThông tin bổ sung: tổng quan trường",
+            },
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["definition"]["report_type"] == "school_overview"
+    assert data["definition"]["scope_type"] == "school"
+    assert data["definition"]["template_label"] == "Tóm tắt điều hành toàn trường"
+    assert data["definition"]["is_custom"] is False
+    assert "period" in data["missing_fields"]
+
+
+@pytest.mark.asyncio
+async def test_report_build_plan_uses_llm_intent_extractor(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    calls: list[dict] = []
+
+    async def fake_extract_report_build_intent(message, context, previous_definition):
+        calls.append({"message": message, "context": context, "previous_definition": previous_definition})
+        return {
+            "report_type": "school_overview",
+            "scope": {"scope_type": "school", "scope_label": "Toàn trường"},
+            "period_label": "Năm 2022",
+            "purpose": "Họp quản lý",
+            "filters": {"focus": ["GPA", "Tỷ lệ trượt"]},
+        }
+
+    monkeypatch.setattr(report_service, "_extract_report_build_intent", fake_extract_report_build_intent)
+    response = await client.post(
+        "/api/v1/report-agent/build/plan",
+        json={
+            "message": "làm giúp tôi báo cáo số 5",
+            "context": {"source": "full_chat"},
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert calls
+    assert data["action_id"]
+    assert data["definition"]["report_type"] == "school_overview"
+    assert data["definition"]["scope_type"] == "school"
+    assert data["definition"]["period_label"] == "Năm 2022"
+    assert data["definition"]["purpose"] == "Họp quản lý"
+    assert data["definition"]["filters"] == {"focus": ["GPA", "Tỷ lệ trượt"]}
+    assert data["missing_fields"] == []
+
+
+@pytest.mark.asyncio
 async def test_report_build_plan_rejects_non_numeric_scope_id(client: AsyncClient):
     response = await client.post(
         "/api/v1/report-agent/build/plan",
