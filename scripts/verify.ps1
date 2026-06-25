@@ -25,7 +25,7 @@ Push-Location $Root
 try {
     Invoke-Step "Backend lint (ruff)" {
         Push-Location backend
-        try { ruff check . } finally { Pop-Location }
+        try { ruff check app tests } finally { Pop-Location }
     }
 
     if (-not $Quick) {

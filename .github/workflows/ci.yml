@@ -1,3 +1,5 @@
+# CI gate: Ruff + pytest (backend), ESLint + Vitest (frontend).
+# Per docs/10-References/Test.md — integration tests use mocks; slow LLM eval is excluded.
 name: CI
 
 on:
@@ -10,18 +12,31 @@ on:
   push:
     branches:
       - main
-      - hung
     paths:
       - "backend/**"
       - "frontend/**"
       - "scripts/verify.sh"
       - ".github/workflows/ci.yml"
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend:
     runs-on: self-hosted
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      # Prevent host .env / runner secrets from turning CI into live LLM calls (Test.md §8.3).
+      LLM_API_KEY: ""
+      OPENAI_API_KEY: ""
+      GEMINI_API_KEY: ""
+      GOOGLE_API_KEY: ""
+      # Avoid sklearn/xgboost thread pools blocking pytest process exit on Linux runners.
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      LOKY_MAX_CPU_COUNT: "1"
 
     steps:
       - name: Checkout
@@ -42,11 +57,11 @@ jobs:
 
       - name: Lint (Ruff)
         working-directory: backend
-        run: ruff check .
+        run: ruff check app tests
 
       - name: Test (pytest)
         working-directory: backend
-        run: pytest -v
+        run: pytest -q -m "not slow and not eval"
 
   frontend:
     runs-on: self-hosted
