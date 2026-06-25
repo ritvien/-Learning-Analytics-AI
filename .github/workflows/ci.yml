@@ -11,6 +11,7 @@ on:
     branches:
       - main
       - hung
+      - hoang
     paths:
       - "backend/**"
       - "frontend/**"
@@ -19,7 +20,7 @@ on:
 
 jobs:
   backend:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -49,7 +50,7 @@ jobs:
         run: pytest -v
 
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 

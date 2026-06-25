@@ -9,13 +9,14 @@ on:
     branches:
       - main
       - hung
+      - hoang
     paths:
       - "backend/**"
       - ".github/workflows/backend-ci.yml"
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     # Opt into Node.js 24 now to suppress the Node 20 deprecation warning.
     env:
