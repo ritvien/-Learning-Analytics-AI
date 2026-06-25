@@ -1,9 +1,10 @@
 import asyncio
 import logging
-from typing import Dict, Any, Optional
+from typing import Any
+
+from cachetools import TTLCache
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from cachetools import TTLCache
 
 logger = logging.getLogger(__name__)
 

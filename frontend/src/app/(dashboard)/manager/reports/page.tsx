@@ -2287,7 +2287,6 @@ function ReportPreview({ report, isLoading }: { report: ApiReport; isLoading: bo
     )
   }
 
-  report = report as ApiReport
   const metrics = report.metrics_json ?? {}
   const issues = stringList(metrics.issues)
   const risks = stringList(metrics.risks)

@@ -9,7 +9,13 @@ from app.access_control import is_admin, require_department_scope
 from app.crud import people as crud
 from app.dependencies import CurrentUser, DBSession, PaginationDep, hash_password, require_write_access
 from app.models.people import Teacher, User, UserRole
-from app.schemas.people import TeacherAccountProvision, TeacherAccountResponse, TeacherCreate, TeacherResponse, TeacherUpdate
+from app.schemas.people import (
+    TeacherAccountProvision,
+    TeacherAccountResponse,
+    TeacherCreate,
+    TeacherResponse,
+    TeacherUpdate,
+)
 
 router = APIRouter()
 

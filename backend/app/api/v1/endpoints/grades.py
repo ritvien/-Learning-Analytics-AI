@@ -32,10 +32,10 @@ from app.schemas.teaching import (
     EnrollmentGradeUpdate,
     EnrollmentResponse,
     GradeComponentDetailResponse,
-    GradeImportRequest,
-    GradeImportResult,
     GradeComponentResponse,
     GradeComponentUpsert,
+    GradeImportRequest,
+    GradeImportResult,
 )
 
 router = APIRouter()

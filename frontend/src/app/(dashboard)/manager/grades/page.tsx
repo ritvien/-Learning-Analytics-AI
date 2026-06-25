@@ -3,7 +3,7 @@
 import * as React from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { GradeRecord } from "@/types"
-import { api } from "@/lib/api"
+import { api, type ApiSection, type ApiStudent } from "@/lib/api"
 import { DataTable } from "@/components/crud/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -101,8 +101,8 @@ function importRowForMode(record: GradeRecord, mode: GradeMode, value: number): 
 
 export default function GradesPage() {
   const [grades, setGrades] = React.useState<GradeRecord[]>([])
-  const [students, setStudents] = React.useState<any[]>([])
-  const [sections, setSections] = React.useState<any[]>([])
+  const [students, setStudents] = React.useState<ApiStudent[]>([])
+  const [sections, setSections] = React.useState<ApiSection[]>([])
   const [sectionFilter, setSectionFilter] = React.useState("all")
   const [importMessage, setImportMessage] = React.useState<string | null>(null)
   const [editGrade, setEditGrade] = React.useState<GradeRecord | null>(null)
