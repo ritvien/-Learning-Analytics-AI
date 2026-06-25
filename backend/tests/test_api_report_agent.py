@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent import report_service
 from app.agent.report_service import confirm_pending_action
+from app.models.academic import Department, University
 from app.models.agent import ReportAgentPendingAction, ReportAgentSession
 from app.models.people import User
 from app.models.report import Report
@@ -132,6 +133,63 @@ async def test_report_build_plan_asks_for_missing_context(client: AsyncClient):
     assert "output_format" not in data["missing_fields"]
     assert "Ngữ cảnh tôi đang hiểu" in data["message"]
     assert "Công nghệ thông tin" in data["message"]
+
+
+@pytest.mark.asyncio
+async def test_report_build_plan_accumulates_brief_across_turns(
+    client: AsyncClient,
+    db_session: AsyncSession,
+):
+    university = University(id=1, code="VIN", name="VinUni", is_active=True)
+    department = Department(
+        id=11,
+        university_id=1,
+        code="CECS",
+        name="Công nghệ thông tin",
+        name_en="Computer Science",
+        is_active=True,
+    )
+    db_session.add_all([university, department])
+    await db_session.flush()
+
+    discovery = await client.post(
+        "/api/v1/report-agent/build/plan",
+        json={"message": "hỗ trợ build báo cáo", "context": {"source": "full_chat"}},
+    )
+    assert discovery.status_code == 200
+    session_id = discovery.json()["session_id"]
+    assert discovery.json()["missing_fields"]
+
+    scope_turn = await client.post(
+        "/api/v1/report-agent/build/plan",
+        json={
+            "session_id": session_id,
+            "message": "sức khỏe khoa công nghệ thông tin",
+            "context": {"source": "full_chat"},
+        },
+    )
+    assert scope_turn.status_code == 200
+    scope_data = scope_turn.json()
+    assert scope_data["definition"]["report_type"] == "department_health"
+    assert scope_data["definition"]["scope_id"] == "11"
+    assert "period" in scope_data["missing_fields"]
+    assert "purpose" in scope_data["missing_fields"]
+
+    final_turn = await client.post(
+        "/api/v1/report-agent/build/plan",
+        json={
+            "session_id": session_id,
+            "message": "Thời gian: năm 2022; Mục tiêu: họp quản lý; Bộ lọc: GPA, tỷ lệ trượt, SV nguy cơ",
+            "context": {"source": "full_chat"},
+        },
+    )
+    assert final_turn.status_code == 200
+    data = final_turn.json()
+    assert data["action_id"]
+    assert data["definition"]["report_type"] == "department_health"
+    assert data["definition"]["scope_type"] == "department"
+    assert data["definition"]["scope_id"] == "11"
+    assert data["missing_fields"] == []
 
 
 @pytest.mark.asyncio

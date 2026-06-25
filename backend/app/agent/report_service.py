@@ -26,7 +26,7 @@ from app.agent.report_tools import (
     trace_report_metric,
 )
 from app.config import get_settings
-from app.models.academic import Semester
+from app.models.academic import Course, Department, Program, Semester
 from app.models.agent import (
     AgentMemory,
     AgentPromptVersion,
@@ -375,6 +375,152 @@ def tool_registry_payload() -> list[dict[str, Any]]:
     ]
 
 
+async def _get_previous_build_definition(
+    db: AsyncSession,
+    user: User,
+    session_id: str | None,
+) -> dict[str, Any] | None:
+    if not session_id:
+        return None
+    session = await get_report_agent_session(db, user, session_id)
+    if session is None:
+        return None
+    definition = (session.scope_json or {}).get("build_definition")
+    return definition if isinstance(definition, dict) else None
+
+
+def _merge_report_build_context(
+    context: dict[str, Any],
+    previous_definition: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if not previous_definition:
+        return context
+    merged = dict(context)
+    for key in (
+        "report_type",
+        "purpose",
+        "audience",
+        "decision",
+        "comparison",
+        "period_label",
+        "period_start",
+        "period_end",
+        "semester_id",
+        "custom_request",
+    ):
+        if not merged.get(key) and previous_definition.get(key):
+            merged[key] = previous_definition[key]
+
+    scope = dict(merged.get("scope") if isinstance(merged.get("scope"), dict) else {})
+    if not scope.get("scope_type") and previous_definition.get("scope_type"):
+        scope["scope_type"] = previous_definition["scope_type"]
+    if not scope.get("scope_id") and previous_definition.get("scope_id"):
+        scope["scope_id"] = previous_definition["scope_id"]
+    if not scope.get("scope_label") and previous_definition.get("scope_hint"):
+        scope["scope_label"] = previous_definition["scope_hint"]
+    if scope:
+        merged["scope"] = scope
+
+    brief = dict(merged.get("brief") if isinstance(merged.get("brief"), dict) else {})
+    for key in ("report_type", "period_label", "purpose"):
+        if not brief.get(key) and merged.get(key):
+            brief[key] = merged[key]
+    if brief:
+        merged["brief"] = brief
+    return merged
+
+
+def _merge_report_definitions(
+    previous_definition: dict[str, Any] | None,
+    definition: dict[str, Any],
+) -> dict[str, Any]:
+    if not previous_definition:
+        return definition
+    merged = dict(previous_definition)
+    for key, value in definition.items():
+        if value not in (None, "", [], {}):
+            merged[key] = value
+        elif key not in merged:
+            merged[key] = value
+    if merged.get("report_type") in REPORT_BUILD_DEFAULTS:
+        defaults = REPORT_BUILD_DEFAULTS[str(merged["report_type"])]
+        design = REPORT_BUILD_DESIGNS[str(merged["report_type"])]
+        merged["actor_role"] = defaults["actor_role"]
+        merged["scope_type"] = defaults["scope_type"]
+        merged["base_design"] = design["label"]
+        merged["template_label"] = "Báo cáo tùy chỉnh" if merged.get("is_custom") else design["label"]
+        merged["outline"] = design["outline"]
+        merged["visuals"] = design["visuals"]
+    return merged
+
+
+async def _resolve_report_scope(db: AsyncSession, definition: dict[str, Any]) -> None:
+    if definition.get("scope_id") or definition.get("scope_type") == "school":
+        return
+    hint = definition.get("scope_hint")
+    if not isinstance(hint, str) or not hint.strip():
+        return
+    pattern = f"%{hint.strip()}%"
+    scope_type = definition.get("scope_type")
+
+    if scope_type == "department":
+        department = (
+            await db.execute(
+                select(Department).where(
+                    Department.is_active.is_(True),
+                    Department.code.ilike(pattern) | Department.name.ilike(pattern) | Department.name_en.ilike(pattern),
+                ).limit(1)
+            )
+        ).scalar_one_or_none()
+        if department is None:
+            program = (
+                await db.execute(
+                    select(Program).where(
+                        Program.is_active.is_(True),
+                        Program.code.ilike(pattern) | Program.name.ilike(pattern) | Program.name_en.ilike(pattern),
+                    ).limit(1)
+                )
+            ).scalar_one_or_none()
+            if program is not None:
+                definition["scope_id"] = str(program.department_id)
+                definition["scope_resolution"] = {"source": "program_hint", "matched_id": program.id}
+                return
+        if department is not None:
+            definition["scope_id"] = str(department.id)
+            definition["scope_hint"] = department.name
+            definition["scope_resolution"] = {"source": "department_hint", "matched_id": department.id}
+        return
+
+    if scope_type == "program":
+        program = (
+            await db.execute(
+                select(Program).where(
+                    Program.is_active.is_(True),
+                    Program.code.ilike(pattern) | Program.name.ilike(pattern) | Program.name_en.ilike(pattern),
+                ).limit(1)
+            )
+        ).scalar_one_or_none()
+        if program is not None:
+            definition["scope_id"] = str(program.id)
+            definition["scope_hint"] = program.name
+            definition["scope_resolution"] = {"source": "program_hint", "matched_id": program.id}
+        return
+
+    if scope_type == "course":
+        course = (
+            await db.execute(
+                select(Course).where(
+                    Course.is_active.is_(True),
+                    Course.code.ilike(pattern) | Course.name.ilike(pattern) | Course.name_en.ilike(pattern),
+                ).limit(1)
+            )
+        ).scalar_one_or_none()
+        if course is not None:
+            definition["scope_id"] = str(course.id)
+            definition["scope_hint"] = course.name
+            definition["scope_resolution"] = {"source": "course_hint", "matched_id": course.id}
+
+
 async def plan_report_build(
     db: AsyncSession,
     user: User,
@@ -383,6 +529,8 @@ async def plan_report_build(
     session_id: str | None = None,
 ) -> dict[str, Any]:
     """Create a permission-checked report plan that remains pending until confirmed."""
+    previous_definition = await _get_previous_build_definition(db, user, session_id)
+    context = _merge_report_build_context(context, previous_definition)
     scope_context = context.get("scope") if isinstance(context.get("scope"), dict) else context
     if _needs_report_discovery(message, context):
         definition = _discovery_report_definition(message, context)
@@ -423,6 +571,7 @@ async def plan_report_build(
         "scope_id": str(scope_id) if scope_id is not None else None,
         "scope_hint": _extract_scope_hint(message, context),
         "semester_id": semester_id,
+        "period_label": context.get("period_label"),
         "period_start": period.get("from") or context.get("period_start"),
         "period_end": period.get("to") or context.get("period_end"),
         "assessment_stage": _infer_assessment_stage(message),
@@ -439,8 +588,11 @@ async def plan_report_build(
         "is_custom": is_custom,
         "source": context.get("source", "global_chat"),
     }
+    definition = _merge_report_definitions(previous_definition, definition)
+    await _resolve_report_scope(db, definition)
     missing_fields = _missing_report_brief_fields(definition, message, context)
     session = await _get_or_create_session(db, user, session_id, None, "workflow", {"build_definition": definition})
+    session.scope_json = {**(session.scope_json or {}), "build_definition": definition}
     if missing_fields:
         question = _build_report_brief_question(definition, missing_fields)
         return {
@@ -819,9 +971,6 @@ def _update_short_summary(previous: str | None, question: str, answer: str) -> s
 
 
 def _infer_report_type(message: str, context: dict[str, Any]) -> str:
-    requested = context.get("report_type")
-    if isinstance(requested, str) and requested in REPORT_BUILD_DEFAULTS:
-        return requested
     normalized = _normalized_text(message)
     if any(word in normalized for word in ("toan truong", "tong quan truong", "ban giam hieu")):
         return "school_overview"
@@ -833,6 +982,9 @@ def _infer_report_type(message: str, context: dict[str, Any]) -> str:
         return "section_intervention"
     if any(word in normalized for word in ("mon", "hoc phan", "clo")):
         return "course_health"
+    requested = context.get("report_type")
+    if isinstance(requested, str) and requested in REPORT_BUILD_DEFAULTS:
+        return requested
     scope = context.get("scope") if isinstance(context.get("scope"), dict) else context
     scope_type = scope.get("scope_type")
     by_scope = {
