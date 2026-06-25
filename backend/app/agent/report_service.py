@@ -402,6 +402,9 @@ def _merge_report_build_context(
         "audience",
         "decision",
         "comparison",
+        "intent_source",
+        "intent_confidence",
+        "intent_rationale",
         "period_label",
         "period_start",
         "period_end",
@@ -422,7 +425,7 @@ def _merge_report_build_context(
         merged["scope"] = scope
 
     brief = dict(merged.get("brief") if isinstance(merged.get("brief"), dict) else {})
-    for key in ("report_type", "period_label", "purpose"):
+    for key in ("report_type", "period_label", "purpose", "audience", "decision", "comparison"):
         if not brief.get(key) and merged.get(key):
             brief[key] = merged[key]
     if brief:
@@ -452,6 +455,26 @@ def _merge_report_definitions(
         merged["outline"] = design["outline"]
         merged["visuals"] = design["visuals"]
     return merged
+
+
+def _extract_json_object(raw: str) -> dict[str, Any] | None:
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        if raw.lower().startswith("json"):
+            raw = raw[4:].strip()
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start < 0 or end <= start:
+            return None
+        try:
+            data = json.loads(raw[start:end + 1])
+        except json.JSONDecodeError:
+            return None
+    return data if isinstance(data, dict) else None
 
 
 async def _resolve_report_scope(db: AsyncSession, definition: dict[str, Any]) -> None:
@@ -528,19 +551,36 @@ async def _extract_report_build_intent(
 ) -> dict[str, Any]:
     """Use the configured LLM to extract report-build intent, falling back to rules when unavailable."""
     if not get_settings().llm_api_key:
-        return {}
+        return {"intent_source": "rules_fallback"}
     prompt = {
-        "task": "Extract report build brief from a Vietnamese academic analytics chat turn.",
+        "task": "Understand a Vietnamese user building an academic analytics report. Extract the user's evolving brief, not just keywords.",
+        "principles": [
+            "Prefer the latest user turn when it clearly corrects earlier context.",
+            "Carry forward previous_definition only for fields the latest turn does not update.",
+            "Treat accreditation/minh chứng/kiểm định as an assurance-quality purpose, not a random filter.",
+            "Treat so sánh chất lượng/benchmark/đối chiếu kỳ trước as comparison intent.",
+            "If the user says tổng quan without a lower-level scope, infer school_overview and school scope.",
+            "Do not mark a normal predefined report as custom just because custom_request contains the chat transcript.",
+        ],
         "allowed_report_type": list(REPORT_BUILD_DEFAULTS),
         "allowed_scope_type": ["school", "department", "program", "course", "section"],
         "return_json_only": True,
         "schema": {
             "report_type": "school_overview|department_health|program_health|course_health|section_intervention|null",
-            "scope": {"scope_type": "school|department|program|course|section|null", "scope_label": "string|null"},
+            "scope": {
+                "scope_type": "school|department|program|course|section|null",
+                "scope_id": "string|null when user provides a numeric/internal id",
+                "scope_label": "string|null natural-language label from user",
+            },
             "period_label": "string|null",
             "purpose": "string|null",
+            "audience": "string|null",
+            "decision": "string|null",
+            "comparison": "string|null",
             "filters": {"focus": ["string"]},
             "is_custom_report": "boolean",
+            "confidence": "0-100 integer",
+            "rationale": "one short Vietnamese sentence explaining the extraction",
         },
         "previous_definition": previous_definition or {},
         "context": context,
@@ -557,23 +597,25 @@ async def _extract_report_build_intent(
             ]
         )
         raw = response.content if isinstance(response.content, str) else json.dumps(response.content)
-        data = json.loads(raw)
+        data = _extract_json_object(raw)
     except Exception:
-        return {}
-    if not isinstance(data, dict):
-        return {}
-    sanitized: dict[str, Any] = {}
+        return {"intent_source": "rules_fallback"}
+    if not data:
+        return {"intent_source": "rules_fallback"}
+    sanitized: dict[str, Any] = {"intent_source": "llm"}
     report_type = data.get("report_type")
     if isinstance(report_type, str) and report_type in REPORT_BUILD_DEFAULTS:
         sanitized["report_type"] = report_type
     scope = data.get("scope") if isinstance(data.get("scope"), dict) else {}
     scope_type = scope.get("scope_type")
     if isinstance(scope_type, str) and scope_type in {"school", "department", "program", "course", "section"}:
+        scope_id = _as_optional_int(scope.get("scope_id"))
         sanitized["scope"] = {
             "scope_type": scope_type,
+            "scope_id": str(scope_id) if scope_id is not None else None,
             "scope_label": scope.get("scope_label") if isinstance(scope.get("scope_label"), str) else None,
         }
-    for key in ("period_label", "purpose"):
+    for key in ("period_label", "purpose", "audience", "decision", "comparison"):
         value = data.get(key)
         if isinstance(value, str) and value.strip():
             sanitized[key] = value.strip()
@@ -584,6 +626,12 @@ async def _extract_report_build_intent(
             sanitized["filters"] = {"focus": [str(item) for item in focus if str(item).strip()]}
     if isinstance(data.get("is_custom_report"), bool):
         sanitized["is_custom_report"] = data["is_custom_report"]
+    confidence = data.get("confidence")
+    if isinstance(confidence, int) and 0 <= confidence <= 100:
+        sanitized["intent_confidence"] = confidence
+    rationale = data.get("rationale")
+    if isinstance(rationale, str) and rationale.strip():
+        sanitized["intent_rationale"] = rationale.strip()[:400]
     return sanitized
 
 
@@ -598,6 +646,8 @@ async def plan_report_build(
     previous_definition = await _get_previous_build_definition(db, user, session_id)
     context = _merge_report_build_context(context, previous_definition)
     llm_context = await _extract_report_build_intent(message, context, previous_definition)
+    if llm_context and not llm_context.get("intent_source"):
+        llm_context["intent_source"] = "llm"
     context = _merge_report_build_context({**context, **llm_context}, previous_definition)
     scope_context = context.get("scope") if isinstance(context.get("scope"), dict) else context
     if _needs_report_discovery(message, context):
@@ -650,6 +700,9 @@ async def plan_report_build(
         "visuals": design["visuals"],
         "custom_request": custom_request,
         "filters": context.get("filters"),
+        "intent_source": context.get("intent_source", "rules_fallback"),
+        "intent_confidence": context.get("intent_confidence"),
+        "intent_rationale": context.get("intent_rationale"),
         "audience": brief.get("audience"),
         "purpose": brief.get("purpose"),
         "decision": brief.get("decision"),

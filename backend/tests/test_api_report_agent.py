@@ -235,6 +235,8 @@ async def test_report_build_plan_uses_llm_intent_extractor(
             "period_label": "Năm 2022",
             "purpose": "Họp quản lý",
             "filters": {"focus": ["GPA", "Tỷ lệ trượt"]},
+            "intent_confidence": 91,
+            "intent_rationale": "Người dùng muốn một báo cáo tổng quan để họp quản lý.",
         }
 
     monkeypatch.setattr(report_service, "_extract_report_build_intent", fake_extract_report_build_intent)
@@ -254,7 +256,51 @@ async def test_report_build_plan_uses_llm_intent_extractor(
     assert data["definition"]["period_label"] == "Năm 2022"
     assert data["definition"]["purpose"] == "Họp quản lý"
     assert data["definition"]["filters"] == {"focus": ["GPA", "Tỷ lệ trượt"]}
+    assert data["definition"]["intent_source"] == "llm"
+    assert data["definition"]["intent_confidence"] == 91
+    assert "tổng quan" in data["definition"]["intent_rationale"]
     assert data["missing_fields"] == []
+
+
+@pytest.mark.asyncio
+async def test_report_build_plan_llm_understands_accreditation_and_quality_comparison(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    async def fake_extract_report_build_intent(message, context, previous_definition):
+        return {
+            "report_type": "school_overview",
+            "scope": {"scope_type": "school", "scope_label": "Toàn trường"},
+            "period_label": "Học kỳ hiện tại",
+            "purpose": "Minh chứng kiểm định và so sánh chất lượng đào tạo",
+            "audience": "Hội đồng kiểm định",
+            "decision": "Chọn các điểm cần cải thiện trước kỳ đánh giá",
+            "comparison": "So sánh chất lượng giữa các khoa và với kỳ trước",
+            "filters": {"focus": ["PLO/CLO", "GPA", "Tỷ lệ đạt", "Xu hướng chất lượng"]},
+            "intent_confidence": 94,
+            "intent_rationale": "Cụm kiểm định và so sánh chất lượng thể hiện mục tiêu đảm bảo chất lượng, không chỉ là bộ lọc.",
+        }
+
+    monkeypatch.setattr(report_service, "_extract_report_build_intent", fake_extract_report_build_intent)
+    response = await client.post(
+        "/api/v1/report-agent/build/plan",
+        json={
+            "message": "Tạo báo cáo phục vụ kiểm định và so sánh chất lượng học kỳ hiện tại",
+            "context": {"source": "full_chat"},
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    definition = data["definition"]
+    assert data["action_id"]
+    assert definition["intent_source"] == "llm"
+    assert definition["purpose"] == "Minh chứng kiểm định và so sánh chất lượng đào tạo"
+    assert definition["audience"] == "Hội đồng kiểm định"
+    assert definition["decision"] == "Chọn các điểm cần cải thiện trước kỳ đánh giá"
+    assert definition["comparison"] == "So sánh chất lượng giữa các khoa và với kỳ trước"
+    assert definition["filters"]["focus"] == ["PLO/CLO", "GPA", "Tỷ lệ đạt", "Xu hướng chất lượng"]
+    assert definition["intent_confidence"] == 94
+    assert "đảm bảo chất lượng" in definition["intent_rationale"]
 
 
 @pytest.mark.asyncio
