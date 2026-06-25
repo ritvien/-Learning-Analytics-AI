@@ -2,11 +2,10 @@
 
 import * as React from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { MessageSquare, X, Send, Bot, User, ChevronDown, Sparkles, Maximize2, Loader2 } from "lucide-react"
+import { MessageSquare, X, Send, Bot, User, Maximize2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { chatStreamV2, resolveChatHandoffRoute } from "@/lib/api"
+import { api, chatStreamV2, getReportBuildContext, resolveChatHandoffRoute, type ApiReportBuildPlan } from "@/lib/api"
 
 interface Message {
   id: string
@@ -15,10 +14,121 @@ interface Message {
   timestamp: Date
   statuses?: string[]
   isStreaming?: boolean
+  reportPlan?: ApiReportBuildPlan & { reportUrl?: string }
+  reportUrl?: string
+  reportChoices?: boolean
+}
+
+function cleanAssistantText(value: string) {
+  return value
+    .replace(/<\/?strong>/gi, "")
+    .replace(/<\/?em>/gi, "")
+    .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, "")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+}
+
+function InlineMarkdown({ value }: { value: string }) {
+  const parts = cleanAssistantText(value).split(/(\*\*[^*]+\*\*)/g)
+  return <>{parts.map((part, index) => part.startsWith("**") && part.endsWith("**")
+    ? <strong key={index}>{part.slice(2, -2)}</strong>
+    : <React.Fragment key={index}>{part}</React.Fragment>)}</>
+}
+
+function AssistantMessageContent({ content }: { content: string }) {
+  const lines = content.split("\n")
+  const blocks: React.ReactNode[] = []
+  let index = 0
+
+  while (index < lines.length) {
+    const line = lines[index].trim()
+    if (!line || /^---+$/.test(line)) {
+      index += 1
+      continue
+    }
+    if (line.startsWith("|")) {
+      const tableLines: string[] = []
+      while (index < lines.length && lines[index].trim().startsWith("|")) {
+        tableLines.push(lines[index].trim())
+        index += 1
+      }
+      const rows = tableLines
+        .filter((row) => !/^\|?\s*:?-{2,}/.test(row.replace(/\|/g, "|")))
+        .map((row) => row.split("|").slice(1, -1).map((cell) => cleanAssistantText(cell.trim())))
+      if (rows.length) {
+        const [head, ...body] = rows
+        blocks.push(
+          <div key={`table-${index}`} className="overflow-x-auto rounded border bg-background">
+            <table className="w-full min-w-max text-[11px]">
+              <thead className="bg-muted/60"><tr>{head.map((cell, cellIndex) => <th key={cellIndex} className="px-2 py-1.5 text-left font-semibold"><InlineMarkdown value={cell} /></th>)}</tr></thead>
+              <tbody className="divide-y">{body.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={cellIndex} className="px-2 py-1.5 align-top"><InlineMarkdown value={cell} /></td>)}</tr>)}</tbody>
+            </table>
+          </div>,
+        )
+      }
+      continue
+    }
+    if (/^#{1,6}\s/.test(line)) {
+      blocks.push(<p key={index} className="pt-1 text-xs font-semibold"><InlineMarkdown value={line.replace(/^#{1,6}\s*/, "")} /></p>)
+      index += 1
+      continue
+    }
+    if (/^[-*]\s+/.test(line)) {
+      blocks.push(<div key={index} className="flex gap-1.5"><span className="text-muted-foreground">-</span><span><InlineMarkdown value={line.replace(/^[-*]\s+/, "")} /></span></div>)
+      index += 1
+      continue
+    }
+    blocks.push(<p key={index}><InlineMarkdown value={line} /></p>)
+    index += 1
+  }
+
+  return <div className="space-y-1.5 leading-relaxed">{blocks}</div>
+}
+
+function mentionsReport(message: string) {
+  const normalized = message.toLowerCase()
+  return normalized.includes("báo cáo") || normalized.includes("bao cao") || normalized.includes("report")
+}
+
+function isReportBuildRequest(message: string) {
+  const normalized = message.toLowerCase()
+  const report = mentionsReport(message)
+  const build = ["tạo", "tao", "làm", "lam", "lập", "lap", "sinh", "build"].some((word) => normalized.includes(word))
+  return report && build
+}
+
+function isReportCustomizationRequest(message: string) {
+  const normalized = message.toLowerCase()
+  return mentionsReport(message) && ["tùy chỉnh", "tuy chinh", "theo yêu cầu", "theo yeu cau", "custom"].some((word) => normalized.includes(word))
+}
+
+function reportBuildContext(pathname: string) {
+  const published = getReportBuildContext(pathname)
+  if (published) return published
+  const params = new URLSearchParams(window.location.search)
+  const scopeType = pathname.includes("/analytics/sections")
+    ? "section"
+    : pathname.includes("/analytics/courses")
+      ? "course"
+      : pathname.includes("/analytics/programs")
+        ? "program"
+        : pathname.includes("/analytics/departments")
+          ? "department"
+          : undefined
+  const scopeId = params.get("section_id") ?? params.get("section") ?? params.get("course_id") ?? params.get("course") ?? params.get("program_id") ?? params.get("program") ?? params.get("department_id") ?? params.get("department")
+  return {
+    source: "global_chat",
+    route: pathname,
+    scope: {
+      scope_type: scopeType,
+      scope_id: scopeId ?? undefined,
+      semester_id: params.get("semester_id") ?? undefined,
+    },
+  }
 }
 
 const WELCOME_MESSAGE = `Xin chào! Tôi là **VinUni AI Assistant** 🎓
-Tôi có thể giúp bạn trả lời nhanh các câu hỏi giao tiếp hoặc tự động chuyển hướng bạn sang trang phân tích chuyên sâu nếu câu hỏi phức tạp. Hãy nhập câu hỏi của bạn!`
+Tôi có thể hỗ trợ phân tích dữ liệu, đi sâu vào dashboard và chuẩn bị báo cáo theo phạm vi bạn được phép xem. Hãy nói cho tôi mục tiêu bạn đang cần.`
 
 export function GlobalChatShell() {
   const router = useRouter()
@@ -52,6 +162,9 @@ function GlobalChatWindow({
   const [input, setInput] = React.useState("")
   const [isLoading, setIsLoading] = React.useState(false)
   const [expandedStatuses, setExpandedStatuses] = React.useState<Record<string, boolean>>({})
+  const [reportIntakeActive, setReportIntakeActive] = React.useState(false)
+  const [reportIntakeMode, setReportIntakeMode] = React.useState<"template" | "custom">("template")
+  const [reportRequest, setReportRequest] = React.useState("")
   
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
@@ -62,18 +175,6 @@ function GlobalChatWindow({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [messages, isOpen])
-
-  const handleNewChat = () => {
-    setActiveSessionId(undefined)
-    setMessages([
-      {
-        id: "welcome",
-        role: "assistant",
-        content: WELCOME_MESSAGE,
-        timestamp: new Date(),
-      }
-    ])
-  }
 
   async function sendMessage(text: string) {
     if (!text.trim() || isLoading) return
@@ -88,6 +189,72 @@ function GlobalChatWindow({
     setMessages(prev => [...prev, userMsg])
     setInput("")
     setIsLoading(true)
+
+    if (isReportCustomizationRequest(text) && !reportIntakeActive) {
+      setMessages(prev => [...prev, {
+        id: `report-custom-${Date.now()}`,
+        role: "assistant",
+        content: "Tôi sẽ thiết kế báo cáo theo yêu cầu của bạn. Trước khi tạo, hãy cho tôi brief theo 6 ý: (1) người đọc và quyết định cần đưa ra, (2) phạm vi dữ liệu, (3) học kỳ/khoảng thời gian, (4) câu hỏi hoặc chỉ số cần trả lời, (5) cần so sánh với gì, (6) visual hoặc bảng bạn muốn thấy. Sau khi tạo xong tôi sẽ trả link trang báo cáo.",
+        timestamp: new Date(),
+      }])
+      setReportIntakeActive(true)
+      setReportRequest(text.trim())
+      setReportIntakeMode("custom")
+      setIsLoading(false)
+      return
+    }
+
+    if (mentionsReport(text) && !reportIntakeActive) {
+      setMessages(prev => [...prev, {
+        id: `report-intake-${Date.now()}`,
+        role: "assistant",
+        content: "Được. Tôi đã nhận yêu cầu tạo báo cáo. Trước khi gọi tool, hãy chốt giúp tôi: (1) phạm vi cần báo cáo, (2) học kỳ hoặc khoảng thời gian, (3) mục tiêu/câu hỏi chính. Tạo xong tôi sẽ gửi link mở trang báo cáo.",
+        timestamp: new Date(),
+        reportChoices: true,
+      }])
+      setReportIntakeActive(true)
+      setReportRequest(text.trim())
+      setReportIntakeMode("template")
+      setIsLoading(false)
+      return
+    }
+
+    if (isReportBuildRequest(text) || reportIntakeActive) {
+      const assistantMsgId = `report-plan-${Date.now()}`
+      const planMessage = reportIntakeActive
+        ? `${reportRequest}\nThông tin bổ sung: ${text.trim()}`
+        : text.trim()
+      try {
+        const plan = await api.planReportBuild({
+          message: planMessage,
+          context: {
+            ...reportBuildContext(pathname),
+            ...(reportIntakeMode === "custom" ? { custom_request: planMessage } : {}),
+          },
+        })
+        setMessages(prev => [...prev, {
+          id: assistantMsgId,
+          role: "assistant",
+          content: plan.message,
+          timestamp: new Date(),
+          reportPlan: plan,
+        }])
+        setReportIntakeActive(false)
+        setReportIntakeMode("template")
+        setReportRequest("")
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Không thể chuẩn bị báo cáo"
+        setMessages(prev => [...prev, {
+          id: assistantMsgId,
+          role: "assistant",
+          content: `**Lỗi khi chuẩn bị báo cáo:** ${message}`,
+          timestamp: new Date(),
+        }])
+      } finally {
+        setIsLoading(false)
+      }
+      return
+    }
 
     const assistantMsgId = `a-${Date.now()}`
     setMessages(prev => [...prev, {
@@ -198,7 +365,7 @@ function GlobalChatWindow({
         }
       }
     } catch (error: unknown) {
-      if (error.name === "AbortError") {
+      if (error instanceof DOMException && error.name === "AbortError") {
         return // Ignored since we intentionally aborted for redirection
       }
       const msg = error instanceof Error ? error.message : "Lỗi kết nối"
@@ -213,6 +380,28 @@ function GlobalChatWindow({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     sendMessage(input)
+  }
+
+  async function confirmReportPlan(messageId: string, plan: ApiReportBuildPlan) {
+    if (!plan.action_id || isLoading) return
+    setIsLoading(true)
+    try {
+      const result = await api.confirmReportAgentAction(plan.action_id, { action: "confirm" })
+      const reportUrl = typeof result.result.report_url === "string" ? result.result.report_url : undefined
+      setMessages(prev => prev.map((message) => message.id === messageId
+        ? {
+            ...message,
+            content: reportUrl ? "Đã tạo báo cáo." : "Đã xác nhận tạo báo cáo.",
+            reportPlan: undefined,
+            reportUrl,
+          }
+        : message))
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Không thể tạo báo cáo"
+      setMessages(prev => prev.map((item) => item.id === messageId ? { ...item, content: `**Lỗi khi tạo báo cáo:** ${message}` } : item))
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -305,9 +494,37 @@ function GlobalChatWindow({
                             )}
                           </div>
                         )}
-                        <p className="whitespace-pre-line leading-relaxed">
-                          {msg.content || (msg.isStreaming ? "Đang trả lời..." : "")}
-                        </p>
+                        <AssistantMessageContent content={msg.content || (msg.isStreaming ? "Đang trả lời..." : "")} />
+                        {msg.reportPlan ? (
+                          <div className="mt-3 space-y-2 rounded-md border bg-background/70 p-2 text-[11px] text-foreground">
+                            <div className="font-semibold">Bản nháp báo cáo</div>
+                            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-muted-foreground">
+                              <span>Mẫu</span><span className="text-right font-medium text-foreground">{String(msg.reportPlan.definition.template_label ?? msg.reportPlan.definition.report_type ?? "—")}</span>
+                              <span>Phạm vi</span><span className="text-right font-medium text-foreground">{String(msg.reportPlan.definition.scope_type ?? "—")}</span>
+                              <span>Trạng thái dữ liệu</span><span className="text-right font-medium text-foreground">{String(msg.reportPlan.data_quality.status ?? "—")}</span>
+                            </div>
+                            {Array.isArray(msg.reportPlan.definition.outline) ? <div><p className="mt-2 font-medium">Nội dung dự kiến</p><p className="mt-1 text-muted-foreground">{(msg.reportPlan.definition.outline as string[]).join(" · ")}</p></div> : null}
+                            {Array.isArray(msg.reportPlan.definition.visuals) ? <div><p className="mt-2 font-medium">Visual dự kiến</p><p className="mt-1 text-muted-foreground">{(msg.reportPlan.definition.visuals as string[]).join(" · ")}</p></div> : null}
+                            {msg.reportPlan.missing_fields.length ? (
+                              <p className="text-amber-700">Cần bổ sung: {msg.reportPlan.missing_fields.join(", ")}</p>
+                            ) : msg.reportPlan.reportUrl ? (
+                              <Button size="sm" className="w-full" onClick={() => router.push(msg.reportPlan?.reportUrl ?? "/manager/reports")}>Mở báo cáo</Button>
+                            ) : msg.reportPlan.action_id ? (
+                              <Button size="sm" className="w-full" onClick={() => void confirmReportPlan(msg.id, msg.reportPlan!)} disabled={isLoading}>Xác nhận tạo snapshot</Button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                        {msg.reportUrl ? <a href={msg.reportUrl} className="mt-2 block font-medium text-primary underline underline-offset-2">Mở báo cáo vừa tạo</a> : null}
+                        {msg.reportChoices ? (
+                          <div className="mt-3 grid gap-2">
+                            <Button variant="outline" size="sm" onClick={() => void sendMessage("Tạo báo cáo lớp đang xem, dùng điểm giữa kỳ")}>Báo cáo lớp / can thiệp</Button>
+                            <Button variant="outline" size="sm" onClick={() => void sendMessage("Tạo báo cáo sức khỏe môn học đang xem")}>Báo cáo môn học</Button>
+                            <Button variant="outline" size="sm" onClick={() => void sendMessage("Tạo báo cáo sức khỏe ngành đang xem cho học kỳ hiện tại")}>Báo cáo ngành</Button>
+                            <Button variant="outline" size="sm" onClick={() => void sendMessage("Tạo báo cáo sức khỏe khoa đang xem")}>Báo cáo khoa</Button>
+                            <Button variant="outline" size="sm" onClick={() => void sendMessage("Tạo báo cáo toàn trường cho học kỳ hiện tại")}>Tóm tắt toàn trường</Button>
+                            <Button variant="outline" size="sm" onClick={() => void sendMessage("Tôi muốn báo cáo tùy chỉnh theo yêu cầu")}>Báo cáo tùy chỉnh</Button>
+                          </div>
+                        ) : null}
                       </div>
                     )}
                   </div>

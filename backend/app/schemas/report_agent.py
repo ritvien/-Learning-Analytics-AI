@@ -98,6 +98,26 @@ class ReportAgentAskResponse(BaseModel):
     latency_ms: int = 0
 
 
+class ReportBuildPlanRequest(BaseModel):
+    """Natural-language request to prepare, but not create, a report snapshot."""
+
+    message: str = Field(..., min_length=1, max_length=4000)
+    context: dict[str, Any] = Field(default_factory=dict)
+    session_id: str | None = None
+
+
+class ReportBuildPlanResponse(BaseModel):
+    """A verified report definition awaiting explicit user confirmation."""
+
+    session_id: str
+    action_id: str | None = None
+    definition: dict[str, Any] = Field(default_factory=dict)
+    data_quality: dict[str, Any] = Field(default_factory=dict)
+    missing_fields: list[str] = Field(default_factory=list)
+    requires_confirmation: bool = True
+    message: str
+
+
 class ReportAgentConfirmRequest(BaseModel):
     """Confirm or cancel a pending action."""
 

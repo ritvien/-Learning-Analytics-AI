@@ -40,56 +40,52 @@ export default function ProgramAnalyticsPage() {
   const [programOptions, setProgramOptions] = React.useState<ApiDashboardProgramOption[]>([])
   const [data, setData] = React.useState<ApiDashboardProgram | null>(null)
   const [programId, setProgramId] = React.useState("")
-  const [semester, setSemester] = React.useState(() => {
-    if (typeof window !== "undefined") {
-      return sessionStorage.getItem("vinuni_selected_semester") || "all"
-    }
-    return "all"
-  })
+  const [semester, setSemester] = React.useState("all")
   const [cohort, setCohort] = React.useState("all")
   const [dateFrom, setDateFrom] = React.useState("")
   const [dateTo, setDateTo] = React.useState("")
   const [loading, setLoading] = React.useState(true)
-
-  React.useEffect(() => {
-    if (data?.semesters && data.semesters.length > 0) {
-      const saved = sessionStorage.getItem("vinuni_selected_semester")
-      if (!saved) {
-        const sorted = [...data.semesters].sort((a, b) => b.year * 10 + b.term - (a.year * 10 + a.term))
-        const latest = sorted[0]?.code
-        if (latest) {
-          setTimeout(() => {
-            setSemester(latest)
-          }, 0)
-          sessionStorage.setItem("vinuni_selected_semester", latest)
-        }
-      }
-    }
-  }, [data])
+  const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     const queryProgram = searchParams.get("program_id") ?? searchParams.get("program")
     const parsedProgramId = queryProgram ? Number(queryProgram) : NaN
     if (Number.isFinite(parsedProgramId)) {
       setTimeout(() => {
+        setError(null)
         setProgramId(String(parsedProgramId))
       }, 0)
       return
     }
+    setTimeout(() => {
+      setLoading(true)
+      setError(null)
+    }, 0)
     api.getDashboardOverview()
       .then((overview) => {
         setTimeout(() => {
           setProgramOptions(overview.programs)
-          setProgramId(String(overview.programs[0]?.id ?? ""))
+          const firstProgramId = overview.program_rows[0]?.id ?? overview.programs[0]?.id
+          if (firstProgramId) {
+            setProgramId(String(firstProgramId))
+          } else {
+            setLoading(false)
+            setError("Không tìm thấy ngành đào tạo nào trong dữ liệu dashboard.")
+          }
         }, 0)
       })
-      .catch(console.error)
+      .catch((err) => {
+        console.error(err)
+        setError(err instanceof Error ? err.message : "Không tải được danh sách ngành đào tạo.")
+        setLoading(false)
+      })
   }, [searchParams])
 
   React.useEffect(() => {
     if (!programId) return
     setTimeout(() => {
       setLoading(true)
+      setError(null)
     }, 0)
     api.getDashboardProgram(Number(programId), {
       semester_code: semester === "all" ? undefined : semester,
@@ -101,7 +97,11 @@ export default function ProgramAnalyticsPage() {
         setData(payload)
         setProgramOptions(payload.programs)
       })
-      .catch(console.error)
+      .catch((err) => {
+        console.error(err)
+        setData(null)
+        setError(err instanceof Error ? err.message : "Không tải được dashboard ngành đào tạo.")
+      })
       .finally(() => setLoading(false))
   }, [programId, semester, cohort, dateFrom, dateTo])
 
@@ -123,13 +123,42 @@ export default function ProgramAnalyticsPage() {
     }))
   }, [data, heatSemesters])
 
-  if (loading || !data) {
+  if (loading) {
     return <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">Đang tải dashboard ngành từ DWH...</div>
+  }
+
+  if (error) {
+    return (
+      <Card className="border-destructive/30 bg-destructive/5">
+        <CardHeader>
+          <CardTitle className="text-sm text-destructive">Không tải được dashboard ngành</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <p>{error}</p>
+          <p className="text-muted-foreground">Hãy kiểm tra backend `/api/v1/analytics/dashboard/overview` và `/api/v1/analytics/dashboard/programs/:id` đang chạy đúng dữ liệu DWH.</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!data) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Chưa có dữ liệu ngành</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          Chưa tìm thấy ngành phù hợp để hiển thị. Hãy chọn ngành từ dashboard tổng quan hoặc kiểm tra dữ liệu chương trình đào tạo.
+        </CardContent>
+      </Card>
+    )
   }
 
   const programLabel = `${data.program.code} - ${data.program.name}`
   const semesterLabel = semester === "all" ? "Tất cả học kỳ" : data.semesters.find((item) => item.code === semester)?.name ?? semester
   const cohortLabel = cohort === "all" ? "Tất cả khóa" : data.cohorts.find((item) => String(item.id) === cohort)?.code ?? cohort
+  const hasTrendSeries = data.trend.length >= 2
+  const selectedTrendPoint = data.trend[0]
 
   return (
     <div className="flex flex-col gap-6">
@@ -145,11 +174,7 @@ export default function ProgramAnalyticsPage() {
             {programOptions.map((item) => <SelectItem key={item.id} value={String(item.id)}>{item.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={semester} onValueChange={(value) => {
-          const nextVal = value ?? "all"
-          setSemester(nextVal)
-          sessionStorage.setItem("vinuni_selected_semester", nextVal)
-        }}>
+        <Select value={semester} onValueChange={(value) => setSemester(value ?? "all")}>
           <SelectTrigger className="w-52"><span className="truncate">{semesterLabel}</span></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tất cả học kỳ</SelectItem>
@@ -203,36 +228,61 @@ export default function ProgramAnalyticsPage() {
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Pass rate của ngành qua học kỳ</CardTitle></CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={data.trend}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="semester" tick={{ fontSize: 10 }} />
-                <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
-                <Tooltip formatter={(value) => [`${value}%`, "Pass rate"]} />
-                <Line dataKey="pass_rate" stroke="#16a34a" strokeWidth={2.5} />
-              </LineChart>
-            </ResponsiveContainer>
+      {hasTrendSeries ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Pass rate của ngành qua học kỳ</CardTitle></CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={data.trend}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="semester" tick={{ fontSize: 10 }} />
+                  <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip formatter={(value) => [`${value}%`, "Pass rate"]} />
+                  <Line dataKey="pass_rate" stroke="#16a34a" strokeWidth={2.5} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Điểm trung bình của ngành qua học kỳ</CardTitle></CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={data.trend}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="semester" tick={{ fontSize: 10 }} />
+                  <YAxis domain={[0, 10]} />
+                  <Tooltip formatter={(value) => [value, "Điểm TB"]} />
+                  <Line dataKey="avg_grade" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <Card className="border-dashed">
+          <CardHeader>
+            <CardTitle className="text-sm">Xu hướng qua học kỳ</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 text-sm md:grid-cols-[1fr_auto_auto] md:items-center">
+            <p className="text-muted-foreground">
+              Bộ lọc hiện tại chỉ còn {data.trend.length} học kỳ có dữ liệu, nên chưa đủ điểm để vẽ xu hướng. Chọn `Tất cả học kỳ` để xem đường biến động của ngành.
+            </p>
+            {selectedTrendPoint ? (
+              <>
+                <div className="rounded-md border bg-muted/30 px-4 py-3">
+                  <div className="text-xs text-muted-foreground">Pass rate {selectedTrendPoint.semester}</div>
+                  <div className="text-xl font-semibold">{selectedTrendPoint.pass_rate}%</div>
+                </div>
+                <div className="rounded-md border bg-muted/30 px-4 py-3">
+                  <div className="text-xs text-muted-foreground">Điểm TB {selectedTrendPoint.semester}</div>
+                  <div className="text-xl font-semibold">{selectedTrendPoint.avg_grade.toFixed(2)}</div>
+                </div>
+              </>
+            ) : null}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Điểm trung bình của ngành qua học kỳ</CardTitle></CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={data.trend}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="semester" tick={{ fontSize: 10 }} />
-                <YAxis domain={[0, 10]} />
-                <Tooltip formatter={(value) => [value, "Điểm TB"]} />
-                <Line dataKey="avg_grade" stroke="#6366f1" strokeWidth={2.5} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

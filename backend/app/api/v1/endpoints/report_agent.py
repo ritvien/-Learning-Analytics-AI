@@ -10,6 +10,7 @@ from app.agent.report_service import (
     confirm_pending_action,
     create_report_agent_session,
     get_report_agent_session,
+    plan_report_build,
     tool_registry_payload,
 )
 from app.dependencies import CurrentUser, DBSession
@@ -21,9 +22,27 @@ from app.schemas.report_agent import (
     ReportAgentSessionCreate,
     ReportAgentSessionResponse,
     ReportAgentToolInfo,
+    ReportBuildPlanRequest,
+    ReportBuildPlanResponse,
 )
 
 router = APIRouter()
+
+
+@router.post("/build/plan", response_model=ReportBuildPlanResponse)
+async def build_report_plan(
+    payload: ReportBuildPlanRequest,
+    db: DBSession,
+    current_user: CurrentUser,
+):
+    """Prepare a permission-checked report definition without persisting a report."""
+    return await plan_report_build(
+        db,
+        user=current_user,
+        message=payload.message,
+        context=payload.context,
+        session_id=payload.session_id,
+    )
 
 
 @router.get("/tools", response_model=list[ReportAgentToolInfo])

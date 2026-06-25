@@ -8,19 +8,17 @@ import {
   CalendarClock,
   CheckCircle2,
   ClipboardCheck,
-  Download,
   Eye,
-  FileBarChart2,
+  FileText,
   FileSpreadsheet,
   Filter,
-  Gauge,
   Info,
   Library,
+  ListTodo,
   Loader2,
   Plus,
   Printer,
   Search,
-  ShieldCheck,
   Sparkles,
   Wand2,
   X,
@@ -28,6 +26,7 @@ import {
 
 import {
   api,
+  setReportBuildContext,
   type ApiCourse,
   type ApiDepartment,
   type ApiProgram,
@@ -64,8 +63,7 @@ import {
 } from "@/components/reports/report-charts"
 
 type TemplateId = "department_report" | "program_report" | "course_report" | "section_report" | "school_report"
-type ReportPurpose = "operational" | "end_semester" | "accreditation"
-type ReportOutputFormat = "web_preview" | "pdf_a4" | "xlsx_appendix"
+type ReportWorkspace = "actions" | "library"
 
 interface ReportTemplate {
   id: TemplateId
@@ -125,32 +123,6 @@ const templates: ReportTemplate[] = [
   },
 ]
 
-interface ReportPurposeOption {
-  id: ReportPurpose
-  label: string
-  description: string
-  scopeOnly?: TemplateId[]
-}
-
-const purposes: ReportPurposeOption[] = [
-  {
-    id: "operational",
-    label: "Theo dõi thường kỳ",
-    description: "Ngắn gọn, tập trung cảnh báo và hành động ngay",
-  },
-  {
-    id: "end_semester",
-    label: "Tổng kết cuối kỳ",
-    description: "Đầy đủ, có CLO/PLO, phù hợp lưu trữ và gửi cấp trên",
-  },
-  {
-    id: "accreditation",
-    label: "Chuẩn bị kiểm định",
-    description: "Đóng gói minh chứng — chỉ dùng cho cấp Ngành",
-    scopeOnly: ["program_report"],
-  },
-]
-
 const scheduledReportPlans = [
   {
     name: "Báo cáo rủi ro lớp hằng tuần",
@@ -207,7 +179,7 @@ const actorReportViews = [
   { actor: "Đảm bảo chất lượng", scope: "Kiểm định", reports: "Minh chứng PLO/CLO, chất lượng dữ liệu, khoảng cách chuẩn đầu ra", detail: "Chi tiết" },
 ]
 
-const modeLabels: Record<ApiReportAgentMode, string> = {
+export const modeLabels: Record<ApiReportAgentMode, string> = {
   explain: "Giải thích chỉ số",
   root_cause: "Phân tích nguyên nhân",
   narrative: "Viết phần diễn giải",
@@ -270,7 +242,7 @@ function localizeReportText(value: unknown) {
     .replace(/\bcompleted\b/gi, "đã hoàn thành")
 }
 
-function renderAgentInline(text: string) {
+export function renderAgentInline(text: string) {
   const nodes: React.ReactNode[] = []
   const pattern = /(\*\*([^*]+)\*\*)|\[([^\]]+)\]\((\/manager\/reports\?report=[^)]+)\)|(\/manager\/reports\?report=[a-zA-Z0-9_-]+)/g
   let lastIndex = 0
@@ -303,7 +275,7 @@ function renderAgentInline(text: string) {
   return nodes
 }
 
-function renderAgentResponse(text: string) {
+export function renderAgentResponse(text: string) {
   return text.split("\n").map((line, index) =>
     line.trim() ? (
       <p key={`${index}-${line.slice(0, 12)}`} className="min-h-5">
@@ -448,6 +420,18 @@ function printReport(report: ApiReport) {
   printWindow.document.close()
   printWindow.focus()
   printWindow.print()
+}
+
+function downloadReportWord(report: ApiReport) {
+  const blob = new Blob(["\ufeff", buildReportHtml(report)], { type: "application/msword" })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = `${report.title.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "bao-cao"}.doc`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
 }
 
 function escapeHtml(value: unknown) {
@@ -734,7 +718,7 @@ export default function ReportsPage() {
   const [courses, setCourses] = React.useState<ApiCourse[]>([])
   const [semesters, setSemesters] = React.useState<ApiSemester[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = React.useState<TemplateId>("program_report")
-  const [selectedPurpose, setSelectedPurpose] = React.useState<ReportPurpose>("operational")
+  const [workspace, setWorkspace] = React.useState<ReportWorkspace>("actions")
   const [selectedReport, setSelectedReport] = React.useState<ApiReport | null>(null)
   const [selectedDepartmentId, setSelectedDepartmentId] = React.useState("")
   const [selectedProgramId, setSelectedProgramId] = React.useState("")
@@ -745,21 +729,12 @@ export default function ReportsPage() {
   const [periodEndDate, setPeriodEndDate] = React.useState("")
   const [courseSearch, setCourseSearch] = React.useState("")
   const [sectionSearch, setSectionSearch] = React.useState("")
-  const [outputFormat, setOutputFormat] = React.useState<ReportOutputFormat>("web_preview")
-  const [agentMode, setAgentMode] = React.useState<ApiReportAgentMode>("explain")
-  const [agentQuestion, setAgentQuestion] = React.useState(
-    "Giải thích tỷ lệ đạt của báo cáo này được tính như thế nào và có đáng tin không?",
-  )
-  const [agentSessionId, setAgentSessionId] = React.useState<string | undefined>()
-  const [agentAnswer, setAgentAnswer] = React.useState<ApiReportAgentAskResponse | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
   const [isGenerating, setIsGenerating] = React.useState(false)
-  const [isAsking, setIsAsking] = React.useState(false)
   const [error, setError] = React.useState("")
-  // Dialog + floating agent state
+  // Dialog state
   const [generateOpen, setGenerateOpen] = React.useState(false)
   const [scheduleOpen, setScheduleOpen] = React.useState(false)
-  const [agentOpen, setAgentOpen] = React.useState(false)
   // Library filters
   const [librarySearch, setLibrarySearch] = React.useState("")
   const [libraryTypeFilter, setLibraryTypeFilter] = React.useState("all")
@@ -769,14 +744,55 @@ export default function ReportsPage() {
   const [fromSemId, setFromSemId] = React.useState("")
   const [toSemId, setToSemId] = React.useState("")
 
+  const hasLibraryFilters = Boolean(
+    librarySearch || libraryTypeFilter !== "all" || fromSemId || toSemId || libraryDateFrom || libraryDateTo,
+  )
+
+  const resetLibraryFilters = () => {
+    setLibrarySearch("")
+    setLibraryTypeFilter("all")
+    setLibraryDateFrom("")
+    setLibraryDateTo("")
+    setFromSemId("")
+    setToSemId("")
+  }
+
   const courseMap = React.useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses])
   const semesterMap = React.useMemo(() => new Map(semesters.map((s) => [s.id, s])), [semesters])
 
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId) ?? templates[0]
   const selectedDepartment = departments.find((d) => String(d.id) === selectedDepartmentId)
   const selectedProgram = programs.find((p) => String(p.id) === selectedProgramId)
-  const selectedCourse = courses.find((c) => String(c.id) === selectedCourseId)
   const selectedSemester = semesters.find((s) => String(s.id) === selectedSemesterId)
+
+  React.useEffect(() => {
+    const scopeId = selectedTemplate.scopeType === "department"
+      ? selectedDepartmentId
+      : selectedTemplate.scopeType === "program"
+        ? selectedProgramId
+        : selectedTemplate.scopeType === "course"
+          ? selectedCourseId
+          : selectedTemplate.scopeType === "section"
+            ? selectedSectionId
+            : undefined
+    setReportBuildContext({
+      source: "report_page",
+      route: "/manager/reports",
+      scope: {
+        scope_type: selectedTemplate.scopeType,
+        scope_id: scopeId || undefined,
+        semester_id: selectedSemesterId || undefined,
+        period: { from: periodStartDate || undefined, to: periodEndDate || undefined },
+      },
+      filters: {
+        report_type: selectedTemplate.backendType,
+        department_id: selectedDepartmentId || undefined,
+        program_id: selectedProgramId || undefined,
+        course_id: selectedCourseId || undefined,
+        section_id: selectedSectionId || undefined,
+      },
+    })
+  }, [selectedTemplate, selectedDepartmentId, selectedProgramId, selectedCourseId, selectedSectionId, selectedSemesterId, periodStartDate, periodEndDate])
 
   const programOptions = React.useMemo(() => {
     if (!selectedDepartmentId) return programs
@@ -850,6 +866,33 @@ export default function ReportsPage() {
       return matchType && matchSearch && matchFrom && matchTo && matchCreatedFrom && matchCreatedTo
     })
   }, [reports, libraryTypeFilter, librarySearch, fromOrder, toOrder, libraryDateFrom, libraryDateTo])
+
+  const actionableReports = React.useMemo(() => {
+    return filteredReports.filter((report) => {
+      const risk = String(report.metrics_json?.risk_level ?? "").toLowerCase()
+      const atRisk = Number(report.metrics_json?.at_risk_students ?? report.metrics_json?.watchlist_count ?? 0)
+      return atRisk > 0 || ["cao", "high", "critical", "nguy co", "rủi ro"].some((value) => risk.includes(value))
+    })
+  }, [filteredReports])
+
+  const workspaceReports = workspace === "actions" ? actionableReports : filteredReports
+  const workspaceTitle = workspace === "actions" ? "Cần xử lý" : "Thư viện báo cáo"
+  const workspaceDescription = workspace === "actions"
+    ? "Các snapshot có cảnh báo hoặc sinh viên cần theo dõi. Mở một báo cáo để xem bằng chứng và đi sâu vào dashboard."
+    : "Tất cả snapshot báo cáo trong phạm vi bạn được phép xem."
+
+  function startReport(templateId: TemplateId) {
+    setSelectedTemplateId(templateId)
+    setGenerateOpen(true)
+  }
+
+  function selectWorkspace(nextWorkspace: ReportWorkspace) {
+    setWorkspace(nextWorkspace)
+    const nextReports = nextWorkspace === "actions" ? actionableReports : filteredReports
+    if (nextReports.length && !nextReports.some((report) => report.id === selectedReport?.id)) {
+      setSelectedReport(nextReports[0])
+    }
+  }
 
   const savedScheduleByName = React.useMemo(
     () => new Map(reportSchedules.map((item) => [item.name, item])),
@@ -938,8 +981,6 @@ export default function ReportsPage() {
     if (linkedReport) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedReport(linkedReport)
-      setAgentAnswer(null)
-      setAgentSessionId(undefined)
     }
   }, [reports, searchParams])
 
@@ -977,72 +1018,11 @@ export default function ReportsPage() {
       })
       await refreshReports()
       setSelectedReport(report)
-      setAgentAnswer(null)
-      setAgentSessionId(undefined)
       setGenerateOpen(false)
-      setAgentQuestion(
-        selectedPurpose === "accreditation"
-          ? "Báo cáo này đã đủ minh chứng để nộp kiểm định chưa? Còn thiếu phần nào?"
-          : selectedPurpose === "end_semester"
-          ? "Tổng kết kỳ này: điểm tốt, điểm cần cải thiện và hành động ưu tiên cho kỳ sau?"
-          : "Báo cáo này có điểm cảnh báo nào cần xử lý ngay không?",
-      )
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tạo được báo cáo.")
     } finally {
       setIsGenerating(false)
-    }
-  }
-
-  async function askAgent(question = agentQuestion, mode = agentMode) {
-    if (!selectedReport) {
-      setError("Cần chọn hoặc tạo một báo cáo trước khi hỏi trợ lý.")
-      return
-    }
-    setIsAsking(true)
-    setError("")
-    try {
-      const response = await api.askReportAgent({
-        report_id: selectedReport.id,
-        session_id: agentSessionId,
-        mode,
-        message: question,
-        context: {
-          metric_key: question.includes("risk") || question.includes("rủi ro") ? "risk_level" : "pass_rate",
-          scope: {
-            report_type: selectedReport.report_type,
-            scope_type: selectedReport.scope_type,
-            scope_id: selectedReport.scope_id,
-          },
-          template: selectedTemplate.title,
-          semester: selectedSemester?.name,
-        },
-      })
-      setAgentSessionId(response.session_id)
-      setAgentAnswer(response)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Trợ lý chưa trả lời được.")
-    } finally {
-      setIsAsking(false)
-    }
-  }
-
-  async function confirmPending(action: ApiReportAgentPendingAction, decision: "confirm" | "cancel") {
-    setError("")
-    try {
-      const result = await api.confirmReportAgentAction(action.id, { action: decision })
-      setAgentAnswer((cur) =>
-        cur
-          ? {
-              ...cur,
-              pending_actions: cur.pending_actions.map((item) =>
-                item.id === action.id ? { ...item, status: result.status } : item,
-              ),
-            }
-          : cur,
-      )
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không xác nhận được action.")
     }
   }
 
@@ -1052,7 +1032,7 @@ export default function ReportsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Báo cáo học vụ</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Báo cáo được hệ thống sinh tự động theo vai trò, lịch học vụ và sự kiện cập nhật điểm. Người dùng chỉ cần mở báo cáo, xuất PDF hoặc hỏi trợ lý khi cần phân tích sâu.
+            Mở báo cáo đã có, tạo báo cáo theo phạm vi cần xem, rồi xuất PDF khi cần.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1067,35 +1047,48 @@ export default function ReportsPage() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2 border-b pb-3">
+        <Button
+          variant={workspace === "actions" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => selectWorkspace("actions")}
+        >
+          <ListTodo className="mr-2 size-4" />
+          Cần xử lý
+          {actionableReports.length ? <Badge variant="secondary" className="ml-2 text-[10px]">{actionableReports.length}</Badge> : null}
+        </Button>
+        <Button
+          variant={workspace === "library" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => selectWorkspace("library")}
+        >
+          <Library className="mr-2 size-4" />
+          Thư viện
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => setScheduleOpen(true)}>
+          <CalendarClock className="mr-2 size-4" />
+          Lịch tự động
+        </Button>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        <Button variant="outline" className="justify-start" onClick={() => startReport("section_report")}>
+          <AlertTriangle className="mr-2 size-4 text-orange-600" /> Báo cáo can thiệp lớp
+        </Button>
+        <Button variant="outline" className="justify-start" onClick={() => startReport("program_report")}>
+          <ClipboardCheck className="mr-2 size-4 text-primary" /> Báo cáo sức khỏe ngành
+        </Button>
+        <Button variant="outline" className="justify-start" onClick={() => startReport("school_report")}>
+          <Library className="mr-2 size-4 text-emerald-600" /> Tóm tắt toàn trường
+        </Button>
+      </div>
+
       {error ? (
         <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-        <WorkflowCard icon={FileBarChart2} title="Báo cáo mới nhất" detail={selectedReport?.title ?? "Chưa có báo cáo"} state={selectedReport ? "active" : "idle"} />
-        <WorkflowCard
-          icon={ShieldCheck}
-          title="Độ tin cậy"
-          detail={`${dataConfidence(selectedReport)}% độ tin cậy`}
-          state={selectedReport ? "active" : "idle"}
-        />
-        <WorkflowCard
-          icon={Sparkles}
-          title="Lịch tự động"
-          detail={`${reportSchedules.filter((item) => item.is_active).length} lịch đang bật`}
-          state={selectedReport ? "active" : "idle"}
-        />
-        <WorkflowCard
-          icon={Download}
-          title="Định dạng"
-          detail="PDF A4 · Times New Roman"
-          state={selectedReport ? "active" : "idle"}
-        />
-      </div>
-
-      {/* ── Trang chính: bộ lọc + danh sách + chi tiết báo cáo ── */}
       <div className="space-y-3">
             <div className="flex flex-col gap-2 sm:flex-row">
               <div className="relative flex-1">
@@ -1105,50 +1098,6 @@ export default function ReportsPage() {
                   value={librarySearch}
                   onChange={(e) => setLibrarySearch(e.target.value)}
                   className="pl-9"
-                />
-              </div>
-              <Select value={fromSemId || "all"} onValueChange={(v) => setFromSemId(v && v !== "all" ? v : "")}>
-                <SelectTrigger className="w-full sm:w-40">
-                  <SelectValue>
-                    {fromSemId
-                      ? `Từ: ${semesters.find((s) => String(s.id) === fromSemId)?.name ?? fromSemId}`
-                      : "Từ kỳ đầu"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Từ kỳ đầu</SelectItem>
-                  {orderedSemesters.map((s) => (
-                    <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={toSemId || "all"} onValueChange={(v) => setToSemId(v && v !== "all" ? v : "")}>
-                <SelectTrigger className="w-full sm:w-40">
-                  <SelectValue>
-                    {toSemId
-                      ? `Đến: ${semesters.find((s) => String(s.id) === toSemId)?.name ?? toSemId}`
-                      : "Đến kỳ mới nhất"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Đến kỳ mới nhất</SelectItem>
-                  {orderedSemesters.map((s) => (
-                    <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="grid grid-cols-2 gap-2 sm:w-[280px]">
-                <Input
-                  type="date"
-                  value={libraryDateFrom}
-                  onChange={(event) => setLibraryDateFrom(event.target.value)}
-                  aria-label="Lọc báo cáo từ ngày"
-                />
-                <Input
-                  type="date"
-                  value={libraryDateTo}
-                  onChange={(event) => setLibraryDateTo(event.target.value)}
-                  aria-label="Lọc báo cáo đến ngày"
                 />
               </div>
               <Select value={libraryTypeFilter} onValueChange={(v) => { if (v) setLibraryTypeFilter(v) }}>
@@ -1170,27 +1119,50 @@ export default function ReportsPage() {
                 </SelectContent>
               </Select>
             </div>
+            <details className="rounded-md border bg-background px-3 py-2 text-sm">
+              <summary className="cursor-pointer font-medium text-muted-foreground">Bộ lọc nâng cao</summary>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                <Select value={fromSemId || "all"} onValueChange={(v) => setFromSemId(v && v !== "all" ? v : "")}>
+                  <SelectTrigger><SelectValue placeholder="Từ kỳ đầu" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Từ kỳ đầu</SelectItem>
+                    {orderedSemesters.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={toSemId || "all"} onValueChange={(v) => setToSemId(v && v !== "all" ? v : "")}>
+                  <SelectTrigger><SelectValue placeholder="Đến kỳ mới nhất" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Đến kỳ mới nhất</SelectItem>
+                    {orderedSemesters.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Input type="date" value={libraryDateFrom} onChange={(event) => setLibraryDateFrom(event.target.value)} aria-label="Lọc báo cáo từ ngày" />
+                <Input type="date" value={libraryDateTo} onChange={(event) => setLibraryDateTo(event.target.value)} aria-label="Lọc báo cáo đến ngày" />
+                {hasLibraryFilters ? <Button variant="outline" onClick={resetLibraryFilters}>Đặt lại bộ lọc</Button> : null}
+              </div>
+            </details>
             <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">Báo cáo tự động</span>
-                  <span className="text-muted-foreground">{filteredReports.length} bản</span>
+                  <span className="font-medium">{workspaceTitle}</span>
+                  <span className="text-muted-foreground">{workspaceReports.length} bản</span>
                 </div>
-                {filteredReports.length === 0 ? (
+                <p className="text-xs text-muted-foreground">{workspaceDescription}</p>
+                {workspaceReports.length === 0 ? (
                   <div className="rounded-lg border p-8 text-center text-sm text-muted-foreground">
-                    {reports.length === 0
+                    {workspace === "actions"
+                      ? "Chưa có báo cáo nào cần xử lý trong phạm vi đang lọc."
+                      : reports.length === 0
                       ? "Chưa có báo cáo tự động trong phạm vi của bạn."
                       : "Không tìm thấy báo cáo phù hợp."}
                   </div>
                 ) : (
                   <div className="max-h-[760px] space-y-2 overflow-y-auto pr-1">
-                    {filteredReports.map((report) => (
+                    {workspaceReports.map((report) => (
                       <button
                         key={report.id}
                         onClick={() => {
                           setSelectedReport(report)
-                          setAgentAnswer(null)
-                          setAgentSessionId(undefined)
                         }}
                         className={`w-full rounded-lg border p-3 text-left hover:bg-muted/50 ${
                           selectedReport?.id === report.id ? "border-primary bg-primary/5" : ""
@@ -1242,12 +1214,7 @@ export default function ReportsPage() {
                   <button
                     key={t.id}
                     type="button"
-                    onClick={() => {
-                      setSelectedTemplateId(t.id)
-                      if (t.scopeType !== "program" && selectedPurpose === "accreditation") {
-                        setSelectedPurpose("operational")
-                      }
-                    }}
+                    onClick={() => setSelectedTemplateId(t.id)}
                     className={`rounded-lg border p-3 text-left transition hover:bg-muted/50 ${
                       selectedTemplateId === t.id ? "border-primary bg-primary/5" : ""
                     }`}
@@ -1260,33 +1227,7 @@ export default function ReportsPage() {
               </div>
             </div>
 
-            {/* Bước B: mục đích */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Dùng để làm gì?</Label>
-              <div className="flex flex-wrap gap-2">
-                {purposes
-                  .filter((p) => !p.scopeOnly || p.scopeOnly.includes(selectedTemplateId))
-                  .map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setSelectedPurpose(p.id)}
-                      className={`rounded-full border px-4 py-1.5 text-sm transition hover:bg-muted/50 ${
-                        selectedPurpose === p.id
-                          ? "border-primary bg-primary/5 font-medium text-primary"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {purposes.find((p) => p.id === selectedPurpose)?.description}
-              </p>
-            </div>
-
-            {/* Bước C: phạm vi cụ thể */}
+            {/* Chọn phạm vi dữ liệu */}
             {selectedTemplate.scopeType !== "school" && (
               <div className="space-y-4">
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -1503,34 +1444,6 @@ export default function ReportsPage() {
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Định dạng đầu ra</Label>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {[
-                  { id: "web_preview", label: "Xem trên hệ thống", note: "Mở ngay sau khi tạo" },
-                  { id: "pdf_a4", label: "PDF A4", note: "Chuẩn in, có chữ ký" },
-                  { id: "xlsx_appendix", label: "Excel phụ lục", note: "Bảng số liệu đi kèm" },
-                ].map((format) => (
-                  <button
-                    key={format.id}
-                    type="button"
-                    onClick={() => setOutputFormat(format.id as ReportOutputFormat)}
-                    className={`rounded-lg border p-3 text-left text-sm transition hover:bg-muted/50 ${
-                      outputFormat === format.id ? "border-primary bg-primary/5 text-primary" : ""
-                    }`}
-                  >
-                    <div className="font-medium">{format.label}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">{format.note}</div>
-                  </button>
-                ))}
-              </div>
-              {outputFormat === "xlsx_appendix" ? (
-                <p className="text-xs text-amber-700">
-                  Excel phụ lục sẽ dùng cùng snapshot chỉ số; phần tải file thật cần nối backend export ở bước tiếp theo.
-                </p>
-              ) : null}
-            </div>
-
             <Button onClick={() => handleGenerate()} disabled={isGenerating} className="w-full">
               {isGenerating ? (
                 <Loader2 className="mr-2 size-4 animate-spin" />
@@ -1539,9 +1452,7 @@ export default function ReportsPage() {
               )}
               Tạo báo cáo
             </Button>
-            <p className="text-center text-xs text-muted-foreground">
-              Báo cáo sẽ được tính từ dữ liệu hiện tại, lưu vào thư viện và mở ra ngay để bạn xem.
-            </p>
+            <p className="text-center text-xs text-muted-foreground">Báo cáo sẽ mở ngay sau khi tạo. Bạn có thể xuất PDF từ bản xem.</p>
           </div>
         </DialogContent>
       </Dialog>
@@ -1643,56 +1554,11 @@ export default function ReportsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Trợ lý AI nổi ở góc phải ── */}
-      <FloatingAgent
-        open={agentOpen}
-        setOpen={setAgentOpen}
-        selectedReport={selectedReport}
-        mode={agentMode}
-        setMode={setAgentMode}
-        question={agentQuestion}
-        setQuestion={setAgentQuestion}
-        answer={agentAnswer}
-        isAsking={isAsking}
-        onAsk={() => askAgent()}
-        onQuickAsk={askAgent}
-        onConfirm={confirmPending}
-      />
     </div>
   )
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-
-function WorkflowCard({
-  icon: Icon,
-  title,
-  detail,
-  state,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  title: string
-  detail: string
-  state: "active" | "idle"
-}) {
-  return (
-    <div className={`rounded-lg border p-3 ${state === "active" ? "bg-card" : "bg-muted/30"}`}>
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <Icon className={`size-4 ${state === "active" ? "text-primary" : "text-muted-foreground"}`} />
-        {title}
-      </div>
-      <div className="mt-2 truncate text-xs text-muted-foreground">{detail}</div>
-    </div>
-  )
-}
-
-// ── Phase 2: Wizard ───────────────────────────────────────────────────────────
-
-// (WizardPanel đã gỡ bỏ — tạo báo cáo nay dùng dialog đơn giản)
-
-// ── Phase 3: Compare ──────────────────────────────────────────────────────────
-
-// (ComparePanel/CompareCard đã gỡ bỏ — so sánh kỳ nay do trợ lý AI đảm nhận qua hội thoại)
 
 interface ReportTableRow {
   label: string
@@ -2344,10 +2210,16 @@ function ReportPreview({ report, isLoading }: { report: ApiReport; isLoading: bo
             Layout A4 cũ, có thông tin báo cáo, phân tích sâu, nguyên nhân và kế hoạch hành động.
           </div>
         </div>
-        <Button onClick={() => printReport(report)}>
-          <Printer className="mr-2 size-4" />
-          Xuất PDF
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => downloadReportWord(report)}>
+            <FileText className="mr-2 size-4" />
+            Xuất Word
+          </Button>
+          <Button onClick={() => printReport(report)}>
+            <Printer className="mr-2 size-4" />
+            Xuất PDF
+          </Button>
+        </div>
       </div>
 
       <ReportStandardDocument
@@ -2956,7 +2828,7 @@ function ReportChartsSection({
 
 // ── Quick agent prompts theo loại báo cáo ────────────────────────────────────
 
-const AGENT_QUICK_PROMPTS: Record<string, { label: string; question: string; mode: ApiReportAgentMode }[]> = {
+export const AGENT_QUICK_PROMPTS: Record<string, { label: string; question: string; mode: ApiReportAgentMode }[]> = {
   school_overview: [
     { label: "Khoa/Ngành nào rủi ro nhất?", question: "Phân tích khoa và ngành đang có rủi ro cao nhất trong báo cáo toàn trường này. Dấu hiệu nào là thật và cần hành động ngay?", mode: "root_cause" },
     { label: "Xu hướng nhiều kỳ", question: "Tỷ lệ đạt toàn trường thay đổi thế nào qua các kỳ? Xu hướng đang tích cực hay đáng lo?", mode: "explain" },
@@ -3338,7 +3210,7 @@ function ReportActionPanel({
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function FloatingAgent({
+export function FloatingAgent({
   open,
   setOpen,
   ...agentProps
@@ -3365,7 +3237,7 @@ function FloatingAgent({
   )
 }
 
-function AgentPanel({
+export function AgentPanel({
   selectedReport,
   mode,
   setMode,
