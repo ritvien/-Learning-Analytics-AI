@@ -731,18 +731,18 @@ export default function ChatPage() {
                         const missingFields = msg.reportPlan.missing_fields
                         const isReady = Boolean(msg.reportPlan.action_id)
                         return (
-                          <div className="mt-3 rounded-xl border border-border bg-background/80 p-3 text-sm shadow-sm">
+                          <div className="mt-3 rounded-lg border border-border bg-background/70 p-3 text-sm">
                             <div className="mb-2 flex items-center justify-between gap-2">
                               <div>
-                                <p className="font-semibold">{isReady ? "Bản nháp báo cáo" : "Phiếu thu thập brief báo cáo"}</p>
+                                <p className="font-semibold">{isReady ? "Bản nháp báo cáo" : "Ngữ cảnh báo cáo đang hiểu"}</p>
                                 <p className="text-xs text-muted-foreground">
                                   {isReady
                                     ? "Chưa ghi snapshot cho đến khi bạn xác nhận."
-                                    : "Agent sẽ hỏi tiếp cho đến khi đủ context để chọn tool và filter đúng."}
+                                    : "Bạn chỉ cần trả lời phần còn thiếu trong câu hỏi phía trên."}
                                 </p>
                               </div>
                               <Badge variant={isReady ? "secondary" : "outline"}>
-                                {isReady ? "Sẵn sàng tạo" : "Cần bổ sung"}
+                                {isReady ? "Sẵn sàng tạo" : textValue(definition.intent_source, "Đang hiểu")}
                               </Badge>
                             </div>
 
@@ -753,11 +753,13 @@ export default function ChatPage() {
                                 <div><span className="font-medium text-foreground">Thời gian:</span> {textValue(definition.semester_label ?? definition.semester_id ?? definition.period, "Theo dữ liệu hiện có")}</div>
                               </div>
                             ) : (
-                              <div className="rounded-lg border border-dashed border-border bg-muted/30 p-2 text-xs text-muted-foreground">
+                              <div className="rounded-md bg-muted/30 p-2 text-xs text-muted-foreground">
                                 <div><span className="font-medium text-foreground">Loại:</span> {textValue(definition.template_label ?? definition.report_type, "Chưa chọn")}</div>
                                 <div><span className="font-medium text-foreground">Phạm vi:</span> {textValue(definition.scope_hint ?? definition.scope_type, "Chưa chọn")}</div>
-                                <div><span className="font-medium text-foreground">Thời gian:</span> {textValue(definition.period, "Chưa chốt")}</div>
+                                <div><span className="font-medium text-foreground">Thời gian:</span> {textValue(definition.period_label ?? definition.period, "Chưa chốt")}</div>
                                 <div><span className="font-medium text-foreground">Mục tiêu:</span> {textValue(definition.purpose, "Chưa chốt")}</div>
+                                {definition.comparison ? <div><span className="font-medium text-foreground">So sánh:</span> {textValue(definition.comparison)}</div> : null}
+                                {definition.intent_rationale ? <div><span className="font-medium text-foreground">Lý do hiểu:</span> {textValue(definition.intent_rationale)}</div> : null}
                               </div>
                             )}
 
@@ -785,11 +787,9 @@ export default function ChatPage() {
                               </div>
                             )}
 
-                            {missingFields.length > 0 && (
-                              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
-                                Cần bổ sung: {missingFields.join(", ")}
-                              </div>
-                            )}
+                            {missingFields.length > 0 ? (
+                              <p className="mt-2 text-xs text-muted-foreground">Còn thiếu: {missingFields.join(", ")}</p>
+                            ) : null}
 
                             {isReady ? (
                               <div className="mt-3 flex flex-wrap gap-2">
@@ -803,9 +803,7 @@ export default function ChatPage() {
                                 </Button>
                               </div>
                             ) : (
-                              <p className="mt-3 text-xs text-muted-foreground">
-                                Trả lời thêm thông tin còn thiếu để tôi dựng bản nháp báo cáo đúng yêu cầu.
-                              </p>
+                              null
                             )}
                           </div>
                         )

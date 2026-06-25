@@ -716,7 +716,7 @@ async def plan_report_build(
     session = await _get_or_create_session(db, user, session_id, None, "workflow", {"build_definition": definition})
     session.scope_json = {**(session.scope_json or {}), "build_definition": definition}
     if missing_fields:
-        question = _build_report_brief_question(definition, missing_fields)
+        question = await _build_report_followup_question(message, definition, missing_fields)
         return {
             "session_id": session.id,
             "definition": definition,
@@ -1297,6 +1297,51 @@ def _missing_report_brief_fields(definition: dict[str, Any], message: str, conte
     if not definition.get("purpose"):
         missing.append("purpose")
     return missing
+
+
+async def _build_report_followup_question(
+    message: str,
+    definition: dict[str, Any],
+    missing_fields: list[str],
+) -> str:
+    """Ask the next report-brief question conversationally, using LLM when configured."""
+    if not get_settings().llm_api_key:
+        return _build_report_brief_question(definition, missing_fields)
+    prompt = {
+        "task": "Write the next Vietnamese chat response for collecting a report brief.",
+        "style": [
+            "Natural, concise, helpful, not a form.",
+            "Acknowledge what is already understood.",
+            "Ask only for the missing fields, preferably in one short question.",
+            "Do not repeat a long checklist.",
+            "If only period is missing, ask the user to choose current semester, a specific semester, academic year, or date range.",
+            "Keep the answer under 120 Vietnamese words.",
+        ],
+        "current_user_message": message,
+        "understood_definition": definition,
+        "missing_fields": missing_fields,
+    }
+    try:
+        llm_kwargs = {"model": get_settings().llm_model, "api_key": get_settings().llm_api_key, "temperature": 0.2}
+        if get_settings().llm_base_url:
+            llm_kwargs["base_url"] = get_settings().llm_base_url
+        response = await ChatOpenAI(**llm_kwargs).ainvoke(
+            [
+                SystemMessage(
+                    content=(
+                        "Bạn là trợ lý phân tích học vụ VinUni. "
+                        "Hãy hỏi tiếp tự nhiên để hoàn thiện brief báo cáo; không trình bày như biểu mẫu."
+                    )
+                ),
+                HumanMessage(content=json.dumps(prompt, ensure_ascii=False)),
+            ]
+        )
+        text = response.content if isinstance(response.content, str) else ""
+        if text.strip():
+            return text.strip()
+    except Exception:
+        return _build_report_brief_question(definition, missing_fields)
+    return _build_report_brief_question(definition, missing_fields)
 
 
 def _build_report_brief_question(definition: dict[str, Any], missing_fields: list[str]) -> str:

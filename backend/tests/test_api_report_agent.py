@@ -221,6 +221,31 @@ async def test_report_build_plan_school_overview_keeps_base_template_label(clien
 
 
 @pytest.mark.asyncio
+async def test_report_build_plan_uses_llm_followup_question(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    calls: list[dict] = []
+
+    async def fake_followup_question(message, definition, missing_fields):
+        calls.append({"message": message, "definition": definition, "missing_fields": missing_fields})
+        return "Mình đã hiểu bạn muốn báo cáo tổng quan toàn trường. Bạn muốn lấy dữ liệu cho học kỳ nào?"
+
+    monkeypatch.setattr(report_service, "_build_report_followup_question", fake_followup_question)
+    response = await client.post(
+        "/api/v1/report-agent/build/plan",
+        json={"message": "báo cáo về tổng quan trường đi", "context": {"source": "full_chat"}},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert calls
+    assert data["action_id"] is None
+    assert data["definition"]["report_type"] == "school_overview"
+    assert data["definition"]["template_label"] == "Tóm tắt điều hành toàn trường"
+    assert data["message"] == "Mình đã hiểu bạn muốn báo cáo tổng quan toàn trường. Bạn muốn lấy dữ liệu cho học kỳ nào?"
+
+
+@pytest.mark.asyncio
 async def test_report_build_plan_uses_llm_intent_extractor(
     client: AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
