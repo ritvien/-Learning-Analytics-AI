@@ -50,14 +50,37 @@ function dateEndIso(value: string) {
 
 export default function OverviewPage() {
   const [data, setData] = React.useState<ApiDashboardOverview | null>(null)
-  const [semesterCode, setSemesterCode] = React.useState("all")
+  const [semesterCode, setSemesterCode] = React.useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("vinuni_selected_semester") || "all"
+    }
+    return "all"
+  })
   const [departmentId, setDepartmentId] = React.useState("all")
   const [dateFrom, setDateFrom] = React.useState("")
   const [dateTo, setDateTo] = React.useState("")
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
-    setLoading(true)
+    if (data?.semesters && data.semesters.length > 0) {
+      const saved = sessionStorage.getItem("vinuni_selected_semester")
+      if (!saved) {
+        const sorted = [...data.semesters].sort((a, b) => b.year * 10 + b.term - (a.year * 10 + a.term))
+        const latest = sorted[0]?.code
+        if (latest) {
+          setTimeout(() => {
+            setSemesterCode(latest)
+          }, 0)
+          sessionStorage.setItem("vinuni_selected_semester", latest)
+        }
+      }
+    }
+  }, [data])
+
+  React.useEffect(() => {
+    setTimeout(() => {
+      setLoading(true)
+    }, 0)
     api.getDashboardOverview({
       semester_code: semesterCode === "all" ? undefined : semesterCode,
       department_id: departmentId === "all" ? undefined : Number(departmentId),
@@ -114,7 +137,11 @@ export default function OverviewPage() {
           <p className="text-sm text-muted-foreground">Dashboard tổng hợp dùng dữ liệu đã aggregate từ DWH, không tải raw enrollment về trình duyệt.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Select value={semesterCode} onValueChange={(value) => setSemesterCode(value ?? "all")}>
+          <Select value={semesterCode} onValueChange={(value) => {
+            const nextVal = value ?? "all"
+            setSemesterCode(nextVal)
+            sessionStorage.setItem("vinuni_selected_semester", nextVal)
+          }}>
             <SelectTrigger className="w-52"><span className="truncate">{semesterLabel}</span></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả học kỳ</SelectItem>

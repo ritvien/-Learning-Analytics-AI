@@ -3,7 +3,7 @@
 import * as React from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { Student } from "@/types"
-import { api } from "@/lib/api"
+import { api, getCachedCurrentUser } from "@/lib/api"
 import { DataTable } from "@/components/crud/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -47,6 +47,15 @@ const STATUS_VI: Record<string, Student["trangThai"]> = {
 
 export default function StudentsPage() {
   const [students, setStudents] = React.useState<Student[]>([])
+  const [userRole] = React.useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      const u = getCachedCurrentUser()
+      return u ? u.role : null
+    }
+    return null
+  })
+
+  const hasWriteAccess = userRole === "superadmin" || userRole === "admin" || userRole === "manager"
 
   React.useEffect(() => {
     Promise.all([api.getStudents({ limit: 500 }), api.getPrograms({ limit: 100 })]).then(
@@ -151,7 +160,7 @@ export default function StudentsPage() {
         return <Badge variant={statusVariant(status)}>{status}</Badge>
       },
     },
-    {
+    ...(hasWriteAccess ? [{
       id: "actions",
       header: "Thao tác",
       cell: ({ row }) => {
@@ -167,7 +176,7 @@ export default function StudentsPage() {
           </div>
         )
       },
-    },
+    } as ColumnDef<Student>] : []),
   ]
 
   return (
@@ -176,48 +185,50 @@ export default function StudentsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Quản lý Sinh viên</h1>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger render={<Button />}>
-            <Plus className="mr-2 h-4 w-4" /> Thêm SV
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <form onSubmit={handleCreate}>
-              <DialogHeader>
-                <DialogTitle>Thêm Sinh viên mới</DialogTitle>
-                <DialogDescription>Nhập thông tin sinh viên.</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label htmlFor="mssv">MSSV</Label><Input id="mssv" name="mssv" required /></div>
-                  <div className="space-y-2"><Label htmlFor="hoTen">Họ tên</Label><Input id="hoTen" name="hoTen" required /></div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Giới tính</Label>
-                    <Select name="gioiTinh" defaultValue="Nam">
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="Nam">Nam</SelectItem><SelectItem value="Nữ">Nữ</SelectItem></SelectContent>
-                    </Select>
+        {hasWriteAccess && (
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger render={<Button />}>
+              <Plus className="mr-2 h-4 w-4" /> Thêm SV
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <form onSubmit={handleCreate}>
+                <DialogHeader>
+                  <DialogTitle>Thêm Sinh viên mới</DialogTitle>
+                  <DialogDescription>Nhập thông tin sinh viên.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label htmlFor="mssv">MSSV</Label><Input id="mssv" name="mssv" required /></div>
+                    <div className="space-y-2"><Label htmlFor="hoTen">Họ tên</Label><Input id="hoTen" name="hoTen" required /></div>
                   </div>
-                  <div className="space-y-2"><Label htmlFor="khoa">Khóa</Label><Input id="khoa" name="khoa" placeholder="2022" required /></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Giới tính</Label>
+                      <Select name="gioiTinh" defaultValue="Nam">
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent><SelectItem value="Nam">Nam</SelectItem><SelectItem value="Nữ">Nữ</SelectItem></SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2"><Label htmlFor="khoa">Khóa</Label><Input id="khoa" name="khoa" placeholder="2022" required /></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label htmlFor="nganh">Ngành</Label><Input id="nganh" name="nganh" required /></div>
+                    <div className="space-y-2"><Label htmlFor="chuyenNganh">Chuyên ngành</Label><Input id="chuyenNganh" name="chuyenNganh" /></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label htmlFor="khoaQuanLy">Khoa</Label><Input id="khoaQuanLy" name="khoaQuanLy" required /></div>
+                    <div className="space-y-2"><Label htmlFor="lop">Lớp</Label><Input id="lop" name="lop" required /></div>
+                  </div>
+                  <div className="space-y-2"><Label htmlFor="ngayVaoTruong">Ngày vào trường</Label><Input id="ngayVaoTruong" name="ngayVaoTruong" placeholder="dd/mm/yyyy" /></div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label htmlFor="nganh">Ngành</Label><Input id="nganh" name="nganh" required /></div>
-                  <div className="space-y-2"><Label htmlFor="chuyenNganh">Chuyên ngành</Label><Input id="chuyenNganh" name="chuyenNganh" /></div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label htmlFor="khoaQuanLy">Khoa</Label><Input id="khoaQuanLy" name="khoaQuanLy" required /></div>
-                  <div className="space-y-2"><Label htmlFor="lop">Lớp</Label><Input id="lop" name="lop" required /></div>
-                </div>
-                <div className="space-y-2"><Label htmlFor="ngayVaoTruong">Ngày vào trường</Label><Input id="ngayVaoTruong" name="ngayVaoTruong" placeholder="dd/mm/yyyy" /></div>
-              </div>
-              <DialogFooter>
-                <DialogClose render={<Button type="button" variant="outline" />}>Hủy</DialogClose>
-                <Button type="submit">Tạo mới</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <DialogFooter>
+                  <DialogClose render={<Button type="button" variant="outline" />}>Hủy</DialogClose>
+                  <Button type="submit">Tạo mới</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <DataTable columns={columns} data={students} searchKey="hoTen" searchPlaceholder="Tìm theo tên..." />

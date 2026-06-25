@@ -35,14 +35,18 @@ export function CourseAnalyticsDialog({
 
   React.useEffect(() => {
     if (isOpen && courseId) {
-      setIsLoading(true)
-      setError(null)
+      setTimeout(() => {
+        setIsLoading(true)
+        setError(null)
+      }, 0)
       api.getCourseHealth(courseId)
         .then((res) => setData(res))
         .catch((err) => setError(err.message || "Failed to load health score"))
         .finally(() => setIsLoading(false))
     } else {
-      setData(null)
+      setTimeout(() => {
+        setData(null)
+      }, 0)
     }
   }, [isOpen, courseId])
 

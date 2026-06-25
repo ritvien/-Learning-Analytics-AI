@@ -35,8 +35,10 @@ export default function DashboardLayout({
 
     const cachedUser = getCachedCurrentUser()
     if (cachedUser) {
-      setUser(cachedUser)
-      setIsChecking(false)
+      setTimeout(() => {
+        setUser(cachedUser)
+        setIsChecking(false)
+      }, 0)
       return
     }
 
@@ -53,6 +55,20 @@ export default function DashboardLayout({
         setIsChecking(false)
       })
   }, [router])
+
+  useEffect(() => {
+    if (isChecking || !user || !pathname) return
+
+    if (pathname.startsWith("/manager/users")) {
+      if (user.role !== "superadmin" && user.role !== "admin") {
+        router.replace("/forbidden")
+      }
+    } else if (pathname.startsWith("/manager/programs")) {
+      if (user.role !== "superadmin" && user.role !== "admin" && user.role !== "manager") {
+        router.replace("/forbidden")
+      }
+    }
+  }, [pathname, user, isChecking, router])
 
   function logout() {
     clearAccessToken()

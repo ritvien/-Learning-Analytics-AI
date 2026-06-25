@@ -197,7 +197,7 @@ function GlobalChatWindow({
             break
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error.name === "AbortError") {
         return // Ignored since we intentionally aborted for redirection
       }

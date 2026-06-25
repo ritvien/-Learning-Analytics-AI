@@ -3,7 +3,7 @@
 import * as React from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { Course } from "@/types"
-import { api, type ApiHealthScore } from "@/lib/api"
+import { api, getCachedCurrentUser, type ApiHealthScore } from "@/lib/api"
 import { DataTable } from "@/components/crud/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -65,6 +65,15 @@ export default function CoursesPage() {
   const [isCreateOpen, setIsCreateOpen] = React.useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = React.useState(false)
   const [deleteTarget, setDeleteTarget] = React.useState<Course | null>(null)
+  const [userRole] = React.useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      const u = getCachedCurrentUser()
+      return u ? u.role : null
+    }
+    return null
+  })
+
+  const hasWriteAccess = userRole === "superadmin" || userRole === "admin" || userRole === "manager"
 
   const handleCreate = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -162,10 +171,10 @@ export default function CoursesPage() {
         )
       }
     },
-    {
+    ...(hasWriteAccess ? [{
       id: "actions",
       header: "Thao tác",
-      cell: ({ row }) => {
+      cell: ({ row }: { row: { original: CourseWithHealth } }) => {
         const course = row.original
         return (
           <div className="flex gap-1">
@@ -178,7 +187,7 @@ export default function CoursesPage() {
           </div>
         )
       },
-    },
+    } as ColumnDef<CourseWithHealth>] : []),
   ]
 
   return (
@@ -187,32 +196,34 @@ export default function CoursesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Quản lý Môn học</h1>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger render={<Button />}>
-            <Plus className="mr-2 h-4 w-4" /> Thêm môn
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[450px]">
-            <form onSubmit={handleCreate}>
-              <DialogHeader>
-                <DialogTitle>Thêm Môn học mới</DialogTitle>
-                <DialogDescription>Nhập thông tin học phần.</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Mã HP</Label><Input name="maHocPhan" required /></div>
-                  <div className="space-y-2"><Label>Tín chỉ</Label><Input name="tinChi" type="number" min={1} max={10} defaultValue={3} required /></div>
+        {hasWriteAccess && (
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger render={<Button />}>
+              <Plus className="mr-2 h-4 w-4" /> Thêm môn
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[450px]">
+              <form onSubmit={handleCreate}>
+                <DialogHeader>
+                  <DialogTitle>Thêm Môn học mới</DialogTitle>
+                  <DialogDescription>Nhập thông tin học phần.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Mã HP</Label><Input name="maHocPhan" required /></div>
+                    <div className="space-y-2"><Label>Tín chỉ</Label><Input name="tinChi" type="number" min={1} max={10} defaultValue={3} required /></div>
+                  </div>
+                  <div className="space-y-2"><Label>Tên môn học</Label><Input name="tenMonHoc" required /></div>
+                  <div className="space-y-2"><Label>Khoa quản lý</Label><Input name="khoaQuanLy" required /></div>
+                  <div className="space-y-2"><Label>Mô tả</Label><Input name="moTa" /></div>
                 </div>
-                <div className="space-y-2"><Label>Tên môn học</Label><Input name="tenMonHoc" required /></div>
-                <div className="space-y-2"><Label>Khoa quản lý</Label><Input name="khoaQuanLy" required /></div>
-                <div className="space-y-2"><Label>Mô tả</Label><Input name="moTa" /></div>
-              </div>
-              <DialogFooter>
-                <DialogClose render={<Button type="button" variant="outline" />}>Hủy</DialogClose>
-                <Button type="submit">Tạo mới</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <DialogFooter>
+                  <DialogClose render={<Button type="button" variant="outline" />}>Hủy</DialogClose>
+                  <Button type="submit">Tạo mới</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <DataTable columns={columns} data={courses} searchKey="tenMonHoc" searchPlaceholder="Tìm theo tên môn..." />
