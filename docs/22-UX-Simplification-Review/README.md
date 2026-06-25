@@ -1,599 +1,399 @@
 # UX Simplification Review
 
-> Ngay review: 24/06/2026  
-> Muc tieu: don gian hoa he thong, giam thao tac thua, giu cac luong co gia tri cao cho demo va nguoi dung that.  
-> Pham vi doc code: frontend dashboard, analytics filters, report center, chat, navigation, preload, CRUD va RBAC surface.
+> Ngày review: 25/06/2026  
+> Vai trò review: chuyên gia UX/UI, mục tiêu đơn giản hóa việc sử dụng cho manager, lecturer, admin và demo viewer.  
+> Phạm vi đã đối chiếu code: `frontend/src/app/(dashboard)`, sidebar, preload, analytics dashboard, report center, chat shell, RBAC surface.
 
-## 1. Ket luan nhanh
+## 1. Kết luận nhanh
 
-He thong da co nen tang chuc nang tot: dashboard tong quan dung API aggregate, dashboard nganh co filter ro, report center sau, chat co session va stream, RBAC backend/UI da co huong dung. Diem can sua khong phai them nhieu tinh nang nua, ma la giam so man hinh va giam so filter nguoi dung phai tu hieu.
+Sản phẩm đã có nền tảng dữ liệu tốt: academic tree, dashboard DWH aggregate, analytics theo ngành/môn/lớp/sinh viên, report center và chat AI. Vấn đề chính không phải thiếu tính năng, mà là **quá nhiều điểm vào ngang hàng**, **filter nặng**, và **một số trang kéo raw data lớn trên frontend**.
 
-Cap nhat thuc thi ngay 24/06/2026:
+Quyết định UX để làm hệ thống dễ dùng hơn:
 
-- Da don sidebar theo nhom Dieu hanh / Theo doi / Du lieu / He thong; an Departments Analytics va Student Analytics khoi sidebar, giu route noi bo.
-- Da cat preload raw lon sau login; `DashboardPreloader` chi con route prefetch va API nhe.
-- Da dua date range vao "Bo loc nang cao" tren cac dashboard analytics chinh va them nut Dat lai.
-- Da Viet hoa cac label dashboard con sot nhu Program Overview Table, Course Performance in Program, Credit progress, Risk Explanation, Student Transcript Table, Course Analytics dialog.
-- Da sua cac loi lint chan build lien quan den nhom file vua cham; frontend lint con warning khong chan.
-
-Quyet dinh san pham de de dung hon:
-
-| Hang muc | Quyet dinh | Ly do |
+| Hạng mục | Quyết định UX | Lý do |
 |---|---|---|
-| Dashboard tong quan | Giu lam landing chinh sau login | Tra loi nhanh "truong/khoa/nganh dang on khong?" |
-| Co cau dao tao tree | Giu, nhung doi thanh "Cay dao tao" va dung nhu drill-down | Hien dang trung vai tro voi dashboard tong quan |
-| Analytics theo Khoa/Ngành | Gop vao tong quan hoac an khoi sidebar | Trang nay trung voi tong quan va nganh dao tao |
-| Analytics theo Ngành | Giu, nhung mo tu drill-down va filter it hon | Co gia tri cao cho truong khoa/truong nganh |
-| Analytics theo Môn | Giu, nhung can backend aggregate, khong tai 50k enrollment | Hien tai nang va co nhieu bieu do chuyen sau |
-| Analytics theo Lớp | Giu nhu man hinh canh bao lop va SV rui ro | Co gia tri hanh dong ro cho lecturer/covan |
-| Analytics theo Sinh viên | Chuyen thanh drill-down tu danh sach SV, khong de sidebar mac dinh | Select 1000 SV khong phu hop UX |
-| Date range | Dua vao "Bo loc nang cao" | Nguoi dung chinh thuong hay chon hoc ky, khong chon ngay raw |
-| Global preloader | Cat bot preload raw lon | Dang tai nen qua nhieu, co nguy co lam app cham |
-| Report Center | Giu, nhung chia 2 tab "Tao bao cao" va "Thu vien bao cao" | Trang hien rat manh nhung qua day |
-| Chat AI | Giu global chat, chat full page de lich su/phien | Tranh de 2 entry point gay roi bang copy va hanh vi khac nhau |
+| Landing sau login | Nên vào `Tổng quan`, không vào `Cơ cấu đào tạo` | Người dùng cần biết ngay "đang ổn không, cần xử lý gì" |
+| Academic tree | Giữ như màn drill-down, đổi tên thành `Cây đào tạo` | Tree có giá trị khám phá cấu trúc, nhưng không phải dashboard điều hành |
+| Sidebar analytics | Giảm từ 5 mục ngang hàng xuống 2-3 mục chính | Giảm rối và bắt đầu từ việc cần làm |
+| Student analytics | Ẩn khỏi sidebar mặc định, mở từ search/drill-down | Select 1000 SV không phù hợp việc sử dụng hằng ngày |
+| Department analytics | Ẩn khỏi sidebar mặc định, giữ route nội bộ | Trùng với tổng quan và chi tiết ngành |
+| Course/section analytics | Giữ vì có giá trị hành động cao, nhưng cần aggregate API | Hiện tại còn tải raw enrollment lớn |
+| Date range | Đưa vào `Bộ lọc nâng cao` | Người dùng thường chọn học kỳ, không chọn ngày raw |
+| Report Center | Giữ và tổ chức actor-first: `Cần xử lý`, `Thư viện`, `Lịch tự động` | Báo cáo nên bắt đầu từ hành động |
+| Chat AI | Giữ global chat + full chat, nhưng prompt phải theo context trang | Tránh chat chung chung và lặp entry point |
 
-## 2. Actor va viec can lam
+## 2. Trạng thái code frontend đã kiểm chứng
 
-### Superadmin / Admin
+Những điểm dưới đây được đối chiếu trực tiếp với frontend ngày 25/06/2026.
 
-Muc tieu that:
-
-- Quan ly tai khoan va quyen.
-- Xem suc khoe toan truong.
-- Dieu tra loi/hanh vi neu co su co.
-
-Trai nghiem nen co:
-
-- Sau login vao "Tong quan" voi KPI, canh bao, top khoa/nganh/mon can chu y.
-- Sidebar chi hien cac muc quan tri that su can: Tong quan, Cay dao tao, Bao cao, Tai khoan, Quan sat he thong.
-- Observability API T53 nen co UI sau, nhung khong can len demo chinh neu chua co thoi gian.
-
-Can giam:
-
-- Khong day admin vao nhieu trang analytics con ngay tu sidebar.
-- Khong bat admin phai hieu "course/section/enrollment" neu chi can xem rui ro cap truong.
-
-### Manager / Truong khoa / Truong nganh
-
-Muc tieu that:
-
-- Biet khoa/nganh nao dang giam.
-- Tim mon/lop keo ket qua xuong.
-- Tao bao cao va action plan.
-
-Trai nghiem nen co:
-
-- Mac dinh filter theo scope cua user. Neu manager thuoc khoa, dashboard mo san khoa do.
-- Luong chinh: Tong quan -> chon khoa/nganh -> mon bottleneck -> lop/SV can ho tro -> tao bao cao.
-- Bo loc can co thu tu: Hoc ky, Khoa, Nganh, Mon, Lop. Cac filter sau phu thuoc filter truoc.
-
-Can giam:
-
-- Trang "Phan tich theo Khoa/Ngành" rieng co the gop vao Tong quan.
-- Date range nen an trong "Nang cao"; hoc ky la bo loc chinh.
-
-### Lecturer / Co van hoc tap
-
-Muc tieu that:
-
-- Xem cac lop minh phu trach.
-- Biet SV nao can chu y.
-- Hoi AI hoac tao report section intervention.
-
-Trai nghiem nen co:
-
-- Sidebar cho lecturer nen uu tien: Lop cua toi, SV can chu y, Bao cao, Chat.
-- Bo loc mac dinh theo lop cua giang vien, khong hien "Toan truong".
-- Man hinh lop nen co CTA ro: "Mo danh sach SV can ho tro", "Tao bao cao lop", "Hoi AI ve lop nay".
-
-Can giam:
-
-- Khong hien cac dashboard toan truong neu backend da chan hoac user khong co scope.
-- Khong de lecturer phai chon tu danh sach 5000 section.
-
-### Nguoi dung moi / Demo viewer
-
-Muc tieu that:
-
-- Hieu san pham trong 30 giay.
-- Thay duoc du lieu that va hanh dong tiep theo.
-
-Trai nghiem nen co:
-
-- First screen: 4-5 KPI, 3 canh bao uu tien, 1 bang "can xu ly".
-- Moi chart can co hanh dong drill-down gan no.
-- Tu ngu can thong nhat tieng Viet, han che label tieng Anh trong UI.
-
-## 3. Review navigation hien tai
-
-Sidebar hien tai co 4 nhom: Quan ly chung, Phan tich, Dao tao, He thong. Van de la nhom "Phan tich" co qua nhieu entry ngang hang:
-
-- Tong quan toan truong
-- Nganh dao tao
-- Mon hoc
-- Lop hoc phan
-- Sinh vien
-
-Kien nghi sidebar moi:
-
-| Nhom | Muc giu | Ghi chu |
+| Khu vực | Trạng thái hiện tại | Tác động UX |
 |---|---|---|
-| Dieu hanh | Tong quan, Cay dao tao, Bao cao | 3 muc chinh cho manager/admin |
-| Theo doi | Lop & SV can chu y, Mon bottleneck | Chi hien khi co quyen/scope |
-| Du lieu | Sinh vien, Giang vien, Khoa/Ngành, Mon hoc, Diem so | CRUD/van hanh |
-| He thong | Tai khoan, Upload CTDT, Quan sat he thong | Admin/superadmin only cho muc nhay cam |
+| Sidebar | Vẫn chia `Quản lý chung / Phân tích / Đào tạo / Hệ thống`; `Cơ cấu đào tạo` đứng đầu; `Sinh viên` analytics vẫn hiện trong sidebar | Chưa actor-first, người mới dễ bị dẫn vào nhiều dashboard con |
+| Dashboard preloader | Vẫn preload `sections 5000`, `students 1000`, `courses 1000`, `enrollments 50000`, `gradeComponents 10000` | Rủi ro chậm sau login, đặc biệt khi demo qua Ngrok |
+| Tổng quan | Dùng aggregate `/analytics/dashboard/overview`, nhưng date filter vẫn nằm ngang hàng và title bảng còn là `Program Overview Table` | Nên polish P0 vì đây là màn hình chính |
+| Departments analytics | Route còn tồn tại, có date filter ngang hàng | Nên giữ deep-link, ẩn khỏi sidebar |
+| Programs analytics | Dùng aggregate `/analytics/dashboard/programs/{id}`, nhưng label `Course Performance in Program` còn tiếng Anh | Nên giữ, cần search ngành và polish copy |
+| Courses analytics | Gọi `getEnrollments limit 50000`, `getSections limit 5000`, health batch | Cần aggregate API trước khi xem là production-ready |
+| Sections analytics | Gọi `getEnrollments limit 50000`, `getSections limit 5000`, `getStudents limit 1000` | Trang có giá trị cao nhưng đang nặng |
+| Students analytics | Gọi `getStudents limit 1000`, `getSections limit 5000`, sau đó detail enrollment; còn label `Credit progress`, `Risk Explanation`, `Student Transcript Table` | Nên chuyển thành detail route/search, không để sidebar |
+| Report Center | Đã có workspace `Cần xử lý` và `Thư viện báo cáo`, dialog tạo báo cáo có search môn/lớp | Hướng đúng; cần thêm tab/section `Lịch tự động` rõ hơn và giảm độ dài page |
+| RBAC UI | Layout guard mới chặn `/manager/users` và `/manager/programs`; sidebar ẩn item theo role riêng 2 route này | Chưa có route policy tập trung cho tất cả path/scope |
+| Header role | Vẫn hiện raw role (`superadmin`, `admin`, `manager`...) | Cần Việt hóa role label |
 
-Can thay:
+## 3. Actor-first information architecture
 
-- "Cơ cấu đào tạo" -> "Cây đào tạo".
-- "Tổng quan toàn trường" -> "Tổng quan".
-- "Ngành đào tạo" trong Phân tích -> "Chi tiết ngành".
-- "Sinh viên" trong Phân tích -> bo khoi sidebar, chi mo tu search/drill-down.
-- "Upload CTĐT" -> "Tài liệu CTĐT" neu chua that su upload/index RAG hoan chinh.
+### 3.1 Sidebar đề xuất
 
-## 4. Review dashboard va bo loc
+Sidebar không nên phân chia theo database entity trước. Nên phân chia theo việc người dùng muốn làm.
 
-### 4.1 Tong quan toan truong
+| Nhóm | Mục | Role hiện |
+|---|---|---|
+| Điều hành | Tổng quan | Tất cả user có dashboard |
+| Điều hành | Cây đào tạo | Admin, manager, viewer demo |
+| Theo dõi | Lớp & SV cần chú ý | Manager, lecturer |
+| Theo dõi | Môn bottleneck | Manager, lecturer |
+| Báo cáo | Báo cáo | Manager, lecturer, admin |
+| Dữ liệu | Sinh viên, Giảng viên, Khoa & Ngành, Môn học, Điểm số | Theo role/scope |
+| Hệ thống | Chat AI, Tài khoản & phân quyền, Tài liệu CTĐT, Quan sát hệ thống | Chat cho tất cả; còn lại theo role |
 
-Trang tot:
+Tên cần đổi:
 
-- Dung API aggregate `/analytics/dashboard/overview`.
-- Co KPI, trend, pass rate theo khoa, cohort, heatmap, bang program overview.
-- Filter hoc ky/khoa/ngay ro rang.
+| Hiện tại | Đề xuất |
+|---|---|
+| `Cơ cấu đào tạo` | `Cây đào tạo` |
+| `Tổng quan toàn trường` | `Tổng quan` |
+| `Ngành đào tạo` trong Phân tích | `Chi tiết ngành` |
+| `Lớp học phần` | `Lớp & SV cần chú ý` |
+| `Upload CTĐT` | `Tài liệu CTĐT` |
 
-Can sua:
+Những mục nên ẩn khỏi sidebar mặc định:
 
-- Date range nen an vao "Nang cao". Bo loc chinh nen chi la Hoc ky + Khoa.
-- Bang "Program Overview Table" can doi title sang tieng Viet: "Tong quan nganh".
-- Action "Xem ngành" tot, nen them action "Xem môn rủi ro" neu row co worst_course.
-- Heatmap nganh x hoc ky nen dat sau bang canh bao, khong can o giua neu nguoi dung can hanh dong nhanh.
-- Badge filter lap lai noi dung cua select, chi nen hien khi filter khac mac dinh.
+- `/manager/analytics/departments`: giữ route nội bộ, mở từ click khoa trên tổng quan.
+- `/manager/analytics/students`: giữ route detail/search, mở từ danh sách SV cần chú ý hoặc global search.
 
-Filter target:
+### 3.2 Landing theo actor
+
+| Actor | Landing nên thấy | Việc tiếp theo rõ nhất |
+|---|---|---|
+| Superadmin/Admin | Tổng quan + cảnh báo hệ thống/cấp trường | Quản lý tài khoản, kiểm tra observability khi lỗi |
+| Manager khoa | Tổng quan đã scope theo khoa | Mở ngành/môn/lớp đang đỏ |
+| Trưởng ngành | Chi tiết ngành theo scope | Mở môn bottleneck, tạo báo cáo ngành |
+| Lecturer | Lớp & SV cần chú ý | Mở lớp của mình, tạo report lớp, hỏi AI |
+| Demo viewer | Tổng quan có KPI + 3 cảnh báo + 1 CTA | Theo luồng demo trong 30 giây |
+
+## 4. Thiết kế từng page
+
+### 4.1 `/manager/analytics` - Tổng quan
+
+Vai trò: màn hình điều hành chính.
+
+Cần thiết kế:
+
+- First screen gồm 4-5 KPI, 3 cảnh báo ưu tiên, bảng `Cần xử lý trước`.
+- Filter mặc định chỉ hiện: `Học kỳ gần nhất`, `Khoa` theo scope.
+- `Từ ngày / Đến ngày` đưa vào `Bộ lọc nâng cao`.
+- Active chip chỉ hiện khi filter khác mặc định.
+- Đổi `Program Overview Table` thành `Tổng quan ngành`.
+- Trong bảng ngành, thêm action gắn ngữ cảnh: `Xem ngành`, `Xem môn rủi ro`, `Tạo báo cáo`.
+- Heatmap đặt sau bảng cảnh báo, vì đây là phần điều tra, không phải việc đầu tiên.
+
+DoD page:
+
+- Người dùng vào trang biết ngay: tỷ lệ đạt, điểm TB, đơn vị rủi ro nhất, việc cần làm tiếp theo.
+- Không tải raw enrollment trên frontend.
+
+### 4.2 `/manager` - Cây đào tạo
+
+Vai trò: drill-down cấu trúc trường -> khoa -> ngành/chuyên ngành.
+
+Cần thiết kế:
+
+- Đổi title từ `Cơ cấu tổ chức đào tạo` thành `Cây đào tạo`.
+- Đặt link phụ trong sidebar sau `Tổng quan`.
+- Khi click khoa/ngành, panel bên dưới cần có CTA: `Mở dashboard`, `Mở môn bottleneck`, `Hỏi AI`.
+- Các prompt AI trong dropdown nên ngắn và theo dữ liệu hiện có; tránh hỏi CTĐT/RAG nếu RAG chưa sẵn sàng.
+- Trên mobile, tree cần có chế độ list/accordion để tránh node quá nhỏ.
+
+DoD page:
+
+- Tree dùng để chọn scope và drill-down, không bị hiểu nhầm là dashboard chính.
+
+### 4.3 `/manager/analytics/departments` - Phân tích khoa/ngành
+
+Vai trò: route nội bộ cho điều tra khoa, không nên là entry sidebar.
+
+Cần thiết kế:
+
+- Ẩn khỏi sidebar.
+- Mở từ row khoa trong `Tổng quan`.
+- Nếu giữ page riêng, title nên là `Chi tiết khoa`.
+- Filter chính: `Học kỳ`, `Khoa`; `Ngành`, date range vào advanced.
+- Biểu đồ/top môn/lớp bất thường phải có action sang course/section/report.
+
+DoD page:
+
+- Không trùng lặp với `Tổng quan`; mỗi chart phải trả lời một câu hỏi hành động.
+
+### 4.4 `/manager/analytics/programs` - Chi tiết ngành
+
+Vai trò: phân tích sức khỏe ngành/chuyên ngành.
+
+Cần thiết kế:
+
+- Đổi title `Ngành đào tạo` thành `Chi tiết ngành`.
+- Select ngành thành combobox search theo mã/tên ngành.
+- Khi vào từ query param `program`, auto chọn đúng ngành.
+- Đổi `Course Performance in Program` thành `Môn kéo kết quả ngành xuống`.
+- `Khóa nhập học`, `Từ ngày`, `Đến ngày` đưa vào advanced.
+- Bảng môn cần có action: `Mở môn`, `Mở lớp yếu`, `Tạo báo cáo ngành`.
+
+DoD page:
+
+- Trả lời rõ: ngành này có ổn không, khóa sinh viên nào đang yếu, môn nào cần đào sâu.
+
+### 4.5 `/manager/analytics/courses` - Môn bottleneck / Chi tiết môn
+
+Vai trò: tìm môn học đang kéo kết quả xuống và đào sâu một môn.
+
+Cần thiết kế:
+
+- Tách hai mode trong cùng route:
+  - `Môn cần chú ý`: bảng aggregate top/bottom course, search môn.
+  - `Chi tiết môn`: mở khi có `course_id`.
+- Không gọi `getEnrollments limit 50000` để render mặc định. Cần backend aggregate `/analytics/dashboard/courses`.
+- Filter chính: `Học kỳ`, `Tìm môn`.
+- Advanced: `Khoa`, `Ngành`, date range.
+- Bảng lớp trong môn có action: `Mở lớp`, `Tạo báo cáo môn`, `Hỏi AI về môn`.
+
+DoD page:
+
+- Default page load nhanh và không cần user chọn filter trước mới có insight.
+
+### 4.6 `/manager/analytics/sections` - Lớp & SV cần chú ý
+
+Vai trò: màn hình hành động cao nhất cho lecturer/cố vấn/manager.
+
+Cần thiết kế:
+
+- Đổi nav/title thành `Lớp & SV cần chú ý`.
+- Lecturer mặc định chỉ thấy lớp của mình.
+- Cho search lớp trực tiếp theo mã lớp/mã môn, không bắt buộc chọn môn trước.
+- Filter chính: `Học kỳ`, `Tìm lớp`.
+- Advanced: `Môn`, `Giảng viên`, date range.
+- Bảng lớp có action: `Mở lớp`, `Tạo báo cáo lớp`, `Hỏi AI`.
+- Detail lớp cần tách 2 vùng:
+  - `Cần can thiệp`: SV thiếu điểm, trượt, cận trượt, điểm quá yếu.
+  - `Roster đầy đủ`: danh sách lớp, có search MSSV/họ tên.
+- Cần aggregate API `/analytics/dashboard/sections` để thay raw enrollment/students.
+
+DoD page:
+
+- Giảng viên vào trang thấy ngay lớp nào và sinh viên nào cần xử lý trong hôm nay.
+
+### 4.7 `/manager/analytics/students` - Hồ sơ sinh viên
+
+Vai trò: detail hồ sơ, không phải dashboard sidebar.
+
+Cần thiết kế:
+
+- Ẩn khỏi sidebar.
+- Mở từ row SV cần chú ý, roster lớp, CRUD sinh viên, hoặc global search.
+- Thay select 1000 SV bằng combobox search MSSV/họ tên/lớp.
+- Đổi label:
+  - `Credit progress` -> `Tiến độ tín chỉ`
+  - `Risk Explanation` -> `Lý do cần theo dõi`
+  - `Student Transcript Table` -> `Bảng điểm học phần`
+  - `Risk level` -> `Mức theo dõi`
+- Khi có dropout-risk API, hiện badge `Nguy cơ bỏ học` với xác suất đọc từ schema `ml`; UI chỉ giải thích, không tự tính xác suất.
+
+DoD page:
+
+- Người dùng tìm được sinh viên trong 1-2 thao tác và biết vì sao cần theo dõi.
+
+### 4.8 `/manager/reports` - Báo cáo
+
+Vai trò: biến insight thành artifact và action plan.
+
+Trang hiện đã đi đúng hướng với `Cần xử lý` và `Thư viện báo cáo`. Cần tiếp tục:
+
+- Tách rõ 3 workspace:
+  - `Cần xử lý`: mặc định, chỉ báo cáo có rủi ro/watchlist.
+  - `Thư viện`: tất cả snapshot trong scope.
+  - `Lịch tự động`: scheduled reports, không trộn với đọc báo cáo hằng ngày.
+- Dialog tạo báo cáo dùng wizard 3 bước:
+  - Chọn mục tiêu: Toàn trường/Khoa/Ngành/Môn/Lớp.
+  - Chọn phạm vi và học kỳ.
+  - Xem trước/Tạo báo cáo.
+- Report Agent chỉ mở đầy đủ khi đã chọn report. Khi chưa có report, hiện quick starts.
+- Search môn/lớp trong dialog đang có, giữ lại.
+
+DoD page:
+
+- User mới biết nên mở báo cáo có sẵn hay tạo báo cáo mới trong vòng 10 giây.
+
+### 4.9 `/chat` và global chat shell
+
+Vai trò: hỏi đáp và giải thích theo ngữ cảnh.
+
+Cần thiết kế:
+
+- Global chat label thành `Hỏi nhanh`.
+- Full chat page dùng cho session/history.
+- Prompt gợi ý phải theo route:
+  - Tổng quan: "Đơn vị nào cần xử lý trước?"
+  - Ngành: "Môn nào kéo kết quả ngành xuống?"
+  - Lớp: "SV nào cần liên hệ trước?"
+  - Báo cáo: "Viết action plan cho báo cáo này."
+- Nếu prompt cần ML dropout, phải đọc từ API/schema `ml`, không để LLM tạo probability.
+
+DoD page:
+
+- Chat không phải hộp chat chung chung; nó biết ngữ cảnh page hiện tại.
+
+### 4.10 CRUD và RBAC
+
+Vai trò: vận hành dữ liệu và quản trị quyền.
+
+Cần thiết kế:
+
+- Header Việt hóa role: `Superadmin`, `Quản trị`, `Quản lý`, `Giảng viên`, `Người xem`.
+- Tạo policy map route UI tập trung thay vì hard-code từng route trong layout.
+- CRUD data nằm sau nhóm `Theo dõi/Báo cáo` trong sidebar.
+- Form CRUD mặc định scope theo role, tránh manager chọn nhầm khoa ngoài quyền.
+- Sau khi tạo/sửa entity, nếu có analytics liên quan thì có link `Xem phân tích`.
+
+DoD page:
+
+- Sidebar ẩn đúng, route guard chặn đúng, API vẫn là lớp chấp hành cuối cùng.
+
+## 5. Filter model chung
+
+Nguyên tắc:
+
+- Default chỉ hiện filter người dùng dùng 80% thời gian.
+- Date range là advanced.
+- Select dài phải là combobox search.
+- Filter phụ thuộc nhau: Khoa -> Ngành -> Môn -> Lớp.
+- Active chip chỉ hiện khi khác default.
+- Luôn có `Đặt lại`.
+
+Mẫu filter:
 
 ```text
-Hang mac dinh:
-[Hoc ky: Hoc ky gan nhat] [Khoa: Theo scope / Toan truong]
+[Học kỳ: Gần nhất] [Phạm vi: Theo quyền] [Tìm môn/lớp/SV...]
 
-Nang cao:
-[Tu ngay] [Den ngay] [Reset]
+Bộ lọc nâng cao
+  [Khoa] [Ngành] [Môn] [Lớp] [Từ ngày] [Đến ngày] [Đặt lại]
+
+Đang lọc: Học kỳ 2024-2025 HK2 · Khoa CNTT · 2 filter
 ```
 
-### 4.2 Phan tich Khoa / Nganh
-
-Trang hien co:
-
-- Filter Hoc ky, Khoa, Nganh, Tu ngay, Den ngay.
-- Co chart pass rate, diem TB, SV co luot truot, heatmap, drill-down top mon/lop bat thuong.
-
-Nhan dinh:
-
-- Chuc nang trung nhieu voi Tong quan va Chi tiet nganh.
-- Nen khong de thanh muc sidebar rieng trong demo.
-
-Kien nghi:
-
-- Gop chart pass rate theo khoa va heatmap vao Tong quan.
-- Gop drill-down top mon/lop vao "Chi tiet khoa" mo khi click khoa.
-- Neu chua kip gop code, an link sidebar `/manager/analytics/departments` va chi giu route de deep-link noi bo.
-
-### 4.3 Chi tiet nganh
-
-Trang tot:
-
-- Dung API aggregate `/analytics/dashboard/programs/{id}`.
-- Filter nganh/hoc ky/khoa/ngay.
-- Co trend, phan bo ket qua, heatmap khoa x hoc ky, course performance.
-
-Can sua:
-
-- Select nganh can co search/combobox; select dai se kho dung khi nhieu nganh.
-- Khi vao tu Tong quan, filter nganh da co query param la dung.
-- Doi label tieng Anh "Course Performance in Program" -> "Môn kéo kết quả ngành xuống".
-- Bo loc "Khóa" chi nen hien khi dang phan tich cohort; neu khong, de trong Nang cao.
-
-Quy uoc de tranh nham:
-
-- Heatmap "Ty le dat theo khoa nhap hoc va hoc ky" tra loi: **khoa sinh vien nao dang giam ket qua qua cac hoc ky?** Moi o la pass rate, khong phai diem trung binh va khong phai mot mon hoc.
-- Bang "Mon keo ket qua nganh xuong" tra loi: **mon nao can dao sau?** Day la diem bat dau cho drill-down sang chi tiet mon va lop hoc phan.
-- Huong dan onboarding phai tro dung tung khu vuc; khong dung selector chung `table` vi trang co nhieu bang.
-
-### 4.4 Phan tich mon hoc
-
-Trang hien co:
-
-- Filter Khoa -> Nganh -> Mon -> Date.
-- Neu khong chon mon, trang keo `enrollments limit: 50000`, `sections limit: 5000`, health batch nhieu mon.
-- Co overview top/bottom mon va khi chon mon thi co trend, phan bo diem, chi tiet lop.
-
-Van de:
-
-- Tai raw enrollment lon tren frontend la diem can sua P0.
-- Filter Khoa bi bat buoc truoc Nganh, nhung neu nguoi dung co mon cu the tu search/deep-link thi nen di thang.
-- Trang vua lam "mon bottleneck overview" vua lam "chi tiet mon", nen hoi qua tai.
-
-Kien nghi:
-
-- Tach thanh 2 che do trong cung route:
-  - Mac dinh: "Mon can chu y" bang aggregate/top bottom.
-  - Sau khi chon mon: "Chi tiet mon".
-- Backend nen co API aggregate cho course analytics, khong tai 50k enrollments.
-- Date range dua vao Nang cao.
-- Them search mon theo ma/ten.
-
-### 4.5 Lop hoc phan & SV nguy co
-
-Trang hien co:
-
-- Filter Hoc ky -> Mon -> Lop, date range.
-- Neu khong chon lop/mon, co the keo raw enrollment `limit: 50000`.
-- Co bang lop pass rate thap, danh sach SV can chu y khi chon lop.
-
-Trang nay co gia tri hanh dong cao, nen giu.
-
-Can sua:
-
-- Mac dinh lecturer: chi hien lop cua minh.
-- Select lop dang disabled neu chua chon mon; nen cho search lop truc tiep theo ma lop.
-- Neu chon Hoc ky, list Mon/Lop nen la dependent options dung.
-- Bang "Tat ca lop trong pham vi" nen co action "Mo lop", "Tao bao cao", "Hoi AI".
-- Backend aggregate section overview can thay raw enrollment.
-
-### 4.6 Dashboard ca nhan sinh vien
-
-Trang hien co:
-
-- Load `students limit: 1000`, sections, courses, semesters, programs.
-- Chon SV bang Select list 1000 dong.
-- Sau do load enrollments cua SV.
-
-Van de UX:
-
-- Khong nen la muc sidebar mac dinh.
-- Select 1000 SV khong search la kho dung.
-- Trang dung nhieu label tieng Anh: "Credit progress", "Risk Explanation", "Student Transcript Table".
-
-Kien nghi:
-
-- Chuyen thanh route detail mo tu danh sach SV, lop/SV rui ro, hoac search global.
-- Thay select bang search combobox theo MSSV/ten/lop.
-- Doi label tieng Viet:
-  - "Credit progress" -> "Tien do tin chi"
-  - "Risk Explanation" -> "Ly do can theo doi"
-  - "Student Transcript Table" -> "Bang diem hoc phan"
-
-## 5. Review cac chuc nang khac
-
-### Auth, RBAC, users
-
-Tot:
-
-- Sidebar da an "Tai khoan & phan quyen" voi role superadmin/admin.
-- Backend co guard cho user management.
-
-Can sua:
-
-- Can route guard UI that su cho cac path bi an, khong chi an sidebar.
-- Role label trong header dang hien raw `superadmin/admin/manager`; nen doi thanh "Superadmin", "Quan tri", "Quan ly khoa", "Giang vien".
-- Trang users nen them filter/search theo email/role/status neu so user tang.
-
-### CRUD sinh vien, giang vien, khoa/nganh, mon hoc, diem
-
-Tot:
-
-- Day la nhom van hanh du lieu can giu.
-
-Can sua:
-
-- Dat nhom nay sau "Theo doi" trong sidebar, vi nguoi dung vao dashboard de ra quyet dinh truoc.
-- Cac form CRUD nen co scope mac dinh theo role, vi manager khong nen chon nham khoa ngoai scope.
-- Khi tao/sua xong nen co link "Xem phan tich" neu entity co dashboard lien quan.
-
-### Report Center
-
-Tot:
-
-- Report center co gia tri cao: template theo actor, scheduled report, export, report agent.
-- Co logic chart/report kha day du.
-
-Van de:
-
-- File/page qua lon, man hinh nhieu vai tro va nhieu che do cung luc.
-- Nguoi dung moi co the khong biet nen "tao bao cao" hay "doc bao cao co san".
-
-Kien nghi UX:
-
-- Tach UI thanh 3 tab ro:
-  - "Tao bao cao"
-  - "Thu vien bao cao"
-  - "Lich tu dong"
-- Khi tao bao cao, dung wizard 3 buoc:
-  - Chon muc tieu: Khoa/Nganh/Mon/Lop/Toan truong
-  - Chon pham vi va hoc ky
-  - Xem truoc va tao
-- Report Agent nen xuat hien sau khi user chon mot report, khong can hien day du luc chua co context.
-
-### Chat AI
-
-Tot:
-
-- Co session history, stream status, suggested prompts.
-- Co global chat shell va full chat page.
-
-Can sua:
-
-- Global chat va full chat can thong nhat copy, suggested prompts, va session behavior.
-- Neu global chat chi dung de hoi nhanh theo context, nen label "Hoi nhanh" va co nut "Mo trong Chat".
-- Hien tai welcome message co emoji; neu style he thong nghiem tuc, nen giam trang tri.
-- Suggested prompts nen phu thuoc trang hien tai: tong quan, nganh, lop, report.
-
-### Upload CTDT / RAG
-
-Nhan dinh:
-
-- Ten hien tai "Upload CTDT" co the lam nguoi dung ky vong upload that + index that.
-- Neu RAG chua hoan chinh, nen doi thanh "Tai lieu CTDT" va ghi ro trang thai index.
-
-Can sua:
-
-- Chi hien cho role co quyen.
-- Co trang thai file: "Da tai len", "Dang index", "Da san sang", "Loi".
-- Co CTA tiep theo: "Hoi AI ve tai lieu nay" khi index xong.
-
-### Observability / Superadmin
-
-Backend T53 da co API doc/list/aggregate. UX chua can lam ngay, nhung nen dua vao roadmap:
-
-- "Quan sat he thong" chi hien superadmin.
-- First view: active users, error rate, slow routes, sessions gan day.
-- Drill-down: user -> session -> event log.
-
-## 6. Van de he thong can xu ly
-
-### 6.1 Preload dang qua nang
-
-`DashboardPreloader` dang tai nhieu endpoint nen, gom ca:
-
-- `getSections({ limit: 5000 })`
-- `getGradeComponents({ limit: 10000 })`
-- `getEnrollments({ limit: 50000 })`
-- `getStudents({ limit: 1000 })`
-- `getCourses({ limit: 1000 })`
-
-Tac dong:
-
-- Trang dau sau login co the cham, dac biet khi demo bang ngrok.
-- Log observability bi noise vi request nen qua nhieu.
-- Nguoi dung co the thay dashboard giat hoac data tranh nhau cap nhat.
-
-Kien nghi P0:
-
-- Preload chi giu route prefetch va API nhe: `getTree`, `getDashboardOverview`, `getReports({ limit: 20 })`.
-- Bo preload raw enrollment/grade components.
-- Chi preload khi user hover/focus link hoac sau khi user dung trang > 5 giay.
-
-### 6.2 Raw analytics tren frontend
-
-Mot so trang da dung aggregate API tot, nhung course/section/student van keo raw data lon.
-
-Can chuyen:
-
-| Trang | Hien tai | Nen thay bang |
-|---|---|---|
-| Course analytics | `getEnrollments limit 50000`, `getSections limit 5000`, health batch | `/analytics/dashboard/courses` aggregate |
-| Section analytics | `getEnrollments limit 50000`, `getStudents limit 1000`, sections all | `/analytics/dashboard/sections` aggregate |
-| Student analytics | load students 1000 + detail enrollment | `/analytics/dashboard/students/{id}` detail |
-
-### 6.3 Filter chua co model chung
-
-Hien tai moi trang tu tao filter rieng. He qua:
-
-- Ten field khac nhau: `semesterCode`, `selSem`, `semester`.
-- Reset cascade khong dong nhat.
-- Badge filter lap lai o nhieu trang.
-- Date conversion lap lai nhieu file.
-
-Kien nghi:
-
-- Tao `DashboardFilterBar` dung chung.
-- Tao helper `dateStartIso/dateEndIso` trong `frontend/src/lib/api.ts` hoac `utils.ts`.
-- Tao convention query params:
-  - `semester_code`
-  - `department_id`
-  - `program_id`
-  - `course_id`
-  - `section_id`
-  - `student_id`
-  - `date_from`
-  - `date_to`
-
-## 7. Bo loc moi de de dung hon
-
-### Nguyen tac
-
-- Mac dinh it filter: chi hien nhung gi actor can 80% thoi gian.
-- Filter phu thuoc nhau: chon Khoa moi thu hep Nganh; chon Mon moi thu hep Lop.
-- Co nut Reset ro rang.
-- Co active chips chi hien khi filter khac mac dinh.
-- Date range la advanced filter, khong de ngang hang voi Hoc ky.
-- Select danh sach dai phai la combobox search.
-
-### Mau filter de xuat
+Convention query params:
 
 ```text
-[Hoc ky: Gan nhat] [Pham vi: Khoa/Nganh theo quyen] [Tim mon/lop/SV...]
-
-Bo loc nang cao
-  [Khoa] [Nganh] [Mon] [Lop] [Tu ngay] [Den ngay] [Reset]
-
-Dang loc: Hoc ky 2024-2025 HK2 · Khoa CNTT · 3 filter
+semester_code
+department_id
+program_id
+course_id
+section_id
+student_id
+date_from
+date_to
 ```
 
-### Mac dinh theo actor
+Nên tạo sau demo:
 
-| Actor | Default scope | Filter hien |
+- `DashboardFilterBar` dùng chung.
+- Helper `dateStartIso/dateEndIso` dùng chung.
+- Combobox search dùng chung cho ngành/môn/lớp/SV.
+
+## 6. P0 cần sửa trước demo/polish gần nhất
+
+| ID | Việc | File liên quan | Kết quả mong muốn |
+|---|---|---|---|
+| UX22-01 | Cắt preload raw lớn | `frontend/src/components/layout/dashboard-preloader.tsx` | Sau login không gọi enrollment 50k/grade 10k/sections 5k |
+| UX22-02 | Dọn sidebar theo actor-first | `frontend/src/components/layout/app-sidebar.tsx` | `Tổng quan` là entry đầu; ẩn department/student analytics |
+| UX22-03 | Đưa date range vào advanced trên dashboard chính | `analytics/page.tsx`, `programs`, `courses`, `sections`, `students`, `departments` | Filter ngắn, dễ hiểu |
+| UX22-04 | Việt hóa label còn sót | `Program Overview Table`, `Course Performance in Program`, `Credit progress`, `Risk Explanation`, `Student Transcript Table`, `Risk level` | Demo chuyên nghiệp hơn |
+| UX22-05 | Header role label | `frontend/src/app/(dashboard)/layout.tsx` | Không hiện raw role |
+| UX22-06 | Reset filter cho từng dashboard | Các page analytics | User không bị kẹt trong filter |
+| UX22-07 | Route guard map tập trung | Dashboard layout/sidebar | Role/scope dễ kiểm soát hơn |
+
+## 7. P1 sau demo
+
+| ID | Việc | Lý do |
 |---|---|---|
-| Superadmin/Admin | Toan truong | Hoc ky, Khoa |
-| Manager khoa | Khoa cua minh | Hoc ky, Nganh |
-| Truong nganh | Nganh cua minh | Hoc ky, Mon |
-| Lecturer | Lop cua minh | Hoc ky, Mon/Lop |
-| Co van | SV/lop phu trach | Hoc ky, Lop/SV |
+| UX22-08 | Aggregate API cho course analytics | Bỏ `getEnrollments limit 50000` trên course page |
+| UX22-09 | Aggregate API cho section analytics | Bỏ raw enrollment/students trên section page |
+| UX22-10 | Student detail/search route | Thay select 1000 SV |
+| UX22-11 | Combobox search cho ngành/môn/lớp/SV | Data lớn vẫn tìm nhanh |
+| UX22-12 | Report Center wizard 3 bước | Giảm cognitive load khi tạo báo cáo |
+| UX22-13 | Context-aware chat prompts | Chat hữu ích hơn theo page |
+| UX22-14 | Observability UI superadmin | Hoàn thiện T53 khi API sẵn sàng |
 
-## 8. Nhung thu nen bo/an ngay
+## 8. Luồng người dùng mục tiêu
 
-P0 de demo gon hon:
-
-- An `/manager/analytics/departments` khoi sidebar, giu route noi bo.
-- An `/manager/analytics/students` khoi sidebar, chi mo tu drill-down/search.
-- Bo preload `getEnrollments({ limit: 50000 })`, `getGradeComponents({ limit: 10000 })`, `getSections({ limit: 5000 })`.
-- Doi cac title tieng Anh con lai sang tieng Viet.
-- Dua date range vao advanced filter tren cac dashboard.
-
-P1 sau demo:
-
-- Gop "Khoa/Ngành analytics" vao "Tong quan" + "Chi tiet khoa".
-- Viet aggregate API cho course/section/student analytics.
-- Lam combobox search cho nganh/mon/lop/SV.
-- Them route guard UI `/forbidden` dong bo voi sidebar role.
-
-P2:
-
-- Lam UI superadmin observability.
-- Luu preset filter theo user.
-- Them "Saved views" cho manager.
-
-## 9. Backlog de trien khai
-
-| ID | Viec can lam | Uu tien | Tac dong |
-|---|---|---:|---|
-| UX22-01 | Cat preload raw lon trong `DashboardPreloader` | P0 | Tang toc login/dashboard, giam noise |
-| UX22-02 | Don sidebar: an Departments Analytics va Student Analytics | P0 | Giam roi, tao luong drill-down ro |
-| UX22-03 | Doi label tieng Anh con lai sang tieng Viet | P0 | Chuyen nghiep hon khi demo |
-| UX22-04 | Dua date range vao advanced filter | P0 | Filter de hieu hon |
-| UX22-05 | Them nut Reset filter chung | P0 | Giam bi ket trong bo loc |
-| UX22-06 | Tao `DashboardFilterBar` dung chung | P1 | Giam lap code, filter dong nhat |
-| UX22-07 | Combobox search cho Nganh/Mon/Lop/SV | P1 | Tim nhanh khi data lon |
-| UX22-08 | Aggregate API cho course analytics | P1 | Bo tai 50k enrollment tren FE |
-| UX22-09 | Aggregate API cho section analytics | P1 | Bo tai raw enrollment/students tren FE |
-| UX22-10 | Student detail route tu drill-down thay vi sidebar | P1 | Dung dung ngu canh |
-| UX22-11 | Report Center wizard 3 buoc | P1 | Tao bao cao de hon |
-| UX22-12 | Context-aware chat prompts | P2 | Chat huu ich hon |
-| UX22-13 | Observability UI cho superadmin | P2 | Hoan thien T53 ve mat UI |
-
-## 10. Luong de xuat cho demo/nguoi dung
-
-Luong manager:
+### Manager
 
 ```text
 Login
--> Tong quan
--> Click khoa/nganh dang do
--> Chi tiet nganh
--> Click mon bottleneck
--> Chi tiet mon hoac Lop/SV nguy co
--> Tao bao cao
--> Hoi AI ve action plan
+-> Tổng quan
+-> Mở khoa/ngành có cảnh báo
+-> Chi tiết ngành
+-> Môn bottleneck
+-> Lớp/SV cần chú ý
+-> Tạo báo cáo
+-> Hỏi AI để viết action plan
 ```
 
-Luong lecturer:
+### Lecturer / Cố vấn
 
 ```text
 Login
--> Lop & SV can chu y
--> Chon lop cua minh
--> Xem SV can ho tro
--> Tao report lop
--> Hoi AI de goi y can thiep
+-> Lớp & SV cần chú ý
+-> Mở lớp của mình
+-> Xem hàng đợi cần can thiệp
+-> Tạo báo cáo lớp
+-> Hỏi AI về kế hoạch hỗ trợ
 ```
 
-Luong superadmin:
+### Superadmin
 
 ```text
 Login
--> Tong quan
--> Tai khoan/RBAC neu can
--> Quan sat he thong neu co loi
+-> Tổng quan
+-> Nếu cần: Tài khoản & phân quyền
+-> Nếu có lỗi: Quan sát hệ thống
 -> Drill session/event
 ```
 
-## 11. Definition of Done cho UX simplification
-
-- [x] Sidebar con toi da 6-8 muc chinh cho manager.
-- [ ] Dashboard dau tien co cau tra loi ro: "dang on/khong on, can xu ly gi".
-- [x] Khong con preload raw data lon sau login.
-- [x] Khong con label tieng Anh trong dashboard chinh.
-- [x] Moi dashboard analytics chinh co Reset filter.
-- [x] Date range nam trong advanced filter.
-- [ ] Select danh sach dai dung combobox search.
-- [ ] Course/section/student analytics khong tai 50k enrollment ve frontend.
-- [ ] Actor nao chi thay scope lien quan actor do.
-- [ ] Drill-down tu overview toi report/chat lien mach.
-
-## 12. Trang thai sau dot sua 24/06/2026
-
-Da lam:
-
-- `frontend/src/components/layout/app-sidebar.tsx`: don navigation theo actor/task, doi ten cac muc de hieu hon.
-- `frontend/src/components/layout/dashboard-preloader.tsx`: bo preload sections/enrollments/grade components/students/courses quy mo lon.
-- `frontend/src/app/(dashboard)/manager/analytics/page.tsx`: date range vao advanced filter, active chip chi hien khi co filter, them Dat lai, Viet hoa title bang nganh.
-- `frontend/src/app/(dashboard)/manager/analytics/programs/page.tsx`: dua cohort/date vao advanced filter, them Dat lai, Viet hoa title bang course performance.
-- `frontend/src/app/(dashboard)/manager/analytics/courses/page.tsx`: dua date vao advanced filter, them Dat lai, Viet hoa label pass rate/health/trend, bo ky hieu canh bao thua.
-- `frontend/src/app/(dashboard)/manager/analytics/sections/page.tsx`: dua date vao advanced filter, them Dat lai, bo emoji trong risk label.
-- `frontend/src/app/(dashboard)/manager/analytics/students/page.tsx`: Viet hoa KPI/card/table title va dua date vao advanced filter.
-- `frontend/src/app/(dashboard)/manager/courses/components/course-analytics-dialog.tsx`: Viet hoa dialog analytics mon hoc.
-
-Can lam tiep:
-
-- Viet aggregate API cho course/section/student analytics de bo han viec tai `limit: 50000` trong frontend.
-- Doi cac select dai sang combobox search theo MSSV/ten/ma mon/ma lop.
-- Lam scope mac dinh theo actor va route guard UI dong bo RBAC.
-- Tach/gon Report Center thanh wizard va thu vien bao cao trong mot dot rieng.
-
-## 13. Nang cap trang Lop hoc phan & SV nguy co (24/06/2026)
-
-Trang chi tiet lop khong nen chi la mot bang "SV nguy co". Nguoi quan ly can phan biet duoc ket qua hoc tap, muc do day du cua du lieu cham diem, va viec can xu ly truoc mat.
-
-Da bo sung tren `/manager/analytics/sections`:
-
-- Hien thi diem tong ket neu co; neu chua co, dung dau diem dau tien co diem (uu tien giua ky) va gan nhan ro la diem tam tinh.
-- Phan loai Giỏi, Khá, Trung binh, Yeu, Truot va Chua co diem. Bam vao tung nhom de loc roster; co them tim MSSV/ho ten.
-- KPI co diem trung binh lop, pass rate, so SV da co diem, trượt va can trượt.
-- Bieu do do tin cay ket qua phan tach: Tong ket, tam tinh tu dau diem, chua co diem.
-- Bang tien do tung dau diem: so da nhap/tong so, ty le hoan thanh, diem TB quy doi thang 10 va so vang thi.
-- Hang doi can thiep uu tien thieu diem truoc, sau do trượt, can trượt va qua yeu. Danh sach nay khac voi roster day du, khong lam mat sinh vien an toan.
-- Bieu do so sanh voi mon ghi ro chi dung diem tong ket, tranh dien giai sai khi lop hien dang dung diem giua ky.
-
-Gioi han hien tai:
-
-- Dau diem duoc lay qua API tung lop. Khi quy mo lon, can aggregate API theo lop de tranh tai raw enrollment va danh sach SV lon ve trinh duyet (`UX22-09`).
-- Chua co du lieu chuyen can/hoat dong hoc tap trong contract hien tai; khong suy dien "nguy co" tu cac tin hieu khong co that.
-
-## 14. Don gian hoa Trung tam bao cao (24/06/2026)
-
-Review theo actor cho thay trang Bao cao co ba luong chinh: mo mot bao cao co san, tao bao cao theo pham vi, va quan ly lich tu dong. Giao dien cu tron ca ba luong nay voi nhieu thong tin trang thai va tuy chon khong tac dong den ket qua.
-
-Da dieu chinh:
-
-- Bo cac the trang thai lap lai (dinh dang, do tin cay, bao cao moi nhat) khoi dau trang; thong tin nay van co trong ban xem bao cao va lich tu dong.
-- Thu gon bo loc thu vien: tim kiem va loai bao cao hien truoc; khoang hoc ky/ngay nam trong "Bo loc nang cao", co nut dat lai.
-- Doi "Bao cao tu dong" thanh "Thu vien bao cao" de phan biet voi chuc nang Lich tu dong.
-- Dialog tao bao cao chi giu loai bao cao, pham vi va khoang thoi gian. Bo lua chon muc dich va dinh dang dau ra vi chung khong thay doi request/API; PDF duoc xuat tu ban xem sau khi tao.
-
-Luong sau khi don:
+### Demo 3 phút
 
 ```text
-Mo ban gan nhat trong Thu vien
-hoac
-Tao bao cao -> chon loai -> chon pham vi -> tao -> xem/hoi tro ly -> xuat PDF
+Login
+-> Tổng quan: KPI + cảnh báo
+-> Chi tiết ngành: môn kéo xuống
+-> Lớp & SV cần chú ý: danh sách cần can thiệp
+-> Báo cáo: tạo/mở report
+-> Chat AI: hỏi action plan theo report
 ```
 
-## 15. Actor-first cho Bao cao
+## 9. Definition of Done
 
-Trang Bao cao duoc to chuc lai quanh cong viec thay vi danh sach tai lieu:
+- [ ] Sidebar actor-first, `Tổng quan` là entry đầu.
+- [ ] Department/student analytics không còn là item sidebar mặc định.
+- [ ] Preloader không gọi raw data lớn sau login.
+- [ ] Date range nằm trong advanced filter.
+- [ ] Mỗi dashboard có `Đặt lại`.
+- [ ] Các title tiếng Anh còn sót được Việt hóa.
+- [ ] Select danh sách dài dùng combobox search.
+- [ ] Course/section/student analytics không tải 50k enrollment về frontend.
+- [ ] Header và sidebar hiện role/scope bằng tiếng Việt.
+- [ ] Drill-down liền mạch: overview -> detail -> report -> chat.
 
-- `Can xu ly`: chi cac snapshot co canh bao/rui ro hoac danh sach can theo doi; day la diem vao mac dinh cho manager, truong khoa/nganh, giang vien va co van.
-- `Thu vien`: tat ca snapshot trong scope duoc cap quyen, co bo loc de truy vet.
-- `Lich tu dong`: khu vuc rieng cho quan ly/admin, khong tron voi viec doc bao cao hang ngay.
-- Quick starts phan biet ba nhu cau pho bien: can thiep lop, suc khoe nganh, tom tat toan truong.
+## 10. Ghi chú biên giới ML/AI
 
-Buoc tiep theo can dua role that cua nguoi dung vao template/scope mac dinh o backend va frontend. UI khong duoc tu cho phep mo rong pham vi; API phai la lop chap han cuoi cung.
+- UI được phép hiện `dropout risk`/xác suất nếu đọc từ API backend và schema `ml`.
+- LLM/Chat chỉ giải thích prediction đã có, không tự sinh xác suất pass/dropout.
+- Không suy diễn chuyên ngành từ tên lớp/tên môn trong frontend.
+- Dashboard analytics dùng DWH/aggregate API; không xem CRUD tables như DWH.
