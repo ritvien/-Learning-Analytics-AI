@@ -26,6 +26,7 @@ from app.agent.report_tools import (
     trace_report_metric,
 )
 from app.config import get_settings
+from app.models.academic import Semester
 from app.models.agent import (
     AgentMemory,
     AgentPromptVersion,
@@ -35,7 +36,6 @@ from app.models.agent import (
     ReportAgentToolCall,
 )
 from app.models.people import User
-from app.models.academic import Semester
 from app.models.report import Report
 from app.reports.service import generate_report
 
