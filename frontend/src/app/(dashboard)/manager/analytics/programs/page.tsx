@@ -40,33 +40,12 @@ export default function ProgramAnalyticsPage() {
   const [programOptions, setProgramOptions] = React.useState<ApiDashboardProgramOption[]>([])
   const [data, setData] = React.useState<ApiDashboardProgram | null>(null)
   const [programId, setProgramId] = React.useState("")
-  const [semester, setSemester] = React.useState(() => {
-    if (typeof window !== "undefined") {
-      return sessionStorage.getItem("vinuni_selected_semester") || "all"
-    }
-    return "all"
-  })
+  const [semester, setSemester] = React.useState("all")
   const [cohort, setCohort] = React.useState("all")
   const [dateFrom, setDateFrom] = React.useState("")
   const [dateTo, setDateTo] = React.useState("")
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
-
-  React.useEffect(() => {
-    if (data?.semesters && data.semesters.length > 0) {
-      const saved = sessionStorage.getItem("vinuni_selected_semester")
-      if (!saved) {
-        const sorted = [...data.semesters].sort((a, b) => b.year * 10 + b.term - (a.year * 10 + a.term))
-        const latest = sorted[0]?.code
-        if (latest) {
-          setTimeout(() => {
-            setSemester(latest)
-          }, 0)
-          sessionStorage.setItem("vinuni_selected_semester", latest)
-        }
-      }
-    }
-  }, [data])
 
   React.useEffect(() => {
     const queryProgram = searchParams.get("program_id") ?? searchParams.get("program")
@@ -178,6 +157,8 @@ export default function ProgramAnalyticsPage() {
   const programLabel = `${data.program.code} - ${data.program.name}`
   const semesterLabel = semester === "all" ? "Tất cả học kỳ" : data.semesters.find((item) => item.code === semester)?.name ?? semester
   const cohortLabel = cohort === "all" ? "Tất cả khóa" : data.cohorts.find((item) => String(item.id) === cohort)?.code ?? cohort
+  const hasTrendSeries = data.trend.length >= 2
+  const selectedTrendPoint = data.trend[0]
 
   return (
     <div className="flex flex-col gap-6">
@@ -193,11 +174,7 @@ export default function ProgramAnalyticsPage() {
             {programOptions.map((item) => <SelectItem key={item.id} value={String(item.id)}>{item.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={semester} onValueChange={(value) => {
-          const nextVal = value ?? "all"
-          setSemester(nextVal)
-          sessionStorage.setItem("vinuni_selected_semester", nextVal)
-        }}>
+        <Select value={semester} onValueChange={(value) => setSemester(value ?? "all")}>
           <SelectTrigger className="w-52"><span className="truncate">{semesterLabel}</span></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tất cả học kỳ</SelectItem>
@@ -251,36 +228,61 @@ export default function ProgramAnalyticsPage() {
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Pass rate của ngành qua học kỳ</CardTitle></CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={data.trend}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="semester" tick={{ fontSize: 10 }} />
-                <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
-                <Tooltip formatter={(value) => [`${value}%`, "Pass rate"]} />
-                <Line dataKey="pass_rate" stroke="#16a34a" strokeWidth={2.5} />
-              </LineChart>
-            </ResponsiveContainer>
+      {hasTrendSeries ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Pass rate của ngành qua học kỳ</CardTitle></CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={data.trend}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="semester" tick={{ fontSize: 10 }} />
+                  <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip formatter={(value) => [`${value}%`, "Pass rate"]} />
+                  <Line dataKey="pass_rate" stroke="#16a34a" strokeWidth={2.5} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Điểm trung bình của ngành qua học kỳ</CardTitle></CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={data.trend}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="semester" tick={{ fontSize: 10 }} />
+                  <YAxis domain={[0, 10]} />
+                  <Tooltip formatter={(value) => [value, "Điểm TB"]} />
+                  <Line dataKey="avg_grade" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <Card className="border-dashed">
+          <CardHeader>
+            <CardTitle className="text-sm">Xu hướng qua học kỳ</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 text-sm md:grid-cols-[1fr_auto_auto] md:items-center">
+            <p className="text-muted-foreground">
+              Bộ lọc hiện tại chỉ còn {data.trend.length} học kỳ có dữ liệu, nên chưa đủ điểm để vẽ xu hướng. Chọn `Tất cả học kỳ` để xem đường biến động của ngành.
+            </p>
+            {selectedTrendPoint ? (
+              <>
+                <div className="rounded-md border bg-muted/30 px-4 py-3">
+                  <div className="text-xs text-muted-foreground">Pass rate {selectedTrendPoint.semester}</div>
+                  <div className="text-xl font-semibold">{selectedTrendPoint.pass_rate}%</div>
+                </div>
+                <div className="rounded-md border bg-muted/30 px-4 py-3">
+                  <div className="text-xs text-muted-foreground">Điểm TB {selectedTrendPoint.semester}</div>
+                  <div className="text-xl font-semibold">{selectedTrendPoint.avg_grade.toFixed(2)}</div>
+                </div>
+              </>
+            ) : null}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Điểm trung bình của ngành qua học kỳ</CardTitle></CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={data.trend}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="semester" tick={{ fontSize: 10 }} />
-                <YAxis domain={[0, 10]} />
-                <Tooltip formatter={(value) => [value, "Điểm TB"]} />
-                <Line dataKey="avg_grade" stroke="#6366f1" strokeWidth={2.5} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
