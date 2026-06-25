@@ -2,7 +2,6 @@
 
 import logging
 import os
-import re
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -13,6 +12,7 @@ from app.agent.errors import (
     ROUTER_FALLBACK_MESSAGE,
     MissingLLMCredentialsError,
 )
+from app.agent.guardrails import apply_output_guardrails, build_role_guardrail_block
 from app.agent.prompts import (
     CORE_AGENT_SYSTEM_PROMPT,
     FAST_RESPONSE_SYSTEM_PROMPT,
@@ -42,26 +42,6 @@ __all__ = ["TOOLS", "MissingLLMCredentialsError", "route_after_router"]
 
 
 TOOLS = [execute_sql_query, calculate_student_clo_scores, lookup_student_by_code, get_student_dropout_risk]
-
-_SCHEMA_PATTERNS = re.compile(
-    r"(?:"
-    r"`?(?:students|enrollments|sections|courses|programs|cohorts|"
-    r"departments|universities|teachers|clos|plos|semesters|"
-    r"student_clo_achievements|program_courses|specializations|"
-    r"specialization_courses|vw_\w+)`?"
-    r"(?:\.\w+)?"
-    r"|ILIKE|JOIN|WHERE|GROUP BY|SELECT|FROM|COUNT\(|SUM\(|AVG\("
-    r"|status\s*=\s*['\"]completed['\"]"
-    r")",
-    re.IGNORECASE,
-)
-
-
-def _sanitize_response(text: str) -> str:
-    """Remove any leaked DB schema references from agent output."""
-    if not text:
-        return text
-    return _SCHEMA_PATTERNS.sub("[du lieu he thong]", text)
 
 
 def _build_openai_model(model_name: str, temperature: float) -> ChatOpenAI:
@@ -119,6 +99,11 @@ def _router_fallback_context(page_context: dict) -> dict:
     context["needs_tools"] = classification.needs_tools
     context["route_decision"] = route_decision.model_dump()
     return context
+
+
+def _core_system_prompt(page_context: dict) -> str:
+    """Build core agent system prompt with server-side role guardrails."""
+    return CORE_AGENT_SYSTEM_PROMPT + build_role_guardrail_block(page_context)
 
 
 async def router_node(state: AgentState) -> dict:
@@ -180,17 +165,17 @@ async def core_agent_node(state: AgentState) -> dict:
         llm_with_tools = llm.bind_tools([sql_query_tool])
 
         messages = list(state.get("messages", []))
+        page_context = state.get("context", {})
         has_system = any(isinstance(message, SystemMessage) for message in messages)
         if not has_system:
             context_note = ""
-            page_context = state.get("context", {})
             if page_context:
                 context_note = f"\n\nPage context:\n{page_context}"
-            messages = [SystemMessage(content=CORE_AGENT_SYSTEM_PROMPT + context_note), *messages]
+            messages = [SystemMessage(content=_core_system_prompt(page_context) + context_note), *messages]
 
         response = await llm_with_tools.ainvoke(messages)
-        if hasattr(response, "tool_calls") and not response.tool_calls and isinstance(response.content, str):
-            response.content = _sanitize_response(response.content)
+        if isinstance(response.content, str) and response.content:
+            response.content = apply_output_guardrails(response.content)
 
         return {"messages": [response]}
     except MissingLLMCredentialsError:
@@ -215,13 +200,16 @@ async def fast_response_node(state: AgentState) -> dict:
         context_block = ""
         if page_context:
             context_block = f"\n\nNgữ cảnh trang hiện tại:\n{page_context}"
+        role_block = build_role_guardrail_block(page_context) if page_context else ""
 
         eval_messages = [
-            SystemMessage(content=FAST_RESPONSE_SYSTEM_PROMPT),
+            SystemMessage(content=FAST_RESPONSE_SYSTEM_PROMPT + role_block),
             HumanMessage(content=f"{last_user_msg}{context_block}"),
         ]
 
         response = await llm.ainvoke(eval_messages)
+        if isinstance(response.content, str) and response.content:
+            response.content = apply_output_guardrails(response.content)
         return {"messages": [response]}
     except Exception:
         logger.exception("fast_response_node LLM call failed, using static fallback")

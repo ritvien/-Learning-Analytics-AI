@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.access_control import can_view_report, can_view_report_scope
+from app.agent.guardrails import apply_output_guardrails, format_insufficient_data
 from app.agent.report_prompts import REPORT_AGENT_PROMPT_VERSION, REPORT_AGENT_SYSTEM_PROMPT
 from app.agent.report_tools import (
     TOOL_REGISTRY,
@@ -202,8 +203,12 @@ async def ask_report_agent(
         )
         snapshot = {"recent_reports": recent_reports}
 
+    if snapshot and not snapshot.get("found") and not snapshot.get("recent_reports"):
+        answer = format_insufficient_data()
+    else:
+        answer = await _build_answer(message, mode, context, snapshot or {}, memory_summary, tool_calls)
+
     pending_actions = await _maybe_create_pending_action(db, session, user, message, tool_calls)
-    answer = await _build_answer(message, mode, context, snapshot or {}, memory_summary, tool_calls)
 
     assistant_message = ReportAgentMessage(
         session_id=session.id,
@@ -471,7 +476,7 @@ async def _build_answer(
             )
             content = str(response.content).strip()
             if content:
-                return _append_report_links(content, snapshot)
+                return _append_report_links(apply_output_guardrails(content), snapshot)
         except Exception:
             pass
     return _append_report_links(_deterministic_answer(message, mode, snapshot, tool_calls), snapshot)

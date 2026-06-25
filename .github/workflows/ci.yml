@@ -59,9 +59,9 @@ jobs:
         working-directory: backend
         run: ruff check app tests
 
-      - name: Test (pytest)
+      - name: Test (pytest + coverage)
         working-directory: backend
-        run: pytest -q -m "not slow and not eval"
+        run: pytest -q -m "not slow and not eval" --cov-report=term-missing:skip-covered
 
   frontend:
     runs-on: self-hosted

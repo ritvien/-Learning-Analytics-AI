@@ -31,7 +31,7 @@
 | Structured logs, trace ID | **T41** | Hưng | [x] |
 | RBAC UI — nav, route, CRUD | **V41** | Hiếu | [ ] |
 | Error handling 3 tầng + HTTP | **H52** | Hoàng | [x] |
-| Prompt scope + injection | **H40** | Hoàng | [ ] |
+| Prompt scope + injection | **H40** | Hoàng | [x] |
 | LLM chỉ explain `ml` (ADR-006) | **T52d** | Hoàng | [x] |
 
 ### G3-4 — Kịch bản quay (V35, nộp 25/06)
@@ -77,7 +77,7 @@
 | **T52d** | API dropout-risk + RBAC; agent tool đọc `ml` | 25/06 | **P0** | T52c | [x] |
 | **H25b** | ML eval report P/R/F1/PR-AUC (`ml-dropout-baseline.md`) | 26/06 | P1 | T52d | [x] |
 | H44 | Demo video script / narrative cho Hiếu | 24–25/06 | P1 | — | [ ] |
-| H40 | Guardrails prompt — scope + injection (G3-3) | 25/06 | P1 | H52 | [ ] |
+| H40 | Guardrails prompt — scope + injection (G3-3) | 25/06 | P1 | H52 | [x] |
 | H49 | Cross-module data access chatbot | — | P2 | H48 | [ ] S4 |
 | H50 | Expanded agent tool registry | — | P2 | H49 | [ ] S4 |
 | H51 | RAG retrieval integration | — | P2 | H48, T49 | [ ] S4 |

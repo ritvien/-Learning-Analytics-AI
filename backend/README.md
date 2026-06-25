@@ -14,7 +14,7 @@ FastAPI backend for the EduInsight AI Student Analytics Platform.
 | DB (dev) | SQLite + `aiosqlite` |
 | DB (prod) | PostgreSQL 16 + `asyncpg` |
 | Linting | Ruff |
-| Tests | pytest + pytest-asyncio + httpx |
+| Tests | pytest + pytest-asyncio + pytest-cov + httpx |
 
 ---
 
@@ -175,9 +175,10 @@ alembic history --verbose
 
 ```bash
 cd backend
-pytest                  # run all tests
-pytest -v               # verbose output
-pytest tests/test_health.py   # single file
+pip install -e ".[dev]"
+pytest -q -m "not slow and not eval"   # CI parity: tests + coverage on app/ (≥60%)
+pytest tests/test_health.py            # single file (coverage still runs via pyproject addopts)
+pytest --cov=app --cov-report=html     # HTML report -> htmlcov/index.html
 ```
 
 Tests use an in-memory SQLite database — no external services needed.
