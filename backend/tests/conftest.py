@@ -13,6 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 # Tests must not depend on a developer's local .env values.
 os.environ["DEBUG"] = "false"
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+# CI and local pytest must not call live LLMs (Test.md §8 — integration tests use mocks).
+os.environ["LLM_API_KEY"] = ""
+os.environ["OPENAI_API_KEY"] = ""
+os.environ["GEMINI_API_KEY"] = ""
+os.environ["GOOGLE_API_KEY"] = ""
 
 from app.database import Base, get_db
 from app.dependencies import create_access_token, hash_password

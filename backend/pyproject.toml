@@ -72,3 +72,7 @@ testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
 cache_dir = "/tmp/.pytest_cache"
+markers = [
+    "slow: slow integration or report generation (excluded from default CI; Test.md §8.3)",
+    "eval: LLM/RAGAS evaluation — run manually, not in CI (Test.md §8.3)",
+]
