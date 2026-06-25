@@ -7,20 +7,20 @@ GET /api/v1/chat/sessions/{thread_id}
 DELETE /api/v1/chat/sessions/{thread_id}
 """
 
+import asyncio
 import json
 import logging
 import time
 import uuid
-import asyncio
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, messages_from_dict, messages_to_dict
+from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from langchain_openai import ChatOpenAI
 
 from app.agent import create_agent
 from app.agent.context_rbac import validate_and_merge_context
@@ -31,9 +31,9 @@ from app.agent.errors import (
 )
 from app.agent.route_decision import RouteDecision
 from app.config import get_settings
-from app.database import get_db, AsyncSessionLocal
-from app.models.chat import ChatSession
+from app.database import AsyncSessionLocal, get_db
 from app.dependencies import get_current_user
+from app.models.chat import ChatSession
 from app.models.people import User
 from app.observability import log_event, new_id, request_context, stable_hash
 
@@ -137,7 +137,7 @@ async def get_session_history(
     try:
         session_id = uuid.UUID(thread_id)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid thread_id format")
+        raise HTTPException(status_code=400, detail="Invalid thread_id format") from None
 
     session = await db.get(ChatSession, session_id)
     if not session or session.user_id != current_user.id:
@@ -156,7 +156,7 @@ async def delete_session(
     try:
         session_id = uuid.UUID(thread_id)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid thread_id format")
+        raise HTTPException(status_code=400, detail="Invalid thread_id format") from None
 
     session = await db.get(ChatSession, session_id)
     if not session or session.user_id != current_user.id:

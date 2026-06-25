@@ -1,6 +1,6 @@
 """Tests for analytics dashboard filter parsing."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from fastapi import HTTPException
@@ -15,8 +15,8 @@ def test_dashboard_filter_sql_parses_browser_iso_datetime() -> None:
     )
 
     assert "f.updated_at >= CAST(:date_from AS timestamptz)" in where_sql
-    assert params["date_from"] == datetime(2022, 6, 22, 17, 0, tzinfo=timezone.utc)
-    assert params["date_to"] == datetime(2026, 6, 2, 16, 59, 59, 999000, tzinfo=timezone.utc)
+    assert params["date_from"] == datetime(2022, 6, 22, 17, 0, tzinfo=UTC)
+    assert params["date_to"] == datetime(2026, 6, 2, 16, 59, 59, 999000, tzinfo=UTC)
 
 
 def test_dashboard_filter_sql_rejects_invalid_datetime() -> None:

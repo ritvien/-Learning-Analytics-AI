@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import time
-from inspect import isawaitable
 from datetime import UTC, datetime
+from inspect import isawaitable
 from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -36,7 +36,6 @@ from app.models.agent import (
 )
 from app.models.people import User
 from app.models.report import Report
-
 
 WRITE_INTENT_WORDS = ("tạo task", "tao task", "giao việc", "schedule", "hẹn lịch", "gửi report", "send report")
 
@@ -528,7 +527,6 @@ def _deterministic_answer(message: str, mode: str, snapshot: dict[str, Any], too
         if any(w in lower for w in ("clo", "chuẩn đầu ra", "thành phần", "cdr")):
             clo_att: dict = metrics.get("clo_attainment") or {}
             clo_comp: dict = metrics.get("clo_components") or {}
-            weak_count = metrics.get("weak_clo_count", 0)
             if clo_att:
                 weak = {k: v for k, v in clo_att.items() if v < 70}
                 strong = {k: v for k, v in clo_att.items() if v >= 70}

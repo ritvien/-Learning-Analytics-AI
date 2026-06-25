@@ -30,8 +30,8 @@ class Report(TimestampMixin, Base):
     period_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    feedback_items: Mapped[list["ReportFeedback"]] = relationship(back_populates="report", cascade="all, delete-orphan")
-    schedule_runs: Mapped[list["ReportScheduleRun"]] = relationship(back_populates="report")
+    feedback_items: Mapped[list[ReportFeedback]] = relationship(back_populates="report", cascade="all, delete-orphan")
+    schedule_runs: Mapped[list[ReportScheduleRun]] = relationship(back_populates="report")
 
 
 class ReportFeedback(TimestampMixin, Base):
@@ -73,7 +73,7 @@ class ReportSchedule(TimestampMixin, Base):
     created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     last_report_id: Mapped[str | None] = mapped_column(ForeignKey("reports.id", ondelete="SET NULL"))
 
-    runs: Mapped[list["ReportScheduleRun"]] = relationship(back_populates="schedule", cascade="all, delete-orphan")
+    runs: Mapped[list[ReportScheduleRun]] = relationship(back_populates="schedule", cascade="all, delete-orphan")
 
 
 class ReportScheduleRun(TimestampMixin, Base):

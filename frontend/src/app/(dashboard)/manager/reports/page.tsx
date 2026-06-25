@@ -2276,7 +2276,7 @@ function ReportStandardDocument({
 
 // ── Report Preview (Phase 2: per-type format) ─────────────────────────────────
 
-function ReportPreview({ report: rawReport, isLoading }: { report: ApiReport; isLoading: boolean }) {
+function ReportPreview({ report, isLoading }: { report: ApiReport; isLoading: boolean }) {
   if (isLoading) {
     return (
       <Card>
@@ -2284,7 +2284,7 @@ function ReportPreview({ report: rawReport, isLoading }: { report: ApiReport; is
       </Card>
     )
   }
-  if (!rawReport) {
+  if (!report) {
     return (
       <Card>
         <CardContent className="grid min-h-[520px] place-items-center p-8 text-center">
@@ -2300,7 +2300,6 @@ function ReportPreview({ report: rawReport, isLoading }: { report: ApiReport; is
     )
   }
 
-  const report = rawReport as ApiReport
   const metrics = report.metrics_json ?? {}
   const issues = stringList(metrics.issues)
   const risks = stringList(metrics.risks)

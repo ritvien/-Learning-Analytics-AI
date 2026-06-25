@@ -12,7 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 # Tests must not depend on a developer's local .env values.
 os.environ["DEBUG"] = "false"
+os.environ["APP_ENV"] = "test"
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+# CI and local pytest must not call live LLMs (Test.md §8 — integration tests use mocks).
+os.environ["LLM_API_KEY"] = ""
+os.environ["OPENAI_API_KEY"] = ""
+os.environ["GEMINI_API_KEY"] = ""
+os.environ["GOOGLE_API_KEY"] = ""
 
 from app.database import Base, get_db
 from app.dependencies import create_access_token, hash_password
@@ -65,3 +71,15 @@ async def client(db_session: AsyncSession) -> AsyncClient:
         c.headers["Authorization"] = f"Bearer {create_access_token(admin.id, admin.role)}"
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_sessionfinish(session, exitstatus) -> None:
+    """Force process exit on GitHub Actions when native ML threads block shutdown.
+
+    Pytest can print "118 passed" yet hang indefinitely on Linux runners while
+    xgboost/sklearn worker threads remain alive. Tests already finished at this hook.
+    """
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        code = int(exitstatus) if exitstatus is not None else 0
+        os._exit(code)
