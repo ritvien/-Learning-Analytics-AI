@@ -58,6 +58,38 @@ REPORT_BUILD_DESIGNS: dict[str, dict[str, Any]] = {
 }
 
 
+def _validated_report_definition(definition: dict[str, Any]) -> dict[str, Any]:
+    """Return a sanitized report definition safe to pass into report generation."""
+    report_type = definition.get("report_type")
+    if not isinstance(report_type, str):
+        raise ValueError("Report definition has invalid report_type")
+    report_type = report_type.strip()
+    defaults = REPORT_BUILD_DEFAULTS.get(report_type)
+    if defaults is None:
+        raise ValueError("Report definition has unsupported report_type")
+
+    scope_type = definition.get("scope_type")
+    if not isinstance(scope_type, str):
+        raise ValueError("Report definition has invalid scope_type")
+    scope_type = scope_type.strip()
+    expected_scope_type = defaults["scope_type"]
+    if scope_type != expected_scope_type:
+        raise ValueError("Report definition scope_type does not match report_type")
+
+    scope_id = _as_optional_int(definition.get("scope_id"))
+    if expected_scope_type == "school":
+        scope_id = None
+    elif scope_id is None:
+        raise ValueError("Report definition has invalid scope_id")
+
+    sanitized = dict(definition)
+    sanitized["report_type"] = report_type
+    sanitized["scope_type"] = expected_scope_type
+    sanitized["actor_role"] = defaults["actor_role"]
+    sanitized["scope_id"] = str(scope_id) if scope_id is not None else None
+    return sanitized
+
+
 async def ensure_report_agent_prompt(db: AsyncSession) -> None:
     """Persist the active prompt version if it is missing."""
     result = await db.execute(
@@ -270,31 +302,23 @@ async def confirm_pending_action(
         definition = action.payload_json.get("definition") if isinstance(action.payload_json, dict) else None
         if not isinstance(definition, dict):
             raise ValueError("Report definition is missing")
-        report_type = definition.get("report_type")
-        scope_type = definition.get("scope_type")
-        if not isinstance(report_type, str) or not report_type:
-            raise ValueError("Report definition is missing report_type")
-        if not isinstance(scope_type, str) or not scope_type:
-            raise ValueError("Report definition is missing scope_type")
-        scope_id = _as_optional_int(definition.get("scope_id"))
-        if scope_type != "school" and scope_id is None:
-            raise ValueError("Report definition has invalid scope_id")
+        definition = _validated_report_definition(definition)
         allowed = await can_create_report_scope(
             db,
             user,
-            report_type,
-            scope_type,
-            str(scope_id) if scope_id is not None else None,
+            definition["report_type"],
+            definition["scope_type"],
+            definition["scope_id"],
         )
         if not allowed:
             raise ValueError("Report scope is outside your permissions")
         report = await generate_report(
             db,
-            report_type=report_type,
-            actor_role=str(definition.get("actor_role") or "manager"),
+            report_type=definition["report_type"],
+            actor_role=definition["actor_role"],
             generated_by=user.id,
-            scope_type=scope_type,
-            scope_id=str(scope_id) if scope_id is not None else None,
+            scope_type=definition["scope_type"],
+            scope_id=definition["scope_id"],
             semester_id=_as_optional_int(definition.get("semester_id")),
             period_start=_as_optional_datetime(definition.get("period_start")),
             period_end=_as_optional_datetime(definition.get("period_end")),
