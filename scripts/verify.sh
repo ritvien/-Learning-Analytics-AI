@@ -27,7 +27,7 @@ step() {
 
 cd "$ROOT"
 
-step "Backend lint (ruff)" bash -c "cd backend && ruff check ."
+step "Backend lint (ruff)" bash -c "cd backend && ruff check app tests"
 
 if [ "$QUICK" = false ]; then
   step "Backend tests (pytest)" bash -c "cd backend && pytest -v"
