@@ -1080,6 +1080,44 @@ async def get_student_semester_prediction(
     return dict(row)
 
 
+@router.get("/predictions/students/{student_id}/semesters/{semester_id}/enrollments")
+async def get_student_semester_enrollment_predictions(
+    student_id: int,
+    semester_id: int,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> list[dict]:
+    """Return all enrollment-level predictions for a student in a semester."""
+    await _require_student_scope(db, current_user, student_id)
+    result = await db.execute(
+        text(
+            """
+            SELECT p.*, r.model_name, r.model_version, e.section_id, sec.course_id, c.code AS course_code, c.name AS course_name, c.credits
+            FROM ml.enrollment_prediction p
+            JOIN ml.model_run r ON r.id = p.model_run_id
+            JOIN public.enrollments e ON e.id = p.enrollment_id
+            JOIN public.sections sec ON sec.id = e.section_id
+            JOIN public.courses c ON c.id = sec.course_id
+            WHERE e.student_id = :student_id AND sec.semester_id = :semester_id
+            ORDER BY p.scored_at DESC
+            """
+        ),
+        {"student_id": student_id, "semester_id": semester_id},
+    )
+    seen = set()
+    latest_predictions = []
+    for row in result.mappings().all():
+        e_id = row["enrollment_id"]
+        if e_id not in seen:
+            seen.add(e_id)
+            payload = dict(row)
+            # convert decimal/float fields appropriately if needed
+            payload["pass_probability"] = float(payload["pass_probability"])
+            payload["fail_probability"] = float(payload["fail_probability"])
+            latest_predictions.append(payload)
+    return latest_predictions
+
+
 @router.get("/predictions/students/{student_id}/dropout-risk")
 async def get_student_dropout_risk(
     student_id: int,

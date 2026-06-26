@@ -67,6 +67,10 @@ export default function DashboardLayout({
       if (user.role !== "superadmin" && user.role !== "admin" && user.role !== "manager") {
         router.replace("/forbidden")
       }
+    } else if (pathname.startsWith("/manager/observability")) {
+      if (user.role !== "superadmin") {
+        router.replace("/forbidden")
+      }
     }
   }, [pathname, user, isChecking, router])
 
