@@ -110,42 +110,6 @@ function isVagueReportRequest(value: string) {
   return isReportRequest(value) && !hasSpecificScope
 }
 
-function reportDiscoveryMessage() {
-  return `Mình có thể giúp bạn xây báo cáo, nhưng yêu cầu hiện còn quá rộng nên chưa thể chọn đúng tool và filter.
-
-Bạn chọn hoặc mô tả giúp tôi các ý sau:
-- Loại báo cáo: tổng quan trường, sức khỏe khoa, sức khỏe ngành, sức khỏe môn học, can thiệp lớp học phần, sinh viên nguy cơ, hoặc báo cáo tùy chỉnh.
-- Phạm vi: toàn trường, khoa/ngành/môn/lớp nào, hoặc nhóm sinh viên nào.
-- Thời gian: học kỳ hiện tại, một học kỳ cụ thể, năm học, hoặc khoảng ngày.
-- Mục tiêu sử dụng: họp quản lý, cảnh báo học vụ, cải thiện môn học, kiểm định/minh chứng, hay so sánh chất lượng.
-- Bộ lọc: chỉ sinh viên nguy cơ, môn tỷ lệ trượt cao, điểm thiếu, khóa/ngành cụ thể, hoặc không lọc đặc biệt.
-
-Ví dụ: Tạo báo cáo tổng quan trường học kỳ 2025-2 để họp quản lý, tập trung GPA, tỷ lệ trượt và sinh viên nguy cơ.`
-}
-
-function discoveryReportPlan(): ApiReportBuildPlan {
-  return {
-    session_id: "local-discovery",
-    action_id: null,
-    definition: {
-      report_type: null,
-      template_label: "Chưa chọn loại báo cáo",
-      scope_type: null,
-      scope_id: null,
-      output_format: "link",
-      outline: [],
-      visuals: [],
-    },
-    data_quality: {
-      status: "needs_discovery",
-      message: "Chưa đủ brief để chọn tool và filter báo cáo.",
-    },
-    missing_fields: ["report_type", "scope", "period", "purpose", "filters"],
-    requires_confirmation: true,
-    message: reportDiscoveryMessage(),
-  }
-}
-
 function emptyReportBrief(): ReportBrief {
   return {}
 }
@@ -239,69 +203,6 @@ function mergeReportBrief(previous: ReportBrief, update: ReportBrief): ReportBri
   }
 }
 
-function reportBriefMissing(brief: ReportBrief) {
-  const missing: string[] = []
-  if (!brief.report_type) missing.push("loại báo cáo")
-  if (!brief.scope?.scope_type) missing.push("phạm vi")
-  if (!brief.period_label) missing.push("thời gian")
-  if (!brief.purpose) missing.push("mục tiêu sử dụng")
-  if (!brief.filters_confirmed) missing.push("bộ lọc")
-  return missing
-}
-
-function reportBriefMessage(brief: ReportBrief, missing: string[]) {
-  const understood = [
-    brief.report_label ? `loại: ${brief.report_label}` : null,
-    brief.scope?.scope_label ? `phạm vi: ${brief.scope.scope_label}` : null,
-    brief.period_label ? `thời gian: ${brief.period_label}` : null,
-    brief.purpose ? `mục tiêu: ${brief.purpose}` : null,
-    brief.filters_confirmed ? `bộ lọc: ${brief.filters?.length ? brief.filters.join(", ") : "không lọc đặc biệt"}` : null,
-  ].filter(Boolean).join("; ")
-  const questions: Record<string, string> = {
-    "loại báo cáo": "muốn loại báo cáo nào",
-    "phạm vi": "áp dụng cho phạm vi nào",
-    "thời gian": "lấy dữ liệu kỳ/năm/khoảng ngày nào",
-    "mục tiêu sử dụng": "báo cáo dùng để ra quyết định gì",
-    "bộ lọc": "có muốn tập trung vào GPA, tỷ lệ trượt, SV nguy cơ, điểm thiếu hay không lọc đặc biệt",
-  }
-  const missingPrompt = missing.map((item) => questions[item] ?? item).join("; ")
-  return `Mình đã hiểu: ${understood || "bạn muốn xây một báo cáo mới"}.
-
-Để chọn đúng tool và filter, mình cần thêm: ${missingPrompt}.
-
-Bạn trả lời theo format ngắn này là được:
-"Thời gian: ...; Mục tiêu: ...; Bộ lọc: ..."
-
-Ví dụ: "Thời gian: năm 2022; Mục tiêu: họp quản lý; Bộ lọc: GPA, tỷ lệ trượt, SV nguy cơ".`
-}
-
-function briefReportPlan(brief: ReportBrief, missing: string[]): ApiReportBuildPlan {
-  return {
-    session_id: "local-brief",
-    action_id: null,
-    definition: {
-      report_type: brief.report_type ?? null,
-      template_label: brief.report_label ?? "Chưa chọn loại báo cáo",
-      scope_type: brief.scope?.scope_type ?? null,
-      scope_id: brief.scope?.scope_id ?? null,
-      scope_hint: brief.scope?.scope_label ?? null,
-      period: brief.period_label ?? null,
-      purpose: brief.purpose ?? null,
-      output_format: "link",
-      filters: brief.filters ?? [],
-      outline: [],
-      visuals: [],
-    },
-    data_quality: {
-      status: "needs_brief",
-      message: "Chưa đủ brief để chọn tool và filter báo cáo.",
-    },
-    missing_fields: missing,
-    requires_confirmation: true,
-    message: reportBriefMessage(brief, missing),
-  }
-}
-
 function reportBriefToContext(brief: ReportBrief) {
   return {
     report_type: brief.report_type === "student_risk_custom" ? "school_overview" : brief.report_type,
@@ -350,6 +251,7 @@ export default function ChatPage() {
   const [reportIntakeActive, setReportIntakeActive] = React.useState(false)
   const [reportRequest, setReportRequest] = React.useState("")
   const [reportBrief, setReportBrief] = React.useState<ReportBrief>(emptyReportBrief())
+  const [reportBuildSessionId, setReportBuildSessionId] = React.useState<string | undefined>()
   
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
@@ -400,6 +302,7 @@ export default function ChatPage() {
       setReportIntakeActive(false)
       setReportRequest("")
       setReportBrief(emptyReportBrief())
+      setReportBuildSessionId(undefined)
       
       if (!detail.messages || detail.messages.length === 0) {
         setMessages([{
@@ -467,6 +370,7 @@ export default function ChatPage() {
     setReportIntakeActive(false)
     setReportRequest("")
     setReportBrief(emptyReportBrief())
+    setReportBuildSessionId(undefined)
     setMessages([{
       id: "welcome",
       role: "assistant",
@@ -489,45 +393,9 @@ export default function ChatPage() {
     setInput("")
     setIsLoading(true)
 
-    if (isVagueReportRequest(text)) {
-      const plan = discoveryReportPlan()
-      setMessages(prev => [...prev, {
-        id: `report-discovery-${Date.now()}`,
-        role: "assistant",
-        content: plan.message,
-        timestamp: new Date(),
-        statuses: ["Cần bổ sung ngữ cảnh báo cáo"],
-        reportPlan: plan,
-      }])
-      setReportIntakeActive(true)
-      setReportRequest(text.trim())
-      setReportBrief(emptyReportBrief())
-      setIsLoading(false)
-      inputRef.current?.focus()
-      return
-    }
-
-    if (isReportRequest(text) || reportIntakeActive) {
+    if (isReportRequest(text) || isVagueReportRequest(text) || reportIntakeActive) {
       const assistantMsgId = `report-plan-${Date.now()}`
       const nextBrief = mergeReportBrief(reportIntakeActive ? reportBrief : emptyReportBrief(), extractReportBrief(text))
-      const missingBrief = reportBriefMissing(nextBrief)
-      if (missingBrief.length > 0) {
-        const plan = briefReportPlan(nextBrief, missingBrief)
-        setMessages(prev => [...prev, {
-          id: assistantMsgId,
-          role: "assistant",
-          content: plan.message,
-          timestamp: new Date(),
-          statuses: ["Cần bổ sung ngữ cảnh báo cáo"],
-          reportPlan: plan,
-        }])
-        setReportIntakeActive(true)
-        setReportRequest(reportIntakeActive ? `${reportRequest}\nThông tin bổ sung: ${text.trim()}` : text.trim())
-        setReportBrief(nextBrief)
-        setIsLoading(false)
-        inputRef.current?.focus()
-        return
-      }
       const planMessage = reportIntakeActive
         ? `${reportRequest}\nThông tin bổ sung: ${text.trim()}`
         : text.trim()
@@ -546,7 +414,7 @@ export default function ChatPage() {
         const activeReportContext = getReportBuildContext("/chat")
         const plan = await api.planReportBuild({
           message: planMessage,
-          session_id: activeSessionId,
+          session_id: reportBuildSessionId,
           context: {
             ...(activeReportContext ?? {}),
             ...reportBriefToContext(nextBrief),
@@ -566,10 +434,12 @@ export default function ChatPage() {
               reportPlan: plan,
             }
           : message))
+        setReportBuildSessionId(plan.session_id)
         if (plan.action_id) {
           setReportIntakeActive(false)
           setReportRequest("")
           setReportBrief(emptyReportBrief())
+          setReportBuildSessionId(undefined)
         } else {
           setReportIntakeActive(true)
           setReportRequest(planMessage)
@@ -861,18 +731,18 @@ export default function ChatPage() {
                         const missingFields = msg.reportPlan.missing_fields
                         const isReady = Boolean(msg.reportPlan.action_id)
                         return (
-                          <div className="mt-3 rounded-xl border border-border bg-background/80 p-3 text-sm shadow-sm">
+                          <div className="mt-3 rounded-lg border border-border bg-background/70 p-3 text-sm">
                             <div className="mb-2 flex items-center justify-between gap-2">
                               <div>
-                                <p className="font-semibold">{isReady ? "Bản nháp báo cáo" : "Phiếu thu thập brief báo cáo"}</p>
+                                <p className="font-semibold">{isReady ? "Bản nháp báo cáo" : "Ngữ cảnh báo cáo đang hiểu"}</p>
                                 <p className="text-xs text-muted-foreground">
                                   {isReady
                                     ? "Chưa ghi snapshot cho đến khi bạn xác nhận."
-                                    : "Agent sẽ hỏi tiếp cho đến khi đủ context để chọn tool và filter đúng."}
+                                    : "Bạn chỉ cần trả lời phần còn thiếu trong câu hỏi phía trên."}
                                 </p>
                               </div>
                               <Badge variant={isReady ? "secondary" : "outline"}>
-                                {isReady ? "Sẵn sàng tạo" : "Cần bổ sung"}
+                                {isReady ? "Sẵn sàng tạo" : textValue(definition.intent_source, "Đang hiểu")}
                               </Badge>
                             </div>
 
@@ -883,11 +753,13 @@ export default function ChatPage() {
                                 <div><span className="font-medium text-foreground">Thời gian:</span> {textValue(definition.semester_label ?? definition.semester_id ?? definition.period, "Theo dữ liệu hiện có")}</div>
                               </div>
                             ) : (
-                              <div className="rounded-lg border border-dashed border-border bg-muted/30 p-2 text-xs text-muted-foreground">
+                              <div className="rounded-md bg-muted/30 p-2 text-xs text-muted-foreground">
                                 <div><span className="font-medium text-foreground">Loại:</span> {textValue(definition.template_label ?? definition.report_type, "Chưa chọn")}</div>
                                 <div><span className="font-medium text-foreground">Phạm vi:</span> {textValue(definition.scope_hint ?? definition.scope_type, "Chưa chọn")}</div>
-                                <div><span className="font-medium text-foreground">Thời gian:</span> {textValue(definition.period, "Chưa chốt")}</div>
+                                <div><span className="font-medium text-foreground">Thời gian:</span> {textValue(definition.period_label ?? definition.period, "Chưa chốt")}</div>
                                 <div><span className="font-medium text-foreground">Mục tiêu:</span> {textValue(definition.purpose, "Chưa chốt")}</div>
+                                {definition.comparison ? <div><span className="font-medium text-foreground">So sánh:</span> {textValue(definition.comparison)}</div> : null}
+                                {definition.intent_rationale ? <div><span className="font-medium text-foreground">Lý do hiểu:</span> {textValue(definition.intent_rationale)}</div> : null}
                               </div>
                             )}
 
@@ -915,11 +787,9 @@ export default function ChatPage() {
                               </div>
                             )}
 
-                            {missingFields.length > 0 && (
-                              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
-                                Cần bổ sung: {missingFields.join(", ")}
-                              </div>
-                            )}
+                            {missingFields.length > 0 ? (
+                              <p className="mt-2 text-xs text-muted-foreground">Còn thiếu: {missingFields.join(", ")}</p>
+                            ) : null}
 
                             {isReady ? (
                               <div className="mt-3 flex flex-wrap gap-2">
@@ -933,9 +803,7 @@ export default function ChatPage() {
                                 </Button>
                               </div>
                             ) : (
-                              <p className="mt-3 text-xs text-muted-foreground">
-                                Trả lời thêm thông tin còn thiếu để tôi dựng bản nháp báo cáo đúng yêu cầu.
-                              </p>
+                              null
                             )}
                           </div>
                         )

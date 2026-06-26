@@ -26,7 +26,7 @@ from app.agent.report_tools import (
     trace_report_metric,
 )
 from app.config import get_settings
-from app.models.academic import Semester
+from app.models.academic import Course, Department, Program, Semester
 from app.models.agent import (
     AgentMemory,
     AgentPromptVersion,
@@ -375,6 +375,266 @@ def tool_registry_payload() -> list[dict[str, Any]]:
     ]
 
 
+async def _get_previous_build_definition(
+    db: AsyncSession,
+    user: User,
+    session_id: str | None,
+) -> dict[str, Any] | None:
+    if not session_id:
+        return None
+    session = await get_report_agent_session(db, user, session_id)
+    if session is None:
+        return None
+    definition = (session.scope_json or {}).get("build_definition")
+    return definition if isinstance(definition, dict) else None
+
+
+def _merge_report_build_context(
+    context: dict[str, Any],
+    previous_definition: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if not previous_definition:
+        return context
+    merged = dict(context)
+    for key in (
+        "report_type",
+        "purpose",
+        "audience",
+        "decision",
+        "comparison",
+        "intent_source",
+        "intent_confidence",
+        "intent_rationale",
+        "period_label",
+        "period_start",
+        "period_end",
+        "semester_id",
+        "custom_request",
+    ):
+        if not merged.get(key) and previous_definition.get(key):
+            merged[key] = previous_definition[key]
+
+    scope = dict(merged.get("scope") if isinstance(merged.get("scope"), dict) else {})
+    if not scope.get("scope_type") and previous_definition.get("scope_type"):
+        scope["scope_type"] = previous_definition["scope_type"]
+    if not scope.get("scope_id") and previous_definition.get("scope_id"):
+        scope["scope_id"] = previous_definition["scope_id"]
+    if not scope.get("scope_label") and previous_definition.get("scope_hint"):
+        scope["scope_label"] = previous_definition["scope_hint"]
+    if scope:
+        merged["scope"] = scope
+
+    brief = dict(merged.get("brief") if isinstance(merged.get("brief"), dict) else {})
+    for key in ("report_type", "period_label", "purpose", "audience", "decision", "comparison"):
+        if not brief.get(key) and merged.get(key):
+            brief[key] = merged[key]
+    if brief:
+        merged["brief"] = brief
+    return merged
+
+
+def _merge_report_definitions(
+    previous_definition: dict[str, Any] | None,
+    definition: dict[str, Any],
+) -> dict[str, Any]:
+    if not previous_definition:
+        return definition
+    merged = dict(previous_definition)
+    for key, value in definition.items():
+        if value not in (None, "", [], {}):
+            merged[key] = value
+        elif key not in merged:
+            merged[key] = value
+    if merged.get("report_type") in REPORT_BUILD_DEFAULTS:
+        defaults = REPORT_BUILD_DEFAULTS[str(merged["report_type"])]
+        design = REPORT_BUILD_DESIGNS[str(merged["report_type"])]
+        merged["actor_role"] = defaults["actor_role"]
+        merged["scope_type"] = defaults["scope_type"]
+        merged["base_design"] = design["label"]
+        merged["template_label"] = "Báo cáo tùy chỉnh" if merged.get("is_custom") else design["label"]
+        merged["outline"] = design["outline"]
+        merged["visuals"] = design["visuals"]
+    return merged
+
+
+def _extract_json_object(raw: str) -> dict[str, Any] | None:
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        if raw.lower().startswith("json"):
+            raw = raw[4:].strip()
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start < 0 or end <= start:
+            return None
+        try:
+            data = json.loads(raw[start:end + 1])
+        except json.JSONDecodeError:
+            return None
+    return data if isinstance(data, dict) else None
+
+
+async def _resolve_report_scope(db: AsyncSession, definition: dict[str, Any]) -> None:
+    if definition.get("scope_id") or definition.get("scope_type") == "school":
+        return
+    hint = definition.get("scope_hint")
+    if not isinstance(hint, str) or not hint.strip():
+        return
+    pattern = f"%{hint.strip()}%"
+    scope_type = definition.get("scope_type")
+
+    if scope_type == "department":
+        department = (
+            await db.execute(
+                select(Department).where(
+                    Department.is_active.is_(True),
+                    Department.code.ilike(pattern) | Department.name.ilike(pattern) | Department.name_en.ilike(pattern),
+                ).limit(1)
+            )
+        ).scalar_one_or_none()
+        if department is None:
+            program = (
+                await db.execute(
+                    select(Program).where(
+                        Program.is_active.is_(True),
+                        Program.code.ilike(pattern) | Program.name.ilike(pattern) | Program.name_en.ilike(pattern),
+                    ).limit(1)
+                )
+            ).scalar_one_or_none()
+            if program is not None:
+                definition["scope_id"] = str(program.department_id)
+                definition["scope_resolution"] = {"source": "program_hint", "matched_id": program.id}
+                return
+        if department is not None:
+            definition["scope_id"] = str(department.id)
+            definition["scope_hint"] = department.name
+            definition["scope_resolution"] = {"source": "department_hint", "matched_id": department.id}
+        return
+
+    if scope_type == "program":
+        program = (
+            await db.execute(
+                select(Program).where(
+                    Program.is_active.is_(True),
+                    Program.code.ilike(pattern) | Program.name.ilike(pattern) | Program.name_en.ilike(pattern),
+                ).limit(1)
+            )
+        ).scalar_one_or_none()
+        if program is not None:
+            definition["scope_id"] = str(program.id)
+            definition["scope_hint"] = program.name
+            definition["scope_resolution"] = {"source": "program_hint", "matched_id": program.id}
+        return
+
+    if scope_type == "course":
+        course = (
+            await db.execute(
+                select(Course).where(
+                    Course.is_active.is_(True),
+                    Course.code.ilike(pattern) | Course.name.ilike(pattern) | Course.name_en.ilike(pattern),
+                ).limit(1)
+            )
+        ).scalar_one_or_none()
+        if course is not None:
+            definition["scope_id"] = str(course.id)
+            definition["scope_hint"] = course.name
+            definition["scope_resolution"] = {"source": "course_hint", "matched_id": course.id}
+
+
+async def _extract_report_build_intent(
+    message: str,
+    context: dict[str, Any],
+    previous_definition: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Use the configured LLM to extract report-build intent, falling back to rules when unavailable."""
+    if not get_settings().llm_api_key:
+        return {"intent_source": "rules_fallback"}
+    prompt = {
+        "task": "Understand a Vietnamese user building an academic analytics report. Extract the user's evolving brief, not just keywords.",
+        "principles": [
+            "Prefer the latest user turn when it clearly corrects earlier context.",
+            "Carry forward previous_definition only for fields the latest turn does not update.",
+            "Treat accreditation/minh chứng/kiểm định as an assurance-quality purpose, not a random filter.",
+            "Treat so sánh chất lượng/benchmark/đối chiếu kỳ trước as comparison intent.",
+            "If the user says tổng quan without a lower-level scope, infer school_overview and school scope.",
+            "Do not mark a normal predefined report as custom just because custom_request contains the chat transcript.",
+        ],
+        "allowed_report_type": list(REPORT_BUILD_DEFAULTS),
+        "allowed_scope_type": ["school", "department", "program", "course", "section"],
+        "return_json_only": True,
+        "schema": {
+            "report_type": "school_overview|department_health|program_health|course_health|section_intervention|null",
+            "scope": {
+                "scope_type": "school|department|program|course|section|null",
+                "scope_id": "string|null when user provides a numeric/internal id",
+                "scope_label": "string|null natural-language label from user",
+            },
+            "period_label": "string|null",
+            "purpose": "string|null",
+            "audience": "string|null",
+            "decision": "string|null",
+            "comparison": "string|null",
+            "filters": {"focus": ["string"]},
+            "is_custom_report": "boolean",
+            "confidence": "0-100 integer",
+            "rationale": "one short Vietnamese sentence explaining the extraction",
+        },
+        "previous_definition": previous_definition or {},
+        "context": context,
+        "message": message,
+    }
+    try:
+        llm_kwargs = {"model": get_settings().llm_model, "api_key": get_settings().llm_api_key, "temperature": 0}
+        if get_settings().llm_base_url:
+            llm_kwargs["base_url"] = get_settings().llm_base_url
+        response = await ChatOpenAI(**llm_kwargs).ainvoke(
+            [
+                SystemMessage(content="You extract structured JSON only. Do not add prose."),
+                HumanMessage(content=json.dumps(prompt, ensure_ascii=False)),
+            ]
+        )
+        raw = response.content if isinstance(response.content, str) else json.dumps(response.content)
+        data = _extract_json_object(raw)
+    except Exception:
+        return {"intent_source": "rules_fallback"}
+    if not data:
+        return {"intent_source": "rules_fallback"}
+    sanitized: dict[str, Any] = {"intent_source": "llm"}
+    report_type = data.get("report_type")
+    if isinstance(report_type, str) and report_type in REPORT_BUILD_DEFAULTS:
+        sanitized["report_type"] = report_type
+    scope = data.get("scope") if isinstance(data.get("scope"), dict) else {}
+    scope_type = scope.get("scope_type")
+    if isinstance(scope_type, str) and scope_type in {"school", "department", "program", "course", "section"}:
+        scope_id = _as_optional_int(scope.get("scope_id"))
+        sanitized["scope"] = {
+            "scope_type": scope_type,
+            "scope_id": str(scope_id) if scope_id is not None else None,
+            "scope_label": scope.get("scope_label") if isinstance(scope.get("scope_label"), str) else None,
+        }
+    for key in ("period_label", "purpose", "audience", "decision", "comparison"):
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            sanitized[key] = value.strip()
+    filters = data.get("filters")
+    if isinstance(filters, dict):
+        focus = filters.get("focus")
+        if isinstance(focus, list):
+            sanitized["filters"] = {"focus": [str(item) for item in focus if str(item).strip()]}
+    if isinstance(data.get("is_custom_report"), bool):
+        sanitized["is_custom_report"] = data["is_custom_report"]
+    confidence = data.get("confidence")
+    if isinstance(confidence, int) and 0 <= confidence <= 100:
+        sanitized["intent_confidence"] = confidence
+    rationale = data.get("rationale")
+    if isinstance(rationale, str) and rationale.strip():
+        sanitized["intent_rationale"] = rationale.strip()[:400]
+    return sanitized
+
+
 async def plan_report_build(
     db: AsyncSession,
     user: User,
@@ -383,6 +643,12 @@ async def plan_report_build(
     session_id: str | None = None,
 ) -> dict[str, Any]:
     """Create a permission-checked report plan that remains pending until confirmed."""
+    previous_definition = await _get_previous_build_definition(db, user, session_id)
+    context = _merge_report_build_context(context, previous_definition)
+    llm_context = await _extract_report_build_intent(message, context, previous_definition)
+    if llm_context and not llm_context.get("intent_source"):
+        llm_context["intent_source"] = "llm"
+    context = _merge_report_build_context({**context, **llm_context}, previous_definition)
     scope_context = context.get("scope") if isinstance(context.get("scope"), dict) else context
     if _needs_report_discovery(message, context):
         definition = _discovery_report_definition(message, context)
@@ -414,7 +680,7 @@ async def plan_report_build(
     period = scope_context.get("period") if isinstance(scope_context.get("period"), dict) else context.get("period")
     period = period if isinstance(period, dict) else {}
     custom_request = context.get("custom_request")
-    is_custom = isinstance(custom_request, str) and bool(custom_request.strip())
+    is_custom = bool(context.get("is_custom_report"))
     brief = _extract_report_brief(message, context)
     definition = {
         "report_type": report_type,
@@ -423,6 +689,7 @@ async def plan_report_build(
         "scope_id": str(scope_id) if scope_id is not None else None,
         "scope_hint": _extract_scope_hint(message, context),
         "semester_id": semester_id,
+        "period_label": context.get("period_label"),
         "period_start": period.get("from") or context.get("period_start"),
         "period_end": period.get("to") or context.get("period_end"),
         "assessment_stage": _infer_assessment_stage(message),
@@ -432,6 +699,10 @@ async def plan_report_build(
         "outline": design["outline"],
         "visuals": design["visuals"],
         "custom_request": custom_request,
+        "filters": context.get("filters"),
+        "intent_source": context.get("intent_source", "rules_fallback"),
+        "intent_confidence": context.get("intent_confidence"),
+        "intent_rationale": context.get("intent_rationale"),
         "audience": brief.get("audience"),
         "purpose": brief.get("purpose"),
         "decision": brief.get("decision"),
@@ -439,10 +710,13 @@ async def plan_report_build(
         "is_custom": is_custom,
         "source": context.get("source", "global_chat"),
     }
+    definition = _merge_report_definitions(previous_definition, definition)
+    await _resolve_report_scope(db, definition)
     missing_fields = _missing_report_brief_fields(definition, message, context)
     session = await _get_or_create_session(db, user, session_id, None, "workflow", {"build_definition": definition})
+    session.scope_json = {**(session.scope_json or {}), "build_definition": definition}
     if missing_fields:
-        question = _build_report_brief_question(definition, missing_fields)
+        question = await _build_report_followup_question(message, definition, missing_fields)
         return {
             "session_id": session.id,
             "definition": definition,
@@ -819,11 +1093,8 @@ def _update_short_summary(previous: str | None, question: str, answer: str) -> s
 
 
 def _infer_report_type(message: str, context: dict[str, Any]) -> str:
-    requested = context.get("report_type")
-    if isinstance(requested, str) and requested in REPORT_BUILD_DEFAULTS:
-        return requested
     normalized = _normalized_text(message)
-    if any(word in normalized for word in ("toan truong", "tong quan truong", "ban giam hieu")):
+    if any(word in normalized for word in ("toan truong", "tong quan truong", "bao cao tong quan", "tong quan", "ban giam hieu")):
         return "school_overview"
     if any(word in normalized for word in ("khoa", "faculty")):
         return "department_health"
@@ -833,6 +1104,9 @@ def _infer_report_type(message: str, context: dict[str, Any]) -> str:
         return "section_intervention"
     if any(word in normalized for word in ("mon", "hoc phan", "clo")):
         return "course_health"
+    requested = context.get("report_type")
+    if isinstance(requested, str) and requested in REPORT_BUILD_DEFAULTS:
+        return requested
     scope = context.get("scope") if isinstance(context.get("scope"), dict) else context
     scope_type = scope.get("scope_type")
     by_scope = {
@@ -1023,6 +1297,51 @@ def _missing_report_brief_fields(definition: dict[str, Any], message: str, conte
     if not definition.get("purpose"):
         missing.append("purpose")
     return missing
+
+
+async def _build_report_followup_question(
+    message: str,
+    definition: dict[str, Any],
+    missing_fields: list[str],
+) -> str:
+    """Ask the next report-brief question conversationally, using LLM when configured."""
+    if not get_settings().llm_api_key:
+        return _build_report_brief_question(definition, missing_fields)
+    prompt = {
+        "task": "Write the next Vietnamese chat response for collecting a report brief.",
+        "style": [
+            "Natural, concise, helpful, not a form.",
+            "Acknowledge what is already understood.",
+            "Ask only for the missing fields, preferably in one short question.",
+            "Do not repeat a long checklist.",
+            "If only period is missing, ask the user to choose current semester, a specific semester, academic year, or date range.",
+            "Keep the answer under 120 Vietnamese words.",
+        ],
+        "current_user_message": message,
+        "understood_definition": definition,
+        "missing_fields": missing_fields,
+    }
+    try:
+        llm_kwargs = {"model": get_settings().llm_model, "api_key": get_settings().llm_api_key, "temperature": 0.2}
+        if get_settings().llm_base_url:
+            llm_kwargs["base_url"] = get_settings().llm_base_url
+        response = await ChatOpenAI(**llm_kwargs).ainvoke(
+            [
+                SystemMessage(
+                    content=(
+                        "Bạn là trợ lý phân tích học vụ VinUni. "
+                        "Hãy hỏi tiếp tự nhiên để hoàn thiện brief báo cáo; không trình bày như biểu mẫu."
+                    )
+                ),
+                HumanMessage(content=json.dumps(prompt, ensure_ascii=False)),
+            ]
+        )
+        text = response.content if isinstance(response.content, str) else ""
+        if text.strip():
+            return text.strip()
+    except Exception:
+        return _build_report_brief_question(definition, missing_fields)
+    return _build_report_brief_question(definition, missing_fields)
 
 
 def _build_report_brief_question(definition: dict[str, Any], missing_fields: list[str]) -> str:
