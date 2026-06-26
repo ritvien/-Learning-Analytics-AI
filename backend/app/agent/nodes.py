@@ -46,6 +46,10 @@ TOOLS = [execute_sql_query, calculate_student_clo_scores, lookup_student_by_code
 
 def _build_openai_model(model_name: str, temperature: float) -> ChatOpenAI:
     """Build an OpenAI-compatible model with explicit credential checks."""
+    if not model_name.strip():
+        raise MissingLLMCredentialsError(
+            "Missing LLM model. Set LLM_MODEL, AGENT_ROUTER_MODEL, AGENT_CORE_MODEL, or CHAT_TITLE_MODEL."
+        )
     api_key = (
         settings.llm_api_key
         or os.environ.get("OPENAI_API_KEY")
@@ -69,17 +73,21 @@ def _build_openai_model(model_name: str, temperature: float) -> ChatOpenAI:
 def get_model(model_name: str, temperature: float = 0) -> BaseChatModel:
     """Build a ChatOpenAI or ChatGoogleGenerativeAI model."""
     provider = settings.llm_provider.lower().strip()
+    selected_model = model_name.strip() or settings.llm_model.strip()
+    if not selected_model:
+        raise MissingLLMCredentialsError(
+            "Missing LLM model. Set LLM_MODEL, AGENT_ROUTER_MODEL, AGENT_CORE_MODEL, or CHAT_TITLE_MODEL."
+        )
     if provider == "gemini":
         from langchain_google_genai import ChatGoogleGenerativeAI
 
-        actual_model = settings.llm_model if "gemini" in settings.llm_model else "gemini-1.5-flash"
-        kwargs = {"model": actual_model, "temperature": temperature}
+        kwargs = {"model": selected_model, "temperature": temperature}
         api_key = settings.llm_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
         if api_key:
             kwargs["google_api_key"] = api_key
         return ChatGoogleGenerativeAI(**kwargs)
 
-    return _build_openai_model(model_name, temperature)
+    return _build_openai_model(selected_model, temperature)
 
 
 def _router_fallback_context(page_context: dict) -> dict:

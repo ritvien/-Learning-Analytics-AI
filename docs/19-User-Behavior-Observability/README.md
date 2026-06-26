@@ -1,7 +1,21 @@
 # User Behavior Observability
 
+## Superadmin system monitoring UI
+
+Route: `/manager/observability`
+
+The monitoring view consumes the session and event-log APIs and calculates its visible metrics from the loaded records:
+
+- active users in the selected 24-hour, 7-day, or 30-day period;
+- session volume and average session duration;
+- error count and error rate across events;
+- daily active-user trend;
+- routes with the most errors, recent sessions, and filterable event log.
+
+The endpoint RBAC remains the authority: the UI is intended for superadmins, but non-superadmin requests must still receive an API authorization failure rather than relying on hidden navigation.
+
 > Scope: session/cookie, structured event log, correlation/trace ID cho page, chat, tool va retrieval de quan sat hanh vi nguoi dung.
-> Status: MVP da trien khai cho Sprint 3 task `T41`; retrieval-specific events se noi vao khi `H51` them RAG/corpus wrapper.
+> Status: MVP da trien khai cho Sprint 3 task `T41`; API doc/loc/aggregate cho superadmin da bo sung theo `T53`; retrieval-specific events se noi vao khi `H51` them RAG/corpus wrapper.
 
 ## 1. Muc tieu
 
@@ -215,7 +229,47 @@ Tao query hoac endpoint noi bo de tinh:
 Acceptance:
 
 - [x] Co query baseline truc tiep tren `obs.event_log`.
+- [x] Co API noi bo superadmin de doc/loc event, list session va aggregate theo user.
 - [ ] Co bang evidence trong `docs/12-Evaluation/`.
+
+### Phase 4.5 - Superadmin observability API (T53)
+
+Muc tieu cua T53 la bien event log thanh API dieu tra duoc, chi danh cho `superadmin`.
+
+Endpoints:
+
+| API | Muc dich | Filter chinh |
+|---|---|---|
+| `GET /api/v1/observability/admin/events` | Doc raw event tu `obs.event_log` | `user_id`, `session_id`, `trace_id`, `event_name`, `status`, `route`, `module`, `from`, `to`, `skip`, `limit` |
+| `GET /api/v1/observability/admin/sessions` | List browser/app sessions da aggregate tu event log | cung filter nhu events |
+| `GET /api/v1/observability/admin/users/aggregates` | Aggregate theo user de xem muc do su dung, loi, request | cung filter nhu events |
+
+Quyen truy cap:
+
+- [x] Tat ca endpoint `/observability/admin/*` dung RBAC `superadmin` only.
+- [x] `admin`, `manager`, `lecturer`, `viewer` bi `403`.
+- [x] Endpoint khong expose raw password/token/cookie; payload da di qua logging sanitizer tu ingestion/middleware.
+
+Response chinh:
+
+- Events: tra `total`, `skip`, `limit`, `items[]` voi day du core field cua `obs.event_log`.
+- Sessions: tra `session_id`, `user_id`, `user_role`, `first_seen_at`, `last_seen_at`, `event_count`, `request_count`, `error_count`, `avg_duration_ms`.
+- User aggregates: tra `user_id`, `email`, `full_name`, `user_role`, `session_count`, `event_count`, `request_count`, `error_count`, `avg_duration_ms`, `last_seen_at`.
+
+Verify:
+
+```powershell
+cd backend
+pytest tests/test_observability_admin.py -q
+```
+
+Done:
+
+- [x] API list/filter sessions.
+- [x] API doc/filter `obs.event_log`.
+- [x] Aggregate theo user.
+- [x] RBAC superadmin only.
+- [x] Test coverage cho RBAC, filter event, aggregate session/user.
 
 ### Phase 5 - Hardening
 
@@ -257,6 +311,15 @@ Acceptance:
 - [x] Co query evidence cho page/API journey end-to-end.
 - [x] Co privacy guard: khong log password/token/cookie/raw retrieved chunks.
 - [x] Co baseline query cho latency p95 va tool success rate.
+
+## 10.1 Definition of Done cho T53
+
+- [x] Co endpoint superadmin list/filter session tu `obs.event_log`.
+- [x] Co endpoint superadmin doc/filter raw event tu `obs.event_log`.
+- [x] Co endpoint superadmin aggregate theo user.
+- [x] Co filter theo `user_id`, `session_id`, `trace_id`, `event_name`, `status`, `route`, `module`, khoang thoi gian.
+- [x] Co RBAC `superadmin` only cho `/api/v1/observability/admin/*`.
+- [x] Co pytest coverage: role khong phai superadmin bi `403`, superadmin duoc doc, filter dung, aggregate dung.
 
 ## 11. Evidence MVP ngay 22/06/2026
 

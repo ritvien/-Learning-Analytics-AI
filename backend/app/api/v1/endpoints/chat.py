@@ -17,7 +17,6 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, messages_from_dict, messages_to_dict
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +29,7 @@ from app.agent.errors import (
     stream_error_message,
 )
 from app.agent.guardrails import build_refusal, classify_input
+from app.agent.nodes import get_model
 from app.agent.route_decision import RouteDecision
 from app.config import get_settings
 from app.database import AsyncSessionLocal, get_db
@@ -99,7 +99,7 @@ class SessionSummaryResponse(BaseModel):
 async def generate_title(message: str) -> str:
     """Sử dụng LLM nhỏ để summarize title cho cuộc hội thoại mới."""
     try:
-        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3, max_tokens=20)
+        llm = get_model(_settings.chat_title_model, temperature=0.3).bind(max_tokens=20)
         prompt = f"Viết tiêu đề thật ngắn gọn (tối đa 5-6 từ) tóm tắt nội dung câu hỏi sau. Không dùng ngoặc kép, không giải thích:\n\n{message}"
         res = await llm.ainvoke(prompt)
         return res.content.strip().strip('"').strip("'")
