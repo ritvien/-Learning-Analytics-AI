@@ -31,7 +31,7 @@
 | Structured logs, trace ID | **T41** | Hưng | [x] |
 | RBAC UI — nav, route, CRUD | **V41** | Hiếu | [ ] |
 | Error handling 3 tầng + HTTP | **H52** | Hoàng | [x] |
-| Prompt scope + injection | **H40** | Hoàng | [x] |
+| Prompt scope + injection | **H40** | Hoàng | [ ] |
 | LLM chỉ explain `ml` (ADR-006) | **T52d** | Hoàng | [x] |
 
 ### G3-4 — Kịch bản quay (V35, nộp 25/06)
@@ -77,7 +77,7 @@
 | **T52d** | API dropout-risk + RBAC; agent tool đọc `ml` | 25/06 | **P0** | T52c | [x] |
 | **H25b** | ML eval report P/R/F1/PR-AUC (`ml-dropout-baseline.md`) | 26/06 | P1 | T52d | [x] |
 | H44 | Demo video script / narrative cho Hiếu | 24–25/06 | P1 | — | [ ] |
-| H40 | Guardrails prompt — scope + injection (G3-3) | 25/06 | P1 | H52 | [x] |
+| H40 | Guardrails prompt — scope + injection (G3-3) | 25/06 | P1 | H52 | [ ] |
 | H49 | Cross-module data access chatbot | — | P2 | H48 | [ ] S4 |
 | H50 | Expanded agent tool registry | — | P2 | H49 | [ ] S4 |
 | H51 | RAG retrieval integration | — | P2 | H48, T49 | [ ] S4 |
@@ -127,14 +127,14 @@ docker compose exec backend python -m app.analytics.etl
 | V39 | Playwright E2E — auth, tree, report, chat, responsive | 22–24/06 | P0 | V36, V38, T51 | [x] |
 | V40 | Global chat shell + route handoff `/chatbot` | 23–24/06 | P0 | H48, T41 | [x] |
 | **V41** | FE RBAC — route guard, nav/CRUD theo role, `/forbidden` | 24–25/06 | **P0** | T40 | [x] |
-| **V20** | Dropout risk UI — badge + probability (T52d API) | 25/06 | P1 | T52d | [ ] |
-| V34 | Demo slides — pitch + metric/cost | 24–25/06 | P1 | V39 | [ ] |
-| V35 | Demo video recording 3–5 phút (G3-4) | **25/06** | P1 | V34, H44, V41 | [ ] |
+| **V20** | Dropout risk UI — badge + probability (T52d API) | 25/06 | P1 | T52d | [x] |
+| V34 | Demo slides — pitch + metric/cost | 24–25/06 | P1 | V39 | [] |
+| V35 | Demo video recording 3–5 phút (G3-4) | **25/06** | P1 | V34, H44, V41 | [] |
 | V37 | Final QA + chỉnh video | 26–27/06 | P1 | V35 | [ ] |
 | **V42** | Filter mặc định kỳ học mới nhất — dashboard/report/analytics; vẫn cho đổi semester | 26/06 | **P1** | T43 | [x] |
-| **V43** | Superadmin observability UI — sessions, event log, trace, metric tổng quan theo user | 26–27/06 | **P1** | T53, V41 | [ ] |
-| V18 + V21 | CRUD polish + responsive/dark | — | P2 | — | [ ] S4 |
-| V19, V22, V23 | Chart, FE unit tests, credit prediction UI | — | P2 | — | [ ] S4 |
+| **V43** | Superadmin observability UI — sessions, event log, trace, metric tổng quan theo user | 26–27/06 | **P1** | T53, V41 | [x] |
+| **V18 + V21** | CRUD polish + responsive/dark | — | P2 | — | [x] S4 |
+| **V19, V22, V23** | Chart, FE unit tests, credit prediction UI | — | P2 | — | [x] S4 |
 
 **Verify:** `cd frontend && npm run lint && npm test` · Playwright sau V41.  
 **Phụ thuộc:** V20 ← T52d · V35 ← V34 + H44 + V41 · **V43 ← T53** · V42 dùng semester API từ T43.
