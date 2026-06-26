@@ -11,6 +11,19 @@ export interface ApiStudent {
   cohort_id: number
   gpa_cumulative: number | null
 }
+ 
+export interface ApiDropoutRisk {
+  student_id: number
+  student_code?: string | null
+  dropout_probability: number
+  risk_level: "low" | "medium" | "high"
+  top_factors: { feature: string; impact: number }[]
+  model_name?: string
+  model_version?: string
+  scored_at?: string
+  source?: "live" | "batch"
+}
+
 
 export interface ApiCohort {
   id: number
@@ -234,6 +247,78 @@ export interface ApiReportSchedule {
   last_report_id: string | null
   created_at: string
   updated_at: string
+}
+
+export interface ApiObservabilityEvent {
+  id: number
+  occurred_at: string
+  event_name: string
+  event_version: number
+  user_id?: string | null
+  user_role?: string | null
+  department_id?: number | null
+  session_id?: string | null
+  request_id?: string | null
+  trace_id?: string | null
+  conversation_id?: string | null
+  agent_run_id?: string | null
+  tool_call_id?: string | null
+  retrieval_id?: string | null
+  route?: string | null
+  module?: string | null
+  entity_type?: string | null
+  entity_id?: string | null
+  status?: string | null
+  duration_ms?: number | null
+  error_code?: string | null
+  payload: Record<string, unknown>
+}
+
+export interface ApiObservabilityEventList {
+  total: number
+  skip: number
+  limit: number
+  items: ApiObservabilityEvent[]
+}
+
+export interface ApiObservabilitySession {
+  session_id: string
+  user_id?: string | null
+  user_role?: string | null
+  department_id?: number | null
+  first_seen_at: string
+  last_seen_at: string
+  event_count: number
+  request_count: number
+  error_count: number
+  avg_duration_ms?: number | null
+}
+
+export interface ApiObservabilitySessionList {
+  total: number
+  skip: number
+  limit: number
+  items: ApiObservabilitySession[]
+}
+
+export interface ApiObservabilityUserAggregate {
+  user_id: string
+  email?: string | null
+  full_name?: string | null
+  user_role?: string | null
+  session_count: number
+  event_count: number
+  request_count: number
+  error_count: number
+  avg_duration_ms?: number | null
+  last_seen_at: string
+}
+
+export interface ApiObservabilityUserAggregateList {
+  total: number
+  skip: number
+  limit: number
+  items: ApiObservabilityUserAggregate[]
 }
 
 export interface ApiReportScheduleRun {
@@ -815,6 +900,26 @@ export const api = {
   // --- Students ---
   getStudents: (params?: { limit?: number; offset?: number; program_id?: number; cohort_id?: number }) =>
     fetcher<ApiStudent[]>(`/api/v1/students${qs(params ?? {})}`),
+  getStudentByCode: (studentCode: string) =>
+    fetcher<ApiStudent>(`/api/v1/students/by-code/${encodeURIComponent(studentCode)}`),
+  getDropoutRisk: async (studentId: number): Promise<ApiDropoutRisk | null> => {
+    try {
+      return await fetcher<ApiDropoutRisk>(`/api/v1/predictions/students/${studentId}/dropout-risk`)
+    } catch (err: unknown) {
+      const error = err as Error
+      if (error.message && error.message.includes("404")) {
+        return fetcher<ApiDropoutRisk>(`/api/v1/predictions/students/${studentId}/dropout-risk/predict`, {
+          method: "POST"
+        })
+      }
+      throw err
+    }
+  },
+  getStudentSemesterPrediction: (studentId: number, semesterId: number) =>
+    fetcher<any>(`/api/v1/predictions/students/${studentId}/semesters/${semesterId}`),
+  getStudentSemesterEnrollmentPredictions: (studentId: number, semesterId: number) =>
+    fetcher<any[]>(`/api/v1/predictions/students/${studentId}/semesters/${semesterId}/enrollments`),
+
   createStudent: (body: { student_code: string; full_name: string; program_id: number; cohort_id: number; gender?: string; class_code?: string; status?: string }) =>
     fetcher<ApiStudent>("/api/v1/students", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
   updateStudent: (id: number, body: Partial<{ full_name: string; gender: string; class_code: string; status: string }>) =>
@@ -902,6 +1007,35 @@ export const api = {
   // --- Sections ---
   getSections: (params?: { limit?: number; course_id?: number; semester_id?: number; teacher_id?: number }) =>
     fetcher<ApiSection[]>(`/api/v1/sections${qs(params ?? {})}`),
+  createSection: (body: {
+    course_id: number
+    semester_id: number
+    section_code: string
+    teacher_id?: number | null
+    room?: string | null
+    schedule?: string | null
+    max_students?: number | null
+    is_active?: boolean
+  }) =>
+    fetcher<ApiSection>("/api/v1/sections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  updateSection: (id: number, body: Partial<{
+    teacher_id: number | null
+    room: string | null
+    schedule: string | null
+    max_students: number | null
+    is_active: boolean
+  }>) =>
+    fetcher<ApiSection>(`/api/v1/sections/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  deleteSection: (id: number) =>
+    fetcher<void>(`/api/v1/sections/${id}`, { method: "DELETE" }),
 
   // --- Teachers ---
   getTeachers: (params?: { limit?: number; department_id?: number }) =>
@@ -990,6 +1124,49 @@ export const api = {
     fetcher<ApiReportBuildPlan>("/api/v1/report-agent/build/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
   confirmReportAgentAction: (id: string, body: { action: "confirm" | "cancel" }) =>
     fetcher<{ id: string; status: string; result: Record<string, unknown> }>(`/api/v1/report-agent/tools/confirm/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+
+  // --- Observability Admin ---
+  getObservabilityEvents: (params?: {
+    user_id?: string
+    session_id?: string
+    trace_id?: string
+    event_name?: string
+    status?: string
+    route?: string
+    module?: string
+    from?: string
+    to?: string
+    skip?: number
+    limit?: number
+  }) => fetcher<ApiObservabilityEventList>(`/api/v1/observability/admin/events${qs(params ?? {})}`),
+
+  getObservabilitySessions: (params?: {
+    user_id?: string
+    session_id?: string
+    trace_id?: string
+    event_name?: string
+    status?: string
+    route?: string
+    module?: string
+    from?: string
+    to?: string
+    skip?: number
+    limit?: number
+  }) => fetcher<ApiObservabilitySessionList>(`/api/v1/observability/admin/sessions${qs(params ?? {})}`),
+
+  getObservabilityUserAggregates: (params?: {
+    user_id?: string
+    session_id?: string
+    trace_id?: string
+    event_name?: string
+    status?: string
+    route?: string
+    module?: string
+    from?: string
+    to?: string
+    skip?: number
+    limit?: number
+  }) => fetcher<ApiObservabilityUserAggregateList>(`/api/v1/observability/admin/users/aggregates${qs(params ?? {})}`),
 }
 
 export interface RouteDecisionPayload {
