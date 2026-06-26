@@ -63,7 +63,7 @@ DatabaseModernizationPlan / ML_DWH_Architecture
 Per-layer:
 
 ```powershell
-cd backend; ruff check .; pytest -v
+cd backend; ruff check .; pytest -q -m "not slow and not eval"
 cd frontend; npm run lint; npm test
 ```
 

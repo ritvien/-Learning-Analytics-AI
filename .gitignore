@@ -30,5 +30,8 @@ scratch_*
 node_modules/
 .ruff_cache/
 .coverage
+htmlcov/
+coverage.xml
+backend/coverage-out.txt
 ngrok_dir/
 backend/ml_artifacts/

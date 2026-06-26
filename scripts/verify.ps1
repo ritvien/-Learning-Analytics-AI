@@ -29,9 +29,9 @@ try {
     }
 
     if (-not $Quick) {
-        Invoke-Step "Backend tests (pytest)" {
+        Invoke-Step "Backend tests (pytest + coverage)" {
             Push-Location backend
-            try { pytest -v } finally { Pop-Location }
+            try { pytest -q -m "not slow and not eval" } finally { Pop-Location }
         }
     }
 

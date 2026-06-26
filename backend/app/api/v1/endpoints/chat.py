@@ -28,6 +28,7 @@ from app.agent.errors import (
     map_agent_exception_to_http,
     stream_error_message,
 )
+from app.agent.guardrails import build_refusal, classify_input
 from app.agent.nodes import get_model
 from app.agent.route_decision import RouteDecision
 from app.config import get_settings
@@ -105,6 +106,14 @@ async def generate_title(message: str) -> str:
     except Exception:
         # Fallback if LLM fails
         return message[:30] + "..." if len(message) > 30 else message
+
+
+def _guardrail_refusal(message: str) -> str | None:
+    """Return a canned refusal when input guardrails block the request."""
+    decision = classify_input(message)
+    if decision == "ok":
+        return None
+    return build_refusal(decision)
 
 
 # ── Endpoints ───────────────────────────────────────────────────────────
@@ -199,6 +208,47 @@ async def chat(
             db.add(db_session)
             await db.commit()
             await db.refresh(db_session)
+
+        refusal = _guardrail_refusal(payload.message)
+        if refusal:
+            elapsed_ms = int((time.perf_counter() - start) * 1000)
+            await log_event(
+                "chat_message_submitted",
+                user_id=str(current_user.id),
+                user_role=current_user.role.value,
+                department_id=current_user.department_id,
+                conversation_id=str(db_session.id),
+                agent_run_id=agent_run_id,
+                status="blocked",
+                payload={
+                    "prompt_hash": stable_hash(payload.message),
+                    "guardrail": classify_input(payload.message),
+                },
+                **obs_context,
+            )
+            await log_event(
+                "guardrail_triggered",
+                user_id=str(current_user.id),
+                user_role=current_user.role.value,
+                department_id=current_user.department_id,
+                conversation_id=str(db_session.id),
+                agent_run_id=agent_run_id,
+                status="blocked",
+                payload={"decision": classify_input(payload.message)},
+                **obs_context,
+            )
+            blocked_messages = history_msgs + [
+                HumanMessage(content=payload.message),
+                AIMessage(content=refusal),
+            ]
+            db_session.messages = messages_to_dict(blocked_messages)
+            await db.commit()
+            return ChatResponse(
+                response=refusal,
+                intent="core_agent",
+                latency_ms=elapsed_ms,
+                thread_id=str(db_session.id),
+            )
 
         await log_event(
             "chat_message_submitted",
@@ -415,6 +465,30 @@ async def chat_stream(
                 
                 # Báo cho frontend biết session ID vừa được tạo
                 yield f"data: {json.dumps({'type': 'session_created', 'thread_id': str(db_session.id), 'title': title})}\n\n"
+
+            refusal = _guardrail_refusal(payload.message)
+            if refusal:
+                await log_event(
+                    "guardrail_triggered",
+                    user_id=str(current_user.id),
+                    user_role=current_user.role.value,
+                    department_id=current_user.department_id,
+                    conversation_id=str(db_session.id),
+                    agent_run_id=agent_run_id,
+                    status="blocked",
+                    payload={"decision": classify_input(payload.message), "mode": "stream"},
+                    **obs_context,
+                )
+                elapsed_ms = int((time.perf_counter() - start) * 1000)
+                yield f"data: {json.dumps({'type': 'token', 'content': refusal})}\n\n"
+                blocked_messages = history_msgs + [
+                    HumanMessage(content=payload.message),
+                    AIMessage(content=refusal),
+                ]
+                db_session.messages = messages_to_dict(blocked_messages)
+                await db.commit()
+                yield f"data: {json.dumps({'type': 'done', 'latency_ms': elapsed_ms, 'thread_id': str(db_session.id)})}\n\n"
+                return
 
             await log_event(
                 "chat_message_submitted",
