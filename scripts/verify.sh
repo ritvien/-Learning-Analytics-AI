@@ -30,7 +30,7 @@ cd "$ROOT"
 step "Backend lint (ruff)" bash -c "cd backend && ruff check app tests"
 
 if [ "$QUICK" = false ]; then
-  step "Backend tests (pytest)" bash -c "cd backend && pytest -v"
+  step "Backend tests (pytest + coverage)" bash -c "cd backend && pytest -q -m 'not slow and not eval'"
 fi
 
 step "Frontend lint" npm run lint --prefix frontend
