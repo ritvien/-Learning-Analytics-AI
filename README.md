@@ -111,6 +111,35 @@ To reproduce the full stack locally:
    ```
    **Public Server URL:** [https://spectrum-dullness-ambiguous.ngrok-free.dev](https://spectrum-dullness-ambiguous.ngrok-free.dev)
 
+### 4. Update Local Environment (After `git pull`)
+
+Nếu có thay đổi cấu trúc database hoặc thư viện sau khi pull code:
+
+```powershell
+# 1. Cập nhật Database
+cd backend
+alembic upgrade head
+
+# 2. Cập nhật Dependencies
+# (Backend): pip install -r requirements.txt
+cd ../frontend
+npm install
+```
+
+### 5. Run the application (Production)
+
+```bash
+# Chạy Frontend (Next.js)
+cd frontend
+npm install
+npm run build
+npm start
+
+# Chạy Backend (FastAPI)
+cd backend
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
 ## Weekly Journal
 
 Update **[JOURNAL.md](./JOURNAL.md)** at the end of every week:

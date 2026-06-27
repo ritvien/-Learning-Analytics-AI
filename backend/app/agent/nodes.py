@@ -166,11 +166,10 @@ async def router_node(state: AgentState) -> dict:
 
 async def core_agent_node(state: AgentState) -> dict:
     """Core Agent that reasons and may call tools."""
-    from app.agent.tools import sql_query_tool
 
     try:
         llm = get_model(settings.agent_core_model, temperature=0.2)
-        llm_with_tools = llm.bind_tools([sql_query_tool])
+        llm_with_tools = llm.bind_tools(TOOLS)
 
         messages = list(state.get("messages", []))
         page_context = state.get("context", {})

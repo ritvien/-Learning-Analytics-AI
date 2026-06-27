@@ -16,7 +16,7 @@ Active sprint: [Sprint3.md](../../docs/07-Sprint-Planning/Sprint3.md)
 | `T*` | Hưng |
 | `V*` | Hiếu |
 
-**Exception (Sprint 3):** `T52a–d` → **Hoàng** — see [Sprint3.md](../../docs/07-Sprint-Planning/Sprint3.md) and [stories/T52.md](../../docs/07-Sprint-Planning/stories/T52.md).
+**Exception (Sprint 3):** `T52a–d` → **Hoàng** · `V34`, `V35` → **Hưng** — see [Sprint3.md](../../docs/07-Sprint-Planning/Sprint3.md).
 
 ## Before starting a task
 
@@ -35,6 +35,12 @@ Active sprint: [Sprint3.md](../../docs/07-Sprint-Planning/Sprint3.md)
 - Run verify command listed in story packet
 - Update task checkbox in Sprint3.md when complete
 
-## Gate G3 priority (until 25/06)
+## Gate G3 priority (carry-over after 25/06)
 
-Deliverables G3-1 through G3-5 take precedence over carry-over P2 tasks.
+G3-1, G3-2, G3-3, G3-5 are closed. Remaining sprint focus:
+
+- **G3-4:** H44 + V34 + V35 (+ V37 polish)
+- **V20:** dropout risk UI (T52d API ready)
+- **V43:** observability UI (T53 API ready)
+
+P2 carry to Sprint 4: `H49–H51`, `T49`, `H30`, `V18–V23`.

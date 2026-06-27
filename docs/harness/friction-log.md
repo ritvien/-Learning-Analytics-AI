@@ -15,6 +15,16 @@ Format:
 
 ---
 
+## 2026-06-26 — Sprint docs drift vs code
+
+- **Task:** docs sync
+- **Expected:** Agents read current sprint state before picking work
+- **Actual:** `session-handoff.md` and several story packets stale (24/06); G3-3/V41/T53 checkboxes inconsistent with code
+- **Root cause:** Tasks completed without updating harness docs in same PR
+- **Harness fix:** Synced Sprint3 snapshot, story packets, session-handoff, AGENTS.md sprint table; observability README clarifies V43 not built yet
+
+---
+
 ## 2026-06-23 — Harness bootstrap
 
 - **Task:** harness setup

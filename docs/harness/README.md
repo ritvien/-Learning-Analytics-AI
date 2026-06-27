@@ -31,6 +31,7 @@ Ask before, during, and after every agent run:
 4. Run agent
 5. Run verify command from story packet or `.\scripts\verify.ps1`
 6. On surprise/failure → append [friction-log.md](./friction-log.md)
+7. When closing or re-scoping tasks → update [Sprint3.md](../07-Sprint-Planning/Sprint3.md) + [.cursor/session-handoff.md](../../.cursor/session-handoff.md) in the same change set
 
 ## Templates
 
@@ -48,5 +49,6 @@ Ask before, during, and after every agent run:
 ## References
 
 - Root agent entry: [AGENTS.md](../../AGENTS.md)
+- Session handoff: [.cursor/session-handoff.md](../../.cursor/session-handoff.md)
 - Architecture decisions: [docs/decisions/](../decisions/)
 - Slide deck inspiration: [Harness Engineering](https://codeharness.kuckit.dev/deck-vi/)
