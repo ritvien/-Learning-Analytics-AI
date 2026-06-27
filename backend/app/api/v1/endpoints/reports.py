@@ -2,12 +2,13 @@
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.access_control import can_create_report_scope, can_view_report
-from app.dependencies import CurrentUser, DBSession, require_write_access
+from app.dependencies import CurrentUser, DBSession
+from app.models.people import UserRole
 from app.models.report import Report, ReportFeedback, ReportSchedule, ReportScheduleRun
 from app.reports.scheduler import next_run_after, run_schedule
 from app.reports.service import generate_report
@@ -42,6 +43,31 @@ async def _get_schedule_or_404(schedule_id: int, db: DBSession, current_user: Cu
     if schedule is None or not await can_view_report(db, current_user, schedule):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report schedule not found")
     return schedule
+
+
+async def _ensure_schedule_write_access(
+    db: DBSession,
+    current_user: CurrentUser,
+    schedule: ReportSchedule,
+    *,
+    scope_type: str | None,
+    scope_id: str | None,
+) -> None:
+    """Allow schedule mutation only inside the actor's report scope.
+
+    Lecturers may manage schedules they created for their own course/section.
+    """
+    if current_user.role == UserRole.lecturer and schedule.created_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report schedule not found")
+    allowed = await can_create_report_scope(
+        db,
+        current_user,
+        schedule.report_type,
+        scope_type,
+        scope_id,
+    )
+    if not allowed:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Report scope is outside your permissions")
 
 
 @router.get("", response_model=list[ReportResponse])
@@ -95,7 +121,6 @@ async def list_report_schedules(
     "/schedules",
     response_model=ReportScheduleResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_write_access)],
 )
 async def create_report_schedule(
     payload: ReportScheduleCreate,
@@ -120,7 +145,6 @@ async def create_report_schedule(
 @router.patch(
     "/schedules/{schedule_id}",
     response_model=ReportScheduleResponse,
-    dependencies=[Depends(require_write_access)],
 )
 async def update_report_schedule(
     schedule_id: int,
@@ -131,6 +155,13 @@ async def update_report_schedule(
     """Update a recurring report schedule."""
     schedule = await _get_schedule_or_404(schedule_id, db, current_user)
     updates = payload.model_dump(exclude_unset=True)
+    await _ensure_schedule_write_access(
+        db,
+        current_user,
+        schedule,
+        scope_type=updates["scope_type"] if "scope_type" in updates else schedule.scope_type,
+        scope_id=updates["scope_id"] if "scope_id" in updates else schedule.scope_id,
+    )
     for key, value in updates.items():
         setattr(schedule, key, value)
     if "frequency" in updates and "next_run_at" not in updates:
@@ -162,7 +193,6 @@ async def list_report_schedule_runs(
     "/schedules/{schedule_id}/run",
     response_model=ReportScheduleRunResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_write_access)],
 )
 async def run_report_schedule(
     schedule_id: int,
@@ -172,6 +202,13 @@ async def run_report_schedule(
 ) -> ReportScheduleRun:
     """Run a schedule now; cron/grade-update workers call this same contract."""
     schedule = await _get_schedule_or_404(schedule_id, db, current_user)
+    await _ensure_schedule_write_access(
+        db,
+        current_user,
+        schedule,
+        scope_type=schedule.scope_type,
+        scope_id=schedule.scope_id,
+    )
     run = await run_schedule(db, schedule, trigger=payload.trigger)
     if run.status == "failed":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=run.message or "Report schedule failed")

@@ -6,7 +6,19 @@ import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Date, Enum, ForeignKey, Index, Integer, Numeric, SmallInteger, String, Text
+from sqlalchemy import (
+    Boolean,
+    Date,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    SmallInteger,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -61,6 +73,27 @@ class Teacher(TimestampMixin, Base):
 
     department: Mapped[Department] = relationship(back_populates="teachers")
     sections: Mapped[list[Section]] = relationship(back_populates="teacher")
+    homeroom_assignments: Mapped[list[HomeroomAssignment]] = relationship(
+        back_populates="teacher",
+        cascade="all, delete-orphan",
+    )
+
+
+class HomeroomAssignment(TimestampMixin, Base):
+    """Explicit assignment of an administrative class to a homeroom teacher/advisor."""
+
+    __tablename__ = "homeroom_assignments"
+    __table_args__ = (
+        UniqueConstraint("teacher_id", "class_code", name="uq_homeroom_teacher_class"),
+        UniqueConstraint("class_code", name="uq_homeroom_class_code"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id", ondelete="CASCADE"), nullable=False)
+    class_code: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    teacher: Mapped[Teacher] = relationship(back_populates="homeroom_assignments")
 
 
 class Cohort(Base):

@@ -7,9 +7,9 @@ and defines all endpoint signatures with proper type annotations.
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 
-from app.access_control import is_admin, user_department_ids
+from app.access_control import can_access_department, is_admin, user_department_ids
 from app.crud import academic as crud
-from app.dependencies import CurrentUser, DBSession, PaginationDep, require_write_access
+from app.dependencies import CurrentUser, DBSession, PaginationDep, require_admin_access, require_write_access
 from app.models.academic import Department
 from app.schemas.academic import DepartmentCreate, DepartmentResponse, DepartmentUpdate
 
@@ -22,7 +22,7 @@ async def list_departments(db: DBSession, pagination: PaginationDep, current_use
     if not is_admin(current_user):
         department_ids = await user_department_ids(db, current_user)
         if not department_ids:
-            return await crud.list_departments(db, pagination.skip, pagination.limit)
+            return []
         result = await db.execute(
             select(Department)
             .where(Department.is_active == True, Department.id.in_(department_ids))  # noqa: E712
@@ -41,7 +41,7 @@ async def get_department(department_id: int, db: DBSession, current_user: Curren
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Department not found")
     if not is_admin(current_user):
         department_ids = await user_department_ids(db, current_user)
-        if department_ids and department_id not in department_ids:
+        if department_id not in department_ids:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Department not found")
     return obj
 
@@ -50,7 +50,7 @@ async def get_department(department_id: int, db: DBSession, current_user: Curren
     "",
     response_model=DepartmentResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_write_access)],
+    dependencies=[Depends(require_admin_access)],
 )
 async def create_department(payload: DepartmentCreate, db: DBSession) -> Department:
     """Create a new department."""
@@ -58,18 +58,24 @@ async def create_department(payload: DepartmentCreate, db: DBSession) -> Departm
 
 
 @router.patch("/{department_id}", response_model=DepartmentResponse, dependencies=[Depends(require_write_access)])
-async def update_department(department_id: int, payload: DepartmentUpdate, db: DBSession) -> Department:
+async def update_department(
+    department_id: int, payload: DepartmentUpdate, db: DBSession, current_user: CurrentUser
+) -> Department:
     """Partial update of a department."""
     obj = await crud.get_department(db, department_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Department not found")
+    if not await can_access_department(db, current_user, department_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Department scope is outside your permissions")
     return await crud.update_department(db, obj, payload.model_dump(exclude_unset=True))
 
 
 @router.delete("/{department_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_write_access)])
-async def delete_department(department_id: int, db: DBSession) -> None:
+async def delete_department(department_id: int, db: DBSession, current_user: CurrentUser) -> None:
     """Soft-delete a department (sets is_active=False)."""
     obj = await crud.get_department(db, department_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Department not found")
+    if not await can_access_department(db, current_user, department_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Department scope is outside your permissions")
     await crud.delete_department(db, obj)

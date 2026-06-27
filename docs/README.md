@@ -18,6 +18,7 @@ Trang này giúp team biết tài liệu nào là nguồn chuẩn hiện tại, 
 | Contract Academic Tree 3-tier | [H45-Plan.md](./07-Sprint-Planning/H45-Plan.md) |
 | User Behavior Observability | [README.md](./19-User-Behavior-Observability/README.md) |
 | RAG Corpus Preparation TODO | [README.md](./20-RAG-Corpus-Preparation/README.md) |
+| System Refinement Review | [README.md](./25-System-Refinement-Review/README.md) |
 
 Khi có mâu thuẫn giữa tài liệu, ưu tiên theo thứ tự:
 

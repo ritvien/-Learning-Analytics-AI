@@ -1,9 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { Lock, Pencil, Plus, ShieldCheck, Unlock, Users } from "lucide-react"
+import Link from "next/link"
+import { GraduationCap, Lock, Pencil, Plus, ShieldCheck, Unlock, Users } from "lucide-react"
 
-import { api, type ApiUser, type ApiUserRole } from "@/lib/api"
+import { api, type ApiTeacher, type ApiUser, type ApiUserRole } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,6 +29,7 @@ import {
 } from "@/components/ui/select"
 
 const roles: ApiUserRole[] = ["superadmin", "admin", "manager", "lecturer", "viewer"]
+const accountManagedRoles: ApiUserRole[] = ["superadmin", "admin", "manager", "viewer"]
 
 const roleLabels: Record<ApiUserRole, string> = {
   superadmin: "Super Admin",
@@ -49,14 +51,36 @@ function roleDescription(role: ApiUserRole) {
     case "manager":
       return "CRUD dữ liệu học vụ, không quản trị tài khoản."
     case "lecturer":
+      return "Tài khoản giảng viên, được cấp từ hồ sơ Teacher."
     case "viewer":
       return "Chỉ xem dữ liệu, không tạo/sửa/xóa."
   }
 }
 
+function userErrorMessage(err: unknown, fallback: string) {
+  if (!(err instanceof Error)) return fallback
+  if (err.message.includes("Create lecturer accounts from the teacher profile")) {
+    return "Tài khoản lecturer phải được cấp từ trang Giảng viên."
+  }
+  if (err.message.includes("Teacher-linked accounts must keep lecturer role")) {
+    return "Tài khoản đã liên kết hồ sơ giảng viên phải giữ role Lecturer."
+  }
+  if (err.message.includes("Assign lecturer role from the teacher profile")) {
+    return "Muốn cấp role Lecturer, hãy tạo/cấp tài khoản trong trang Giảng viên."
+  }
+  if (err.message.includes("Only superadmin can")) {
+    return "Chỉ Super Admin được tạo hoặc thay đổi tài khoản Super Admin."
+  }
+  if (err.message.includes("Email already exists")) {
+    return "Email này đã tồn tại."
+  }
+  return err.message || fallback
+}
+
 export default function UsersPage() {
   const [currentUser, setCurrentUser] = React.useState<ApiUser | null>(null)
   const [users, setUsers] = React.useState<ApiUser[]>([])
+  const [teachers, setTeachers] = React.useState<ApiTeacher[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState("")
   const [isCreateOpen, setIsCreateOpen] = React.useState(false)
@@ -64,9 +88,14 @@ export default function UsersPage() {
 
   const refreshUsers = React.useCallback(async () => {
     setError("")
-    const [me, list] = await Promise.all([api.me(), api.getUsers({ limit: 500 })])
+    const [me, list, teacherList] = await Promise.all([
+      api.me(),
+      api.getUsers({ limit: 500 }),
+      api.getTeachers({ limit: 1000 }),
+    ])
     setCurrentUser(me)
     setUsers(list)
+    setTeachers(teacherList)
   }, [])
 
   React.useEffect(() => {
@@ -77,35 +106,56 @@ export default function UsersPage() {
     }, 0)
   }, [refreshUsers])
 
+  const teacherByUserId = React.useMemo(() => {
+    const map = new Map<string, ApiTeacher>()
+    for (const teacher of teachers) {
+      if (teacher.user_id) map.set(teacher.user_id, teacher)
+    }
+    return map
+  }, [teachers])
+
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    await api.createUser({
-      email: String(form.get("email") ?? ""),
-      password: String(form.get("password") ?? ""),
-      full_name: String(form.get("full_name") ?? ""),
-      role: String(form.get("role") ?? "viewer") as ApiUserRole,
-    })
-    setIsCreateOpen(false)
-    await refreshUsers()
+    try {
+      await api.createUser({
+        email: String(form.get("email") ?? ""),
+        password: String(form.get("password") ?? ""),
+        full_name: String(form.get("full_name") ?? ""),
+        role: String(form.get("role") ?? "viewer") as ApiUserRole,
+      })
+      setIsCreateOpen(false)
+      await refreshUsers()
+    } catch (err) {
+      setError(userErrorMessage(err, "Không tạo được tài khoản."))
+    }
   }
 
   async function handleUpdate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!editUser) return
+    const linkedTeacher = teacherByUserId.get(editUser.id)
     const form = new FormData(event.currentTarget)
-    await api.updateUser(editUser.id, {
-      full_name: String(form.get("full_name") ?? ""),
-      role: String(form.get("role") ?? editUser.role) as ApiUserRole,
-      is_active: String(form.get("is_active") ?? "true") === "true",
-    })
-    setEditUser(null)
-    await refreshUsers()
+    try {
+      await api.updateUser(editUser.id, {
+        full_name: String(form.get("full_name") ?? ""),
+        role: linkedTeacher ? "lecturer" : String(form.get("role") ?? editUser.role) as ApiUserRole,
+        is_active: String(form.get("is_active") ?? "true") === "true",
+      })
+      setEditUser(null)
+      await refreshUsers()
+    } catch (err) {
+      setError(userErrorMessage(err, "Không cập nhật được tài khoản."))
+    }
   }
 
   async function toggleActive(user: ApiUser) {
-    await api.updateUser(user.id, { is_active: !user.is_active })
-    await refreshUsers()
+    try {
+      await api.updateUser(user.id, { is_active: !user.is_active })
+      await refreshUsers()
+    } catch (err) {
+      setError(userErrorMessage(err, "Không đổi được trạng thái tài khoản."))
+    }
   }
 
   if (isLoading) {
@@ -132,13 +182,20 @@ export default function UsersPage() {
     role,
     count: users.filter((user) => user.role === role).length,
   }))
+  const linkedLecturerCount = users.filter((user) => teacherByUserId.has(user.id)).length
+  const unlinkedLecturerCount = users.filter((user) => user.role === "lecturer" && !teacherByUserId.has(user.id)).length
+  const assignableRoles = currentUser?.role === "superadmin"
+    ? accountManagedRoles
+    : accountManagedRoles.filter((role) => role !== "superadmin")
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Tài khoản & phân quyền</h1>
-          <p className="text-sm text-muted-foreground">Cấp tài khoản, đổi role, khóa hoặc mở quyền truy cập.</p>
+          <p className="text-sm text-muted-foreground">
+            Quản lý tài khoản hệ thống. Tài khoản Lecturer được cấp từ hồ sơ giảng viên để giữ liên kết lớp học phần.
+          </p>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger render={<Button />}>
@@ -149,7 +206,9 @@ export default function UsersPage() {
             <form onSubmit={handleCreate}>
               <DialogHeader>
                 <DialogTitle>Tạo tài khoản mới</DialogTitle>
-                <DialogDescription>Chọn role đúng với phạm vi thao tác của người dùng.</DialogDescription>
+                <DialogDescription>
+                  Role Lecturer không tạo ở đây; hãy dùng trang Giảng viên để cấp tài khoản gắn với hồ sơ giảng viên.
+                </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="space-y-2">
@@ -169,7 +228,7 @@ export default function UsersPage() {
                   <Select name="role" defaultValue="viewer">
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {roles.map((role) => (
+                      {assignableRoles.map((role) => (
                         <SelectItem key={role} value={role}>{roleLabels[role]}</SelectItem>
                       ))}
                     </SelectContent>
@@ -201,6 +260,24 @@ export default function UsersPage() {
         ))}
       </div>
 
+      <Card className="border-primary/20 bg-primary/5">
+        <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <GraduationCap className="mt-0.5 h-5 w-5 text-primary" />
+            <div>
+              <div className="font-semibold">Lecturer thuộc trang Giảng viên</div>
+              <p className="text-sm text-muted-foreground">
+                {linkedLecturerCount} tài khoản lecturer đã liên kết hồ sơ giảng viên
+                {unlinkedLecturerCount > 0 ? `, ${unlinkedLecturerCount} lecturer chưa liên kết cần rà soát.` : "."}
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" nativeButton={false} render={<Link href="/manager/teachers" />}>
+            Mở trang Giảng viên
+          </Button>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -209,11 +286,12 @@ export default function UsersPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
-          <table className="w-full min-w-[900px] text-sm">
+          <table className="w-full min-w-[1040px] text-sm">
             <thead>
               <tr className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
                 <th className="px-4 py-3 font-medium">Người dùng</th>
                 <th className="px-4 py-3 font-medium">Role</th>
+                <th className="px-4 py-3 font-medium">Nguồn quản lý</th>
                 <th className="px-4 py-3 font-medium">Quyền</th>
                 <th className="px-4 py-3 font-medium">Trạng thái</th>
                 <th className="px-4 py-3 font-medium">Ngày tạo</th>
@@ -221,43 +299,66 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {users.map((user) => (
-                <tr key={user.id}>
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{user.full_name}</div>
-                    <div className="text-xs text-muted-foreground">{user.email}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={user.role === "viewer" || user.role === "lecturer" ? "secondary" : "default"}>
-                      {roleLabels[user.role]}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">{roleDescription(user.role)}</td>
-                  <td className="px-4 py-3">
-                    <Badge variant={user.is_active ? "secondary" : "destructive"}>
-                      {user.is_active ? "Đang hoạt động" : "Đã khóa"}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {new Date(user.created_at).toLocaleDateString("vi-VN")}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon-sm" onClick={() => setEditUser(user)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => toggleActive(user)}
-                        disabled={user.id === currentUser?.id}
-                      >
-                        {user.is_active ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {users.map((user) => {
+                const linkedTeacher = teacherByUserId.get(user.id)
+                return (
+                  <tr key={user.id}>
+                    <td className="px-4 py-3">
+                      <div className="font-medium">{user.full_name}</div>
+                      <div className="text-xs text-muted-foreground">{user.email}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={user.role === "viewer" || user.role === "lecturer" ? "secondary" : "default"}>
+                        {roleLabels[user.role]}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      {linkedTeacher ? (
+                        <div>
+                          <Badge variant="outline">Hồ sơ giảng viên</Badge>
+                          <div className="mt-1 text-xs text-muted-foreground">{linkedTeacher.full_name}</div>
+                        </div>
+                      ) : user.role === "lecturer" ? (
+                        <Badge variant="destructive">Lecturer chưa liên kết</Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Tài khoản hệ thống</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{roleDescription(user.role)}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant={user.is_active ? "secondary" : "destructive"}>
+                        {user.is_active ? "Đang hoạt động" : "Đã khóa"}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {new Date(user.created_at).toLocaleDateString("vi-VN")}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => setEditUser(user)}
+                          disabled={user.role === "superadmin" && currentUser?.role !== "superadmin"}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => toggleActive(user)}
+                          disabled={
+                            user.id === currentUser?.id
+                            || (user.role === "superadmin" && currentUser?.role !== "superadmin")
+                          }
+                        >
+                          {user.is_active ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </CardContent>
@@ -267,41 +368,65 @@ export default function UsersPage() {
         <DialogContent>
           {editUser ? (
             <form onSubmit={handleUpdate}>
-              <DialogHeader>
-                <DialogTitle>Sửa tài khoản</DialogTitle>
-                <DialogDescription>{editUser.email}</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="space-y-2">
-                  <Label>Họ tên</Label>
-                  <Input name="full_name" defaultValue={editUser.full_name} required />
-                </div>
-                <div className="space-y-2">
-                  <Label>Role</Label>
-                  <Select name="role" defaultValue={editUser.role}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {roles.map((role) => (
-                        <SelectItem key={role} value={role}>{roleLabels[role]}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Trạng thái</Label>
-                  <Select name="is_active" defaultValue={String(editUser.is_active)} disabled={editUser.id === currentUser?.id}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="true">Đang hoạt động</SelectItem>
-                      <SelectItem value="false">Đã khóa</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <DialogClose render={<Button type="button" variant="outline" />}>Hủy</DialogClose>
-                <Button type="submit">Lưu</Button>
-              </DialogFooter>
+              {(() => {
+                const linkedTeacher = teacherByUserId.get(editUser.id)
+                const editableRoleDefault = accountManagedRoles.includes(editUser.role) ? editUser.role : "viewer"
+                return (
+                  <>
+                    <DialogHeader>
+                      <DialogTitle>Sửa tài khoản</DialogTitle>
+                      <DialogDescription>{editUser.email}</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      {linkedTeacher ? (
+                        <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                          Tài khoản này thuộc hồ sơ giảng viên {linkedTeacher.full_name}; role luôn là Lecturer.
+                        </div>
+                      ) : editUser.role === "lecturer" ? (
+                        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                          Lecturer này chưa liên kết hồ sơ giảng viên. Hãy chuyển sang role hệ thống hoặc cấp lại từ trang Giảng viên.
+                        </div>
+                      ) : null}
+                      <div className="space-y-2">
+                        <Label>Họ tên</Label>
+                        <Input name="full_name" defaultValue={editUser.full_name} required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Role</Label>
+                        {linkedTeacher ? (
+                          <>
+                            <Input value={roleLabels.lecturer} disabled />
+                            <input type="hidden" name="role" value="lecturer" />
+                          </>
+                        ) : (
+                          <Select name="role" defaultValue={editableRoleDefault}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {assignableRoles.map((role) => (
+                                <SelectItem key={role} value={role}>{roleLabels[role]}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Trạng thái</Label>
+                        <Select name="is_active" defaultValue={String(editUser.is_active)} disabled={editUser.id === currentUser?.id}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="true">Đang hoạt động</SelectItem>
+                            <SelectItem value="false">Đã khóa</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <DialogClose render={<Button type="button" variant="outline" />}>Hủy</DialogClose>
+                      <Button type="submit">Lưu</Button>
+                    </DialogFooter>
+                  </>
+                )
+              })()}
             </form>
           ) : null}
         </DialogContent>

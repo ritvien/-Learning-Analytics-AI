@@ -3,8 +3,9 @@
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.academic import Semester, University
-from app.models.people import Cohort
+from app.dependencies import create_access_token, hash_password
+from app.models.academic import Department, Program, Semester, University
+from app.models.people import Cohort, User, UserRole
 
 
 async def test_academic_tree_returns_rollup_metrics(client: AsyncClient, db_session: AsyncSession) -> None:
@@ -100,3 +101,38 @@ async def test_academic_tree_returns_rollup_metrics(client: AsyncClient, db_sess
     )
     assert specialization_metrics.status_code == 200
     assert specialization_metrics.json()["metrics"]["pass_rate"] == 100.0
+
+
+async def test_lecturer_sees_full_academic_tree_overview(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    university = University(code="TREE-ALL", name="Tree Overview University")
+    db_session.add(university)
+    await db_session.flush()
+    own_department = Department(university_id=university.id, code="OWN", name="Own Department")
+    other_department = Department(university_id=university.id, code="OTHER", name="Other Department")
+    db_session.add_all([own_department, other_department])
+    await db_session.flush()
+    db_session.add_all(
+        [
+            Program(department_id=own_department.id, code="OWN-P", name="Own Program"),
+            Program(department_id=other_department.id, code="OTHER-P", name="Other Program"),
+        ]
+    )
+    lecturer = User(
+        id="tree-overview-lecturer",
+        email="tree.overview@example.com",
+        hashed_password=hash_password("password123"),
+        full_name="Tree Overview Lecturer",
+        role=UserRole.lecturer,
+        department_id=own_department.id,
+    )
+    db_session.add(lecturer)
+    await db_session.flush()
+    client.headers["Authorization"] = f"Bearer {create_access_token(lecturer.id, lecturer.role)}"
+
+    response = await client.get("/api/v1/tree")
+
+    assert response.status_code == 200
+    department_names = {item["label"] for item in response.json()["children"]}
+    assert department_names == {"Own Department", "Other Department"}

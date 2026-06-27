@@ -397,3 +397,228 @@ Login
 - LLM/Chat chỉ giải thích prediction đã có, không tự sinh xác suất pass/dropout.
 - Không suy diễn chuyên ngành từ tên lớp/tên môn trong frontend.
 - Dashboard analytics dùng DWH/aggregate API; không xem CRUD tables như DWH.
+
+## 11. Review bổ sung 26/06 — Tương tác biểu đồ và điều hướng liên page
+
+### 11.1. Vấn đề cần làm rõ
+
+Các analytics page hiện đã có dữ liệu và biểu đồ, nhưng trải nghiệm vẫn giống dashboard tĩnh. Người dùng nhìn thấy một khoa/ngành/môn/lớp bất thường nhưng phải tự đoán bước tiếp theo, tự đổi filter hoặc tự tìm page tương ứng trong sidebar.
+
+Có hai lớp tương tác cần chuẩn hóa:
+
+| Lớp tương tác | Ý nghĩa | Ví dụ |
+|---|---|---|
+| Trong cùng page | Click chart/table/heatmap để đổi selection, highlight dữ liệu liên quan, cập nhật panel chi tiết ngay trên page | Click bar `Pass rate theo khoa` -> chọn khoa đó, cập nhật drill-down top môn/lớp bất thường |
+| Giữa các page | Click một entity để mở page phân tích sâu hơn, giữ nguyên ngữ cảnh bằng query params | Click khoa ở tổng quan -> `/manager/analytics/departments?department_id=...&semester_code=...` |
+
+Mục tiêu UX: mọi điểm dữ liệu quan trọng phải trả lời được câu hỏi tiếp theo: **"Bấm vào đâu để hiểu nguyên nhân?"**
+
+### 11.2. Nguyên tắc interaction contract
+
+| Thành phần | Click chính | Secondary action | Kết quả mong muốn |
+|---|---|---|---|
+| KPI card | Mở danh sách entity tạo ra KPI | Hỏi AI về KPI | Không chỉ là số tĩnh |
+| Bar/line/scatter point | Chọn dimension tương ứng | Double click/open icon để drill-down page | Chart điều khiển filter hoặc route |
+| Heatmap cell | Chọn cả row entity và semester | Link mở detail với semester | Cell không chỉ hiển thị màu |
+| Pie slice | Lọc bảng bên dưới theo bucket | Xem danh sách bản ghi thuộc bucket | Distribution phải dẫn đến evidence |
+| Table row | Chọn row hoặc mở detail | Action menu: xem sâu, tạo báo cáo, hỏi AI | Table là trung tâm drill-down |
+| Badge cảnh báo | Lọc nhóm rủi ro | Tạo report/watchlist | Cảnh báo dẫn tới hành động |
+
+Không nên biến toàn bộ card thành link nếu trong card có nhiều control. Với chart, ưu tiên:
+
+1. Single click = chọn/highlight trong page.
+2. Link/button rõ ràng = mở page sâu hơn.
+3. Tooltip chỉ giải thích số liệu, không thay thế hành động.
+
+### 11.3. Query params chuẩn cho cross-page drill-down
+
+Dùng một bộ query params thống nhất để page nhận context từ page khác:
+
+```text
+semester_code=2022-2
+department_id=1
+program_id=10
+course_id=25
+section_id=300
+student_id=1200
+bucket=failed|near_fail|pass|excellent
+source=overview|departments|programs|courses|sections|students|reports
+```
+
+Alias cũ như `program`, `course`, `section`, `student` có thể tiếp tục đọc để backward-compatible, nhưng link mới nên dùng tên chuẩn có hậu tố `_id`.
+
+Khi page nhận query param:
+
+- Auto chọn đúng filter/entity.
+- Giữ `semester_code` nếu có.
+- Hiển thị chip nguồn: `Từ Tổng quan`, `Từ Chi tiết ngành`, hoặc `Từ Lớp`.
+- Có link `Quay lại` dựa theo `source` nếu route trước rõ ràng.
+
+### 11.4. Review hiện trạng theo page
+
+| Page | Hiện trạng tương tác | Thiếu chính | Ưu tiên |
+|---|---|---|---|
+| `/manager/analytics` Tổng quan | Bảng ngành có link `Xem ngành`; chart/heatmap/pie/bar chủ yếu tooltip | Click khoa chưa mở hoặc chọn phân tích khoa; heatmap ngành x học kỳ chưa drill vào ngành + kỳ; pie chưa lọc table | P0 |
+| `/manager/analytics/departments` Khoa/ngành | Có filter khoa/ngành; có link quay lại tổng quan; chart và heatmap chưa click | Bar khoa nên chọn khoa; top môn/lớp bất thường phải mở course/section; heatmap cell cần drill theo khoa + kỳ | P0 |
+| `/manager/analytics/programs` Chi tiết ngành | Nhận query `program`; bảng môn có link `Xem môn` | Trend point/heatmap cohort chưa lọc học kỳ/khóa; nhóm tín chỉ/pie chưa lọc bảng môn; action thiếu `Mở lớp yếu`, `Tạo báo cáo` | P0 |
+| `/manager/analytics/courses` Môn | Nhận query course/program/department; scatter và top/bottom chưa click | Click scatter/top/bottom phải chọn môn; bảng lớp trong môn cần mở section; filter chưa có semester chuẩn | P1 |
+| `/manager/analytics/sections` Lớp | Bảng lớp click được để mở detail cùng page; nhận query section/course | Chart lớp yếu chưa click; SV cần chú ý chưa link sang hồ sơ sinh viên; cần link tạo báo cáo lớp | P0 |
+| `/manager/analytics/students` Sinh viên | Nhận query student; charts chỉ xem | Row môn trong transcript nên mở môn/lớp; risk factor nên lọc transcript; cần mở từ sections/CRUD/search thay vì sidebar | P1 |
+| `/manager/reports` Báo cáo | Có report context và report agent | Insight/report nên có link về analytics scope gốc; analytics page cần action tạo report theo scope | P1 |
+| Global chat | Có page context trong shell | Prompt/action từ chart chưa truyền entity đang chọn | P1 |
+
+### 11.5. Navigation map đề xuất
+
+```text
+Tổng quan
+  click khoa/bar khoa
+    -> /manager/analytics/departments?department_id=...&semester_code=...&source=overview
+  click ngành/table row
+    -> /manager/analytics/programs?program_id=...&semester_code=...&source=overview
+  click heatmap ngành x học kỳ
+    -> /manager/analytics/programs?program_id=...&semester_code=...&source=overview
+
+Chi tiết khoa
+  click top môn trượt
+    -> /manager/analytics/courses?course_id=...&department_id=...&semester_code=...&source=departments
+  click lớp bất thường
+    -> /manager/analytics/sections?section_id=...&semester_code=...&source=departments
+  click ngành trong khoa
+    -> /manager/analytics/programs?program_id=...&semester_code=...&source=departments
+
+Chi tiết ngành
+  click môn trong bảng
+    -> /manager/analytics/courses?course_id=...&program_id=...&semester_code=...&source=programs
+  click cohort heatmap cell
+    -> filter in-page cohort + semester, optional open sections list
+  click môn bottleneck
+    -> courses page with course selected
+
+Chi tiết môn
+  click lớp trong bảng
+    -> /manager/analytics/sections?section_id=...&course_id=...&semester_code=...&source=courses
+  click trend point
+    -> filter same course by semester
+
+Lớp & SV cần chú ý
+  click lớp table/chart
+    -> select section in-page
+  click sinh viên cần chú ý
+    -> /manager/analytics/students?student_id=...&section_id=...&source=sections
+
+Hồ sơ sinh viên
+  click môn trong transcript
+    -> /manager/analytics/courses?course_id=...&student_id=...&source=students
+  click lớp trong transcript
+    -> /manager/analytics/sections?section_id=...&student_id=...&source=students
+```
+
+### 11.6. Spec page-by-page
+
+#### Tổng quan `/manager/analytics`
+
+P0 cần bổ sung:
+
+- `Pass rate theo khoa`: click bar hoặc Y-axis label mở `/manager/analytics/departments?department_id=...`.
+- `Program Overview Table`: cả row hoặc tên ngành mở detail ngành; action hiện rõ `Xem ngành`, `Mở môn rủi ro`, `Tạo báo cáo`.
+- `Heatmap ngành × học kỳ`: click cell mở program page với `program_id` và `semester_code`.
+- `Phân bố kết quả học phần`: click slice lọc `Program Overview Table` hoặc mở bảng evidence bên dưới theo bucket.
+- Hai trend chart: click point đặt `semester_code` cho KPI/table nhưng trend vẫn giữ full series.
+
+DoD: từ Tổng quan đi được xuống Khoa, Ngành, Môn, Report mà không cần dùng sidebar.
+
+#### Khoa/ngành `/manager/analytics/departments`
+
+P0 cần bổ sung:
+
+- Khi vào bằng `department_id`, page auto chọn khoa và mở vùng drill-down.
+- Click bar trong 3 biểu đồ khoa cập nhật `selDept` thay vì chỉ tooltip.
+- Click heatmap cell chọn `selDept` + `selSem`.
+- Top 10 môn trượt có action `Xem môn`.
+- Top lớp bất thường có action `Xem lớp`.
+
+DoD: click một khoa bất kỳ sẽ thấy ngay top môn/lớp cần xử lý và mở được detail.
+
+#### Chi tiết ngành `/manager/analytics/programs`
+
+P0 cần bổ sung:
+
+- Trend point click: set semester filter cho KPI/bảng, đồng thời giữ chart multi-semester nếu có thể.
+- Heatmap khóa × học kỳ cell click: set `cohort` + `semester`.
+- Bar `Pass rate theo nhóm tín chỉ`: click group lọc bảng môn theo group.
+- Pie slice `Phân bố kết quả`: click bucket lọc bảng môn hoặc mở evidence list.
+- Bảng môn thêm actions: `Xem môn`, `Xem lớp yếu`, `Tạo báo cáo ngành`.
+
+DoD: ngành -> môn -> lớp là một luồng liên tục.
+
+#### Môn `/manager/analytics/courses`
+
+P1 cần bổ sung:
+
+- Scatter point click chọn môn tương ứng.
+- Top/bottom course table row click chọn môn.
+- Trend point click lọc semester cho detail môn.
+- Section table row click mở `/manager/analytics/sections?section_id=...`.
+- Thêm action `Tạo báo cáo môn`, `Hỏi AI về môn`.
+
+Lưu ý backend: page này hiện còn phụ thuộc raw enrollment lớn; cần aggregate API trước khi mở rộng interaction quá nhiều.
+
+#### Lớp `/manager/analytics/sections`
+
+P0 cần bổ sung:
+
+- Bar `Lớp có pass rate thấp nhất` click chọn lớp giống table đang làm.
+- Risk student row click mở `/manager/analytics/students?student_id=...&section_id=...`.
+- Detail lớp thêm action `Tạo báo cáo lớp`, `Hỏi AI về lớp`.
+- Nếu mở từ course/department, giữ chip nguồn và nút quay lại đúng scope.
+
+DoD: lecturer/manager đi từ lớp yếu tới danh sách SV và hồ sơ từng SV trong 1 click.
+
+#### Sinh viên `/manager/analytics/students`
+
+P1 cần bổ sung:
+
+- Transcript row click mở course hoặc section detail.
+- Risk factor row click lọc transcript theo nhóm liên quan.
+- Bar điểm môn click highlight transcript row tương ứng.
+- GPA trend point click lọc transcript theo semester.
+- Nếu có `section_id` từ query, chip context hiển thị lớp nguồn.
+
+DoD: hồ sơ sinh viên không chỉ là kết thúc luồng, mà còn trace ngược về môn/lớp gây rủi ro.
+
+### 11.7. Component/hook nên tạo
+
+| Tên | Mục đích | Dùng ở |
+|---|---|---|
+| `buildAnalyticsHref(scope)` | Tạo URL drill-down chuẩn, tránh mỗi page tự nối query string | Tất cả analytics pages |
+| `useAnalyticsContext()` | Đọc query params chuẩn + source + back link | Các page detail |
+| `DrilldownActions` | Action menu nhỏ: xem sâu, tạo báo cáo, hỏi AI | Table/chart rows |
+| `InteractiveChartContainer` | Chuẩn hóa selected state, cursor, empty state, click behavior | Chart Recharts |
+| `EvidenceDrawer` | Hiển thị bản ghi/evidence sau khi click chart slice/bar | Pie/bar/risk bucket |
+
+Không cần tạo abstraction quá sớm cho mọi chart. Nên bắt đầu bằng `buildAnalyticsHref` và `DrilldownActions`, vì hai phần này giảm lỗi route nhiều nhất.
+
+### 11.8. Acceptance criteria cho UX tương tác
+
+- [ ] Từ `/manager/analytics`, click được ít nhất một khoa để mở page khoa đúng filter.
+- [ ] Từ `/manager/analytics`, click được một ngành để mở page ngành đúng filter.
+- [ ] Từ page ngành, click được một môn để mở page môn đúng context.
+- [ ] Từ page môn, click được một lớp để mở page lớp đúng context.
+- [ ] Từ page lớp, click được một sinh viên để mở hồ sơ sinh viên.
+- [ ] Click chart trong cùng page có phản hồi rõ: selected style, chip filter, hoặc panel detail thay đổi.
+- [ ] URL sau drill-down có query params đủ để reload/deep-link vẫn giữ đúng context.
+- [ ] Mỗi page detail có cách quay lại page nguồn hoặc scope trước.
+- [ ] Tooltip không phải là nơi duy nhất chứa thông tin quan trọng.
+- [ ] Các action không phá RBAC; route có thể ẩn link nhưng backend vẫn enforce quyền.
+
+### 11.9. Thứ tự triển khai đề xuất
+
+| ID | Việc | File chính | Lý do |
+|---|---|---|---|
+| UX22-15 | Tạo helper URL drill-down analytics | `frontend/src/lib/...` | Nền cho liên page, ít rủi ro |
+| UX22-16 | Tổng quan -> khoa/ngành/heatmap click | `analytics/page.tsx` | Luồng demo và manager entry chính |
+| UX22-17 | Khoa -> môn/lớp click | `analytics/departments/page.tsx` | Hoàn thiện ví dụ người dùng nêu |
+| UX22-18 | Ngành -> môn/lọc chart | `analytics/programs/page.tsx` | Luồng chẩn đoán quan trọng |
+| UX22-19 | Môn -> lớp click | `analytics/courses/page.tsx` | Nối xuống mức can thiệp |
+| UX22-20 | Lớp -> sinh viên click | `analytics/sections/page.tsx` | Nối tới hành động với SV |
+| UX22-21 | Student trace ngược môn/lớp | `analytics/students/page.tsx` | Hoàn thiện vòng evidence |

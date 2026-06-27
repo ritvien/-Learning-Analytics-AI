@@ -40,6 +40,7 @@ export default function SectionsPage() {
   const [filterDepartmentId, setFilterDepartmentId] = React.useState<string>("all")
   const [filterCourseId, setFilterCourseId] = React.useState<string>("all")
   const [filterTeacherId, setFilterTeacherId] = React.useState<string>("all")
+  const [createCourseId, setCreateCourseId] = React.useState<string>("")
 
   // Dialog targets
   const [editTarget, setEditTarget] = React.useState<SectionRow | null>(null)
@@ -57,6 +58,13 @@ export default function SectionsPage() {
   })
 
   const hasWriteAccess = userRole === "superadmin" || userRole === "admin" || userRole === "manager"
+  const createCourses = courses.filter((course) => filterDepartmentId === "all" || String(course.department_id) === filterDepartmentId)
+  const activeCreateCourseId = createCourseId || (createCourses[0]?.id ? String(createCourses[0].id) : "")
+  const activeCreateCourse = courses.find((course) => String(course.id) === activeCreateCourseId)
+  const createTeachers = teachers.filter((teacher) => !activeCreateCourse || teacher.department_id === activeCreateCourse.department_id)
+  const activeCreateDepartment = departments.find((department) => department.id === activeCreateCourse?.department_id)
+  const filterCourses = courses.filter((course) => filterDepartmentId === "all" || String(course.department_id) === filterDepartmentId)
+  const filterTeachers = teachers.filter((teacher) => filterDepartmentId === "all" || String(teacher.department_id) === filterDepartmentId)
 
   const loadData = React.useCallback(async () => {
     setIsLoading(true)
@@ -110,7 +118,7 @@ export default function SectionsPage() {
     const fd = new FormData(e.currentTarget)
 
     const section_code = String(fd.get("section_code")).trim()
-    const course_id = Number(fd.get("course_id"))
+    const course_id = Number(activeCreateCourseId)
     const semester_id = Number(fd.get("semester_id"))
     const teacherVal = fd.get("teacher_id")
     const teacher_id = teacherVal && teacherVal !== "none" ? Number(teacherVal) : null
@@ -201,6 +209,11 @@ export default function SectionsPage() {
     return true
   })
 
+  const editCourse = editTarget ? courses.find((course) => course.id === editTarget.course_id) : null
+  const editTeachers = editCourse
+    ? teachers.filter((teacher) => teacher.department_id === editCourse.department_id)
+    : teachers
+
   const columns: ColumnDef<SectionRow>[] = [
     {
       accessorKey: "section_code",
@@ -281,7 +294,14 @@ export default function SectionsPage() {
           <p className="text-sm text-muted-foreground">Tạo mới, chỉnh sửa thông tin phòng học, lịch giảng dạy và phân công giảng viên.</p>
         </div>
         {hasWriteAccess && (
-          <Button onClick={() => { setSubmitError(null); setIsCreateOpen(true) }} className="gap-2">
+          <Button
+            onClick={() => {
+              setSubmitError(null)
+              setCreateCourseId("")
+              setIsCreateOpen(true)
+            }}
+            className="gap-2"
+          >
             <Plus className="h-4 w-4" /> Thêm lớp học phần
           </Button>
         )}
@@ -297,7 +317,7 @@ export default function SectionsPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border rounded-lg bg-card text-card-foreground">
         <div className="space-y-1">
           <Label className="text-xs font-semibold">Học kỳ</Label>
-          <Select value={filterSemesterId} onValueChange={setFilterSemesterId}>
+          <Select value={filterSemesterId} onValueChange={(value) => setFilterSemesterId(value ?? "all")}>
             <SelectTrigger><SelectValue placeholder="Tất cả học kỳ" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả học kỳ</SelectItem>
@@ -311,7 +331,14 @@ export default function SectionsPage() {
         {userRole !== "manager" && (
           <div className="space-y-1">
             <Label className="text-xs font-semibold">Khoa</Label>
-            <Select value={filterDepartmentId} onValueChange={setFilterDepartmentId}>
+            <Select
+              value={filterDepartmentId}
+              onValueChange={(value) => {
+                setFilterDepartmentId(value ?? "all")
+                setFilterCourseId("all")
+                setFilterTeacherId("all")
+              }}
+            >
               <SelectTrigger><SelectValue placeholder="Tất cả khoa" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả khoa</SelectItem>
@@ -325,11 +352,11 @@ export default function SectionsPage() {
 
         <div className="space-y-1">
           <Label className="text-xs font-semibold">Môn học</Label>
-          <Select value={filterCourseId} onValueChange={setFilterCourseId}>
+          <Select value={filterCourseId} onValueChange={(value) => setFilterCourseId(value ?? "all")}>
             <SelectTrigger><SelectValue placeholder="Tất cả môn học" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả môn học</SelectItem>
-              {courses.map(c => (
+              {filterCourses.map(c => (
                 <SelectItem key={c.id} value={String(c.id)}>{c.name} ({c.code})</SelectItem>
               ))}
             </SelectContent>
@@ -338,12 +365,12 @@ export default function SectionsPage() {
 
         <div className="space-y-1">
           <Label className="text-xs font-semibold">Giảng viên</Label>
-          <Select value={filterTeacherId} onValueChange={setFilterTeacherId}>
+          <Select value={filterTeacherId} onValueChange={(value) => setFilterTeacherId(value ?? "all")}>
             <SelectTrigger><SelectValue placeholder="Tất cả giảng viên" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả giảng viên</SelectItem>
               <SelectItem value="none">Chưa phân công</SelectItem>
-              {teachers.map(t => (
+              {filterTeachers.map(t => (
                 <SelectItem key={t.id} value={String(t.id)}>{t.full_name}</SelectItem>
               ))}
             </SelectContent>
@@ -395,23 +422,26 @@ export default function SectionsPage() {
 
               <div className="space-y-1">
                 <Label>Môn học *</Label>
-                <Select name="course_id" defaultValue={courses[0]?.id ? String(courses[0].id) : ""}>
+                <Select value={activeCreateCourseId} onValueChange={(value) => setCreateCourseId(value ?? "")}>
                   <SelectTrigger><SelectValue placeholder="Chọn môn học" /></SelectTrigger>
                   <SelectContent>
-                    {courses.map(c => (
+                    {createCourses.map(c => (
                       <SelectItem key={c.id} value={String(c.id)}>{c.name} ({c.code})</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  Khoa được lấy theo môn học{activeCreateDepartment ? `: ${activeCreateDepartment.name}` : ""}.
+                </p>
               </div>
 
               <div className="space-y-1">
                 <Label>Giảng viên phụ trách</Label>
                 <Select name="teacher_id" defaultValue="none">
-                  <SelectTrigger><SelectValue placeholder="Chưa phân công" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Chưa phân công</SelectItem>
-                    {teachers.map(t => (
+                    <SelectTrigger><SelectValue placeholder="Chưa phân công" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Chưa phân công</SelectItem>
+                    {createTeachers.map(t => (
                       <SelectItem key={t.id} value={String(t.id)}>{t.full_name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -483,7 +513,7 @@ export default function SectionsPage() {
                     <SelectTrigger><SelectValue placeholder="Chưa phân công" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Chưa phân công</SelectItem>
-                      {teachers.map(t => (
+                      {editTeachers.map(t => (
                         <SelectItem key={t.id} value={String(t.id)}>{t.full_name}</SelectItem>
                       ))}
                     </SelectContent>

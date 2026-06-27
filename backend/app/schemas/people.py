@@ -154,6 +154,24 @@ class StudentResponse(StudentBase, OrmBase):
     updated_at: datetime
 
 
+class HomeroomAssignmentCreate(BaseModel):
+    """Assign one administrative class to a teacher as homeroom/advisor scope."""
+
+    teacher_id: int
+    class_code: str = Field(min_length=1, max_length=30)
+
+
+class HomeroomAssignmentResponse(OrmBase):
+    """Homeroom assignment returned to management UI."""
+
+    id: int
+    teacher_id: int
+    class_code: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
 # ================================================================== Cohort
 class CohortCreate(BaseModel):
     """Fields required when creating a Cohort."""

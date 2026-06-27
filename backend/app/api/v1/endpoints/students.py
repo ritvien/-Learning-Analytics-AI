@@ -3,7 +3,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 
-from app.access_control import can_access_student, get_teacher_for_user, is_admin, require_department_scope
+from app.access_control import (
+    can_access_program,
+    can_access_student,
+    get_teacher_for_user,
+    is_admin,
+    require_department_scope,
+)
 from app.crud import people as crud
 from app.dependencies import CurrentUser, DBSession, PaginationDep, require_write_access
 from app.models.academic import Program, Specialization
@@ -97,18 +103,22 @@ async def get_student(student_id: int, db: DBSession, current_user: CurrentUser)
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_write_access)],
 )
-async def create_student(payload: StudentCreate, db: DBSession) -> Student:
+async def create_student(payload: StudentCreate, db: DBSession, current_user: CurrentUser) -> Student:
     """Create a new student."""
+    if not await can_access_program(db, current_user, payload.program_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Student scope is outside your permissions")
     await _ensure_specialization_matches_program(db, payload.program_id, payload.specialization_id)
     return await crud.create_student(db, payload.model_dump())
 
 
 @router.patch("/{student_id}", response_model=StudentResponse, dependencies=[Depends(require_write_access)])
-async def update_student(student_id: int, payload: StudentUpdate, db: DBSession) -> Student:
+async def update_student(student_id: int, payload: StudentUpdate, db: DBSession, current_user: CurrentUser) -> Student:
     """Apply a partial update to a student."""
     obj = await crud.get_student(db, student_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
+    if not await can_access_student(db, current_user, student_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Student scope is outside your permissions")
     updates = payload.model_dump(exclude_unset=True)
     if "specialization_id" in updates:
         await _ensure_specialization_matches_program(db, obj.program_id, updates["specialization_id"])
@@ -116,9 +126,11 @@ async def update_student(student_id: int, payload: StudentUpdate, db: DBSession)
 
 
 @router.delete("/{student_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_write_access)])
-async def delete_student(student_id: int, db: DBSession) -> None:
+async def delete_student(student_id: int, db: DBSession, current_user: CurrentUser) -> None:
     """Soft-delete a student."""
     obj = await crud.get_student(db, student_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
+    if not await can_access_student(db, current_user, student_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Student scope is outside your permissions")
     await crud.delete_student(db, obj)

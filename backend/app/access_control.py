@@ -95,8 +95,15 @@ async def can_access_course(db: AsyncSession, user: User, course_id: int) -> boo
     """Return whether a user can access a Course through scope or teaching assignment."""
     if is_admin(user):
         return True
-    department_ids = await user_department_ids(db, user)
     teacher = await get_teacher_for_user(db, user)
+    if user.role == UserRole.lecturer:
+        if teacher is None:
+            return False
+        result = await db.execute(
+            select(exists().where(Section.course_id == course_id, Section.teacher_id == teacher.id))
+        )
+        return bool(result.scalar())
+    department_ids = await user_department_ids(db, user)
     conditions = []
     if department_ids:
         conditions.append(Course.department_id.in_(department_ids))
@@ -170,6 +177,12 @@ async def can_view_report_scope(
     if is_admin(user):
         return True
     if report_type == "school_overview" or scope_type == "school":
+        return False
+    if user.role == UserRole.lecturer:
+        if report_type == "course_health" or scope_type == "course":
+            return scope_id is not None and await can_access_course(db, user, int(scope_id))
+        if report_type == "section_intervention" or scope_type == "section":
+            return scope_id is not None and await can_access_section(db, user, int(scope_id))
         return False
     if report_type == "department_health" or scope_type == "department":
         if scope_id is None:

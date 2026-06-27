@@ -9,8 +9,8 @@ describe('KpiWidgets', () => {
         healthScore={85}
         gpaAvg={3.24}
         failRate={8.5}
-        cloAttainment={72.4}
         totalStudents={1250}
+        totalCourses={85}
       />
     )
 
@@ -23,8 +23,8 @@ describe('KpiWidgets', () => {
     expect(screen.getByText('Tỷ lệ Trượt (Fail Rate)')).toBeInTheDocument()
     expect(screen.getByText('8.5%')).toBeInTheDocument()
 
-    expect(screen.getByText('CLO Attainment')).toBeInTheDocument()
-    expect(screen.getByText('72.4%')).toBeInTheDocument()
+    expect(screen.getByText('Môn học')).toBeInTheDocument()
+    expect(screen.getByText('85')).toBeInTheDocument()
 
     expect(screen.getByText('Tổng Sinh Viên')).toBeInTheDocument()
     expect(screen.getByText('1.250')).toBeInTheDocument()

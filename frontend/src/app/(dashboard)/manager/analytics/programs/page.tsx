@@ -48,37 +48,59 @@ export default function ProgramAnalyticsPage() {
   const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
+    let cancelled = false
     const queryProgram = searchParams.get("program_id") ?? searchParams.get("program")
     const parsedProgramId = queryProgram ? Number(queryProgram) : NaN
-    if (Number.isFinite(parsedProgramId)) {
-      setTimeout(() => {
-        setError(null)
-        setProgramId(String(parsedProgramId))
-      }, 0)
-      return
-    }
     setTimeout(() => {
       setLoading(true)
       setError(null)
     }, 0)
-    api.getDashboardOverview()
-      .then((overview) => {
-        setTimeout(() => {
-          setProgramOptions(overview.programs)
-          const firstProgramId = overview.program_rows[0]?.id ?? overview.programs[0]?.id
+    api.me()
+      .then(async (user) => {
+        if (cancelled) return
+        if (user.role === "lecturer") {
+          if (!user.department_id) {
+            throw new Error("Tài khoản giảng viên chưa được gắn khoa.")
+          }
+          const departmentDashboard = await api.getDashboardDepartments({ department_id: user.department_id })
+          if (cancelled) return
+          const options = departmentDashboard.programs
+          setProgramOptions(options)
+          if (Number.isFinite(parsedProgramId) && options.some((program) => program.id === parsedProgramId)) {
+            setProgramId(String(parsedProgramId))
+            return
+          }
+          const firstProgramId = options[0]?.id
           if (firstProgramId) {
             setProgramId(String(firstProgramId))
-          } else {
-            setLoading(false)
-            setError("Không tìm thấy ngành đào tạo nào trong dữ liệu dashboard.")
+            return
           }
-        }, 0)
+          setLoading(false)
+          setError("Khoa của giảng viên chưa có ngành để phân tích.")
+          return
+        }
+
+        const overview = await api.getDashboardOverview()
+        if (cancelled) return
+        setProgramOptions(overview.programs)
+        const preferredProgramId = Number.isFinite(parsedProgramId) ? parsedProgramId : undefined
+        const firstProgramId = preferredProgramId ?? overview.program_rows[0]?.id ?? overview.programs[0]?.id
+        if (firstProgramId) {
+          setProgramId(String(firstProgramId))
+        } else {
+          setLoading(false)
+          setError("Không tìm thấy ngành đào tạo nào trong dữ liệu dashboard.")
+        }
       })
       .catch((err) => {
+        if (cancelled) return
         console.error(err)
         setError(err instanceof Error ? err.message : "Không tải được danh sách ngành đào tạo.")
         setLoading(false)
       })
+    return () => {
+      cancelled = true
+    }
   }, [searchParams])
 
   React.useEffect(() => {

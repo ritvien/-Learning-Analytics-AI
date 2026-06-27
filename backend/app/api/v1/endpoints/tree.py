@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.access_control import is_admin, user_department_ids
 from app.dependencies import CurrentUser, DBSession
 from app.models.academic import Course, Department, Program, Specialization, program_courses
-from app.models.people import Student
+from app.models.people import Student, UserRole
 from app.models.teaching import Enrollment, Section
 
 router = APIRouter()
@@ -84,8 +84,20 @@ def _metrics(students: list[Student], enrollments: list[Enrollment], courses: li
 
 async def _load_visible_tree_data(db: DBSession, current_user: CurrentUser) -> dict[str, list[Any]]:
     department_scope = set[int]()
-    if not is_admin(current_user):
+    # Academic structure and roll-up metrics are an institution-wide overview for lecturers.
+    # Student/course detail endpoints remain protected by their own row-level scope.
+    if not is_admin(current_user) and current_user.role != UserRole.lecturer:
         department_scope = await user_department_ids(db, current_user)
+        if not department_scope:
+            return {
+                "departments": [],
+                "programs": [],
+                "specializations": [],
+                "courses": [],
+                "students": [],
+                "sections": [],
+                "enrollments": [],
+            }
 
     department_query = select(Department).where(Department.is_active == True)  # noqa: E712
     program_query = select(Program).where(Program.is_active == True)  # noqa: E712

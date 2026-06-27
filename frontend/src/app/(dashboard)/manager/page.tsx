@@ -133,7 +133,7 @@ export default function ManagerDashboard() {
   const globalHealthScore = tree?.metrics.health_score ?? 0
   const globalGpaAvg = tree?.metrics.avg_gpa ?? 0
   const globalFailRate = tree?.metrics.fail_rate ?? 0
-  const globalCloAttainment = 78.5
+  const scopeLabel = "toàn trường"
 
   return (
     <div className="space-y-6">
@@ -150,14 +150,18 @@ export default function ManagerDashboard() {
             healthScore={globalHealthScore}
             gpaAvg={globalGpaAvg}
             failRate={globalFailRate}
-            cloAttainment={globalCloAttainment}
             totalStudents={tree?.metrics.student_count ?? 0}
+            totalCourses={tree?.metrics.course_count ?? 0}
+            scopeLabel={scopeLabel}
           />
           <div className="flex flex-col w-full bg-background text-foreground transition-colors duration-300 rounded-xl border border-border/50 shadow-sm p-4">
             {/* ── Dashboard Header ── */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-3 shrink-0">
               <div>
-                <h1 className="text-2xl font-bold tracking-tight">Cơ cấu tổ chức đào tạo</h1>
+                <h1 className="text-2xl font-bold tracking-tight">Tổng quan cơ cấu đào tạo</h1>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Quan sát cấu trúc khoa, chương trình và chuyên ngành toàn trường. Dữ liệu chi tiết vẫn tuân theo phân quyền từng chức năng.
+                </p>
               </div>
 
               {/* ── Toolbar ── */}
@@ -338,12 +342,6 @@ export default function ManagerDashboard() {
 
                           const status = getMajorStatus(major.id)
                           const isMajorSelected = selection?.type === "major" && selection.id === major.id
-
-                          const handleChatNavigate = (e: React.MouseEvent) => {
-                            e.stopPropagation()
-                            const question = `Cho tôi biết thông tin chi tiết về chuyên ngành ${major.tenNganh}: chương trình đào tạo, các môn học chính, chuẩn đầu ra và triển vọng nghề nghiệp.`
-                            router.push(`/chat?q=${encodeURIComponent(question)}`)
-                          }
 
                           return (
                             <div

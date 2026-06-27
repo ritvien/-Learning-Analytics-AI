@@ -12,5 +12,6 @@ Numbered ADRs for EduInsight. Read relevant decisions before changing schema, AP
 | [0006](0006-ml-agent-boundary.md) | ML prediction vs LLM explanation boundary | accepted |
 | [0007](0007-sqlalchemy-alembic.md) | SQLAlchemy ORM + Alembic migrations | accepted |
 | [0008](0008-academic-tree.md) | Academic Tree 3-tier hierarchy | accepted |
+| [0009](0009-homeroom-assignment-scope.md) | Explicit homeroom assignment scope | accepted |
 
 Human decisions not yet formalized as ADRs may appear in [WORKLOG.md](../../WORKLOG.md). New decisions: add the next numbered file here.

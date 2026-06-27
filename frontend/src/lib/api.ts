@@ -78,6 +78,8 @@ export interface ApiEnrollment {
   section_id: number
   final_grade: number | null
   grade_letter: string | null
+  grade_4: number | null
+  registered_credits: number | null
   is_passed: boolean | null
   completed_at: string | null
   attempt_number: number
@@ -405,6 +407,7 @@ export interface ApiDashboardTrendRow {
   year: number
   term: number
   count: number
+  department_count?: number
   pass_rate: number
   avg_grade: number
 }
@@ -447,7 +450,28 @@ export interface ApiDashboardDepartments {
   programs: ApiDashboardProgramOption[]
   semesters: ApiDashboardSemesterOption[]
   cohorts: ApiDashboardCohortOption[]
-  dept_stats: { id: number; name: string; short_name: string; student_count: number; pass_rate: number; avg_grade: number; at_risk: number }[]
+  kpis: {
+    students: number
+    completed_enrollments: number
+    passed_enrollments: number
+    failed_enrollments: number
+    pass_rate: number
+    avg_grade: number
+    at_risk: number
+    at_risk_rate: number
+  }
+  dept_stats: {
+    id: number
+    name: string
+    short_name: string
+    student_count: number
+    enrollment_count: number
+    pass_rate: number
+    avg_grade: number
+    at_risk: number
+    at_risk_rate: number
+  }[]
+  trend: ApiDashboardTrendRow[]
   heatmap: { department_id: number; department: string; semester_id: number; semester: string; year: number; term: number; pass_rate: number }[]
   drill_course_fail: { id: number; name: string; total: number; failed: number; rate: number }[]
   drill_section_abnormal: { id: number; code: string; course_name: string; fail_rate: number; avg_fail: number; diff: number }[]
@@ -472,6 +496,67 @@ export interface ApiDashboardProgram {
   groups: { name: string; pass_rate: number }[]
   distribution: { name: string; value: number }[]
   cohort_heatmap: { cohort_id: number; cohort: string; semester_id: number; semester: string; year: number; term: number; pass_rate: number }[]
+}
+
+export interface ApiDashboardCourses {
+  departments: ApiDashboardDepartmentOption[]
+  programs: ApiDashboardProgramOption[]
+  semesters: ApiDashboardSemesterOption[]
+  cohorts: ApiDashboardCohortOption[]
+  filters: {
+    semester_code: string | null
+    department_id: number | null
+    program_id: number | null
+    course_id: number | null
+    date_from: string | null
+    date_to: string | null
+  }
+  course_rows: {
+    id: number
+    code: string
+    name: string
+    credits: number
+    completed_enrollments: number
+    pass_rate: number
+    avg_grade: number
+    failed_count: number
+    near_fail_count: number
+    section_count: number
+    clo_attainment_rate: number
+    health_score: number
+  }[]
+  selected_course: null | {
+    course: {
+      id: number
+      code: string
+      name: string
+      credits: number
+    }
+    kpis: {
+      completed_enrollments: number
+      pass_rate: number
+      avg_grade: number
+      section_count: number
+      failed_count: number
+      near_fail_count: number
+      clo_attainment_rate: number
+      health_score: number
+    }
+    trend: ApiDashboardTrendRow[]
+    grade_distribution: { name: string; value: number }[]
+    section_rows: {
+      id: number
+      section_code: string
+      semester_id: number
+      semester_code: string
+      semester_name: string
+      completed_enrollments: number
+      failed_count: number
+      pass_rate: number
+      avg_grade: number
+      pass_rate_diff: number
+    }[]
+  }
 }
 
 // --- Report Agent ---
@@ -647,6 +732,182 @@ export function resolveChatHandoffRoute(targetRoute: string): string {
     return "/chat"
   }
   return targetRoute
+}
+
+export interface ApiHomeroomClassSummary {
+  assignment_id: number
+  class_code: string
+  teacher_id: number
+  teacher_name: string | null
+  student_count: number
+  active_students: number
+  avg_gpa: number | null
+  low_gpa_count: number
+}
+
+export interface ApiHomeroomStudent {
+  id: number
+  student_code: string
+  full_name: string
+  program_name: string
+  gpa_cumulative: number | null
+  failed_courses: number
+  near_fail_courses: number
+  completed_enrollments: number
+  earned_credits: number
+  failed_course_ids: number[]
+  latest_semester: string | null
+  latest_gpa: number | null
+  gpa_delta: number | null
+  status: string
+  risk_level: "high" | "watch" | "normal"
+  risk_reasons: string[]
+}
+
+export interface ApiHomeroomClassDetail extends ApiHomeroomClassSummary {
+  risk_counts: { high: number; watch: number; normal: number }
+  trend: {
+    id: number
+    semester: string
+    year: number
+    term: number
+    student_count: number
+    completed_enrollments: number
+    failed_enrollments: number
+    avg_gpa: number | null
+    pass_rate: number
+  }[]
+  weak_courses: {
+    id: number
+    code: string
+    name: string
+    attempts: number
+    failed: number
+    fail_rate: number
+    avg_grade: number | null
+  }[]
+  students: ApiHomeroomStudent[]
+}
+
+export interface ApiHomeroomAssignment {
+  id: number
+  teacher_id: number
+  class_code: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ApiHomeroomStudentAnalytics {
+  profile: {
+    id: number
+    student_code: string
+    full_name: string
+    class_code: string
+    program_name: string
+    program_code: string
+    cohort_code: string
+    status: string
+    gpa_cumulative: number | null
+    email: string | null
+    phone: string | null
+  }
+  class_benchmark: {
+    class_code: string
+    class_size: number
+    students_with_gpa: number
+    avg_gpa: number | null
+    gpa_rank: number | null
+  }
+  kpis: {
+    completed_enrollments: number
+    passed_courses: number
+    failed_courses: number
+    near_fail_courses: number
+    avg_grade: number
+    pass_rate: number
+    earned_credits: number
+    attempted_credits: number
+  }
+  trend: {
+    id: number
+    semester: string
+    semester_name: string
+    year: number
+    term: number
+    registered_credits: number
+    passed_credits: number
+    failed_credits: number
+    attempted_course_count: number
+    passed_course_count: number
+    failed_course_count: number
+    gpa_semester: number | null
+    avg_grade: number
+    pass_rate: number
+    class_avg_gpa: number | null
+    class_pass_rate: number | null
+  }[]
+  course_results: {
+    id: number
+    course_id: number
+    course_code: string
+    course_name: string
+    credits: number
+    section_id: number
+    semester_id: number
+    semester: string
+    year: number
+    term: number
+    final_grade: number | null
+    grade_4: number | null
+    is_passed: boolean | null
+    attempt_number: number
+    status: string
+    class_avg_grade: number | null
+    class_pass_rate: number | null
+    grade_gap: number | null
+  }[]
+  weak_courses: {
+    id: number
+    course_id: number
+    course_code: string
+    course_name: string
+    credits: number
+    section_id: number
+    semester_id: number
+    semester: string
+    year: number
+    term: number
+    final_grade: number | null
+    grade_4: number | null
+    is_passed: boolean | null
+    attempt_number: number
+    status: string
+    class_avg_grade: number | null
+    class_pass_rate: number | null
+    grade_gap: number | null
+  }[]
+  competencies: {
+    id: number
+    code: string
+    name: string
+    evidence_count: number
+    score: number | null
+    attainment_rate: number
+    class_score: number | null
+    class_attainment_rate: number | null
+  }[]
+  risk: {
+    level: "high" | "watch" | "normal"
+    reasons: string[]
+    recommendations: string[]
+  }
+}
+
+function isApiError(err: unknown, statusCode: number, detail?: string) {
+  if (!(err instanceof Error)) return false
+  const statusMatch = err.message.includes(`API ${statusCode}`)
+  return statusMatch && (!detail || err.message.includes(detail))
 }
 
 async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
@@ -906,11 +1167,20 @@ export const api = {
     try {
       return await fetcher<ApiDropoutRisk>(`/api/v1/predictions/students/${studentId}/dropout-risk`)
     } catch (err: unknown) {
-      const error = err as Error
-      if (error.message && error.message.includes("404")) {
-        return fetcher<ApiDropoutRisk>(`/api/v1/predictions/students/${studentId}/dropout-risk/predict`, {
-          method: "POST"
-        })
+      if (isApiError(err, 404, "Dropout prediction not found")) {
+        try {
+          return await fetcher<ApiDropoutRisk>(`/api/v1/predictions/students/${studentId}/dropout-risk/predict`, {
+            method: "POST"
+          })
+        } catch (predictErr: unknown) {
+          if (isApiError(predictErr, 404, "No completed dropout model run found")) {
+            return null
+          }
+          throw predictErr
+        }
+      }
+      if (isApiError(err, 404, "No completed dropout model run found")) {
+        return null
       }
       throw err
     }
@@ -1007,6 +1277,22 @@ export const api = {
   // --- Sections ---
   getSections: (params?: { limit?: number; course_id?: number; semester_id?: number; teacher_id?: number }) =>
     fetcher<ApiSection[]>(`/api/v1/sections${qs(params ?? {})}`),
+
+  // --- Homeroom / academic-advisor classes ---
+  getHomeroomClasses: () => fetcher<ApiHomeroomClassSummary[]>("/api/v1/homeroom/classes"),
+  getHomeroomClass: (classCode: string) =>
+    fetcher<ApiHomeroomClassDetail>(`/api/v1/homeroom/classes/${encodeURIComponent(classCode)}`),
+  getHomeroomStudentAnalytics: (studentId: number) =>
+    fetcher<ApiHomeroomStudentAnalytics>(`/api/v1/homeroom/students/${studentId}/analytics`),
+  getHomeroomAssignments: () => fetcher<ApiHomeroomAssignment[]>("/api/v1/homeroom/assignments"),
+  createHomeroomAssignment: (body: { teacher_id: number; class_code: string }) =>
+    fetcher<ApiHomeroomAssignment>("/api/v1/homeroom/assignments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  deleteHomeroomAssignment: (id: number) =>
+    fetcher<void>(`/api/v1/homeroom/assignments/${id}`, { method: "DELETE" }),
   createSection: (body: {
     course_id: number
     semester_id: number
@@ -1100,6 +1386,10 @@ export const api = {
     fetcher<ApiDashboardDepartments>(`/api/v1/analytics/dashboard/departments${qs(params ?? {})}`),
   getDashboardProgram: (id: number, params?: { semester_code?: string; cohort_id?: number; date_from?: string; date_to?: string }) =>
     fetcher<ApiDashboardProgram>(`/api/v1/analytics/dashboard/programs/${id}${qs(params ?? {})}`),
+  getDashboardCourses: (params?: { semester_code?: string; department_id?: number; program_id?: number; date_from?: string; date_to?: string }) =>
+    fetcher<ApiDashboardCourses>(`/api/v1/analytics/dashboard/courses${qs(params ?? {})}`),
+  getDashboardCourse: (id: number, params?: { semester_code?: string; department_id?: number; program_id?: number; date_from?: string; date_to?: string }) =>
+    fetcher<ApiDashboardCourses>(`/api/v1/analytics/dashboard/courses/${id}${qs(params ?? {})}`),
   getTree: () =>
     fetcher<ApiTreeNode>("/api/v1/tree"),
 

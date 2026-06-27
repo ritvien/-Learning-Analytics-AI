@@ -17,6 +17,36 @@ import { api, clearAccessToken, getAccessToken, getCachedCurrentUser, startPageT
 import { OnboardingTour } from "@/components/onboarding-tour"
 import { GlobalChatShell } from "@/components/layout/global-chat-shell"
 
+function isManagementRole(role: ApiUser["role"]) {
+  return role === "superadmin" || role === "admin" || role === "manager"
+}
+
+function isReadRole(role: ApiUser["role"]) {
+  return isManagementRole(role) || role === "lecturer" || role === "viewer"
+}
+
+function canAccessDashboardPath(pathname: string, role: ApiUser["role"]) {
+  if (pathname.startsWith("/chat")) return true
+  if (pathname.startsWith("/manager/users")) return role === "superadmin" || role === "admin"
+  if (pathname.startsWith("/manager/observability")) return role === "superadmin"
+  if (pathname.startsWith("/manager/programs")) return isManagementRole(role)
+  if (pathname.startsWith("/manager/analytics/departments")) return isManagementRole(role) || role === "lecturer"
+  if (pathname.startsWith("/manager/analytics/programs")) return isManagementRole(role) || role === "lecturer"
+  if (pathname.startsWith("/manager/analytics/courses")) return isManagementRole(role) || role === "lecturer"
+  if (pathname.startsWith("/manager/analytics/sections")) return isManagementRole(role) || role === "lecturer"
+  if (pathname.startsWith("/manager/analytics/students")) return role === "lecturer"
+  if (pathname.startsWith("/manager/analytics")) return isManagementRole(role)
+  if (pathname.startsWith("/manager/students")) return isReadRole(role)
+  if (pathname.startsWith("/manager/teachers")) return isManagementRole(role)
+  if (pathname.startsWith("/manager/courses")) return isReadRole(role)
+  if (pathname.startsWith("/manager/departments")) return isManagementRole(role)
+  if (pathname === "/manager") return isReadRole(role)
+  if (pathname.startsWith("/manager/sections")) return isReadRole(role)
+  if (pathname.startsWith("/manager/grades")) return isReadRole(role)
+  if (pathname.startsWith("/manager/reports")) return isManagementRole(role) || role === "lecturer"
+  return true
+}
+
 export default function DashboardLayout({
   children,
 }: {
@@ -59,18 +89,8 @@ export default function DashboardLayout({
   useEffect(() => {
     if (isChecking || !user || !pathname) return
 
-    if (pathname.startsWith("/manager/users")) {
-      if (user.role !== "superadmin" && user.role !== "admin") {
-        router.replace("/forbidden")
-      }
-    } else if (pathname.startsWith("/manager/programs")) {
-      if (user.role !== "superadmin" && user.role !== "admin" && user.role !== "manager") {
-        router.replace("/forbidden")
-      }
-    } else if (pathname.startsWith("/manager/observability")) {
-      if (user.role !== "superadmin") {
-        router.replace("/forbidden")
-      }
+    if (!canAccessDashboardPath(pathname, user.role)) {
+      router.replace("/forbidden")
     }
   }, [pathname, user, isChecking, router])
 

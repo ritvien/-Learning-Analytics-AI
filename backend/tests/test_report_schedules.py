@@ -6,8 +6,9 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies import create_access_token, hash_password
 from app.models.academic import Course, Department, Program, Semester, University
-from app.models.people import Cohort, Student
+from app.models.people import Cohort, Student, Teacher, User, UserRole
 from app.models.report import ReportSchedule, ReportScheduleRun
 from app.models.teaching import Enrollment, Section
 from app.reports.scheduler import MIDTERM_FREQUENCY, MIDTERM_TRIGGER, run_due_schedules, run_grade_update_schedules
@@ -53,6 +54,69 @@ async def test_create_list_and_run_report_schedule(client: AsyncClient) -> None:
     runs_response = await client.get(f"/api/v1/reports/schedules/{schedule['id']}/runs")
     assert runs_response.status_code == 200
     assert runs_response.json()[0]["report_id"] == run["report_id"]
+
+
+async def test_lecturer_can_schedule_only_own_section(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    university = University(code="LECT-U", name="Lecturer University")
+    db_session.add(university)
+    await db_session.flush()
+    department = Department(university_id=university.id, code="LECT-D", name="Lecturer Department")
+    db_session.add(department)
+    await db_session.flush()
+    course = Course(department_id=department.id, code="LECT-C", name="Lecturer Course", credits=3)
+    semester = Semester(code="LECT-SEM", name="Lecturer Semester", year=2026, term=1)
+    user = User(
+        id="schedule-lecturer",
+        email="schedule.lecturer@example.com",
+        hashed_password=hash_password("password123"),
+        full_name="Schedule Lecturer",
+        role=UserRole.lecturer,
+        department_id=department.id,
+    )
+    db_session.add_all([course, semester, user])
+    await db_session.flush()
+    teacher = Teacher(
+        user_id=user.id,
+        department_id=department.id,
+        code="LECT-T",
+        full_name="Schedule Lecturer",
+        email="schedule.lecturer@example.com",
+    )
+    db_session.add(teacher)
+    await db_session.flush()
+    own_section = Section(
+        course_id=course.id,
+        semester_id=semester.id,
+        teacher_id=teacher.id,
+        section_code="OWN-01",
+    )
+    other_section = Section(course_id=course.id, semester_id=semester.id, section_code="OTHER-01")
+    db_session.add_all([own_section, other_section])
+    await db_session.flush()
+    client.headers["Authorization"] = f"Bearer {create_access_token(user.id, user.role)}"
+
+    payload = {
+        "name": "My weekly section report",
+        "report_type": "section_intervention",
+        "actor_role": "lecturer",
+        "scope_type": "section",
+        "frequency": "weekly",
+        "recipients_json": ["lecturer"],
+        "formats_json": ["web"],
+    }
+    own_response = await client.post(
+        "/api/v1/reports/schedules",
+        json={**payload, "scope_id": str(own_section.id)},
+    )
+    denied_response = await client.post(
+        "/api/v1/reports/schedules",
+        json={**payload, "scope_id": str(other_section.id)},
+    )
+
+    assert own_response.status_code == 201
+    assert denied_response.status_code == 403
 
 
 async def test_due_report_schedule_runs_from_worker(db_session: AsyncSession) -> None:

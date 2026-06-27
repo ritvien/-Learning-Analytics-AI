@@ -1,8 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { useSearchParams } from "next/navigation"
-import { AlertTriangle, BookOpen, CheckCircle2, TrendingDown, TrendingUp, UserRound } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { AlertTriangle, ArrowRight, CheckCircle2, GraduationCap, Search, Trash2, UserRound, Users } from "lucide-react"
 import {
   Bar,
   BarChart,
@@ -10,697 +10,451 @@ import {
   Cell,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
+  Scatter,
+  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
+  ZAxis,
 } from "recharts"
 
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   api,
-  type ApiCourse,
-  type ApiEnrollment,
-  type ApiProgram,
-  type ApiSection,
-  type ApiSemester,
+  type ApiHomeroomAssignment,
+  type ApiHomeroomClassDetail,
+  type ApiHomeroomClassSummary,
   type ApiStudent,
-  type ApiDropoutRisk,
+  type ApiTeacher,
+  type ApiUser,
 } from "@/lib/api"
 
-type Raw = {
-  students: ApiStudent[]
-  enrollments: ApiEnrollment[]
-  sections: ApiSection[]
-  courses: ApiCourse[]
-  semesters: ApiSemester[]
-  programs: ApiProgram[]
+function riskBadge(level: "high" | "watch" | "normal") {
+  if (level === "high") return <Badge variant="destructive">Cần ưu tiên</Badge>
+  if (level === "watch") return <Badge className="border-orange-500/40 bg-orange-500/10 text-orange-600" variant="outline">Theo dõi</Badge>
+  return <Badge className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600" variant="outline">Ổn định</Badge>
 }
 
-function avg(values: number[]) {
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0
-}
+export default function HomeroomAnalyticsPage() {
+  const router = useRouter()
+  const [currentUser, setCurrentUser] = React.useState<ApiUser | null>(null)
+  const [classes, setClasses] = React.useState<ApiHomeroomClassSummary[]>([])
+  const [selectedClass, setSelectedClass] = React.useState("")
+  const [detail, setDetail] = React.useState<ApiHomeroomClassDetail | null>(null)
+  const [teachers, setTeachers] = React.useState<ApiTeacher[]>([])
+  const [students, setStudents] = React.useState<ApiStudent[]>([])
+  const [assignments, setAssignments] = React.useState<ApiHomeroomAssignment[]>([])
+  const [teacherId, setTeacherId] = React.useState("")
+  const [classCode, setClassCode] = React.useState("")
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState("")
+  const [studentQuery, setStudentQuery] = React.useState("")
+  const [riskFilter, setRiskFilter] = React.useState<"all" | "high" | "watch" | "normal">("all")
+  const [selectedWeakCourse, setSelectedWeakCourse] = React.useState<number | null>(null)
 
-function courseGroup(course: ApiCourse | undefined) {
-  if (!course) return "Chưa phân nhóm"
-  if (course.is_elective) return "Tự chọn"
-  if (course.credits <= 2) return "Đại cương"
-  if (course.credits === 3) return "Cơ sở ngành"
-  return "Chuyên ngành"
-}
+  const canManage = currentUser?.role === "superadmin" || currentUser?.role === "admin" || currentUser?.role === "manager"
 
-function resultLabel(grade: number | null) {
-  if (grade === null) return "Chưa có điểm"
-  if (grade < 4) return "Trượt nặng"
-  if (grade < 5) return "Cận trượt"
-  if (grade < 5.5) return "Qua yếu"
-  if (grade < 8) return "Qua ổn"
-  return "Tốt"
-}
-
-function dateStartIso(value: string) {
-  return value ? new Date(`${value}T00:00:00`).toISOString() : undefined
-}
-
-function dateEndIso(value: string) {
-  return value ? new Date(`${value}T23:59:59.999`).toISOString() : undefined
-}
-
-export default function StudentAnalyticsPage() {
-  const searchParams = useSearchParams()
-  const [raw, setRaw] = React.useState<Raw | null>(null)
-  const [studentId, setStudentId] = React.useState("")
-  const [dateFrom, setDateFrom] = React.useState("")
-  const [dateTo, setDateTo] = React.useState("")
-  const [dropoutRisk, setDropoutRisk] = React.useState<ApiDropoutRisk | null>(null)
-  const [dropoutLoading, setDropoutLoading] = React.useState(false)
-  const [dropoutError, setDropoutError] = React.useState<string | null>(null)
-
-  const [selectedSemesterId, setSelectedSemesterId] = React.useState<string>("")
-  const [creditPrediction, setCreditPrediction] = React.useState<any | null>(null)
-  const [creditPredictionsLoading, setCreditPredictionsLoading] = React.useState(false)
-  const [enrollmentPredictions, setEnrollmentPredictions] = React.useState<any[]>([])
+  const refresh = React.useCallback(async () => {
+    setError("")
+    const me = await api.me()
+    const classList = await api.getHomeroomClasses()
+    setCurrentUser(me)
+    setClasses(classList)
+    setSelectedClass((current) => current && classList.some(item => item.class_code === current)
+      ? current
+      : classList[0]?.class_code ?? "")
+    if (["superadmin", "admin", "manager"].includes(me.role)) {
+      const [teacherList, studentList, assignmentList] = await Promise.all([
+        api.getTeachers({ limit: 1000 }),
+        api.getStudents({ limit: 5000 }),
+        api.getHomeroomAssignments(),
+      ])
+      setTeachers(teacherList)
+      setStudents(studentList)
+      setAssignments(assignmentList)
+    }
+  }, [])
 
   React.useEffect(() => {
-    Promise.all([
-      api.getStudents({ limit: 1000 }),
-      api.getSections({ limit: 5000 }),
-      api.getCourses({ limit: 500 }),
-      api.getSemesters(),
-      api.getPrograms({ limit: 500 }),
-    ])
-      .then(([students, sections, courses, semesters, programs]) => {
-        setRaw({ students, enrollments: [], sections, courses, semesters, programs })
-        
-        const currentSem = semesters.find(s => s.is_current) || [...semesters].sort((a,b) => b.year - a.year || b.term - a.term)[0]
-        if (currentSem) {
-          setSelectedSemesterId(String(currentSem.id))
-        }
-
-        const queryStudent = searchParams.get("student_id") ?? searchParams.get("student")
-        const queryCode = searchParams.get("student_code")
-        let targetId = ""
-        if (queryStudent && students.some((student) => String(student.id) === queryStudent)) {
-          targetId = queryStudent
-        } else if (queryCode) {
-          const found = students.find((student) => student.student_code === queryCode)
-          if (found) {
-            targetId = String(found.id)
-          } else {
-            api.getStudentByCode(queryCode)
-              .then((student) => {
-                if (student) {
-                  setRaw(current => {
-                    if (!current) return current
-                    const exists = current.students.some(s => s.id === student.id)
-                    return {
-                      ...current,
-                      students: exists ? current.students : [student, ...current.students]
-                    }
-                  })
-                  setStudentId(String(student.id))
-                }
-              })
-              .catch(console.error)
-          }
-        }
-        if (!targetId && !queryCode) {
-          targetId = String(students[0]?.id ?? "")
-        }
-        if (targetId) {
-          setStudentId(targetId)
-        }
-      })
-      .catch(console.error)
-  }, [searchParams])
+    refresh()
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Không tải được dữ liệu lớp chủ nhiệm."))
+      .finally(() => setLoading(false))
+  }, [refresh])
 
   React.useEffect(() => {
-    if (!studentId || !selectedSemesterId) {
-      setCreditPrediction(null)
-      setEnrollmentPredictions([])
+    if (!selectedClass) {
+      setDetail(null)
       return
     }
-    setCreditPredictionsLoading(true)
-    Promise.all([
-      api.getStudentSemesterPrediction(Number(studentId), Number(selectedSemesterId)).catch(() => null),
-      api.getStudentSemesterEnrollmentPredictions(Number(studentId), Number(selectedSemesterId)).catch(() => [])
-    ]).then(([pred, enrollPreds]) => {
-      setCreditPrediction(pred)
-      setEnrollmentPredictions(enrollPreds)
-    }).finally(() => {
-      setCreditPredictionsLoading(false)
+    api.getHomeroomClass(selectedClass).then(setDetail).catch((err: unknown) => {
+      setDetail(null)
+      setError(err instanceof Error ? err.message : "Không tải được lớp chủ nhiệm.")
     })
-  }, [studentId, selectedSemesterId])
+  }, [selectedClass])
 
-  React.useEffect(() => {
-    if (!studentId) return
-    api.getEnrollments({
-      student_id: Number(studentId),
-      limit: 50000,
-      date_from: dateStartIso(dateFrom),
-      date_to: dateEndIso(dateTo),
-    })
-      .then((enrollments) => {
-        setRaw((current) => current ? { ...current, enrollments } : current)
-      })
-      .catch(console.error)
-  }, [studentId, dateFrom, dateTo])
+  const availableClassCodes = React.useMemo(
+    () => [...new Set(students.map(student => student.class_code).filter((value): value is string => Boolean(value)))].sort(),
+    [students],
+  )
 
-  React.useEffect(() => {
-    if (!studentId) {
-      setDropoutRisk(null)
-      setDropoutError(null)
-      return
-    }
-    setDropoutLoading(true)
-    setDropoutError(null)
-    setDropoutRisk(null)
-    api.getDropoutRisk(Number(studentId))
-      .then((risk) => {
-        setDropoutRisk(risk)
-      })
-      .catch((err: unknown) => {
-        console.error("Failed to load dropout risk", err)
-        const error = err as Error
-        setDropoutError(error.message || String(err))
-      })
-      .finally(() => {
-        setDropoutLoading(false)
-      })
-  }, [studentId])
-
-  const data = React.useMemo(() => {
-    if (!raw || !studentId) return null
-    const student = raw.students.find((item) => item.id === Number(studentId))
-    if (!student) return null
-    const sectionMap = new Map(raw.sections.map((section) => [section.id, section]))
-    const courseMap = new Map(raw.courses.map((course) => [course.id, course]))
-    const semesterMap = new Map(raw.semesters.map((semester) => [semester.id, semester]))
-    const program = raw.programs.find((item) => item.id === student.program_id)
-    const rows = raw.enrollments
-      .filter((enrollment) => enrollment.student_id === student.id)
-      .map((enrollment) => {
-        const section = sectionMap.get(enrollment.section_id)
-        const course = section ? courseMap.get(section.course_id) : undefined
-        const semester = section ? semesterMap.get(section.semester_id) : undefined
-        return {
-          enrollment,
-          section,
-          course,
-          semester,
-          group: courseGroup(course),
-        }
-      })
-      .sort((a, b) => (b.semester?.year ?? 0) - (a.semester?.year ?? 0) || (b.semester?.term ?? 0) - (a.semester?.term ?? 0))
-    const gradedRows = rows.filter((row) => row.enrollment.final_grade !== null)
-    const passedRows = rows.filter((row) => row.enrollment.is_passed === true)
-    const failedRows = rows.filter((row) => row.enrollment.is_passed === false)
-    const passRate = rows.filter((row) => row.enrollment.is_passed !== null).length
-      ? +(passedRows.length / rows.filter((row) => row.enrollment.is_passed !== null).length * 100).toFixed(1)
-      : 0
-    const completedCredits = passedRows.reduce((sum, row) => sum + (row.course?.credits ?? 0), 0)
-    const failedCredits = failedRows.reduce((sum, row) => sum + (row.course?.credits ?? 0), 0)
-    const semesters = [...raw.semesters].sort((a, b) => a.year - b.year || a.term - b.term)
-    const gpaTrend = semesters.map((semester) => {
-      const grades = rows
-        .filter((row) => row.semester?.id === semester.id)
-        .flatMap((row) => row.enrollment.final_grade === null ? [] : [row.enrollment.final_grade])
-      return {
-        semester: semester.code,
-        avgGrade: +avg(grades).toFixed(2),
-        count: grades.length,
-      }
-    }).filter((item) => item.count > 0)
-    const courseGrades = gradedRows.map((row) => ({
-      name: row.course?.code ?? row.section?.section_code ?? "Môn học",
-      grade: row.enrollment.final_grade ?? 0,
-      fullName: row.course?.name ?? "Chưa rõ môn",
-    }))
-    const groupMap = new Map<string, number[]>()
-    for (const row of gradedRows) {
-      const values = groupMap.get(row.group) ?? []
-      values.push(row.enrollment.final_grade!)
-      groupMap.set(row.group, values)
-    }
-    const groupData = [...groupMap.entries()].map(([name, grades]) => ({
-      name,
-      avgGrade: +avg(grades).toFixed(2),
-    }))
-    const riskRows = [
-      {
-        factor: "GPA cumulative",
-        status: student.gpa_cumulative === null ? "Thiếu dữ liệu" : student.gpa_cumulative.toFixed(2),
-        detail: student.gpa_cumulative !== null && student.gpa_cumulative < 2 ? "Dưới ngưỡng 2.0" : "Trong ngưỡng theo dõi",
-        bad: student.gpa_cumulative !== null && student.gpa_cumulative < 2,
-      },
-      {
-        factor: "Số môn trượt",
-        status: String(failedRows.length),
-        detail: failedRows.length > 0 ? "Có môn cần học lại hoặc hỗ trợ" : "Chưa ghi nhận môn trượt",
-        bad: failedRows.length > 0,
-      },
-      {
-        factor: "Môn cận trượt",
-        status: String(rows.filter((row) => row.enrollment.final_grade !== null && row.enrollment.final_grade >= 4 && row.enrollment.final_grade < 5).length),
-        detail: "Nhóm điểm 4.0-5.0 cần theo dõi",
-        bad: rows.some((row) => row.enrollment.final_grade !== null && row.enrollment.final_grade >= 4 && row.enrollment.final_grade < 5),
-      },
-      {
-        factor: "Xu hướng gần nhất",
-        status: gpaTrend.length >= 2 && gpaTrend.at(-1)!.avgGrade < gpaTrend.at(-2)!.avgGrade ? "Giảm" : "Ổn định/tăng",
-        detail: "So sánh hai học kỳ có điểm gần nhất",
-        bad: gpaTrend.length >= 2 && gpaTrend.at(-1)!.avgGrade < gpaTrend.at(-2)!.avgGrade,
-      },
+  const gpaDistribution = React.useMemo(() => {
+    const rows = detail?.students ?? []
+    return [
+      { label: "< 2.0", count: rows.filter(item => item.gpa_cumulative !== null && item.gpa_cumulative < 2).length, color: "#ef4444" },
+      { label: "2.0–2.49", count: rows.filter(item => item.gpa_cumulative !== null && item.gpa_cumulative >= 2 && item.gpa_cumulative < 2.5).length, color: "#f97316" },
+      { label: "2.5–3.19", count: rows.filter(item => item.gpa_cumulative !== null && item.gpa_cumulative >= 2.5 && item.gpa_cumulative < 3.2).length, color: "#f59e0b" },
+      { label: "3.2–3.59", count: rows.filter(item => item.gpa_cumulative !== null && item.gpa_cumulative >= 3.2 && item.gpa_cumulative < 3.6).length, color: "#22c55e" },
+      { label: "≥ 3.6", count: rows.filter(item => item.gpa_cumulative !== null && item.gpa_cumulative >= 3.6).length, color: "#10b981" },
+      { label: "Thiếu", count: rows.filter(item => item.gpa_cumulative === null).length, color: "#94a3b8" },
     ]
-    return {
-      student,
-      program,
-      rows,
-      gpaTrend,
-      courseGrades,
-      groupData,
-      riskRows,
-      completedCredits,
-      failedCredits,
-      failedCount: failedRows.length,
-      passRate,
-      riskLevel: riskRows.some((row) => row.bad) ? "Cần theo dõi" : "Ổn định",
-    }
-  }, [raw, studentId])
+  }, [detail])
 
-  if (!raw || !data) {
-    return <div className="flex h-80 items-center justify-center text-sm text-muted-foreground">Đang tải dashboard sinh viên...</div>
+  const filteredStudents = React.useMemo(() => {
+    const query = studentQuery.trim().toLocaleLowerCase("vi")
+    return (detail?.students ?? []).filter((student) => {
+      const matchesRisk = riskFilter === "all" || student.risk_level === riskFilter
+      const matchesCourse = selectedWeakCourse === null || student.failed_course_ids.includes(selectedWeakCourse)
+      const matchesQuery = !query
+        || student.full_name.toLocaleLowerCase("vi").includes(query)
+        || student.student_code.toLocaleLowerCase("vi").includes(query)
+      return matchesRisk && matchesCourse && matchesQuery
+    })
+  }, [detail, riskFilter, selectedWeakCourse, studentQuery])
+
+  const riskMatrix = React.useMemo(() => (detail?.students ?? [])
+    .filter((student) => student.gpa_cumulative !== null)
+    .map((student) => ({
+      ...student,
+      gpa: student.gpa_cumulative,
+      failed: student.failed_courses,
+      size: Math.max(80, student.failed_courses * 24),
+      fill: student.risk_level === "high" ? "#ef4444" : student.risk_level === "watch" ? "#f59e0b" : "#10b981",
+    })), [detail])
+
+  const openStudent = (studentId: number) => {
+    router.push(`/manager/analytics/students/${studentId}`)
   }
 
-  const getRiskValue = () => {
-    if (dropoutLoading) {
-      return <span className="animate-pulse text-muted-foreground text-sm">Đang tải...</span>
+  async function assignClass() {
+    if (!teacherId || !classCode) return
+    setError("")
+    try {
+      await api.createHomeroomAssignment({ teacher_id: Number(teacherId), class_code: classCode })
+      setTeacherId("")
+      setClassCode("")
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không phân công được lớp chủ nhiệm.")
     }
-    if (dropoutError) {
-      return (
-        <span className="text-xs text-red-500 font-medium" title={dropoutError}>
-          Lỗi tải (ML)
-        </span>
-      )
-    }
-    if (dropoutRisk) {
-      const percentage = (dropoutRisk.dropout_probability * 100).toFixed(1)
-      let badgeColor = "bg-green-500/10 text-green-500 hover:bg-green-500/20"
-      let levelText = "Thấp"
-      if (dropoutRisk.risk_level === "high") {
-        badgeColor = "bg-red-500/10 text-red-500 hover:bg-red-500/20"
-        levelText = "Cao"
-      } else if (dropoutRisk.risk_level === "medium") {
-        badgeColor = "bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20"
-        levelText = "Trung bình"
-      }
-      return (
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-1.5">
-            <Badge className={`${badgeColor} border-none font-semibold text-xs py-0.5 px-2`}>
-              {levelText}
-            </Badge>
-            <span className="text-lg font-bold">{percentage}%</span>
-          </div>
-          <span className="text-[10px] text-muted-foreground font-normal">Mô hình ML</span>
-        </div>
-      )
-    }
+  }
+
+  async function removeAssignment(id: number) {
+    await api.deleteHomeroomAssignment(id)
+    await refresh()
+  }
+
+  if (loading) return <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">Đang tải lớp chủ nhiệm...</div>
+
+  if (currentUser?.role !== "lecturer") {
     return (
-      <div className="flex flex-col gap-0.5">
-        <span className="text-lg font-bold">{data.riskLevel}</span>
-        <span className="text-[10px] text-muted-foreground font-normal">Heuristic</span>
-      </div>
+      <Card>
+        <CardContent className="flex flex-col items-center gap-3 py-20 text-center">
+          <GraduationCap className="h-12 w-12 text-muted-foreground/40" />
+          <div>
+            <p className="font-semibold">Trang dành cho giảng viên được giao chủ nhiệm</p>
+            <p className="mt-1 text-sm text-muted-foreground">Quản trị viên thực hiện phân công tại trang Giảng viên.</p>
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 
-  const kpis = [
-    { label: "GPA cumulative", value: data.student.gpa_cumulative?.toFixed(2) ?? "—", icon: TrendingUp },
-    { label: "Tín chỉ đã qua", value: data.completedCredits, icon: CheckCircle2 },
-    { label: "Môn đã trượt", value: data.failedCount, icon: AlertTriangle },
-    { label: "Pass rate cá nhân", value: `${data.passRate}%`, icon: BookOpen },
-    { label: "Dropout risk (ML)", value: getRiskValue(), icon: TrendingDown },
-  ]
-  const selectedStudentLabel = `${data.student.student_code} - ${data.student.full_name}`
-  const selectedProgramLabel = data.program ? `${data.program.code} - ${data.program.name}` : "Chưa rõ ngành"
-
-  const getRiskExplanationRows = () => {
-    if (dropoutRisk) {
-      return dropoutRisk.top_factors.map((factor, index) => {
-        let label = factor.feature
-        let detail = "Phân tích từ mô hình ML"
-        let status = String(factor.impact)
-        let isBad = false
-
-        if (factor.feature === "fail_rate") {
-          label = "Tỷ lệ trượt"
-          detail = "Tỷ lệ các môn học bị trượt/không đạt trong chương trình"
-          status = `${(factor.impact * 100).toFixed(0)}%`
-          isBad = factor.impact > 0
-        } else if (factor.feature === "cumulative_gpa" || factor.feature === "gpa_cumulative") {
-          label = "GPA tích lũy"
-          detail = "Điểm trung bình tích lũy hiện tại của sinh viên"
-          status = factor.impact.toFixed(2)
-          isBad = factor.impact < 2.0
-        } else if (factor.feature === "dropout_probability") {
-          label = "Xác suất dropout (model)"
-          detail = "Tổng hợp các yếu tố hành vi và kết quả học tập từ mô hình dự báo"
-          status = `${(factor.impact * 100).toFixed(1)}%`
-          isBad = factor.impact >= 0.6
-        }
-
-        return (
-          <tr key={`${factor.feature}-${index}`}>
-            <td className="px-4 py-3 font-medium">{label}</td>
-            <td className="px-4 py-3">
-              <Badge variant={isBad ? "destructive" : "secondary"}>{status}</Badge>
-            </td>
-            <td className="px-4 py-3 text-muted-foreground">
-              {detail} · <a href="/chat" className="text-primary underline font-medium text-xs">Hỏi AI giải thích</a>
-            </td>
-          </tr>
-        )
-      })
-    }
-
-    return data.riskRows.map((row) => (
-      <tr key={row.factor}>
-        <td className="px-4 py-3 font-medium">{row.factor}</td>
-        <td className="px-4 py-3">
-          <Badge variant={row.bad ? "destructive" : "secondary"}>{row.status}</Badge>
-        </td>
-        <td className="px-4 py-3 text-muted-foreground">{row.detail}</td>
-      </tr>
-    ))
-  }
-
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard cá nhân sinh viên</h1>
-          <p className="text-sm text-muted-foreground">Sinh viên này đang học ra sao, yếu ở môn nào và có nguy cơ học vụ không?</p>
-        </div>
-        <Select value={studentId} onValueChange={(value) => setStudentId(value ?? "")}>
-          <SelectTrigger className="w-full lg:w-[360px]"><span className="truncate">{selectedStudentLabel}</span></SelectTrigger>
-          <SelectContent>
-            {raw.students.map((student) => (
-              <SelectItem key={student.id} value={String(student.id)}>
-                {student.student_code} - {student.full_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="flex flex-wrap gap-2">
-          <Input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} className="w-40" aria-label="Từ ngày" />
-          <Input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} className="w-40" aria-label="Đến ngày" />
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-2 text-xs">
-        <Badge variant="outline">Sinh viên: {selectedStudentLabel}</Badge>
-        <Badge variant="outline">Ngành: {selectedProgramLabel}</Badge>
-        <Badge variant="outline">Thời gian: {dateFrom || "đầu dữ liệu"} → {dateTo || "hiện tại"}</Badge>
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Quan sát lớp chủ nhiệm</h1>
+        <p className="text-sm text-muted-foreground">
+          Theo dõi lớp hành chính được phân công, phát hiện sinh viên cần cố vấn và ưu tiên hành động.
+        </p>
       </div>
 
-      <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="flex items-center gap-3 py-4">
-          <UserRound className="h-5 w-5 text-primary" />
-          <div>
-            <div className="font-semibold flex items-center gap-2">
-              <span>{data.student.full_name} · {data.student.student_code}</span>
-              {!dropoutLoading && !dropoutError && dropoutRisk && (
-                <Badge className={
-                  dropoutRisk.risk_level === "high"
-                    ? "bg-red-500/15 text-red-600 hover:bg-red-500/20 border-red-500/20 text-[10px] px-1.5 py-0"
-                    : dropoutRisk.risk_level === "medium"
-                    ? "bg-yellow-500/15 text-yellow-600 hover:bg-yellow-500/20 border-yellow-500/20 text-[10px] px-1.5 py-0"
-                    : "bg-green-500/15 text-green-600 hover:bg-green-500/20 border-green-500/20 text-[10px] px-1.5 py-0"
-                } variant="outline">
-                  {dropoutRisk.risk_level === "high" ? "high" : dropoutRisk.risk_level === "medium" ? "medium" : "low"}
-                </Badge>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">{data.program?.name ?? "Chưa rõ ngành"} · Lớp {data.student.class_code ?? "—"}</p>
-          </div>
-        </CardContent>
-      </Card>
+      {error ? <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div> : null}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        {kpis.map((item) => (
-          <Card key={item.label}>
-            <CardContent className="flex items-start justify-between pt-5">
-              <div>
-                <p className="text-xs text-muted-foreground">{item.label}</p>
-                <div className="mt-1 text-2xl font-bold">{item.value}</div>
-              </div>
-              <item.icon className="h-5 w-5 text-primary" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-2">
+      {canManage ? (
         <Card>
-          <CardHeader><CardTitle className="text-sm">GPA/điểm trung bình theo học kỳ</CardTitle></CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={data.gpaTrend}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="semester" tick={{ fontSize: 10 }} />
-                <YAxis domain={[0, 10]} />
-                <Tooltip formatter={(value) => [value, "Điểm TB"]} />
-                <Line dataKey="avgGrade" stroke="#4f46e5" strokeWidth={2.5} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Điểm các môn đã học</CardTitle></CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={data.courseGrades.slice(-12)}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                <YAxis domain={[0, 10]} />
-                <Tooltip formatter={(value, _name, item) => [value, item.payload.fullName]} />
-                <Bar dataKey="grade" radius={[4, 4, 0, 0]}>
-                  {data.courseGrades.slice(-12).map((row, index) => (
-                    <Cell key={`${row.name}-${index}`} fill={row.grade < 5 ? "#ef4444" : row.grade < 6.5 ? "#f59e0b" : "#22c55e"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Năng lực theo nhóm môn</CardTitle></CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={data.groupData} layout="vertical" margin={{ left: 24, right: 32 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" domain={[0, 10]} />
-                <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(value) => [value, "Điểm TB"]} />
-                <Bar dataKey="avgGrade" fill="#0ea5e9" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Credit progress</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Phân công lớp chủ nhiệm</CardTitle>
+            <p className="text-xs text-muted-foreground">Quan hệ này độc lập với giảng viên dạy lớp học phần.</p>
+          </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <div className="mb-1 flex justify-between text-sm">
-                <span>Tín chỉ đã hoàn thành</span>
-                <span className="font-medium">{data.completedCredits}/130</span>
+            <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+              <div className="space-y-1">
+                <Label>Giảng viên/cố vấn</Label>
+                <Select value={teacherId} onValueChange={(value) => setTeacherId(value ?? "")}>
+                  <SelectTrigger><SelectValue placeholder="Chọn giảng viên" /></SelectTrigger>
+                  <SelectContent>{teachers.map(item => <SelectItem key={item.id} value={String(item.id)}>{item.full_name}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
-              <div className="h-2 rounded bg-muted">
-                <div className="h-2 rounded bg-emerald-500" style={{ width: `${Math.min(100, data.completedCredits / 130 * 100)}%` }} />
+              <div className="space-y-1">
+                <Label>Lớp hành chính</Label>
+                <Select value={classCode} onValueChange={(value) => setClassCode(value ?? "")}>
+                  <SelectTrigger><SelectValue placeholder="Chọn lớp" /></SelectTrigger>
+                  <SelectContent>{availableClassCodes.map(code => <SelectItem key={code} value={code}>{code}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
+              <Button onClick={assignClass} disabled={!teacherId || !classCode}>Giao chủ nhiệm</Button>
             </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-md border p-3"><p className="text-muted-foreground">Còn thiếu</p><p className="text-xl font-bold">{Math.max(0, 130 - data.completedCredits)}</p></div>
-              <div className="rounded-md border p-3"><p className="text-muted-foreground">TC trượt cần học lại</p><p className="text-xl font-bold text-red-600">{data.failedCredits}</p></div>
+            {assignments.length ? (
+              <div className="flex flex-wrap gap-2">
+                {assignments.map(item => {
+                  const teacher = teachers.find(entry => entry.id === item.teacher_id)
+                  return (
+                    <div key={item.id} className="flex items-center gap-2 rounded-md border px-3 py-2 text-xs">
+                      <span className="font-medium">{item.class_code}</span>
+                      <span className="text-muted-foreground">{teacher?.full_name ?? `GV #${item.teacher_id}`}</span>
+                      <Button variant="ghost" size="icon-xs" onClick={() => removeAssignment(item.id)} aria-label="Gỡ phân công"><Trash2 className="h-3.5 w-3.5" /></Button>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {classes.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-20 text-center">
+            <GraduationCap className="h-12 w-12 text-muted-foreground/40" />
+            <div>
+              <p className="font-semibold">Chưa được phân công lớp chủ nhiệm</p>
+              <p className="mt-1 text-sm text-muted-foreground">Quản lý cần giao lớp hành chính cho hồ sơ giảng viên trước khi dashboard có dữ liệu.</p>
             </div>
           </CardContent>
         </Card>
-      </div>
-
-      {/* ML CREDIT PREDICTION */}
-      <Card className="relative overflow-hidden border-indigo-500/20 bg-gradient-to-br from-indigo-500/5 to-transparent">
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4">
-          <div>
-            <CardTitle className="text-lg font-bold text-indigo-600 dark:text-indigo-400">Dự báo kết quả học kỳ học vụ (ML Credit Prediction)</CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">Dự báo tổng tín chỉ pass/trượt kỳ vọng và xác suất của từng môn học</p>
-          </div>
-          {raw?.semesters && (
-            <Select value={selectedSemesterId} onValueChange={setSelectedSemesterId}>
-              <SelectTrigger className="w-[180px] bg-background">
-                <SelectValue placeholder="Chọn học kỳ..." />
-              </SelectTrigger>
-              <SelectContent>
-                {raw.semesters.map((s) => (
-                  <SelectItem key={s.id} value={String(s.id)}>Học kỳ {s.code}</SelectItem>
-                ))}
-              </SelectContent>
+      ) : (
+        <>
+          <div className="grid gap-3 md:grid-cols-[280px_1fr] md:items-center">
+            <Select value={selectedClass} onValueChange={(value) => { setSelectedClass(value ?? ""); setSelectedWeakCourse(null) }}>
+              <SelectTrigger><SelectValue placeholder="Chọn lớp chủ nhiệm" /></SelectTrigger>
+              <SelectContent>{classes.map(item => <SelectItem key={item.assignment_id} value={item.class_code}>{item.class_code}</SelectItem>)}</SelectContent>
             </Select>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {creditPredictionsLoading ? (
-            <div className="flex h-20 items-center justify-center text-sm text-muted-foreground">Đang tải kết quả dự báo...</div>
-          ) : creditPrediction ? (
-            <div className="grid gap-6 md:grid-cols-3">
-              <div className="rounded-2xl border p-4 bg-background/50 flex flex-col justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">Tín chỉ đăng ký</p>
-                  <p className="text-3xl font-bold mt-1">{creditPrediction.registered_credits} TC</p>
-                </div>
-                <Badge className="w-fit mt-2" variant="outline">Đã khớp thời khóa biểu</Badge>
-              </div>
-
-              <div className="rounded-2xl border p-4 bg-emerald-500/5 border-emerald-500/20 flex flex-col justify-between">
-                <div>
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Tích lũy kỳ vọng (Expected Pass)</p>
-                  <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{creditPrediction.expected_passed_credits} TC</p>
-                </div>
-                <div className="h-1.5 w-full bg-emerald-100 dark:bg-emerald-950 rounded-full mt-3 overflow-hidden">
-                  <div 
-                    className="h-full bg-emerald-500 rounded-full" 
-                    style={{ width: `${(creditPrediction.expected_passed_credits / creditPrediction.registered_credits) * 100}%` }} 
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-2xl border p-4 bg-rose-500/5 border-rose-500/20 flex flex-col justify-between">
-                <div>
-                  <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">Rủi ro trượt kỳ vọng (Expected Fail)</p>
-                  <p className="text-3xl font-bold text-rose-600 dark:text-rose-400 mt-1">{creditPrediction.expected_failed_credits} TC</p>
-                </div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground mt-3 gap-2">
-                  <span className="truncate">Trượt rủi ro cao: <strong>{creditPrediction.high_risk_failed_credits} TC</strong></span>
-                  <Badge variant={creditPrediction.risk_level === "high" ? "destructive" : creditPrediction.risk_level === "medium" ? "secondary" : "default"}>
-                    {creditPrediction.risk_level === "high" ? "Rủi ro cao" : creditPrediction.risk_level === "medium" ? "Rủi ro vừa" : "Rủi ro thấp"}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex h-20 items-center justify-center text-sm text-muted-foreground border border-dashed rounded-2xl">
-              Chưa có dữ liệu dự báo ML cho học kỳ này.
-            </div>
-          )}
-
-          {enrollmentPredictions.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Xác suất vượt qua từng môn học (Course-level Predictions)</h3>
-              <div className="overflow-x-auto rounded-xl border bg-background">
-                <table className="w-full text-xs text-left">
-                  <thead>
-                    <tr className="border-b bg-muted/50 text-muted-foreground">
-                      <th className="px-4 py-3 font-medium">Mã HP</th>
-                      <th className="px-4 py-3 font-medium">Tên môn học</th>
-                      <th className="px-4 py-3 font-medium">Tín chỉ</th>
-                      <th className="px-4 py-3 font-medium">Xác suất Đạt (Pass)</th>
-                      <th className="px-4 py-3 font-medium">Đánh giá rủi ro</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {enrollmentPredictions.map((ep) => {
-                      const passProb = (ep.pass_probability * 100).toFixed(1)
-                      const failProb = ep.fail_probability
-                      let badgeVariant: "default" | "secondary" | "destructive" | "outline" = "default"
-                      let badgeText = "Thấp"
-                      if (failProb >= 0.5) {
-                        badgeVariant = "destructive"
-                        badgeText = "Cao"
-                      } else if (failProb >= 0.3) {
-                        badgeVariant = "secondary"
-                        badgeText = "Trung bình"
-                      }
-                      return (
-                        <tr key={ep.id}>
-                          <td className="px-4 py-3 font-mono font-medium">{ep.course_code}</td>
-                          <td className="px-4 py-3 font-medium">{ep.course_name}</td>
-                          <td className="px-4 py-3">{ep.credits}</td>
-                          <td className="px-4 py-3 font-bold text-indigo-600 dark:text-indigo-400">{passProb}%</td>
-                          <td className="px-4 py-3">
-                            <Badge variant={badgeVariant}>{badgeText}</Badge>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="relative overflow-hidden">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm">Risk Explanation</CardTitle>
-          {dropoutRisk ? (
-            <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded">
-              Model: {dropoutRisk.model_name || "dropout_classifier"} ({dropoutRisk.model_version || "latest"})
-            </span>
-          ) : !dropoutLoading && !dropoutError ? (
-            <span className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/20 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-900/50">
-              Ước lượng theo dữ liệu học vụ (chưa có ML)
-            </span>
-          ) : null}
-        </CardHeader>
-        <CardContent className="overflow-x-auto p-0">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead>
-              <tr className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
-                {["Yếu tố", "Trạng thái", "Giải thích"].map((heading) => (
-                  <th key={heading} className="px-4 py-3 font-medium">{heading}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {getRiskExplanationRows()}
-            </tbody>
-          </table>
-          {dropoutRisk && (
-            <div className="p-3 bg-muted/20 border-t text-[11px] text-muted-foreground flex justify-between items-center">
-              <span>Được tính lúc: {dropoutRisk.scored_at ? new Date(dropoutRisk.scored_at).toLocaleString("vi-VN") : "vừa xong"} · Nguồn: {dropoutRisk.source === "live" ? "Dự báo trực tiếp" : "Batch score (cache)"}</span>
-              <a href="/chat" className="text-primary underline font-medium">Hỏi AI để giải thích chi tiết hơn</a>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle className="text-sm">Student Transcript Table</CardTitle></CardHeader>
-        <CardContent className="overflow-x-auto p-0">
-          <table className="w-full min-w-[1000px] text-xs">
-            <thead><tr className="border-b bg-muted/40 text-left text-muted-foreground">{["Học kỳ", "Mã môn", "Tên môn", "Tín chỉ", "Điểm", "Kết quả", "Lần học", "Ghi chú"].map((heading) => <th key={heading} className="px-4 py-3 font-medium">{heading}</th>)}</tr></thead>
-            <tbody className="divide-y">
-              {data.rows.map((row) => (
-                <tr key={row.enrollment.id}>
-                  <td className="px-4 py-3">{row.semester?.code ?? "—"}</td>
-                  <td className="px-4 py-3 font-mono">{row.course?.code ?? "—"}</td>
-                  <td className="px-4 py-3 font-medium">{row.course?.name ?? "Chưa rõ môn"}</td>
-                  <td className="px-4 py-3">{row.course?.credits ?? 0}</td>
-                  <td className="px-4 py-3">{row.enrollment.final_grade?.toFixed(1) ?? "—"}</td>
-                  <td className="px-4 py-3"><Badge variant={row.enrollment.is_passed === false ? "destructive" : "secondary"}>{resultLabel(row.enrollment.final_grade)}</Badge></td>
-                  <td className="px-4 py-3">{row.enrollment.attempt_number}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{row.enrollment.is_passed === false ? "Cần học lại / cố vấn theo dõi" : "Theo dõi bình thường"}</td>
-                </tr>
+            <div className="flex flex-wrap gap-2">
+              {classes.map(item => (
+                <Button key={item.assignment_id} size="sm" variant={selectedClass === item.class_code ? "default" : "outline"} onClick={() => { setSelectedClass(item.class_code); setSelectedWeakCourse(null) }}>
+                  {item.class_code} · {item.student_count} SV
+                </Button>
               ))}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
+            </div>
+          </div>
+
+          {detail ? (
+            <>
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+                {[
+                  { label: "Sinh viên", value: detail.student_count, icon: Users },
+                  { label: "Đang học", value: detail.active_students, icon: CheckCircle2 },
+                  { label: "GPA trung bình", value: detail.avg_gpa?.toFixed(2) ?? "—", icon: GraduationCap },
+                  { label: "Tỷ lệ đạt kỳ gần nhất", value: detail.trend.length ? `${detail.trend.at(-1)?.pass_rate.toFixed(1)}%` : "—", icon: UserRound },
+                  { label: "Cần ưu tiên", value: detail.risk_counts.high, icon: AlertTriangle },
+                ].map(item => (
+                  <Card key={item.label}><CardContent className="flex items-start justify-between pt-5"><div><p className="text-xs text-muted-foreground">{item.label}</p><p className="mt-1 text-2xl font-bold">{item.value}</p></div><item.icon className="h-5 w-5 text-primary" /></CardContent></Card>
+                ))}
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Xu hướng GPA lớp theo học kỳ</CardTitle>
+                    <p className="text-xs text-muted-foreground">GPA hệ 4, tính theo tín chỉ; đường đỏ là ngưỡng cảnh báo 2.0.</p>
+                  </CardHeader>
+                  <CardContent>
+                    {detail.trend.length ? (
+                      <ResponsiveContainer width="100%" height={260}>
+                        <LineChart data={detail.trend} margin={{ left: 0, right: 12, top: 10 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="semester" tick={{ fontSize: 11 }} />
+                          <YAxis domain={[0, 4]} ticks={[0, 1, 2, 3, 4]} tick={{ fontSize: 10 }} width={28} />
+                          <Tooltip formatter={(value) => [Number(value).toFixed(2), "GPA TB lớp"]} />
+                          <ReferenceLine y={2} stroke="#ef4444" strokeDasharray="5 4" />
+                          <Line type="monotone" dataKey="avg_gpa" stroke="#2563eb" strokeWidth={3} dot={{ r: 4 }} connectNulls />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    ) : <p className="py-24 text-center text-sm text-muted-foreground">Chưa có dữ liệu xu hướng.</p>}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Tỷ lệ đạt của lớp theo học kỳ</CardTitle>
+                    <p className="text-xs text-muted-foreground">Cột dưới 75% được đánh dấu để ưu tiên rà soát.</p>
+                  </CardHeader>
+                  <CardContent>
+                    {detail.trend.length ? (
+                      <ResponsiveContainer width="100%" height={260}>
+                        <BarChart data={detail.trend} margin={{ left: 0, right: 8, top: 10 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="semester" tick={{ fontSize: 11 }} />
+                          <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 10 }} width={38} />
+                          <Tooltip formatter={(value, _name, item) => [`${Number(value).toFixed(1)}%`, `${item.payload.failed_enrollments} lượt chưa đạt`]} />
+                          <ReferenceLine y={75} stroke="#f59e0b" strokeDasharray="5 4" />
+                          <Bar dataKey="pass_rate" radius={[5, 5, 0, 0]} maxBarSize={60}>
+                            {detail.trend.map((row) => <Cell key={row.id} fill={row.pass_rate >= 75 ? "#10b981" : "#ef4444"} />)}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : <p className="py-24 text-center text-sm text-muted-foreground">Chưa có dữ liệu tỷ lệ đạt.</p>}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,1fr)]">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Ma trận ưu tiên cố vấn</CardTitle>
+                    <p className="text-xs text-muted-foreground">Trục ngang là GPA tích lũy; trục dọc là số học phần chưa đạt. Bấm một điểm để mở hồ sơ.</p>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={320}>
+                      <ScatterChart margin={{ left: 0, right: 16, top: 10, bottom: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" dataKey="gpa" name="GPA" domain={[0, 4]} ticks={[0, 1, 2, 3, 4]} tick={{ fontSize: 10 }} />
+                        <YAxis type="number" dataKey="failed" name="Môn chưa đạt" allowDecimals={false} tick={{ fontSize: 10 }} width={34} />
+                        <ZAxis type="number" dataKey="size" range={[80, 260]} />
+                        <ReferenceLine x={2} stroke="#ef4444" strokeDasharray="5 4" />
+                        <ReferenceLine y={3} stroke="#f59e0b" strokeDasharray="5 4" />
+                        <Tooltip
+                          cursor={{ strokeDasharray: "3 3" }}
+                          content={({ active, payload }) => {
+                            if (!active || !payload?.length) return null
+                            const row = payload[0].payload
+                            return <div className="rounded-md border bg-background p-3 text-xs shadow-md"><p className="font-semibold">{row.full_name}</p><p>GPA: {row.gpa?.toFixed(2)}</p><p>Chưa đạt: {row.failed} học phần</p><p>Kỳ gần nhất: {row.latest_gpa?.toFixed(2) ?? "—"}</p></div>
+                          }}
+                        />
+                        <Scatter data={riskMatrix}>
+                          {riskMatrix.map((student) => <Cell key={student.id} fill={student.fill} onClick={() => openStudent(student.id)} className="cursor-pointer" />)}
+                        </Scatter>
+                      </ScatterChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Học phần yếu của lớp</CardTitle>
+                    <p className="text-xs text-muted-foreground">Bấm cột để lọc danh sách sinh viên chưa đạt học phần đó.</p>
+                  </CardHeader>
+                  <CardContent>
+                    {detail.weak_courses.length ? (
+                      <ResponsiveContainer width="100%" height={320}>
+                        <BarChart data={detail.weak_courses.slice(0, 7)} layout="vertical" margin={{ left: 0, right: 24, top: 4 }}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                          <XAxis type="number" domain={[0, 100]} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 10 }} />
+                          <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 10 }} />
+                          <Tooltip formatter={(value, _name, item) => [`${Number(value).toFixed(1)}%`, `${item.payload.failed}/${item.payload.attempts} lượt chưa đạt`]} />
+                          <Bar dataKey="fail_rate" radius={[0, 5, 5, 0]}>
+                            {detail.weak_courses.slice(0, 7).map((course) => (
+                              <Cell key={course.id} fill={selectedWeakCourse === course.id ? "#7c3aed" : course.fail_rate >= 30 ? "#ef4444" : "#f59e0b"} onClick={() => setSelectedWeakCourse((current) => current === course.id ? null : course.id)} className="cursor-pointer" />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : <p className="py-24 text-center text-sm text-muted-foreground">Chưa có môn đủ quy mô mẫu.</p>}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.6fr)]">
+                <Card>
+                  <CardHeader><CardTitle className="text-sm">Phân bố GPA tích lũy</CardTitle></CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={gpaDistribution} margin={{ left: 0, right: 8, top: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                        <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                        <Tooltip formatter={(value) => [value, "Sinh viên"]} />
+                        <Bar dataKey="count" radius={[5, 5, 0, 0]}>{gpaDistribution.map(item => <Cell key={item.label} fill={item.color} />)}</Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="space-y-3">
+                    <div>
+                      <CardTitle className="text-sm">Danh sách sinh viên lớp {detail.class_code}</CardTitle>
+                      <p className="mt-1 text-xs text-muted-foreground">Bấm vào sinh viên để mở hồ sơ phân tích học tập chi tiết.</p>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="relative max-w-sm flex-1">
+                        <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input value={studentQuery} onChange={(event) => setStudentQuery(event.target.value)} placeholder="Tìm theo tên hoặc mã sinh viên" className="h-9 pl-9" />
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {([[
+                          "all", "Tất cả",
+                        ], [
+                          "high", "Ưu tiên",
+                        ], [
+                          "watch", "Theo dõi",
+                        ], [
+                          "normal", "Ổn định",
+                        ]] as const).map(([value, label]) => (
+                          <Button key={value} type="button" size="sm" variant={riskFilter === value ? "default" : "outline"} onClick={() => setRiskFilter(value)}>{label}</Button>
+                        ))}
+                      </div>
+                    </div>
+                    {selectedWeakCourse !== null ? (
+                      <div className="flex items-center gap-2 text-xs">
+                        <Badge variant="secondary">Đang lọc: chưa đạt {detail.weak_courses.find((course) => course.id === selectedWeakCourse)?.name}</Badge>
+                        <Button size="xs" variant="ghost" onClick={() => setSelectedWeakCourse(null)}>Bỏ lọc</Button>
+                      </div>
+                    ) : null}
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="max-h-[430px] overflow-auto">
+                      <table className="w-full text-xs">
+                        <thead className="sticky top-0 bg-background"><tr className="border-b bg-muted/40"><th className="px-4 py-2.5 text-left">Mức độ</th><th className="px-3 py-2.5 text-left">Sinh viên</th><th className="px-3 py-2.5 text-left">Ngành</th><th className="px-3 py-2.5 text-right">GPA</th><th className="px-3 py-2.5 text-right">Môn trượt</th><th className="px-4 py-2.5 text-left">Khuyến nghị</th><th className="w-10 px-3 py-2.5"><span className="sr-only">Mở</span></th></tr></thead>
+                        <tbody className="divide-y">
+                          {filteredStudents.map(student => (
+                            <tr
+                              key={student.id}
+                              role="link"
+                              tabIndex={0}
+                              onClick={() => openStudent(student.id)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") openStudent(student.id)
+                              }}
+                              className="group cursor-pointer outline-none transition-colors hover:bg-primary/5 focus-visible:bg-primary/5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                            >
+                              <td className="px-4 py-2">{riskBadge(student.risk_level)}</td>
+                              <td className="px-3 py-2"><p className="font-medium group-hover:text-primary">{student.full_name}</p><p className="font-mono text-[10px] text-muted-foreground">{student.student_code}</p></td>
+                              <td className="px-3 py-2 text-muted-foreground">{student.program_name}</td>
+                              <td className="px-3 py-2 text-right font-medium tabular-nums">{student.gpa_cumulative?.toFixed(2) ?? "—"}</td>
+                              <td className={`px-3 py-2 text-right tabular-nums ${student.failed_courses ? "font-semibold text-destructive" : ""}`}>{student.failed_courses}</td>
+                              <td className="px-4 py-2 text-muted-foreground">{student.risk_level === "high" ? "Hẹn trao đổi và lập kế hoạch học tập" : student.risk_level === "watch" ? "Kiểm tra nguyên nhân, theo dõi kỳ tới" : "Theo dõi định kỳ"}</td>
+                              <td className="px-3 py-2"><ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" /></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {filteredStudents.length === 0 ? <p className="px-4 py-10 text-center text-sm text-muted-foreground">Không có sinh viên phù hợp bộ lọc.</p> : null}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          ) : null}
+        </>
+      )}
     </div>
   )
 }

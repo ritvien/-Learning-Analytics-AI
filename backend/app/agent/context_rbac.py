@@ -21,7 +21,9 @@ _ROLE_MODULE_ACCESS: dict[UserRole, frozenset[str]] = {
     UserRole.manager: frozenset(
         {"dashboard", "report", "tree", "chat", "settings", "manager", "analytics", "reports", "students", "courses"}
     ),
-    UserRole.lecturer: frozenset({"dashboard", "report", "tree", "chat"}),
+    UserRole.lecturer: frozenset(
+        {"dashboard", "report", "tree", "chat", "manager", "analytics", "reports", "students", "courses"}
+    ),
     UserRole.viewer: frozenset({"dashboard", "report", "tree", "chat"}),
 }
 
