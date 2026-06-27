@@ -60,6 +60,7 @@ const data: { navMain: { title: string; items: NavItem[] }[] } = {
       title: "Đào tạo",
       items: [
         { title: "Môn học", url: "/manager/courses", icon: BookOpen },
+        { title: "Lớp học phần", url: "/manager/sections", icon: FileText },
         { title: "Điểm số", url: "/manager/grades", icon: FileText },
         { title: "Khoa & Ngành", url: "/manager/departments", icon: Settings },
       ],
@@ -70,6 +71,7 @@ const data: { navMain: { title: string; items: NavItem[] }[] } = {
         { title: "Chat AI", url: "/chat", icon: MessageSquare },
         { title: "Báo cáo", url: "/manager/reports", icon: FileText },
         { title: "Tài khoản & phân quyền", url: "/manager/users", icon: ShieldCheck, roles: ["superadmin", "admin"] },
+        { title: "Nhật ký hệ thống", url: "/manager/observability", icon: Zap, roles: ["superadmin"] },
         { title: "Upload CTĐT", url: "/manager/programs", icon: FileUp, roles: ["superadmin", "admin", "manager"] },
       ],
     },

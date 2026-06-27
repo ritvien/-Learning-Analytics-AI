@@ -64,24 +64,88 @@ async def get_section(section_id: int, db: DBSession, current_user: CurrentUser)
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_write_access)],
 )
-async def create_section(payload: SectionCreate, db: DBSession) -> Section:
+async def create_section(
+    payload: SectionCreate,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> Section:
     """Create a new section."""
+    if not is_admin(current_user):
+        department_ids = await require_department_scope(db, current_user)
+        # Kiểm tra môn học có thuộc khoa quản lý hay không
+        course_result = await db.execute(select(Course).where(Course.id == payload.course_id))
+        course = course_result.scalar_one_or_none()
+        if course is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Course not found")
+        if course.department_id not in department_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot create section for a course outside your department",
+            )
+        
+        # Kiểm tra giảng viên có thuộc khoa quản lý hay không
+        if payload.teacher_id is not None:
+            from app.models.people import Teacher
+            teacher_result = await db.execute(select(Teacher).where(Teacher.id == payload.teacher_id))
+            teacher = teacher_result.scalar_one_or_none()
+            if teacher is None:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Teacher not found")
+            if teacher.department_id not in department_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Cannot assign teacher from another department",
+                )
     return await crud.create_section(db, payload.model_dump())
 
 
 @router.patch("/{section_id}", response_model=SectionResponse, dependencies=[Depends(require_write_access)])
-async def update_section(section_id: int, payload: SectionUpdate, db: DBSession) -> Section:
+async def update_section(
+    section_id: int,
+    payload: SectionUpdate,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> Section:
     """Apply a partial update to a section."""
     obj = await crud.get_section(db, section_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Section not found")
+    
+    if not await can_access_section(db, current_user, section_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to access this section",
+        )
+        
+    if payload.teacher_id is not None:
+        from app.models.people import Teacher
+        result = await db.execute(select(Teacher).where(Teacher.id == payload.teacher_id))
+        teacher = result.scalar_one_or_none()
+        if teacher is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Teacher not found")
+        if not is_admin(current_user):
+            department_ids = await require_department_scope(db, current_user)
+            if teacher.department_id not in department_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Cannot assign teacher from another department",
+                )
+                
     return await crud.update_section(db, obj, payload.model_dump(exclude_unset=True))
 
 
 @router.delete("/{section_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_write_access)])
-async def delete_section(section_id: int, db: DBSession) -> None:
+async def delete_section(
+    section_id: int,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> None:
     """Soft-delete a section."""
     obj = await crud.get_section(db, section_id)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Section not found")
+    if not await can_access_section(db, current_user, section_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to access this section",
+        )
     await crud.delete_section(db, obj)

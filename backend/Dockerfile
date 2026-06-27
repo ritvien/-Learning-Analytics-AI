@@ -15,13 +15,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /build
 
-# Create virtualenv
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
 # Install dependencies (layer-cached until pyproject.toml changes)
 COPY pyproject.toml ./
-RUN pip install --upgrade pip && pip install ".[dev]"
+RUN python -m venv /opt/venv && \
+    /opt/venv/bin/pip install --upgrade pip && \
+    /opt/venv/bin/pip install ".[dev]"
 
 # ─── Stage 2: runtime ─────────────────────────────────────────────────────────
 FROM python:3.11-slim AS runtime

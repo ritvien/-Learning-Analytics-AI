@@ -3,7 +3,7 @@
 import * as React from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { Student } from "@/types"
-import { api, getCachedCurrentUser } from "@/lib/api"
+import { api, getCachedCurrentUser, type ApiProgram, type ApiCohort } from "@/lib/api"
 import { DataTable } from "@/components/crud/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -47,6 +47,8 @@ const STATUS_VI: Record<string, Student["trangThai"]> = {
 
 export default function StudentsPage() {
   const [students, setStudents] = React.useState<Student[]>([])
+  const [programs, setPrograms] = React.useState<ApiProgram[]>([])
+  const [cohorts, setCohorts] = React.useState<ApiCohort[]>([])
   const [userRole] = React.useState<string | null>(() => {
     if (typeof window !== "undefined") {
       const u = getCachedCurrentUser()
@@ -58,8 +60,14 @@ export default function StudentsPage() {
   const hasWriteAccess = userRole === "superadmin" || userRole === "admin" || userRole === "manager"
 
   React.useEffect(() => {
-    Promise.all([api.getStudents({ limit: 500 }), api.getPrograms({ limit: 100 })]).then(
-      ([apiStudents, apiPrograms]) => {
+    Promise.all([
+      api.getStudents({ limit: 500 }),
+      api.getPrograms({ limit: 100 }),
+      api.getCohorts({ limit: 100 })
+    ]).then(
+      ([apiStudents, apiPrograms, apiCohorts]) => {
+        setPrograms(apiPrograms)
+        setCohorts(apiCohorts)
         const progMap = new Map(apiPrograms.map((p) => [p.id, p.name]))
         setStudents(
           apiStudents.map((s) => ({
@@ -100,24 +108,89 @@ export default function StudentsPage() {
   // CREATE
   const handleCreate = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    alert("Hiện tại chưa có quyền để thực hiện sửa db (Thêm sinh viên).")
-    setIsCreateOpen(false)
+    const fd = new FormData(e.currentTarget)
+    const progId = Number(fd.get("program_id"))
+    const cohId = Number(fd.get("cohort_id"))
+    api.createStudent({
+      student_code: fd.get("mssv") as string,
+      full_name: fd.get("hoTen") as string,
+      program_id: progId,
+      cohort_id: cohId,
+      gender: fd.get("gioiTinh") as string,
+      class_code: fd.get("lop") as string,
+      status: "active",
+    }).then((s) => {
+      const progName = programs.find(p => p.id === s.program_id)?.name ?? ""
+      setStudents((prev) => [
+        ...prev,
+        {
+          id: String(s.id),
+          mssv: s.student_code,
+          hoTen: s.full_name,
+          gioiTinh: (s.gender as Student["gioiTinh"]) ?? "Nam",
+          ngayVaoTruong: "",
+          khoa: "",
+          bacDaoTao: "Đại học - Tín chỉ",
+          loaiHinh: "Chính quy",
+          nganh: progName,
+          chuyenNganh: "",
+          khoaQuanLy: progName,
+          lop: s.class_code ?? "",
+          trangThai: STATUS_VI[s.status] ?? "Đang học",
+          coVanHocTap: "",
+          soDienThoaiCVHT: "",
+          tongTCTichLuy: 0,
+          diemTBTichLuy: s.gpa_cumulative ?? 0,
+          tongTCNo: 0,
+          soMonNo: 0,
+        },
+      ])
+      setIsCreateOpen(false)
+    }).catch(err => {
+      alert("Lỗi khi thêm sinh viên: " + (err.message || err))
+    })
   }
 
   // UPDATE
   const handleUpdate = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!editStudent) return
-    alert("Hiện tại chưa có quyền để thực hiện sửa db (Cập nhật sinh viên).")
-    setEditStudent(null)
+    const fd = new FormData(e.currentTarget)
+    const status_vi = fd.get("trangThai") as string
+    const status_en = STATUS_EN[status_vi] || "active"
+    api.updateStudent(Number(editStudent.id), {
+      full_name: fd.get("hoTen") as string,
+      gender: fd.get("gioiTinh") as string,
+      class_code: fd.get("lop") as string,
+      status: status_en,
+    }).then((updated) => {
+      setStudents(students.map((s) =>
+        s.id === editStudent.id
+          ? {
+              ...s,
+              hoTen: updated.full_name,
+              gioiTinh: (updated.gender as Student["gioiTinh"]) ?? "Nam",
+              lop: updated.class_code ?? "",
+              trangThai: STATUS_VI[updated.status] ?? "Đang học",
+            }
+          : s
+      ))
+      setEditStudent(null)
+    }).catch(err => {
+      alert("Lỗi khi cập nhật sinh viên: " + (err.message || err))
+    })
   }
 
   // DELETE
   const handleDelete = () => {
     if (!deleteTarget) return
-    alert("Hiện tại chưa có quyền để thực hiện sửa db (Xóa sinh viên).")
-    setDeleteTarget(null)
-    setIsDeleteOpen(false)
+    api.deleteStudent(Number(deleteTarget.id)).then(() => {
+      setStudents(students.filter((s) => s.id !== deleteTarget.id))
+      setDeleteTarget(null)
+      setIsDeleteOpen(false)
+    }).catch(err => {
+      alert("Lỗi khi xóa sinh viên: " + (err.message || err))
+    })
   }
 
   const columns: ColumnDef<Student>[] = [
@@ -209,17 +282,32 @@ export default function StudentsPage() {
                         <SelectContent><SelectItem value="Nam">Nam</SelectItem><SelectItem value="Nữ">Nữ</SelectItem></SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2"><Label htmlFor="khoa">Khóa</Label><Input id="khoa" name="khoa" placeholder="2022" required /></div>
+                    <div className="space-y-2">
+                      <Label>Khóa</Label>
+                      <Select name="cohort_id" required>
+                        <SelectTrigger><SelectValue placeholder="Chọn khóa..." /></SelectTrigger>
+                        <SelectContent>
+                          {cohorts.map((c) => (
+                            <SelectItem key={c.id} value={String(c.id)}>{c.code}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label htmlFor="nganh">Ngành</Label><Input id="nganh" name="nganh" required /></div>
-                    <div className="space-y-2"><Label htmlFor="chuyenNganh">Chuyên ngành</Label><Input id="chuyenNganh" name="chuyenNganh" /></div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label htmlFor="khoaQuanLy">Khoa</Label><Input id="khoaQuanLy" name="khoaQuanLy" required /></div>
+                    <div className="space-y-2">
+                      <Label>Ngành</Label>
+                      <Select name="program_id" required>
+                        <SelectTrigger><SelectValue placeholder="Chọn ngành..." /></SelectTrigger>
+                        <SelectContent>
+                          {programs.map((p) => (
+                            <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div className="space-y-2"><Label htmlFor="lop">Lớp</Label><Input id="lop" name="lop" required /></div>
                   </div>
-                  <div className="space-y-2"><Label htmlFor="ngayVaoTruong">Ngày vào trường</Label><Input id="ngayVaoTruong" name="ngayVaoTruong" placeholder="dd/mm/yyyy" /></div>
                 </div>
                 <DialogFooter>
                   <DialogClose render={<Button type="button" variant="outline" />}>Hủy</DialogClose>
@@ -254,12 +342,8 @@ export default function StudentsPage() {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Ngành</Label><Input name="nganh" defaultValue={editStudent.nganh} /></div>
-                  <div className="space-y-2"><Label>Chuyên ngành</Label><Input name="chuyenNganh" defaultValue={editStudent.chuyenNganh} /></div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Khoa</Label><Input name="khoaQuanLy" defaultValue={editStudent.khoaQuanLy} /></div>
-                  <div className="space-y-2"><Label>Lớp</Label><Input name="lop" defaultValue={editStudent.lop} /></div>
+                  <div className="space-y-2"><Label>Ngành</Label><Input name="nganh" defaultValue={editStudent.nganh} disabled /></div>
+                  <div className="space-y-2"><Label>Lớp</Label><Input name="lop" defaultValue={editStudent.lop} required /></div>
                 </div>
                 <div className="space-y-2">
                   <Label>Trạng thái</Label>

@@ -169,6 +169,73 @@ function GlobalChatWindow({
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
   const abortControllerRef = React.useRef<AbortController | null>(null)
+  const wrapperRef = React.useRef<HTMLDivElement>(null)
+
+  // ── Drag state ────────────────────────────────────────────────────
+  const [pos, setPos] = React.useState<{ x: number; y: number } | null>(null)
+  const [isDragging, setIsDragging] = React.useState(false)
+  const dragRef = React.useRef<{
+    startX: number
+    startY: number
+    elemX: number
+    elemY: number
+    moved: boolean
+  } | null>(null)
+
+  // Initialize to bottom-right corner (client-side only)
+  React.useEffect(() => {
+    setPos({
+      x: window.innerWidth - 80,
+      y: window.innerHeight - 80,
+    })
+  }, [])
+
+  const handleFabPointerDown = React.useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    // Only primary button (left click / touch)
+    if (e.button !== 0 && e.pointerType === "mouse") return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    const rect = wrapperRef.current?.getBoundingClientRect()
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      elemX: rect?.left ?? 0,
+      elemY: rect?.top ?? 0,
+      moved: false,
+    }
+  }, [])
+
+  const handleFabPointerMove = React.useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!dragRef.current) return
+    const dx = e.clientX - dragRef.current.startX
+    const dy = e.clientY - dragRef.current.startY
+    // Threshold: 4px before we consider it a drag
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+      if (!dragRef.current.moved) {
+        dragRef.current.moved = true
+        setIsDragging(true)
+      }
+    }
+    if (dragRef.current.moved) {
+      const FAB_SIZE = 56
+      const newX = dragRef.current.elemX + dx
+      const newY = dragRef.current.elemY + dy
+      setPos({
+        x: Math.max(0, Math.min(newX, window.innerWidth - FAB_SIZE)),
+        y: Math.max(0, Math.min(newY, window.innerHeight - FAB_SIZE)),
+      })
+    }
+  }, [])
+
+  const handleFabPointerUp = React.useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    e.currentTarget.releasePointerCapture(e.pointerId)
+    setIsDragging(false)
+    if (!dragRef.current?.moved) {
+      // Treat as a click — toggle chat
+      setIsOpen((prev) => !prev)
+    }
+    dragRef.current = null
+  }, [setIsOpen])
+  // ─────────────────────────────────────────────────────────────────
 
   React.useEffect(() => {
     if (scrollRef.current) {
@@ -404,10 +471,27 @@ function GlobalChatWindow({
     }
   }
 
+  // Determine panel open direction based on FAB position
+  const panelAbove = !pos || pos.y > window.innerHeight * 0.45
+  const panelLeft  = !pos || pos.x > window.innerWidth  * 0.50
+
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    <div
+      ref={wrapperRef}
+      style={pos
+        ? { position: "fixed", left: pos.x, top: pos.y, zIndex: 50 }
+        : { position: "fixed", bottom: 24, right: 24, zIndex: 50 }
+      }
+    >
       {isOpen && (
-        <div className="mb-4 flex h-[500px] w-[380px] flex-col rounded-2xl border bg-card text-card-foreground shadow-2xl overflow-hidden animate-in slide-in-from-bottom-5 duration-250">
+        <div
+          style={{
+            position: "absolute",
+            ...(panelAbove ? { bottom: 60 } : { top: 60 }),
+            ...(panelLeft  ? { right: 0   } : { left:  0   }),
+          }}
+          className="flex h-[500px] w-[380px] flex-col rounded-2xl border bg-card text-card-foreground shadow-2xl overflow-hidden animate-in slide-in-from-bottom-5 duration-250"
+        >
           {/* Header */}
           <div className="flex items-center justify-between border-b bg-primary px-4 py-3 text-primary-foreground">
             <div className="flex items-center gap-2">
@@ -552,11 +636,15 @@ function GlobalChatWindow({
         </div>
       )}
 
-      {/* Floating Action Button */}
+      {/* Floating Action Button — draggable */}
       <Button
-        onClick={() => setIsOpen(!isOpen)}
+        onPointerDown={handleFabPointerDown}
+        onPointerMove={handleFabPointerMove}
+        onPointerUp={handleFabPointerUp}
         size="icon"
-        className="h-12 w-12 rounded-full shadow-lg transition-transform duration-200 hover:scale-105 active:scale-95 bg-primary text-primary-foreground"
+        title={isOpen ? "Đóng chat" : "Mở trợ lý AI"}
+        style={{ cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }}
+        className="h-12 w-12 rounded-full shadow-lg transition-transform duration-200 hover:scale-105 active:scale-95 bg-primary text-primary-foreground select-none"
       >
         {isOpen ? <X className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
       </Button>
