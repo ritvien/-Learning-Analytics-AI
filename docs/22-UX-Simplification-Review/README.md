@@ -1,6 +1,6 @@
 # UX Simplification Review
 
-> Ngày review: 25/06/2026  
+> Ngày review: 25/06/2026 · **Trạng thái đồng bộ:** 26/06/2026 (Sprint3 snapshot)  
 > Vai trò review: chuyên gia UX/UI, mục tiêu đơn giản hóa việc sử dụng cho manager, lecturer, admin và demo viewer.  
 > Phạm vi đã đối chiếu code: `frontend/src/app/(dashboard)`, sidebar, preload, analytics dashboard, report center, chat shell, RBAC surface.
 
@@ -37,7 +37,7 @@ Những điểm dưới đây được đối chiếu trực tiếp với fronte
 | Sections analytics | Gọi `getEnrollments limit 50000`, `getSections limit 5000`, `getStudents limit 1000` | Trang có giá trị cao nhưng đang nặng |
 | Students analytics | Gọi `getStudents limit 1000`, `getSections limit 5000`, sau đó detail enrollment; còn label `Credit progress`, `Risk Explanation`, `Student Transcript Table` | Nên chuyển thành detail route/search, không để sidebar |
 | Report Center | Đã có workspace `Cần xử lý` và `Thư viện báo cáo`, dialog tạo báo cáo có search môn/lớp | Hướng đúng; cần thêm tab/section `Lịch tự động` rõ hơn và giảm độ dài page |
-| RBAC UI | Layout guard mới chặn `/manager/users` và `/manager/programs`; sidebar ẩn item theo role riêng 2 route này | Chưa có route policy tập trung cho tất cả path/scope |
+| RBAC UI | Layout guard chặn `/manager/users` và `/manager/programs`; sidebar ẩn item theo role; `/forbidden` — **V41 done (G3-3)**. Chưa có route policy tập trung cho mọi path (UX22-07) |
 | Header role | Vẫn hiện raw role (`superadmin`, `admin`, `manager`...) | Cần Việt hóa role label |
 
 ## 3. Actor-first information architecture
@@ -329,7 +329,7 @@ Nên tạo sau demo:
 | UX22-11 | Combobox search cho ngành/môn/lớp/SV | Data lớn vẫn tìm nhanh |
 | UX22-12 | Report Center wizard 3 bước | Giảm cognitive load khi tạo báo cáo |
 | UX22-13 | Context-aware chat prompts | Chat hữu ích hơn theo page |
-| UX22-14 | Observability UI superadmin | Hoàn thiện T53 khi API sẵn sàng |
+| UX22-14 | Observability UI superadmin (V43) | T53 API ✅; FE route `/manager/observability` chưa có (26/06) |
 
 ## 8. Luồng người dùng mục tiêu
 

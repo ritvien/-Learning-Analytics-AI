@@ -1,18 +1,18 @@
 # User Behavior Observability
 
-## Superadmin system monitoring UI
+## Superadmin system monitoring UI (V43 — planned)
 
-Route: `/manager/observability`
+Route dự kiến: `/manager/observability` (task **V43**, chưa implement trong `frontend/` tính đến 26/06).
 
-The monitoring view consumes the session and event-log APIs and calculates its visible metrics from the loaded records:
+Khi triển khai, UI sẽ consume T53 admin APIs và tính metric hiển thị từ dữ liệu đã load:
 
-- active users in the selected 24-hour, 7-day, or 30-day period;
-- session volume and average session duration;
-- error count and error rate across events;
+- active users trong khoảng 24h / 7d / 30d;
+- session volume và average session duration;
+- error count và error rate;
 - daily active-user trend;
-- routes with the most errors, recent sessions, and filterable event log.
+- routes có nhiều lỗi, sessions gần đây, event log có filter.
 
-The endpoint RBAC remains the authority: the UI is intended for superadmins, but non-superadmin requests must still receive an API authorization failure rather than relying on hidden navigation.
+RBAC: chỉ `superadmin` thấy nav/route; API vẫn là authority (non-superadmin → 403).
 
 > Scope: session/cookie, structured event log, correlation/trace ID cho page, chat, tool va retrieval de quan sat hanh vi nguoi dung.
 > Status: MVP da trien khai cho Sprint 3 task `T41`; API doc/loc/aggregate cho superadmin da bo sung theo `T53`; retrieval-specific events se noi vao khi `H51` them RAG/corpus wrapper.

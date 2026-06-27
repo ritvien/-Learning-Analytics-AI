@@ -71,8 +71,8 @@
 | D3 | **Architecture Diagram** | 3 loại Mermaid: System Overview, Agent Flow, Data Flow | Hoàng | W3 | ⬜ |
 | D4 | **AI Logs** | Log sử dụng AI tools (Claude, Copilot, ChatGPT) — AI Usage Logging Hooks | Cả team | Liên tục | ⬜ |
 | D5 | **Live URL** | Backend (Render) + Frontend (Vercel), HTTPS, CORS, health check | Hưng | W5 | ⬜ |
-| D6 | **Video Demo** | Video demo sản phẩm hoạt động | Hiếu | W6 | ⬜ |
-| D7 | **Pitch Deck** | 10 slides: Cover → Problem → Solution → Architecture → Demo → Agent → Tech → Eval → Impact → Next | Hiếu | W6 | ⬜ |
+| D6 | **Video Demo** | Video demo sản phẩm hoạt động | **Hưng** (V35) | W6 | ⬜ |
+| D7 | **Pitch Deck** | 10 slides: Cover → Problem → Solution → Architecture → Demo → Agent → Tech → Eval → Impact → Next | **Hưng** (V34) | W6 | ⬜ |
 | D8 | **Journal + Worklog** | Nhật ký làm việc hàng ngày | Cả team | Liên tục | ⬜ |
 | D9 | **Evaluation Evidence** | RAGAS metrics, test results, bảng so sánh before/after | Hoàng | W5 | ⬜ |
 | D10 | **Tests** | Unit tests + Integration tests, coverage ≥ 60% | Hưng + Hiếu | W5 | ⬜ |

@@ -1,15 +1,34 @@
 # Sprint 3 — Gate G3 & scope pivot
 
-> **21/06 – 28/06/2026** · Cập nhật **24/06/2026** (T52a–d → Hoàng)  
-> **Goal:** Đóng Gate G3 trước **25/06 23:59**; sau đó ML eval + polish Demo 2.  
+> **21/06 – 28/06/2026** · Cập nhật **28/06/2026** (V20 ✅; V37 bỏ; checklist nộp G3 + Demo Day Phase 1)  
+> **Goal:** Đóng Gate G3 + nộp Demo Day Phase 1 trước 23:59 28/06.  
+> **Checklist ngày 28/06:** [Gate3-DemoDay-Checklist.md](./Gate3-DemoDay-Checklist.md)  
 > **Tham chiếu:** [Sprint2.md](./Sprint2.md) · [H46-Implementation.md](./H46-Implementation.md) · [gate3_eval_metrics.md](../12-Evaluation/gate3_eval_metrics.md)
 
 **Pivot 24/06:** Ưu tiên **ML dropout** (T52), **error handling** (H52), **FE RBAC** (V41). `H49–H51`, `T49` → Sprint 4.  
-**Reassign 24/06:** **T52a–d** (ML dropout pipeline) → **Hoàng** — giữ task ID `T52*`; Hưng giữ backend/DevOps đã xong (T40–T48).
+**Reassign 24/06:** **T52a–d** (ML dropout pipeline) → **Hoàng** — giữ task ID `T52*`; Hưng giữ backend/DevOps đã xong (T40–T48).  
+**Reassign 26/06:** **V34, V35** (slide + video demo G3-4) → **Hưng** — giữ task ID `V34`/`V35`; Hiếu giữ FE (V20, V43). **28/06:** V20 ✅ · V37 bỏ (không block Phase 1).
 
 **Dữ liệu ML:** Nhãn trong `backend/db/seed-academic-v2.json.gz` (`expelled` 87 + `withdrawn` 33). Hoàng `git pull` + seed + ETL trên máy dev — không cần crawl.
 
-**URL demo:** Ngrok + `/api/v1` proxy **ổn định** (G3-1 ✅).
+**URL demo:** Ngrok + `/api/v1` proxy **ổn định** (G3-1 ✅). Runbook: [docs/21-Release-Readiness/README.md](../21-Release-Readiness/README.md).
+
+---
+
+## Trạng thái snapshot (28/06/2026)
+
+| Nhóm | Đã xong | Còn mở (deadline 28/06 23:59) |
+|:-----|:--------|:------------------------------|
+| **Gate G3** | G3-1, G3-2, G3-3, G3-5 | **G3-4** (V34/V35/H44) |
+| **Demo Day Phase 1** | V20, V43 | Portal form (**V46**), thumbnail (**V45**), URL mới (**H54**) |
+| **Backend / ML** | T40–T53, T52a–d, H25a/b, H40, H52 | — |
+| **Frontend** | V20, V36–V43, V42 | — |
+| **Demo / narrative** | — | **H44** · **V34/V35** · **H54/H55** |
+| **Sprint 4 carry** | — | H49–H51, T49, H30, V37 (bỏ), V18–V23 |
+
+**Evidence chính:** [gate3_eval_metrics.md](../12-Evaluation/gate3_eval_metrics.md) · [gate3_cost_report.md](../12-Evaluation/gate3_cost_report.md) · [h40_guardrail_test_cases.md](../12-Evaluation/h40_guardrail_test_cases.md) · [ml-dropout-baseline.md](../12-Evaluation/ml-dropout-baseline.md)
+
+**Lưu ý docs:** `.cursor/session-handoff.md` và story packets được đồng bộ cùng ngày; ưu tiên **Sprint3.md** khi có mâu thuẫn.
 
 ---
 
@@ -19,28 +38,30 @@
 |:-:|:------------|:----------------|:------|:--------:|:------:|
 | G3-1 | Public URL | Ngrok; login/dashboard/tree/chat smoke pass | Hưng + Hiếu | — | [x] |
 | G3-2 | Eval metrics | ≥3 baseline: latency, tool success, answer quality | Hoàng | 25/06 | [x] |
-| G3-3 | Guardrails | Evidence AI + backend (bảng dưới) | Hoàng + Hiếu | 25/06 | [ ] |
-| G3-4 | Demo video draft | Slide + live demo 3–5 phút trên Ngrok | Hiếu + Hoàng | **25/06** | [ ] |
+| G3-3 | Guardrails | Evidence AI + backend (bảng dưới) | Hoàng + Hiếu | 25/06 | [x] |
+| G3-4 | Demo video draft | Slide + live demo 3–5 phút trên Ngrok | **Hưng** (V34/V35) + Hoàng (H44) | **25/06** | [ ] |
 | G3-5 | Cost report | Cost/user/month + assumption | Hoàng | 25/06 | [x] |
 
 ### G3-3 Guardrails
+
+Evidence: [h40_guardrail_test_cases.md](../12-Evaluation/h40_guardrail_test_cases.md) · [gate3_test_cases.json](../12-Evaluation/gate3_test_cases.json) (TC14–TC26).
 
 | Hạng mục | Task | Owner | Status |
 |:---------|:-----|:------|:------:|
 | RBAC API, tool scope, timeout | **T40** | Hưng | [x] |
 | Structured logs, trace ID | **T41** | Hưng | [x] |
-| RBAC UI — nav, route, CRUD | **V41** | Hiếu | [ ] |
+| RBAC UI — nav, route, CRUD | **V41** | Hiếu | [x] |
 | Error handling 3 tầng + HTTP | **H52** | Hoàng | [x] |
-| Prompt scope + injection | **H40** | Hoàng | [ ] |
+| Prompt scope + injection | **H40** | Hoàng | [x] |
 | LLM chỉ explain `ml` (ADR-006) | **T52d** | Hoàng | [x] |
 
 ### G3-4 — Kịch bản quay (V35, nộp 25/06)
 
 **Slide (V34):** metric + cost từ `gate3_eval_metrics.md`, `gate3_cost_report.md`.
 
-**Live (~3 phút):** login → tree → dropout risk (V20 hoặc fallback DWH) → đổi role (V41) → câu ngoài scope (H40).
+**Live (~3 phút):** login → tree → dropout risk (**V20** ✅) → đổi role (V41) → câu ngoài scope (H40).
 
-**Script:** H44 (draft 24/06, chốt 25/06). **V37** chỉnh video 26–27/06 — ngoài Gate.
+**Script:** H44 · Chi tiết: [Gate3-DemoDay-Checklist.md](./Gate3-DemoDay-Checklist.md).
 
 ---
 
@@ -53,7 +74,15 @@
 
 \* V20 fallback: DWH at-risk nếu T52d chưa kịp — không trễ G3-4.
 
-**Checkpoint 25/06 18:00:** T52d API smoke · V41 · slide+script duyệt.
+**Checkpoint 25/06 18:00:** T52d API smoke · V41 · slide+script duyệt — **đã qua**; carry-over: G3-4, V20, V43.
+
+## Lịch 26–28/06 (carry-over)
+
+| Ngày | Hưng | Hoàng | Hiếu |
+|:-----|:-----|:------|:-----|
+| **26/06** | **V34** slides · **V35** prep/quay | H44 finalize (nếu chưa) · H30 eval | V20 dropout UI |
+| **27/06** | **V35** quay/chỉnh · RC | H30 (nếu còn) | V43 observability UI |
+| **28/06** | **V34/V35** · RC · nộp G3-4 | **H54/H44/H55** · G3-4 tick | **V45/V46** · smoke · nộp Phase 1 |
 
 ---
 
@@ -76,8 +105,10 @@
 | **T52c** | Train classifier → `ml.model_run`; `/admin/ml/train` | 25/06 | **P0** | T52b, H25a | [x] |
 | **T52d** | API dropout-risk + RBAC; agent tool đọc `ml` | 25/06 | **P0** | T52c | [x] |
 | **H25b** | ML eval report P/R/F1/PR-AUC (`ml-dropout-baseline.md`) | 26/06 | P1 | T52d | [x] |
-| H44 | Demo video script / narrative cho Hiếu | 24–25/06 | P1 | — | [ ] |
-| H40 | Guardrails prompt — scope + injection (G3-3) | 25/06 | P1 | H52 | [ ] |
+| **H54** | Ngrok account mới + public URL (G3-1 re-verify, MVP link) | **28/06** | **P0** | T45 | [ ] | → [Gate3-DemoDay-Checklist.md](./Gate3-DemoDay-Checklist.md) |
+| **H55** | Copy portal Phase 1 + README (Live URL, links) | **28/06** | **P0** | H54 | [ ] | → [Gate3-DemoDay-Checklist.md](./Gate3-DemoDay-Checklist.md) |
+| H44 | Demo video script / narrative cho **Hưng** quay V35 | 24–28/06 | **P0** | — | [ ] | → [stories/H44.md](./stories/H44.md) |
+| H40 | Guardrails prompt — scope + injection (G3-3) | 25/06 | P1 | H52 | [x] |
 | H49 | Cross-module data access chatbot | — | P2 | H48 | [ ] S4 |
 | H50 | Expanded agent tool registry | — | P2 | H49 | [ ] S4 |
 | H51 | RAG retrieval integration | — | P2 | H48, T49 | [ ] S4 |
@@ -111,10 +142,12 @@ docker compose exec backend python -m app.analytics.etl
 | T45 | Deploy runbook — Ngrok, restart, health check | 25/06 | P2 | — | [x] |
 | T46 | Integration defect fix (từ V39) | 25/06 | P1 | T40, V39 | [x] |
 | T48 | Release candidate verification | 25/06 | P1 | T45, T46, V39 | [x] |
-| **T53** | Superadmin observability API — list/filter sessions, `obs.event_log`, aggregates theo user; RBAC `superadmin` only | 26–27/06 | **P1** | T41 | [ ] |
+| **T53** | Superadmin observability API — `admin/events`, `admin/sessions`, `admin/users/aggregates`; RBAC `superadmin` only | 26–27/06 | **P1** | T41 | [x] |
+| **V34** | Demo slides — pitch + metric/cost (G3-4) | 24–25/06 | **P1** | V39, H44 | [ ] | → [stories/V34.md](./stories/V34.md) |
+| **V35** | Demo video recording 3–5 phút (G3-4) | **25/06** | **P1** | V34, H44, V41 | [ ] | → [stories/V35.md](./stories/V35.md) |
 | T49 | RAG corpus preparation | — | P2 | — | [ ] S4 |
 
-**Verify:** `ruff check . && pytest -v` · **Không sửa:** agent graph topology (H48/H52), frontend (V41/V20/V43), T52 pipeline (Hoàng).
+**Verify:** `ruff check . && pytest -v` · **Không sửa:** agent graph (Hoàng), FE feature pages V20/V43 (Hiếu).
 
 ---
 
@@ -127,17 +160,16 @@ docker compose exec backend python -m app.analytics.etl
 | V39 | Playwright E2E — auth, tree, report, chat, responsive | 22–24/06 | P0 | V36, V38, T51 | [x] |
 | V40 | Global chat shell + route handoff `/chatbot` | 23–24/06 | P0 | H48, T41 | [x] |
 | **V41** | FE RBAC — route guard, nav/CRUD theo role, `/forbidden` | 24–25/06 | **P0** | T40 | [x] |
-| **V20** | Dropout risk UI — badge + probability (T52d API) | 25/06 | P1 | T52d | [x] |
-| V34 | Demo slides — pitch + metric/cost | 24–25/06 | P1 | V39 | [] |
-| V35 | Demo video recording 3–5 phút (G3-4) | **25/06** | P1 | V34, H44, V41 | [] |
-| V37 | Final QA + chỉnh video | 26–27/06 | P1 | V35 | [ ] |
+| **V20** | Dropout risk UI — badge + probability (T52d API) | 25–28/06 | P1 | T52d | [x] |
 | **V42** | Filter mặc định kỳ học mới nhất — dashboard/report/analytics; vẫn cho đổi semester | 26/06 | **P1** | T43 | [x] |
 | **V43** | Superadmin observability UI — sessions, event log, trace, metric tổng quan theo user | 26–27/06 | **P1** | T53, V41 | [x] |
+| **V45** | Thumbnail Demo Day (1280×720) | **28/06** | **P0** | — | [ ] | → [Gate3-DemoDay-Checklist.md](./Gate3-DemoDay-Checklist.md) |
+| **V46** | Smoke MVP + nộp form Demo Day Phase 1 | **28/06** | **P0** | H54, V34, V35, V45, H55 | [ ] | → [Gate3-DemoDay-Checklist.md](./Gate3-DemoDay-Checklist.md) |
 | **V18 + V21** | CRUD polish + responsive/dark | — | P2 | — | [x] S4 |
 | **V19, V22, V23** | Chart, FE unit tests, credit prediction UI | — | P2 | — | [x] S4 |
 
 **Verify:** `cd frontend && npm run lint && npm test` · Playwright sau V41.  
-**Phụ thuộc:** V20 ← T52d · V35 ← V34 + H44 + V41 · **V43 ← T53** · V42 dùng semester API từ T43.
+**Phụ thuộc:** **H54 → V35, V46** · **V34 + H44 → V35** · **H55 + V45 → V46** · Chi tiết: [Gate3-DemoDay-Checklist.md](./Gate3-DemoDay-Checklist.md)
 
 ---
 
@@ -145,6 +177,6 @@ docker compose exec backend python -m app.analytics.etl
 
 `T52a → T52b → T52c → T52d → V20` · `T52a → H25a → T52c` · `T40 ✅ + V41 → G3-3` · `H52 + H40 → G3-3` · `V34 + H44 → V35` · **`T53 → V43`**
 
-## Sprint 4 (không block Gate)
+## Sprint 4 (không block Gate / Phase 1)
 
-`H49`, `H50`, `H51`, `T49`, `H30`, `V18`, `V19`, `V21`, `V22`, `V23`
+`H49`, `H50`, `H51`, `T49`, `H30`, `V37` (bỏ), `V18`, `V19`, `V21`, `V22`, `V23`
