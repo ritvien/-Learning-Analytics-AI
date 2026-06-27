@@ -50,6 +50,7 @@ function dateEndIso(value: string) {
 
 export default function OverviewPage() {
   const [data, setData] = React.useState<ApiDashboardOverview | null>(null)
+  const [trendRows, setTrendRows] = React.useState<ApiDashboardOverview["trend"]>([])
   const [semesterCode, setSemesterCode] = React.useState(() => {
     if (typeof window !== "undefined") {
       return sessionStorage.getItem("vinuni_selected_semester") || "all"
@@ -78,18 +79,41 @@ export default function OverviewPage() {
   }, [data])
 
   React.useEffect(() => {
+    let ignore = false
+
     setTimeout(() => {
-      setLoading(true)
+      if (!ignore) setLoading(true)
     }, 0)
-    api.getDashboardOverview({
+
+    const scopedParams = {
       semester_code: semesterCode === "all" ? undefined : semesterCode,
       department_id: departmentId === "all" ? undefined : Number(departmentId),
       date_from: dateStartIso(dateFrom),
       date_to: dateEndIso(dateTo),
-    })
-      .then(setData)
+    }
+    const trendParams = {
+      department_id: scopedParams.department_id,
+      date_from: scopedParams.date_from,
+      date_to: scopedParams.date_to,
+    }
+
+    Promise.all([
+      api.getDashboardOverview(scopedParams),
+      semesterCode === "all" ? Promise.resolve(null) : api.getDashboardOverview(trendParams),
+    ])
+      .then(([nextData, unfilteredTrendData]) => {
+        if (ignore) return
+        setData(nextData)
+        setTrendRows(unfilteredTrendData?.trend ?? nextData.trend)
+      })
       .catch(console.error)
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (!ignore) setLoading(false)
+      })
+
+    return () => {
+      ignore = true
+    }
   }, [semesterCode, departmentId, dateFrom, dateTo])
 
   const heatSemesters = React.useMemo(() => {
@@ -190,12 +214,12 @@ export default function OverviewPage() {
           <CardHeader><CardTitle className="text-sm">Xu hướng pass rate toàn trường</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={data.trend}>
+              <LineChart data={trendRows}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="semester" tick={{ fontSize: 10 }} />
                 <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
                 <Tooltip formatter={(value) => [`${value}%`, "Pass rate"]} />
-                <Line dataKey="pass_rate" stroke="#16a34a" strokeWidth={2.5} dot={false} />
+                <Line dataKey="pass_rate" stroke="#16a34a" strokeWidth={2.5} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -204,12 +228,12 @@ export default function OverviewPage() {
           <CardHeader><CardTitle className="text-sm">Xu hướng điểm trung bình theo học kỳ</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={data.trend}>
+              <LineChart data={trendRows}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="semester" tick={{ fontSize: 10 }} />
                 <YAxis domain={[0, 10]} />
                 <Tooltip formatter={(value) => [value, "Điểm TB"]} />
-                <Line dataKey="avg_grade" stroke="#4f46e5" strokeWidth={2.5} dot={false} />
+                <Line dataKey="avg_grade" stroke="#4f46e5" strokeWidth={2.5} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>

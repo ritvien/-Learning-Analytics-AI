@@ -3,7 +3,8 @@
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 
 from app.access_control import is_admin, require_department_scope
 from app.crud import people as crud
@@ -26,6 +27,47 @@ async def _ensure_teacher_department_scope(db: DBSession, current_user: CurrentU
     department_ids = await require_department_scope(db, current_user)
     if department_id not in department_ids:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Teacher scope is outside your permissions")
+
+
+def _clean_optional(value: str | None) -> str | None:
+    text = (value or "").strip()
+    return text or None
+
+
+def _normalize_teacher_data(data: dict) -> dict:
+    normalized = dict(data)
+    for key in ("code", "email", "phone"):
+        if key in normalized:
+            normalized[key] = _clean_optional(normalized[key])
+    return normalized
+
+
+async def _ensure_teacher_identity_unique(
+    db: DBSession,
+    *,
+    code: str | None,
+    email: str | None,
+    phone: str | None,
+    exclude_teacher_id: int | None = None,
+) -> None:
+    """Prevent duplicate teacher identity fields; names may intentionally overlap."""
+
+    async def exists_for(field, value: str, *, lower: bool = False) -> bool:
+        query = select(Teacher.id)
+        if lower:
+            query = query.where(func.lower(field) == value.lower())
+        else:
+            query = query.where(field == value)
+        if exclude_teacher_id is not None:
+            query = query.where(Teacher.id != exclude_teacher_id)
+        return (await db.execute(query.limit(1))).scalar_one_or_none() is not None
+
+    if code and await exists_for(Teacher.code, code):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teacher code already exists")
+    if email and await exists_for(Teacher.email, email, lower=True):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teacher email already exists")
+    if phone and await exists_for(Teacher.phone, phone):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teacher phone already exists")
 
 
 async def _provision_teacher_account(
@@ -123,7 +165,24 @@ async def get_teacher(teacher_id: int, db: DBSession, current_user: CurrentUser)
 async def create_teacher(payload: TeacherCreate, db: DBSession, current_user: CurrentUser) -> Teacher:
     """Create a new teacher."""
     await _ensure_teacher_department_scope(db, current_user, payload.department_id)
-    teacher = await crud.create_teacher(db, payload.model_dump(exclude={"create_account", "login_password"}))
+    data = _normalize_teacher_data(payload.model_dump(exclude={"create_account", "login_password"}))
+    await _ensure_teacher_identity_unique(db, code=data.get("code"), email=data.get("email"), phone=data.get("phone"))
+    try:
+        teacher = await crud.create_teacher(db, data)
+    except IntegrityError as exc:
+        await db.rollback()
+        message = str(exc.orig if hasattr(exc, "orig") else exc)
+        if "teachers_code_key" in message:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Teacher code already exists",
+            ) from exc
+        if "teachers_email_key" in message:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Teacher email already exists",
+            ) from exc
+        raise
     if payload.create_account:
         if not payload.login_password:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password is required to create login account")
@@ -158,10 +217,26 @@ async def update_teacher(teacher_id: int, payload: TeacherUpdate, db: DBSession,
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found")
     await _ensure_teacher_department_scope(db, current_user, obj.department_id)
-    updates = payload.model_dump(exclude_unset=True)
+    updates = _normalize_teacher_data(payload.model_dump(exclude_unset=True))
     if "department_id" in updates and updates["department_id"] is not None:
         await _ensure_teacher_department_scope(db, current_user, updates["department_id"])
-    return await crud.update_teacher(db, obj, updates)
+    await _ensure_teacher_identity_unique(
+        db,
+        code=updates.get("code"),
+        email=updates.get("email"),
+        phone=updates.get("phone"),
+        exclude_teacher_id=teacher_id,
+    )
+    try:
+        return await crud.update_teacher(db, obj, updates)
+    except IntegrityError as exc:
+        await db.rollback()
+        message = str(exc.orig if hasattr(exc, "orig") else exc)
+        if "teachers_code_key" in message:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teacher code already exists") from exc
+        if "teachers_email_key" in message:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teacher email already exists") from exc
+        raise
 
 
 @router.delete("/{teacher_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_write_access)])

@@ -115,7 +115,7 @@ export default function GradesPage() {
   })
   const importInputRef = React.useRef<HTMLInputElement | null>(null)
 
-  const hasWriteAccess = userRole === "superadmin" || userRole === "admin" || userRole === "manager"
+  const hasWriteAccess = userRole === "superadmin" || userRole === "admin" || userRole === "manager" || userRole === "lecturer"
 
   const loadGrades = React.useCallback(() => {
     return Promise.all([

@@ -15,7 +15,7 @@ from app.dependencies import (
     require_admin_access,
     verify_password,
 )
-from app.models.people import User
+from app.models.people import Teacher, User, UserRole
 from app.schemas.people import TokenResponse, UserCreate, UserResponse, UserUpdate
 
 router = APIRouter()
@@ -51,8 +51,18 @@ async def read_current_user(current_user: CurrentUser) -> User:
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_admin_access)],
 )
-async def create_user(payload: UserCreate, db: DBSession) -> User:
+async def create_user(payload: UserCreate, db: DBSession, current_user: CurrentUser) -> User:
     """Create an application user. Restricted to write-capable roles."""
+    if payload.role == UserRole.superadmin and current_user.role != UserRole.superadmin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only superadmin can create superadmin accounts",
+        )
+    if payload.role == UserRole.lecturer:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Create lecturer accounts from the teacher profile",
+        )
     existing = await db.execute(select(User).where(User.email == payload.email))
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already exists")
@@ -84,8 +94,26 @@ async def update_user(user_id: str, payload: UserUpdate, db: DBSession, current_
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     data = payload.model_dump(exclude_unset=True)
+    if current_user.role != UserRole.superadmin and (
+        user.role == UserRole.superadmin or data.get("role") == UserRole.superadmin
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only superadmin can manage superadmin accounts",
+        )
     if user.id == current_user.id and data.get("is_active") is False:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot deactivate your own account")
+    linked_teacher = (await db.execute(select(Teacher).where(Teacher.user_id == user.id))).scalar_one_or_none()
+    if linked_teacher is not None and data.get("role") is not None and data["role"] != UserRole.lecturer:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Teacher-linked accounts must keep lecturer role",
+        )
+    if linked_teacher is None and data.get("role") == UserRole.lecturer:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Assign lecturer role from the teacher profile",
+        )
     for field, value in data.items():
         setattr(user, field, value)
     await db.flush()

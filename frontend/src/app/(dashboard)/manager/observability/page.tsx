@@ -207,7 +207,7 @@ export default function ObservabilityPage() {
           {(activeTab === "sessions" || activeTab === "events") && (
             <div className="space-y-1">
               <Label className="text-xs">Trạng thái</Label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value ?? "all")}>
                 <SelectTrigger className="text-xs h-9">
                   <SelectValue placeholder="Tất cả trạng thái" />
                 </SelectTrigger>

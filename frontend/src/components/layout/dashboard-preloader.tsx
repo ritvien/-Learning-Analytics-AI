@@ -24,6 +24,38 @@ const DASHBOARD_ROUTES = [
   "/chat",
 ]
 
+function isManagementRole(role?: ApiUserRole | null) {
+  return role === "superadmin" || role === "admin" || role === "manager"
+}
+
+function isReadRole(role?: ApiUserRole | null) {
+  return isManagementRole(role) || role === "lecturer" || role === "viewer"
+}
+
+function canPrefetchRoute(route: string, role?: ApiUserRole | null) {
+  if (route === "/chat") return true
+  if (route === "/manager/users") return role === "superadmin" || role === "admin"
+  if (route === "/manager/programs") return isManagementRole(role)
+  if (route === "/manager/analytics/departments") return isManagementRole(role) || role === "lecturer"
+  if (route === "/manager/analytics/programs") return isManagementRole(role) || role === "lecturer"
+  if (route === "/manager/analytics/courses") return isManagementRole(role) || role === "lecturer"
+  if (route === "/manager/analytics/sections") return isManagementRole(role) || role === "lecturer"
+  if (route === "/manager/analytics/students") return role === "lecturer"
+  if (route.startsWith("/manager/analytics")) return isManagementRole(role)
+  if (route === "/manager") return isReadRole(role)
+  if (["/manager/teachers", "/manager/departments"].includes(route)) {
+    return isManagementRole(role)
+  }
+  if (["/manager/students", "/manager/courses"].includes(route)) {
+    return isReadRole(role)
+  }
+  if (["/manager/sections", "/manager/grades"].includes(route)) {
+    return isReadRole(role)
+  }
+  if (route === "/manager/reports") return isManagementRole(role) || role === "lecturer"
+  return true
+}
+
 function runWhenIdle(callback: () => void) {
   if (typeof window === "undefined") return
   const requestIdle = window.requestIdleCallback
@@ -48,41 +80,46 @@ export function DashboardPreloader({ userRole }: { userRole?: ApiUserRole | null
 
     runWhenIdle(() => {
       for (const route of DASHBOARD_ROUTES) {
-        if (route === "/manager/users" && userRole !== "superadmin" && userRole !== "admin") continue
+        if (!canPrefetchRoute(route, userRole)) continue
         router.prefetch(route)
       }
 
       const tasks: Array<() => Promise<unknown>> = [
-        () => api.getTree(),
-        () => api.getDashboardOverview(),
-        () => api.getDashboardDepartments(),
-        async () => {
-          const programs = await api.getPrograms({ limit: 100 })
-          const firstProgramId = programs[0]?.id
-          return firstProgramId ? api.getDashboardProgram(firstProgramId) : undefined
-        },
-        () => api.getStudents({ limit: 500 }),
-        () => api.getPrograms({ limit: 100 }),
-        () => api.getDepartments({ limit: 100 }),
-        () => api.getTeachers({ limit: 1000 }),
-        async () => {
-          const courses = await api.getCourses({ limit: 500 })
-          void api.getCourseHealthBatch(courses.map((course) => course.id)).catch(() => undefined)
-          return courses
-        },
-        () => api.getSemesters(),
-        () => api.getReports({ limit: 80 }),
-        () => api.getReportSchedules({ limit: 80 }),
-        () => api.getSections({ limit: 5000 }),
-        () => api.getStudents({ limit: 1000 }),
-        () => api.getCourses({ limit: 1000 }),
-        () => api.getEnrollments({ limit: 5000 }),
-        () => api.getGradeComponents({ limit: 10000 }),
-        () => api.getEnrollments({ limit: 50000 }),
+        () => api.getReports({ limit: 20 }),
+        () => api.getReportSchedules({ limit: 20 }),
       ]
 
+      if (isManagementRole(userRole) || userRole === "lecturer" || userRole === "viewer") {
+        tasks.push(() => api.getTree())
+      }
+
+      if (isManagementRole(userRole)) {
+        tasks.push(
+          () => api.getDashboardOverview(),
+          () => api.getDashboardDepartments(),
+          async () => {
+            const overview = await api.getDashboardOverview()
+            const firstProgramId = overview.programs[0]?.id
+            return firstProgramId ? api.getDashboardProgram(firstProgramId) : undefined
+          },
+          async () => {
+            const courses = await api.getDashboardCourses()
+            const firstCourseId = courses.course_rows[0]?.id
+            return firstCourseId ? api.getDashboardCourse(firstCourseId) : undefined
+          },
+        )
+      }
+
+      if (userRole === "lecturer" || userRole === "viewer") {
+        tasks.push(
+          () => api.getSections({ limit: 5000 }),
+          () => api.getCourses({ limit: 1000 }),
+          () => api.getStudents({ limit: 5000 }),
+        )
+      }
+
       if (userRole === "superadmin" || userRole === "admin") {
-        tasks.splice(11, 0, () => api.getUsers({ limit: 500 }))
+        tasks.push(() => api.getUsers({ limit: 100 }))
       }
 
       void (async () => {

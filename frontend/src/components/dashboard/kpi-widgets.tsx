@@ -2,57 +2,53 @@
 
 import * as React from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { Activity, TrendingUp, AlertTriangle, Target, Users } from "lucide-react"
+import { Activity, TrendingUp, AlertTriangle, BookOpen, Users } from "lucide-react"
 
 interface KpiWidgetsProps {
   healthScore: number
   gpaAvg: number
   failRate: number
-  cloAttainment: number
   totalStudents: number
+  totalCourses: number
+  scopeLabel?: string
 }
 
-export function KpiWidgets({ healthScore, gpaAvg, failRate, cloAttainment, totalStudents }: KpiWidgetsProps) {
+export function KpiWidgets({ healthScore, gpaAvg, failRate, totalStudents, totalCourses, scopeLabel = "phạm vi hiện tại" }: KpiWidgetsProps) {
   const kpis = [
     {
       label: "Health Score",
       value: `${healthScore.toFixed(0)}/100`,
       icon: Activity,
       color: "text-emerald-500",
-      trend: "+2.5% so với kỳ trước",
-      trendColor: "text-emerald-500"
+      trend: "Tổng hợp từ GPA và tỷ lệ đạt",
     },
     {
       label: "GPA Trung Bình",
       value: gpaAvg.toFixed(2),
       icon: TrendingUp,
       color: "text-blue-500",
-      trend: "+0.15 điểm",
-      trendColor: "text-emerald-500"
+      trend: "Thang điểm 4",
     },
     {
       label: "Tỷ lệ Trượt (Fail Rate)",
       value: `${failRate.toFixed(1)}%`,
       icon: AlertTriangle,
       color: "text-rose-500",
-      trend: "-1.2% (cải thiện)",
-      trendColor: "text-emerald-500"
+      trend: "Trên các lượt học đã có kết quả",
     },
     {
-      label: "CLO Attainment",
-      value: `${cloAttainment.toFixed(1)}%`,
-      icon: Target,
+      label: "Môn học",
+      value: totalCourses.toLocaleString("vi-VN"),
+      icon: BookOpen,
       color: "text-amber-500",
-      trend: "+3.4% so với kỳ trước",
-      trendColor: "text-emerald-500"
+      trend: `Trong ${scopeLabel}`,
     },
     {
       label: "Tổng Sinh Viên",
       value: totalStudents.toLocaleString("vi-VN"),
       icon: Users,
       color: "text-indigo-500",
-      trend: "Hoạt động",
-      trendColor: "text-muted-foreground"
+      trend: `Trong ${scopeLabel}`,
     }
   ]
 
@@ -73,7 +69,7 @@ export function KpiWidgets({ healthScore, gpaAvg, failRate, cloAttainment, total
             </div>
             <div className="mt-4">
               <p className="text-2xl font-bold tracking-tight">{kpi.value}</p>
-              <p className={`text-xs mt-1 font-medium ${kpi.trendColor}`}>
+              <p className="mt-1 text-xs font-medium text-muted-foreground">
                 {kpi.trend}
               </p>
             </div>

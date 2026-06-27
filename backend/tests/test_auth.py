@@ -3,7 +3,7 @@
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import hash_password
+from app.dependencies import create_access_token, hash_password
 from app.models.academic import University
 from app.models.people import User, UserRole
 
@@ -77,3 +77,59 @@ async def test_user_management_requires_admin_role(client: AsyncClient, db_sessi
 
     admin_list_response = await client.get("/api/v1/auth/users")
     assert admin_list_response.status_code == 200
+
+
+async def test_admin_cannot_create_or_manage_superadmin(client: AsyncClient, db_session: AsyncSession) -> None:
+    """An admin account must not be able to cross the superadmin trust boundary."""
+    create_response = await client.post(
+        "/api/v1/auth/users",
+        json={
+            "email": "elevated@example.com",
+            "password": "password123",
+            "full_name": "Elevated User",
+            "role": "superadmin",
+        },
+    )
+    assert create_response.status_code == 403
+
+    superadmin = User(
+        id="protected-superadmin",
+        email="protected.superadmin@example.com",
+        hashed_password=hash_password("password123"),
+        full_name="Protected Superadmin",
+        role=UserRole.superadmin,
+    )
+    db_session.add(superadmin)
+    await db_session.flush()
+
+    update_response = await client.patch(
+        f"/api/v1/auth/users/{superadmin.id}",
+        json={"is_active": False},
+    )
+    assert update_response.status_code == 403
+
+
+async def test_superadmin_can_create_superadmin(client: AsyncClient, db_session: AsyncSession) -> None:
+    """The superadmin boundary remains operable by an existing superadmin."""
+    actor = User(
+        id="actor-superadmin",
+        email="actor.superadmin@example.com",
+        hashed_password=hash_password("password123"),
+        full_name="Actor Superadmin",
+        role=UserRole.superadmin,
+    )
+    db_session.add(actor)
+    await db_session.flush()
+    headers = {"Authorization": f"Bearer {create_access_token(actor.id, actor.role)}"}
+
+    response = await client.post(
+        "/api/v1/auth/users",
+        headers=headers,
+        json={
+            "email": "second.superadmin@example.com",
+            "password": "password123",
+            "full_name": "Second Superadmin",
+            "role": "superadmin",
+        },
+    )
+    assert response.status_code == 201

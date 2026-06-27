@@ -36,40 +36,45 @@ type NavItem = {
   roles?: ApiUserRole[]
 }
 
+const MANAGEMENT_ROLES: ApiUserRole[] = ["superadmin", "admin", "manager"]
+const STAFF_ROLES: ApiUserRole[] = ["superadmin", "admin", "manager", "lecturer"]
+const READ_ROLES: ApiUserRole[] = ["superadmin", "admin", "manager", "lecturer", "viewer"]
+const STRUCTURE_ROLES: ApiUserRole[] = ["superadmin", "admin", "manager", "lecturer", "viewer"]
+
 const data: { navMain: { title: string; items: NavItem[] }[] } = {
   navMain: [
     {
       title: "Quản lý chung",
       items: [
-        { title: "Cơ cấu đào tạo", url: "/manager", icon: LayoutDashboard },
-        { title: "Sinh viên", url: "/manager/students", icon: Users },
-        { title: "Giảng viên", url: "/manager/teachers", icon: GraduationCap },
+        { title: "Cơ cấu đào tạo", url: "/manager", icon: LayoutDashboard, roles: STRUCTURE_ROLES },
+        { title: "Sinh viên", url: "/manager/students", icon: Users, roles: READ_ROLES },
+        { title: "Giảng viên", url: "/manager/teachers", icon: GraduationCap, roles: MANAGEMENT_ROLES },
       ],
     },
     {
       title: "Phân tích",
       items: [
-        { title: "Tổng quan toàn trường", url: "/manager/analytics", icon: Layers },
-        { title: "Ngành đào tạo", url: "/manager/analytics/programs", icon: Settings },
-        { title: "Môn học", url: "/manager/analytics/courses", icon: BookOpen },
-        { title: "Lớp học phần", url: "/manager/analytics/sections", icon: FileText },
-        { title: "Sinh viên", url: "/manager/analytics/students", icon: UserRound },
+        { title: "Tổng quan toàn trường", url: "/manager/analytics", icon: Layers, roles: MANAGEMENT_ROLES },
+        { title: "Khoa / Ngành", url: "/manager/analytics/departments", icon: Settings, roles: STAFF_ROLES },
+        { title: "Môn học", url: "/manager/analytics/courses", icon: BookOpen, roles: STAFF_ROLES },
+        { title: "Lớp học phần", url: "/manager/analytics/sections", icon: FileText, roles: STAFF_ROLES },
+        { title: "Lớp chủ nhiệm", url: "/manager/analytics/students", icon: UserRound, roles: ["lecturer"] },
       ],
     },
     {
       title: "Đào tạo",
       items: [
-        { title: "Môn học", url: "/manager/courses", icon: BookOpen },
-        { title: "Lớp học phần", url: "/manager/sections", icon: FileText },
-        { title: "Điểm số", url: "/manager/grades", icon: FileText },
-        { title: "Khoa & Ngành", url: "/manager/departments", icon: Settings },
+        { title: "Môn học", url: "/manager/courses", icon: BookOpen, roles: READ_ROLES },
+        { title: "Lớp học phần", url: "/manager/sections", icon: FileText, roles: READ_ROLES },
+        { title: "Điểm số", url: "/manager/grades", icon: FileText, roles: READ_ROLES },
+        { title: "Khoa & Ngành", url: "/manager/departments", icon: Settings, roles: MANAGEMENT_ROLES },
       ],
     },
     {
       title: "Hệ thống",
       items: [
-        { title: "Chat AI", url: "/chat", icon: MessageSquare },
-        { title: "Báo cáo", url: "/manager/reports", icon: FileText },
+        { title: "Chat AI", url: "/chat", icon: MessageSquare, roles: STAFF_ROLES },
+        { title: "Báo cáo", url: "/manager/reports", icon: FileText, roles: STAFF_ROLES },
         { title: "Tài khoản & phân quyền", url: "/manager/users", icon: ShieldCheck, roles: ["superadmin", "admin"] },
         { title: "Nhật ký hệ thống", url: "/manager/observability", icon: Zap, roles: ["superadmin"] },
         { title: "Upload CTĐT", url: "/manager/programs", icon: FileUp, roles: ["superadmin", "admin", "manager"] },
@@ -111,6 +116,7 @@ function prefetchNavData(url: string) {
 }
 
 export function AppSidebar({ userRole, ...props }: React.ComponentProps<typeof Sidebar> & { userRole?: ApiUserRole | null }) {
+  const homeUrl = userRole === "lecturer" ? "/manager/analytics/sections" : "/manager"
   const groups = data.navMain
     .map((group) => ({
       ...group,
@@ -125,7 +131,7 @@ export function AppSidebar({ userRole, ...props }: React.ComponentProps<typeof S
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
-              render={<Link href="/manager" prefetch onMouseEnter={() => prefetchNavData("/manager")} onFocus={() => prefetchNavData("/manager")} />}
+              render={<Link href={homeUrl} prefetch onMouseEnter={() => prefetchNavData(homeUrl)} onFocus={() => prefetchNavData(homeUrl)} />}
             >
               <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-primary text-white shadow-sm border border-accent/20">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="size-5 text-[var(--accent)]">
