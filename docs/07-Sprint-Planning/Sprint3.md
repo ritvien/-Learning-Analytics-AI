@@ -163,8 +163,8 @@ docker compose exec backend python -m app.analytics.etl
 | **V20** | Dropout risk UI — badge + probability (T52d API) | 25–28/06 | P1 | T52d | [x] |
 | **V42** | Filter mặc định kỳ học mới nhất — dashboard/report/analytics; vẫn cho đổi semester | 26/06 | **P1** | T43 | [x] |
 | **V43** | Superadmin observability UI — sessions, event log, trace, metric tổng quan theo user | 26–27/06 | **P1** | T53, V41 | [x] |
-| **V45** | Thumbnail Demo Day (1280×720) | **28/06** | **P0** | — | [ ] | → [Gate3-DemoDay-Checklist.md](./Gate3-DemoDay-Checklist.md) |
-| **V46** | Smoke MVP + nộp form Demo Day Phase 1 | **28/06** | **P0** | H54, V34, V35, V45, H55 | [ ] | → [Gate3-DemoDay-Checklist.md](./Gate3-DemoDay-Checklist.md) |
+| **V45** | Thumbnail Demo Day (1280×720) | **28/06** | **P0** | — | [x] | → [Gate3-DemoDay-Checklist.md](./Gate3-DemoDay-Checklist.md) |
+| **V46** | Smoke MVP + nộp form Demo Day Phase 1 | **28/06** | **P0** | H54, V34, V35, V45, H55 | [x] | → [Gate3-DemoDay-Checklist.md](./Gate3-DemoDay-Checklist.md) |
 | **V18 + V21** | CRUD polish + responsive/dark | — | P2 | — | [x] S4 |
 | **V19, V22, V23** | Chart, FE unit tests, credit prediction UI | — | P2 | — | [x] S4 |
 
