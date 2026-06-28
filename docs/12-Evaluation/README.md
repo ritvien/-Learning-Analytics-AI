@@ -25,7 +25,7 @@ Thư mục này chứa dataset, báo cáo metrics, cost analysis và evidence ch
 | 3 | **Semantic accuracy** | **0.72** | ≥0.75 | ⚠️ | Numeric/entity match vs golden (`results.json`) |
 | 4 | **Grounding** | **0.84** | ≥0.70 | ✅ | Số trong câu trả lời ⊆ tool output |
 | 5 | **Latency p95** | **8,970 ms** | ≤15,000 ms | ✅ | E2E từ API (`latency_ms`) |
-| 6 | **Cost / task** | **$0.00077** avg | — | — | Ước lượng tĩnh *(measured_rate = 0%)* |
+| 6 | **Cost / task** | **$0.00077** avg | — | — | **Ước lượng** trên artifact 35 TC *(xem § Cost bên dưới)* |
 
 **Latency bổ sung:** p50 = 4,921 ms · avg = 4,616 ms · p99 = 13,046 ms
 
@@ -40,7 +40,7 @@ Thư mục này chứa dataset, báo cáo metrics, cost analysis và evidence ch
 | Latency p95 | 8,970 ms | Cùng run 35 TC |
 | Tool Success Rate | 76.9% | **Per tool call** — tính cả lần SQL `ERROR:` trước retry ReAct |
 | Answer Quality | 91.4% | = task completion rate |
-| Cost per Query | $0.00077 | Ước lượng (chưa có `usage` từ provider) |
+| Cost per Query | $0.00077 | Artifact 35 TC: ước lượng (xem § Cost) |
 | Intent Accuracy | 100% | `expected_intent` khớp runtime intent |
 
 > Báo cáo ngắn: [gate3_eval_metrics.md](./gate3_eval_metrics.md)
@@ -56,14 +56,28 @@ Thư mục này chứa dataset, báo cáo metrics, cost analysis và evidence ch
 
 ---
 
-## Hạn chế run 28/06
+## Cost: measured vs estimated
 
-1. **`usage` / `latency_breakdown` = null** trên mọi TC — backend chưa restart sau instrumentation fix; cost và LLM/tool breakdown dùng **ước lượng tĩnh**.
-2. **Golden drift** — `expected_values` trong dataset lệch seed DB hiện tại (vd TC02 GPA 2.275 vs thực tế 2.56) → semantic score thấp hơn thực tế.
-3. **TC28–TC30 (dropout)** — thiếu ML prediction cho MSSV seed; TC30 tool accuracy = 0.
-4. **Cached input pricing** ($0.02/M) chưa áp dụng trong công thức cost — xem [gate3_cost_report.md](./gate3_cost_report.md).
+| Trạng thái | Chi tiết |
+|:-----------|:---------|
+| **Code đo cost** | ✅ Đã implement — `token_accumulator.py`, `chat.py` (`usage.cost_usd`), `nodes.py` (`record_llm_from_ai_message`) |
+| **Smoke test (đơn lẻ)** | ✅ Measured khi backend chạy **bản code có instrumentation** — vd ~1,124 tokens → **$0.000356** (`gpt-5.4-nano`: $0.20/M in, $1.25/M out) |
+| **Eval 35 TC (artifact 14:07 UTC)** | ⚠️ **Ước lượng** — mọi TC có `usage: null` vì process `:8000` lúc chạy eval **chưa load** instrumentation; `measured_rate = 0%`, `source: estimated` |
+| **Backend `:8000` hiện tại** | ⚠️ Vẫn trả `usage: null` — cần **restart** (hoặc deploy) với code instrumentation trước khi re-run eval |
 
-**Bước tiếp:** restart backend → re-run `python scripts/run_evaluation.py` → `measured_rate > 0`.
+**Tóm lại:** Công thức measured **đúng và đã verify** trên 1 request; báo cáo aggregate 35 TC vẫn dùng fallback vì **chưa re-run eval** sau khi instrumentation sẵn sàng.
+
+**Bước tiếp:** restart backend → smoke (`usage` non-null) → `python scripts/run_evaluation.py` → `measured_rate` → 100%.
+
+---
+
+## Hạn chế run 28/06 (artifact hiện tại)
+
+1. **Cost trên artifact = estimated** — lý do trên; không phải bug scorer mà **timing** (eval chạy trước khi server có instrumentation).
+2. **`latency_breakdown` = null** trên artifact — cùng nguyên nhân; E2E `latency_ms` vẫn đo thực.
+3. **Golden drift** — `expected_values` lệch seed DB (vd TC02 GPA 2.275 vs 2.56) → semantic 0.72 thấp hơn thực tế.
+4. **TC28–TC30 (dropout)** — thiếu ML prediction cho MSSV seed.
+5. **Cached input** ($0.02/M) chưa trừ trong công thức — xem [gate3_cost_report.md](./gate3_cost_report.md).
 
 ---
 

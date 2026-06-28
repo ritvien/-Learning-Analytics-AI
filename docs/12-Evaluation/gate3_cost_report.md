@@ -130,6 +130,7 @@ Run tự động 35 TC qua `backend/scripts/run_evaluation.py` — chi tiết t�
 
 **Ghi chú:**
 
-- Run 28/06 chưa có token đo thực (`usage` = null) — số liệu eval thấp hơn mô hình lý thuyết vì `TOKEN_ESTIMATES` conservative hơn giả định 2-turn ReAct đầy đủ.
-- Sau restart backend có instrumentation, re-run eval sẽ có `measured_rate > 0` và cost sát bill provider hơn.
-- Cached input ($0.02/M) vẫn chưa trừ trong công thức runtime — bill thực có thể thấp hơn nữa khi prompt caching bật.
+- **Measured cost đã implement** — smoke 1 request với backend có instrumentation: ~1,124 tokens → ~$0.000356.
+- Artifact eval 35 TC (14:07 UTC) vẫn **ước lượng** vì `usage: null` trên mọi TC (server chưa load code instrumentation lúc chạy batch).
+- Sau restart backend + re-run eval: `measured_rate` → 100%, số liệu sát bill provider hơn.
+- Cached input ($0.02/M) vẫn chưa trừ trong công thức runtime.

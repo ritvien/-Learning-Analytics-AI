@@ -1,55 +1,91 @@
 # Session Handoff
 
-> Generated: 2026-06-26 · Authority: `docs/07-Sprint-Planning/Sprint3.md`  
+> Generated: 2026-06-28 · Source: Agent eval 6-metric framework + 35 TC + infra/scorer fixes  
 > New session: `@.cursor/session-handoff.md`
 
 ## Goal
 
-Hoàn thiện **carry-over Sprint 3** trước **28/06**: **G3-4** (slide + video), **V20** (dropout UI), **V43** (observability UI). Gate G3-1/2/3/5 đã đóng.
+Có pipeline đánh giá Agent EduInsight **6 metrics** (task completion, tool accuracy, semantic, grounding, latency, cost) với báo cáo tin cậy — dataset ≥35 TC, eval script chạy được, metrics đo từ runtime thật (không chỉ estimate).
 
 ## Status
 
 | Area | State |
 |------|-------|
-| Overall | carry-over — backend/ML/guardrails xong; demo assets + 2 FE task còn mở |
-| Gate G3 | G3-1 ✅ · G3-2 ✅ · G3-3 ✅ · G3-5 ✅ · **G3-4** ⬜ |
-| ML pipeline | T52a–d ✅ · H25a/b ✅ |
-| Observability | T53 ✅ · **V43** ⬜ (FE) |
-| Dropout UI | **V20** ⬜ |
-| Demo | **H44** (Hoàng, script) · **V34/V35** (**Hưng**, reassign 26/06) |
+| Overall | in progress — framework + instrumentation **done**; **cần re-run eval** sau restart backend |
+| Tests / verify | pass — `pytest tests/test_eval_scorers.py -q --no-cov` (19 tests) |
+| Branch `hoang` | docs/12-Evaluation pushed (`86542d7` + doc clarifications pending) |
+| Backend code | instrumentation **local uncommitted** — `:8000` hiện vẫn `usage: null` |
+| Last eval artifact | 35 TC @ 14:07 UTC — cost **estimated** (`measured_rate=0`); smoke measured **OK** khi server có code mới |
+
+## Cost: measured vs estimated (quan trọng)
+
+| | Trạng thái |
+|:--|:-----------|
+| **Code** | ✅ `token_accumulator`, `chat.py`, `nodes.py`, `instrumentation.py` |
+| **Smoke 1 request** | ✅ Measured (~1,124 tok → ~$0.000356) khi backend chạy bản có instrumentation |
+| **Artifact 35 TC** | ⚠️ Estimated — eval chạy **trước** khi server load instrumentation (`usage: null` mọi TC) |
+| **`:8000` hiện tại** | ⚠️ `usage: null` — cần restart với code instrumentation |
 
 ## Decisions (settled — do not re-litigate)
 
-- **V34/V35 ownership (26/06):** **Hưng** — slide + quay video G3-4; giữ task ID `V34`/`V35`.
-- **H44** (Hoàng): script cho Hưng quay V35.
-- **T52 ownership:** Hoàng — done.
-- **LLM boundary:** ADR-006.
+- **6-metric framework:** deterministic scorers mặc định; LLM judge optional (`--with-judge`), không CI.
+- **Judge model (chưa implement config):** primary `gpt-5.4-mini`, regression `gpt-5-mini` — chưa có `AGENT_EVAL_JUDGE_MODEL`.
+- **Dataset size:** 35 TC cho phase hiện tại; mục tiêu 40–50 sau.
+- **Tool success ReAct:** pass nếu ≥1 tool call thành công (không penalize retry).
+- **Numeric match:** normalize % ↔ decimal qua `numeric_match.py`.
+- **Không sửa** plan file `.cursor/plans/agent_metrics_evaluation_*.plan.md`.
 
-## Open (ordered)
+## Done
 
-1. **Hoàng:** **H44** script → unblock V35
-2. **Hưng:** **V34** slides → **V35** quay/upload
-3. **Hiếu:** **V20** dropout UI · **V43** observability UI · **V37** QA video
-4. **Hoàng:** **H30** (28/06, P2)
+- [x] 6-metric eval package — `backend/app/eval/` (scorers, judges, token_accumulator, dataset_loader)
+- [x] Refactor `backend/scripts/run_evaluation.py` → `agent_eval_results.json` + `agent_eval_metrics.md` (+ gate3 backward compat)
+- [x] Runtime instrumentation — `nodes.py`, `instrumentation.py`, `chat.py` (`usage`, `latency_breakdown`, per-tool `duration_ms`)
+- [x] LLM judges — `semantic_judge.py`, `grounding_judge.py`, `run_agent_eval_judge.py`
+- [x] CI tests — `backend/tests/test_eval_scorers.py` (19 pass)
+- [x] Methodology + README — `docs/12-Evaluation/` (35 TC, aggregates, cost measured vs estimated)
+- [x] Expand dataset 26→35 TC — TC27–TC35 in `gate3_test_cases.json`
+- [x] First full eval run (35 TC) — artifacts committed on `hoang`
+- [x] Infra/scorer fixes — `record_llm_from_ai_message()`, timed tools, numeric_match, ReAct tool_success
+
+## In progress
+
+- [ ] **Restart backend** với code instrumentation → smoke `usage` non-null
+- [ ] **Re-run eval** 35 TC → `measured_rate = 100%`, cost measured trong artifact
+- [ ] **Commit + push** backend eval code (local uncommitted)
+
+## Next steps (ordered)
+
+1. Restart backend trên `:8000` (process phải load instrumentation).
+2. Smoke: `usage` + `latency_breakdown` non-null.
+3. Re-run: `cd backend; python scripts/run_evaluation.py --base-url http://127.0.0.1:8000`
+4. Commit backend eval code + refreshed `docs/12-Evaluation/*_results.json`.
+5. *(P2)* Refresh golden `expected_values`; fix TC27–30 MSSV; `AGENT_EVAL_JUDGE_MODEL`.
 
 ## Key files
 
 | Path | Role |
 |------|------|
-| `docs/07-Sprint-Planning/Sprint3.md` | Sprint authority |
-| `docs/07-Sprint-Planning/stories/V34.md` | Slides (Hưng) |
-| `docs/07-Sprint-Planning/stories/V35.md` | Video (Hưng) |
-| `docs/07-Sprint-Planning/stories/H44.md` | Script (Hoàng) |
-| `docs/10-References/Checklist.md` | Demo Day 10 deliverables |
+| `docs/12-Evaluation/README.md` | Tổng hợp metrics + § Cost measured vs estimated |
+| `backend/scripts/run_evaluation.py` | Orchestrator 6 metrics |
+| `backend/app/eval/token_accumulator.py` | Usage + cost_usd |
+| `docs/12-Evaluation/agent_eval_results.json` | Artifact 35 TC (**cost estimated**) |
 
 ## Commands
 
 ```powershell
-.\scripts\verify.ps1 -Quick
+cd backend
+pytest tests/test_eval_scorers.py -q --no-cov
+python -c "import requests; ..."
+python scripts/run_evaluation.py --base-url http://127.0.0.1:8000
 ```
 
-## Constraints
+## Blockers
 
-- **Hưng:** V34/V35, backend RC — không sửa V20/V43 FE
-- **Hiếu:** `frontend/` V20, V43, V37
-- **Hoàng:** H44, H30, agent/ML
+- Backend `:8000` chưa trả `usage` — restart/deploy instrumentation code
+- Golden drift → semantic misleading until refresh
+- ML dropout TC28–30 data-side gaps
+
+## Context links
+
+- [G3-DemoDay-Checklist.md](../docs/07-Sprint-Planning/G3-DemoDay-Checklist.md)
+- [agent_eval_methodology.md](../docs/12-Evaluation/agent_eval_methodology.md)

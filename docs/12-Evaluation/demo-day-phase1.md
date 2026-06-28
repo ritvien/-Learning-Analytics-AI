@@ -19,6 +19,8 @@
 | Semantic accuracy | 0.72 |
 | Grounding | 0.84 |
 | Latency p95 | 8.97 s |
-| Cost / query (avg) | $0.00077 |
+| Cost / query (avg) | $0.00077 (artifact: estimated) |
+
+Measured smoke: ~$0.000356/request (~1,124 tokens). Re-run eval sau restart backend để cập nhật aggregate measured.
 
 Evidence: [README.md](./README.md) · [agent_eval_metrics.md](./agent_eval_metrics.md)

@@ -5,7 +5,7 @@
 **Framework:** 6-metric (task, tool, semantic, grounding, latency, cost)  
 **Judge:** off (`--with-judge` = false)
 
-> **Run note:** Cost và LLM/tool breakdown trên run này dùng **ước lượng tĩnh** (`measured_rate = 0%`) vì API chưa trả `usage` / `latency_breakdown`. E2E latency và tool traces là **đo thực**. Tổng hợp: [README.md](./README.md).
+> **Run note:** Artifact 35 TC (14:07 UTC) có **cost = estimated** (`measured_rate = 0%`) vì eval chạy khi backend chưa trả `usage`. Code measured **đã có** và verify smoke (~$0.000356/request); cần **re-run eval** sau restart backend. E2E latency đo thực. Chi tiết: [README.md § Cost](./README.md#cost-measured-vs-estimated).
 
 ---
 
@@ -85,6 +85,6 @@
 - **Semantic:** Numeric extract ±tolerance; optional LLM judge (`--with-judge`).
 - **Grounding:** Rule-based number traceability to tool outputs; optional faithfulness judge.
 - **Latency:** Measured E2E from API; breakdown pending instrumentation re-run.
-- **Cost:** `gpt-5.4-nano` pricing ($0.20/M input, $1.25/M output); static estimate on this run.
+- **Cost:** `gpt-5.4-nano` pricing; artifact này = estimate (chưa re-run với `usage` measured).
 
 See: [agent_eval_methodology.md](./agent_eval_methodology.md) · Gate G3 baseline: [gate3_eval_metrics.md](./gate3_eval_metrics.md)

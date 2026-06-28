@@ -10,7 +10,7 @@
 | # | Deliverable | Status | Evidence / ghi chú |
 |:-:|:------------|:------:|:-------------------|
 | G3-1 | Public URL (Ngrok smoke) | [x] | Re-verify trên URL mới sau **H54** |
-| G3-2 | Eval metrics (≥3 baseline) | [x] | [gate3_eval_metrics.md](../12-Evaluation/gate3_eval_metrics.md) |
+| G3-2 | Eval metrics (≥3 baseline) | [x] | [README.md](../12-Evaluation/README.md) · 6-metric / 35 TC; cost artifact = estimate, measured code ✅ |
 | G3-3 | Guardrails (RBAC + H40 + H52) | [x] | [h40_guardrail_test_cases.md](../12-Evaluation/h40_guardrail_test_cases.md) |
 | **G3-4** | **Slide + video demo 3–5 phút** | [ ] | **V34 + V35 + H44** |
 | G3-5 | Cost report | [x] | [gate3_cost_report.md](../12-Evaluation/gate3_cost_report.md) |

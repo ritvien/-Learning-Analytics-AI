@@ -26,7 +26,9 @@
 | **Demo / narrative** | — | **H44** · **V34/V35** · **H54/H55** |
 | **Sprint 4 carry** | — | H49–H51, T49, H30, V37 (bỏ), V18–V23 |
 
-**Evidence chính:** [gate3_eval_metrics.md](../12-Evaluation/gate3_eval_metrics.md) · [gate3_cost_report.md](../12-Evaluation/gate3_cost_report.md) · [h40_guardrail_test_cases.md](../12-Evaluation/h40_guardrail_test_cases.md) · [ml-dropout-baseline.md](../12-Evaluation/ml-dropout-baseline.md)
+**Evidence chính:** [12-Evaluation/README.md](../12-Evaluation/README.md) · [gate3_eval_metrics.md](../12-Evaluation/gate3_eval_metrics.md) · [gate3_cost_report.md](../12-Evaluation/gate3_cost_report.md) · [h40_guardrail_test_cases.md](../12-Evaluation/h40_guardrail_test_cases.md) · [ml-dropout-baseline.md](../12-Evaluation/ml-dropout-baseline.md)
+
+**G3-2 mở rộng (28/06):** Framework **6 metrics** (35 TC) — docs pushed `hoang`. Cost **measured** đã implement + verify smoke; artifact eval 35 TC vẫn **estimated** (chưa re-run sau restart backend). Chi tiết: [README § Cost](../12-Evaluation/README.md#cost-measured-vs-estimated).
 
 **Lưu ý docs:** `.cursor/session-handoff.md` và story packets được đồng bộ cùng ngày; ưu tiên **Sprint3.md** khi có mâu thuẫn.
 

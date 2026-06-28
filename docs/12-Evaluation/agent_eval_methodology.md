@@ -18,6 +18,8 @@
 | Latency / task | `latency.py` | E2E + breakdown (router, LLM, tools) | p95 ≤15s |
 | Cost / task | `cost.py` | Measured tokens × pricing; fallback estimate | Report actual vs estimate |
 
+**Cost note:** Measured path (`usage.cost_usd` from `token_accumulator`) works when backend runs instrumentation code. Batch eval artifact is **estimated** if run before server restart (`measured_rate = 0`). See [README § Cost](./README.md#cost-measured-vs-estimated).
+
 ---
 
 ## 2. Dataset schema (v2)

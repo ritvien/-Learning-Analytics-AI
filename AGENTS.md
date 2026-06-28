@@ -9,11 +9,13 @@ Read this file first before changing code or docs in this repository.
 3. Task spec for your story (e.g. [H45-Plan.md](docs/07-Sprint-Planning/H45-Plan.md), [docs/07-Sprint-Planning/stories/](docs/07-Sprint-Planning/stories/))
 4. [docs/decisions/](docs/decisions/) — architecture decisions before schema/API changes
 
-### Sprint 3 status (26/06/2026)
+### Sprint 3 status (28/06/2026)
 
-| Closed | Open (carry-over to 28/06) |
+| Closed | Open (deadline 28/06 23:59) |
 |:-------|:----------------------------|
-| G3-1, G3-2, G3-3, G3-5 · T52a–d · H40/H52 · T53 · V41/V42 | **G3-4** (H44 + **V34/V35** — Hưng) · **V20** · **V43** · V37 · H30 (P2) |
+| G3-1, G3-2, G3-3, G3-5 · T52a–d · H40/H52 · T53 · V41/V42/V20 | **G3-4** (H44 + **V34/V35** — Hưng) · **V43** · H54/H55 · V45/V46 |
+
+**Eval (G3-2):** 6-metric framework + 35 TC docs on `hoang`. Cost measured in code (smoke OK); batch artifact pending re-run after backend restart — [docs/12-Evaluation/README.md](docs/12-Evaluation/README.md).
 
 Handoff snapshot: [.cursor/session-handoff.md](.cursor/session-handoff.md). UX polish backlog (non-blocking): [docs/22-UX-Simplification-Review/README.md](docs/22-UX-Simplification-Review/README.md).
 
