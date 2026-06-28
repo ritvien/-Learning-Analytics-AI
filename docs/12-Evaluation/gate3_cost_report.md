@@ -114,3 +114,23 @@ Cost_per_Month = 15 queries/day * 22 days * $0.001062 = $0.35 / user / month
 
 ## 6. Kết luận
 Lựa chọn mô hình `gpt-5.4-nano` là **cực kỳ tối ưu** cho bài toán này, đem lại khả năng phân tích phức tạp bằng ReAct agent nhưng với chi phí gần như tiệm cận với chi phí vận hành máy chủ cơ bản.
+
+---
+
+## 7. Benchmark từ eval harness (28/06/2026)
+
+Run tự động 35 TC qua `backend/scripts/run_evaluation.py` — chi tiết tại [README.md](./README.md).
+
+| Metric | Lý thuyết (§3–4) | Eval run 35 TC |
+|:-------|-----------------:|---------------:|
+| Cost / query (avg) | $0.001062 (weighted) | **$0.00077** (ước lượng tĩnh) |
+| Cost p95 | — | $0.00090 |
+| Fast-path TC (vd TC04) | ~$0.00015 | $0.00015–0.00020 |
+| Core-path TC (đa số) | ~$0.0013 | $0.0008–0.0009 |
+
+**Ghi chú:**
+
+- **Measured cost đã implement** — smoke 1 request với backend có instrumentation: ~1,124 tokens → ~$0.000356.
+- Artifact eval 35 TC (14:07 UTC) vẫn **ước lượng** vì `usage: null` trên mọi TC (server chưa load code instrumentation lúc chạy batch).
+- Sau restart backend + re-run eval: `measured_rate` → 100%, số liệu sát bill provider hơn.
+- Cached input ($0.02/M) vẫn chưa trừ trong công thức runtime.
