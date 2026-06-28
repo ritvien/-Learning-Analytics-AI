@@ -26,9 +26,7 @@
 | **Demo / narrative** | — | **H44** · **V34/V35** · **H54/H55** |
 | **Sprint 4 carry** | — | H49–H51, T49, H30, V37 (bỏ), V18–V23 |
 
-**Evidence chính:** [12-Evaluation/README.md](../12-Evaluation/README.md) · [gate3_eval_metrics.md](../12-Evaluation/gate3_eval_metrics.md) · [gate3_cost_report.md](../12-Evaluation/gate3_cost_report.md) · [h40_guardrail_test_cases.md](../12-Evaluation/h40_guardrail_test_cases.md) · [ml-dropout-baseline.md](../12-Evaluation/ml-dropout-baseline.md)
-
-**G3-2 mở rộng (28/06):** Framework **6 metrics** (35 TC) — docs pushed `hoang`. Cost **measured** đã implement + verify smoke; artifact eval 35 TC vẫn **estimated** (chưa re-run sau restart backend). Chi tiết: [README § Cost](../12-Evaluation/README.md#cost-measured-vs-estimated).
+**Evidence chính:** [gate3_eval_metrics.md](../12-Evaluation/gate3_eval_metrics.md) · [gate3_cost_report.md](../12-Evaluation/gate3_cost_report.md) · [h40_guardrail_test_cases.md](../12-Evaluation/h40_guardrail_test_cases.md) · [ml-dropout-baseline.md](../12-Evaluation/ml-dropout-baseline.md)
 
 **Lưu ý docs:** `.cursor/session-handoff.md` và story packets được đồng bộ cùng ngày; ưu tiên **Sprint3.md** khi có mâu thuẫn.
 
@@ -165,8 +163,8 @@ docker compose exec backend python -m app.analytics.etl
 | **V20** | Dropout risk UI — badge + probability (T52d API) | 25–28/06 | P1 | T52d | [x] |
 | **V42** | Filter mặc định kỳ học mới nhất — dashboard/report/analytics; vẫn cho đổi semester | 26/06 | **P1** | T43 | [x] |
 | **V43** | Superadmin observability UI — sessions, event log, trace, metric tổng quan theo user | 26–27/06 | **P1** | T53, V41 | [x] |
-| **V45** | Thumbnail Demo Day (1280×720) | **28/06** | **P0** | — | [ ] | → [Gate3-DemoDay-Checklist.md](./Gate3-DemoDay-Checklist.md) |
-| **V46** | Smoke MVP + nộp form Demo Day Phase 1 | **28/06** | **P0** | H54, V34, V35, V45, H55 | [ ] | → [Gate3-DemoDay-Checklist.md](./Gate3-DemoDay-Checklist.md) |
+| **V45** | Thumbnail Demo Day (1280×720) | **28/06** | **P0** | — | [x] | → [Gate3-DemoDay-Checklist.md](./Gate3-DemoDay-Checklist.md) |
+| **V46** | Smoke MVP + nộp form Demo Day Phase 1 | **28/06** | **P0** | H54, V34, V35, V45, H55 | [x] | → [Gate3-DemoDay-Checklist.md](./Gate3-DemoDay-Checklist.md) |
 | **V18 + V21** | CRUD polish + responsive/dark | — | P2 | — | [x] S4 |
 | **V19, V22, V23** | Chart, FE unit tests, credit prediction UI | — | P2 | — | [x] S4 |
 
