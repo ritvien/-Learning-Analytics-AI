@@ -34,6 +34,7 @@ from app.agent.route_decision import RouteDecision
 from app.config import get_settings
 from app.database import AsyncSessionLocal, get_db
 from app.dependencies import get_current_user
+from app.eval.token_accumulator import AgentRunMetrics, reset_run_metrics, set_run_metrics
 from app.models.chat import ChatSession
 from app.models.people import User
 from app.observability import log_event, new_id, request_context, stable_hash
@@ -72,6 +73,27 @@ class ToolCallInfo(BaseModel):
     tool_name: str
     tool_input: dict[str, Any]
     tool_output: str
+    duration_ms: int | None = None
+    sequence: int | None = None
+
+
+class UsageInfo(BaseModel):
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    cost_usd: float = 0.0
+    by_step: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class LatencyBreakdown(BaseModel):
+    router_ms: int = 0
+    core_ms: int = 0
+    fast_ms: int = 0
+    llm_ms: int = 0
+    tools_ms: int = 0
+    tools: list[dict[str, Any]] = Field(default_factory=list)
+    overhead_ms: int = 0
+    total_ms: int = 0
 
 
 class ChatResponse(BaseModel):
@@ -83,6 +105,8 @@ class ChatResponse(BaseModel):
     tool_calls: list[ToolCallInfo] = Field(default_factory=list)
     latency_ms: int = 0
     thread_id: str | None = None
+    usage: UsageInfo | None = None
+    latency_breakdown: LatencyBreakdown | None = None
 
 
 class SessionSummaryResponse(BaseModel):
@@ -279,6 +303,8 @@ async def chat(
 
         input_messages = history_msgs + [HumanMessage(content=payload.message)]
 
+        run_metrics = AgentRunMetrics()
+        metrics_token = set_run_metrics(run_metrics)
         try:
             result = await _agent.ainvoke({
                 "messages": input_messages,
@@ -302,6 +328,7 @@ async def chat(
                 payload={"mode": "standard"},
                 **obs_context,
             )
+            reset_run_metrics(metrics_token)
             raise HTTPException(status_code=status_code, detail=detail) from exc
         except Exception as exc:
             logger.exception("Agent invocation failed")
@@ -321,6 +348,7 @@ async def chat(
                 payload={"mode": "standard"},
                 **obs_context,
             )
+            reset_run_metrics(metrics_token)
             raise HTTPException(status_code=status_code, detail=detail) from exc
 
         # Lấy thông tin
@@ -358,6 +386,7 @@ async def chat(
                 break
 
         tool_calls_info: list[ToolCallInfo] = []
+        tool_seq_index = 0
         for i, msg in enumerate(messages):
             if isinstance(msg, AIMessage) and hasattr(msg, "tool_calls") and msg.tool_calls:
                 for tc in msg.tool_calls:
@@ -365,10 +394,19 @@ async def chat(
                     tool_output = ""
                     if i + 1 < len(messages) and isinstance(messages[i + 1], ToolMessage):
                         tool_output = messages[i + 1].content[:500]
+                    tool_name = tc.get("name", "unknown")
+                    timing = None
+                    if tool_seq_index < len(run_metrics.tool_calls):
+                        timing = run_metrics.tool_calls[tool_seq_index]
+                    tool_seq_index += 1
+                    duration_ms = timing.duration_ms if timing else None
+                    sequence = timing.sequence if timing else tool_seq_index
                     tool_calls_info.append(ToolCallInfo(
-                        tool_name=tc.get("name", "unknown"),
+                        tool_name=tool_name,
                         tool_input=tc.get("args", {}),
                         tool_output=tool_output,
+                        duration_ms=duration_ms,
+                        sequence=sequence,
                     ))
                     await log_event(
                         "tool_call_completed",
@@ -379,10 +417,12 @@ async def chat(
                         agent_run_id=agent_run_id,
                         tool_call_id=tool_call_id,
                         status="ok",
+                        duration_ms=duration_ms,
                         payload={
-                            "tool_name": tc.get("name", "unknown"),
+                            "tool_name": tool_name,
                             "input_keys": sorted((tc.get("args") or {}).keys()),
                             "output_length": len(tool_output),
+                            "sequence": sequence,
                         },
                         **obs_context,
                     )
@@ -392,6 +432,9 @@ async def chat(
         await db.commit()
 
         elapsed_ms = int((time.perf_counter() - start) * 1000)
+        usage_dict = run_metrics.to_usage_dict(_settings.llm_model)
+        latency_dict = run_metrics.to_latency_breakdown(elapsed_ms)
+        reset_run_metrics(metrics_token)
         await log_event(
             "agent_run_completed",
             user_id=str(current_user.id),
@@ -418,7 +461,9 @@ async def chat(
             route_decision=route_decision,
             tool_calls=tool_calls_info,
             latency_ms=elapsed_ms,
-            thread_id=str(db_session.id)
+            thread_id=str(db_session.id),
+            usage=UsageInfo(**usage_dict),
+            latency_breakdown=LatencyBreakdown(**latency_dict),
         )
 
 @router.post("/stream")

@@ -1,5 +1,7 @@
 # Environment
 .env
+frontend/.env.local
+ngrok_dir/.authtoken
 
 # Python
 __pycache__/

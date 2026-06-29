@@ -46,14 +46,21 @@ try {
     }
 
     if ($AgentEval) {
-        Invoke-Step "Agent evaluation (run_evaluation.py)" {
+        Invoke-Step "Agent evaluation (6-metric framework)" {
             Push-Location backend
             try {
                 if (Test-Path "scripts/run_evaluation.py") {
                     python scripts/run_evaluation.py
+                    if ($LASTEXITCODE -ne 0) { throw "run_evaluation.py failed" }
                 } else {
                     Write-Warning "backend/scripts/run_evaluation.py not found; skipping agent eval"
                 }
+            } finally { Pop-Location }
+        }
+        Invoke-Step "Agent eval scorer unit tests" {
+            Push-Location backend
+            try {
+                pytest tests/test_eval_scorers.py -q
             } finally { Pop-Location }
         }
     }
