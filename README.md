@@ -104,12 +104,19 @@ To reproduce the full stack locally:
    # Note for Windows users: if PowerShell blocks npm script execution, use npm.cmd
    npm.cmd run dev   # or "npm run dev" on macOS/Linux
    ```
-3. **Ngrok Tunnel (Public Server Access)**:
+3. **Ngrok Tunnel (Public Server Access)** — xem [scripts/setup-ngrok.ps1](./scripts/setup-ngrok.ps1):
+
    ```powershell
-   # Run at project root directory to use the local ngrok executable
-   .\ngrok_dir\ngrok.exe http 3000
+   # Production (recommended for ngrok - less bandwidth than dev/HMR):
+   .\scripts\setup-ngrok.ps1 -Production
+
+   # Dev mode:
+   .\scripts\setup-ngrok.ps1
    ```
-   **Public Server URL:** [https://spectrum-dullness-ambiguous.ngrok-free.dev](https://spectrum-dullness-ambiguous.ngrok-free.dev)
+
+   Script sẽ: cấu hình authtoken → mở tunnel port 3000 → ghi `frontend/.env.local` → cập nhật `docs/12-Evaluation/demo-day-phase1.md`.
+
+   **Yêu cầu:** frontend (`npm run dev`) + backend (Docker hoặc uvicorn :8000) đang chạy trước khi smoke public URL.
 
 ### 4. Update Local Environment (After `git pull`)
 

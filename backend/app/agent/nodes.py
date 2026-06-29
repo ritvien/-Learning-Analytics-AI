@@ -2,6 +2,7 @@
 
 import logging
 import os
+import time
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -13,6 +14,7 @@ from app.agent.errors import (
     MissingLLMCredentialsError,
 )
 from app.agent.guardrails import apply_output_guardrails, build_role_guardrail_block
+from app.agent.instrumentation import wrap_tools_with_timing
 from app.agent.prompts import (
     CORE_AGENT_SYSTEM_PROMPT,
     FAST_RESPONSE_SYSTEM_PROMPT,
@@ -33,6 +35,7 @@ from app.agent.tools import (
     lookup_student_by_code,
 )
 from app.config import get_settings
+from app.eval.token_accumulator import record_llm_from_ai_message
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -41,7 +44,13 @@ settings = get_settings()
 __all__ = ["TOOLS", "MissingLLMCredentialsError", "route_after_router"]
 
 
-TOOLS = [execute_sql_query, calculate_student_clo_scores, lookup_student_by_code, get_student_dropout_risk]
+_BASE_TOOLS = [
+    execute_sql_query,
+    calculate_student_clo_scores,
+    lookup_student_by_code,
+    get_student_dropout_risk,
+]
+TOOLS = wrap_tools_with_timing(_BASE_TOOLS)
 
 
 def _build_openai_model(model_name: str, temperature: float) -> ChatOpenAI:
@@ -134,7 +143,13 @@ async def router_node(state: AgentState) -> dict:
             HumanMessage(content=f"{last_user_msg}{context_hint}"),
         ]
 
+        router_start = time.perf_counter()
         response = await llm.ainvoke(eval_messages)
+        record_llm_from_ai_message(
+            "router",
+            response,
+            int((time.perf_counter() - router_start) * 1000),
+        )
         classification = parse_router_response(str(response.content))
         route_decision = build_route_decision(classification, page_context)
 
@@ -180,7 +195,13 @@ async def core_agent_node(state: AgentState) -> dict:
                 context_note = f"\n\nPage context:\n{page_context}"
             messages = [SystemMessage(content=_core_system_prompt(page_context) + context_note), *messages]
 
+        core_start = time.perf_counter()
         response = await llm_with_tools.ainvoke(messages)
+        record_llm_from_ai_message(
+            "core_agent",
+            response,
+            int((time.perf_counter() - core_start) * 1000),
+        )
         if isinstance(response.content, str) and response.content:
             response.content = apply_output_guardrails(response.content)
 
@@ -214,7 +235,13 @@ async def fast_response_node(state: AgentState) -> dict:
             HumanMessage(content=f"{last_user_msg}{context_block}"),
         ]
 
+        fast_start = time.perf_counter()
         response = await llm.ainvoke(eval_messages)
+        record_llm_from_ai_message(
+            "fast_response",
+            response,
+            int((time.perf_counter() - fast_start) * 1000),
+        )
         if isinstance(response.content, str) and response.content:
             response.content = apply_output_guardrails(response.content)
         return {"messages": [response]}
