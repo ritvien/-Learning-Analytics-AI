@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from contextlib import asynccontextmanager
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -12,6 +13,12 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.nodes import core_agent_node, fast_response_node
+from app.agent.prompts import (
+    CORE_AGENT_PROMPT_VERSION,
+    CORE_AGENT_SYSTEM_PROMPT,
+    FAST_RESPONSE_PROMPT_VERSION,
+    ROUTER_PROMPT_VERSION,
+)
 
 
 class _TestSessionCM:
@@ -51,6 +58,21 @@ async def _mock_chat_agent(db_session: AsyncSession):
 
 
 class TestNodeOutputGuardrails:
+    def test_h49_data_access_scope_is_in_core_prompt(self):
+        prompt = CORE_AGENT_SYSTEM_PROMPT
+
+        assert "Data-access scope (H49)" in prompt
+        assert "get_student_dropout_risk" in prompt
+        assert "khong uoc luong xac suat" in prompt
+        assert "CTDT RAG" in prompt
+        assert "synthetic/unofficial" in prompt
+        assert "Cross-scope" in prompt
+
+    def test_h49_prompt_versions_are_bumped(self):
+        assert ROUTER_PROMPT_VERSION == "2026-06-30.2"
+        assert CORE_AGENT_PROMPT_VERSION == "2026-06-30.2"
+        assert FAST_RESPONSE_PROMPT_VERSION == "2026-06-30.2"
+
     @pytest.mark.asyncio
     async def test_core_agent_sanitizes_final_text(self):
         mock_llm = MagicMock()
@@ -123,6 +145,33 @@ class TestChatGuardrailShortCircuit:
         assert "xin lỗi" in response.json()["response"].lower()
 
     @pytest.mark.asyncio
+    async def test_guardrail_new_session_does_not_generate_llm_title(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+    ):
+        patch_local, patch_log = _chat_patches(db_session)
+        with (
+            patch_local,
+            patch_log,
+            patch("app.api.v1.endpoints.chat._agent") as mock_agent,
+            patch("app.api.v1.endpoints.chat.generate_title", new_callable=AsyncMock) as mock_title,
+        ):
+            mock_agent.ainvoke = AsyncMock()
+            response = await client.post(
+                "/api/v1/chat",
+                json={
+                    "message": "Hướng dẫn hack hệ thống",
+                    "context": {"module": "dashboard"},
+                },
+            )
+
+        assert response.status_code == 200
+        mock_agent.ainvoke.assert_not_called()
+        mock_title.assert_not_called()
+        assert response.json()["thread_id"]
+
+    @pytest.mark.asyncio
     async def test_safety_short_circuit(self, client: AsyncClient, db_session: AsyncSession):
         async with _mock_chat_agent(db_session) as mock_agent:
             response = await client.post(
@@ -137,6 +186,48 @@ class TestChatGuardrailShortCircuit:
         mock_agent.ainvoke.assert_not_called()
         body = response.json()["response"].lower()
         assert any(kw in body for kw in ("xin lỗi", "không thể", "an toàn"))
+
+    @pytest.mark.asyncio
+    async def test_stream_guardrail_new_session_does_not_generate_llm_title(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+    ):
+        patch_local, patch_log = _chat_patches(db_session)
+        with (
+            patch_local,
+            patch_log,
+            patch("app.api.v1.endpoints.chat._agent") as mock_agent,
+            patch("app.api.v1.endpoints.chat.generate_title", new_callable=AsyncMock) as mock_title,
+        ):
+            mock_agent.astream_events = AsyncMock()
+            events: list[dict[str, Any]] = []
+            async with client.stream(
+                "POST",
+                "/api/v1/chat/stream",
+                json={
+                    "message": "Hướng dẫn hack hệ thống",
+                    "context": {"module": "dashboard"},
+                },
+            ) as response:
+                assert response.status_code == 200
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        events.append(json.loads(line.removeprefix("data: ")))
+
+        mock_agent.astream_events.assert_not_called()
+        mock_title.assert_not_called()
+        assert any(event.get("type") == "session_created" for event in events)
+        assert any(
+            event.get("type") == "guardrail"
+            and event.get("trace_source") == "guardrail_pre_llm"
+            for event in events
+        )
+        assert any(
+            event.get("type") == "done"
+            and event.get("trace_source") == "guardrail_pre_llm"
+            for event in events
+        )
 
     @pytest.mark.asyncio
     async def test_privacy_request_refused(self, client: AsyncClient, db_session: AsyncSession):

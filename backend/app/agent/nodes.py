@@ -33,6 +33,7 @@ from app.agent.tools import (
     execute_sql_query,
     get_student_dropout_risk,
     lookup_student_by_code,
+    set_agent_tool_context,
 )
 from app.config import get_settings
 from app.eval.token_accumulator import record_llm_from_ai_message
@@ -188,6 +189,7 @@ async def core_agent_node(state: AgentState) -> dict:
 
         messages = list(state.get("messages", []))
         page_context = state.get("context", {})
+        set_agent_tool_context(page_context)
         has_system = any(isinstance(message, SystemMessage) for message in messages)
         if not has_system:
             context_note = ""
