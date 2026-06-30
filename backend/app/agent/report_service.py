@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import time
+import unicodedata
 from datetime import UTC, datetime
 from inspect import isawaitable
 from typing import Any
@@ -1185,6 +1186,9 @@ def _build_report_discovery_question() -> str:
 
 
 def _normalized_text(value: str) -> str:
+    """Fold Vietnamese diacritics for stable keyword matching across NFC/NFD input."""
+    value = unicodedata.normalize("NFD", value)
+    value = "".join(ch for ch in value if unicodedata.category(ch) != "Mn")
     replacements = {
         "à": "a", "á": "a", "ạ": "a", "ả": "a", "ã": "a",
         "â": "a", "ầ": "a", "ấ": "a", "ậ": "a", "ẩ": "a", "ẫ": "a",

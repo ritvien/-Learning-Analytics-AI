@@ -19,6 +19,20 @@ os.environ["LLM_API_KEY"] = ""
 os.environ["OPENAI_API_KEY"] = ""
 os.environ["GEMINI_API_KEY"] = ""
 os.environ["GOOGLE_API_KEY"] = ""
+os.environ["LANGSMITH_TRACING"] = "false"
+os.environ["LANGSMITH_API_KEY"] = ""
+
+_TEST_ENV_KEYS = (
+    "APP_ENV",
+    "DEBUG",
+    "DATABASE_URL",
+    "LLM_API_KEY",
+    "OPENAI_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+    "LANGSMITH_TRACING",
+    "LANGSMITH_API_KEY",
+)
 
 from app.database import Base, get_db
 from app.dependencies import create_access_token, hash_password
@@ -27,6 +41,22 @@ from app.models.people import User, UserRole
 
 # In-memory SQLite — no external services needed in CI.
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+
+@pytest.fixture(autouse=True)
+def _clear_settings_cache() -> None:
+    """Ensure each test sees APP_ENV=test settings without a stale cached .env."""
+    from app.config import get_settings
+
+    for key in _TEST_ENV_KEYS:
+        if key in ("APP_ENV", "DEBUG", "DATABASE_URL"):
+            continue
+        os.environ[key] = ""
+    os.environ["APP_ENV"] = "test"
+    os.environ["DEBUG"] = "false"
+    os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+    os.environ["LANGSMITH_TRACING"] = "false"
+    get_settings.cache_clear()
 
 
 @pytest.fixture

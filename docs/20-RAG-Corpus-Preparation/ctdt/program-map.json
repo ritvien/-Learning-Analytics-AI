@@ -1,0 +1,275 @@
+{
+  "programs": [
+    {
+      "file_name": "10_ Ke toan.pdf",
+      "source_id": "7340301-ke toan",
+      "program_name": "Kế toán",
+      "program_code": "7340301",
+      "mvp": false
+    },
+    {
+      "file_name": "11_ Kiem toan.pdf",
+      "source_id": "7340302-kiem toan",
+      "program_name": "Kiểm toán",
+      "program_code": "7340302",
+      "mvp": false
+    },
+    {
+      "file_name": "12_ Ky thuat nhiet.pdf",
+      "source_id": "7520115-ky thuat nhiet",
+      "program_name": "Kỹ thuật nhiệt",
+      "program_code": "7520115",
+      "mvp": false
+    },
+    {
+      "file_name": "13_ Logistics va QL chuoi cung ung.pdf",
+      "source_id": "7510605-logistics va ql chuoi cung ung",
+      "program_name": "Logistics và quản lý chuỗi cung ứng",
+      "program_code": "7510605",
+      "mvp": false
+    },
+    {
+      "file_name": "14_ Quan ly cong nghiep.pdf",
+      "source_id": "7510601-quan ly cong nghiep",
+      "program_name": "Quản lý công nghiệp",
+      "program_code": "7510601",
+      "mvp": false
+    },
+    {
+      "file_name": "15_ Quan ly nang luong.pdf",
+      "source_id": "7510602-quan ly nang luong",
+      "program_name": "Quản lý năng lượng",
+      "program_code": "7510602",
+      "mvp": false
+    },
+    {
+      "file_name": "16_ Quan tri kinh doanh.pdf",
+      "source_id": "7340101-quan tri kinh doanh",
+      "program_name": "Quản trị kinh doanh",
+      "program_code": "7340101",
+      "mvp": false
+    },
+    {
+      "file_name": "17_ Tai chinh Ngan hang.pdf",
+      "source_id": "7340201-tai chinh ngan hang",
+      "program_name": "Tài chính - Ngân hàng",
+      "program_code": "7340201",
+      "mvp": false
+    },
+    {
+      "file_name": "18_ Thuong mai dien tu.pdf",
+      "source_id": "7340122-thuong mai dien tu",
+      "program_name": "Thương mại điện tử",
+      "program_code": "7340122",
+      "mvp": false
+    },
+    {
+      "file_name": "19_ Quan tri dich vu_lu hanh.pdf",
+      "source_id": "7810103-quan tri dich vu lu hanh",
+      "program_name": "Quản trị dịch vụ du lịch và lữ hành",
+      "program_code": "7810103",
+      "mvp": false
+    },
+    {
+      "file_name": "1_ CNKT Cong trinh Xay dung.pdf",
+      "source_id": "7510102-cnkt cong trinh xay dung",
+      "program_name": "Công nghệ kỹ thuật công trình xây dựng",
+      "program_code": "7510102",
+      "mvp": false
+    },
+    {
+      "file_name": "20_ Cong nghe ky thuat hat nhan.pdf",
+      "source_id": "7510407-cong nghe ky thuat hat nhan",
+      "program_name": "Công nghệ kỹ thuật hạt nhân",
+      "program_code": "7510407",
+      "mvp": false
+    },
+    {
+      "file_name": "21_ Ky thuat Robot.pdf",
+      "source_id": "7520107-ky thuat robot",
+      "program_name": "Kỹ thuật Robot",
+      "program_code": "7520107",
+      "mvp": false
+    },
+    {
+      "file_name": "22_ Khoa hoc du lieu.pdf",
+      "source_id": "7460108-khoa hoc du lieu",
+      "program_name": "Khoa học dữ liệu",
+      "program_code": "7460108",
+      "mvp": true
+    },
+    {
+      "file_name": "23_ Ky thuat may tinh.pdf",
+      "source_id": "7480106-ky thuat may tinh",
+      "program_name": "Kỹ thuật máy tính",
+      "program_code": "7480106",
+      "mvp": false
+    },
+    {
+      "file_name": "24_ CN ky thuat oto.pdf",
+      "source_id": "7510301-cn ky thuat oto",
+      "program_name": "Công nghệ kỹ thuật điện, điện tử",
+      "program_code": "7510301",
+      "mvp": false
+    },
+    {
+      "file_name": "25_ Quan tri khach san.pdf",
+      "source_id": "7810201-quan tri khach san",
+      "program_name": "Quản trị khách sạn",
+      "program_code": "7810201",
+      "mvp": false
+    },
+    {
+      "file_name": "26_ Marketing.pdf",
+      "source_id": "7340115-marketing",
+      "program_name": "Marketing",
+      "program_code": "7340115",
+      "mvp": false
+    },
+    {
+      "file_name": "28_ Luat kinh te.pdf",
+      "source_id": "7380107-luat kinh te",
+      "program_name": "Luật kinh tế",
+      "program_code": "7380107",
+      "mvp": false
+    },
+    {
+      "file_name": "29_ Toan tin.pdf",
+      "source_id": "7460117-toan tin",
+      "program_name": "Toán tin",
+      "program_code": "7460117",
+      "mvp": false
+    },
+    {
+      "file_name": "2_ CNKT Co dien tu.pdf",
+      "source_id": "7510203-cnkt co dien tu",
+      "program_name": "Công nghệ kỹ thuật cơ điện tử",
+      "program_code": "7510203",
+      "mvp": false
+    },
+    {
+      "file_name": "30_ Tri tue nhan tao.pdf",
+      "source_id": "7480107-tri tue nhan tao",
+      "program_name": "Trí tuệ nhân tạo",
+      "program_code": "7480107",
+      "mvp": true
+    },
+    {
+      "file_name": "31_ Ngon ngu Anh.pdf",
+      "source_id": "7220201-ngon ngu anh",
+      "program_name": "Ngôn ngữ Anh",
+      "program_code": "7220201",
+      "mvp": false
+    },
+    {
+      "file_name": "32_ CN vat lieu.pdf",
+      "source_id": "7510402-cn vat lieu",
+      "program_name": "Công nghệ vật liệu",
+      "program_code": "7510402",
+      "mvp": false
+    },
+    {
+      "file_name": "33_ Kinh doanh quoc te.pdf",
+      "source_id": "7340120-kinh doanh quoc te",
+      "program_name": "Kinh doanh quốc tế",
+      "program_code": "7340120",
+      "mvp": false
+    },
+    {
+      "file_name": "34_ Mang may tinh va truyen thong du lieu.pdf",
+      "source_id": "7480102-mang may tinh va truyen thong du lieu",
+      "program_name": "Mạng máy tính và truyền thông dữ liệu",
+      "program_code": "7480102",
+      "mvp": false
+    },
+    {
+      "file_name": "35_ Ky thuat cong nghiep.pdf",
+      "source_id": "7520117-ky thuat cong nghiep",
+      "program_name": "Kỹ thuật công nghiệp",
+      "program_code": "7520117",
+      "mvp": false
+    },
+    {
+      "file_name": "36_ Ky thuat he thong cong nghiep.pdf",
+      "source_id": "7520118-ky thuat he thong cong nghiep",
+      "program_name": "Kỹ thuật hệ thống công nghiệp",
+      "program_code": "7520118",
+      "mvp": false
+    },
+    {
+      "file_name": "37_ Vat ly ky thuat.pdf",
+      "source_id": "7520401-vat ly ky thuat",
+      "program_name": "Vật lý kỹ thuật",
+      "program_code": "7520401",
+      "mvp": false
+    },
+    {
+      "file_name": "38_ Quan ly xay dung.pdf",
+      "source_id": "38 quan ly xay dung pdf",
+      "program_name": "Quản lý xây dựng",
+      "program_code": "",
+      "mvp": false
+    },
+    {
+      "file_name": "3_ CNKT Co khi.pdf",
+      "source_id": "7510201-cnkt co khi",
+      "program_name": "Công nghệ kỹ thuật cơ khí",
+      "program_code": "7510201",
+      "mvp": false
+    },
+    {
+      "file_name": "415-QD ban hanh ban mo ta CTDT nganh CN tai chinh_0001_compressed.pdf",
+      "source_id": "7340205-415 qd ban hanh ban mo ta ctdt nganh cn tai chinh 0001 compressed",
+      "program_name": "Công nghệ tài chính",
+      "program_code": "7340205",
+      "mvp": false
+    },
+    {
+      "file_name": "4_ CNKT Dien tu - Vien thong.pdf",
+      "source_id": "7510302-cnkt dien tu vien thong",
+      "program_name": "Công nghệ kỹ thuật điện tử - viễn thông",
+      "program_code": "7510302",
+      "mvp": false
+    },
+    {
+      "file_name": "5_ CNKT Dien, Dien tu.pdf",
+      "source_id": "cnkt dien dien tu",
+      "program_name": "CNKT Dien, Dien tu",
+      "program_code": "",
+      "mvp": false
+    },
+    {
+      "file_name": "6_ CNKT Dieu khien_Tu dong hoa.pdf",
+      "source_id": "7510303-cnkt dieu khien tu dong hoa",
+      "program_name": "Công nghệ kỹ thuật điều khiển và tự động hoá",
+      "program_code": "7510303",
+      "mvp": false
+    },
+    {
+      "file_name": "7_ CNKT Moi truong.pdf",
+      "source_id": "7510406-cnkt moi truong",
+      "program_name": "Công nghệ kỹ thuật môi trường",
+      "program_code": "7510406",
+      "mvp": false
+    },
+    {
+      "file_name": "8_ CNKT Nang luong.pdf",
+      "source_id": "7510403-cnkt nang luong",
+      "program_name": "Công nghệ kỹ thuật năng lượng",
+      "program_code": "7510403",
+      "mvp": false
+    },
+    {
+      "file_name": "9_ Cong nghe thong tin.pdf",
+      "source_id": "7480201-cong nghe thong tin",
+      "program_name": "Công nghệ thông tin",
+      "program_code": "7480201",
+      "mvp": true
+    }
+  ],
+  "mvp_files": [
+    "22_ Khoa hoc du lieu.pdf",
+    "30_ Tri tue nhan tao.pdf",
+    "9_ Cong nghe thong tin.pdf"
+  ]
+}
