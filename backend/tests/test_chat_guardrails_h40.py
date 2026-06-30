@@ -73,9 +73,9 @@ class TestNodeOutputGuardrails:
         assert "Cross-scope" in prompt
 
     def test_h49_prompt_versions_are_bumped(self):
-        assert ROUTER_PROMPT_VERSION == "2026-06-30.2"
-        assert CORE_AGENT_PROMPT_VERSION == "2026-06-30.2"
-        assert FAST_RESPONSE_PROMPT_VERSION == "2026-06-30.2"
+        assert ROUTER_PROMPT_VERSION == "2026-07-01.1"
+        assert CORE_AGENT_PROMPT_VERSION == "2026-07-01.1"
+        assert FAST_RESPONSE_PROMPT_VERSION == "2026-07-01.1"
 
     @pytest.mark.asyncio
     async def test_core_agent_sanitizes_final_text(self, monkeypatch: pytest.MonkeyPatch):
