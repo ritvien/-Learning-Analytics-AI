@@ -30,6 +30,15 @@ from app.agent.errors import (
     stream_error_message,
 )
 from app.agent.guardrails import build_refusal, classify_input
+from app.agent.memory import (
+    build_deterministic_summary,
+    build_memory_context_note,
+    compact_history_for_agent,
+    extract_academic_focus,
+    extract_user_preferences,
+    load_long_term_memories,
+    save_long_term_memory,
+)
 from app.agent.nodes import get_model
 from app.agent.prompts import get_universal_agent_prompt_manifest
 from app.agent.route_decision import RouteDecision
@@ -368,7 +377,19 @@ async def chat(
             **obs_context,
         )
 
-        input_messages = _history_for_agent(history_msgs) + [HumanMessage(content=payload.message)]
+        # H64: compact history + load memory context
+        all_safe = _history_for_agent(history_msgs) + [HumanMessage(content=payload.message)]
+        input_messages = compact_history_for_agent(
+            all_safe, db_session.short_summary,
+        )
+        try:
+            lt_memories = await load_long_term_memories(db, str(current_user.id))
+        except Exception:
+            logger.warning("Failed to load long-term memories", exc_info=True)
+            lt_memories = []
+        memory_note = build_memory_context_note(db_session.short_summary, lt_memories)
+        if memory_note:
+            merged_context["memory_summary"] = memory_note
 
         # H59: build LangSmith tracing config (prompt versions seeded at startup)
         langsmith_config = _build_langsmith_config(
@@ -509,6 +530,23 @@ async def chat(
 
         # Lưu lại messages vào DB
         db_session.messages = messages_to_dict(messages)
+
+        # H64: update short_summary + save long-term memories
+        try:
+            db_session.short_summary = build_deterministic_summary(messages)
+            for focus in extract_academic_focus(messages[-4:]):
+                await save_long_term_memory(
+                    db, str(current_user.id),
+                    focus["type"], focus["key"], focus["value"],
+                )
+            for pref in extract_user_preferences(messages[-4:]):
+                await save_long_term_memory(
+                    db, str(current_user.id),
+                    pref["type"], pref["key"], pref["value"],
+                )
+        except Exception:
+            logger.warning("H64: failed to update memory", exc_info=True)
+
         await db.commit()
 
         elapsed_ms = int((time.perf_counter() - start) * 1000)
@@ -645,7 +683,20 @@ async def chat_stream(
                 **obs_context,
             )
 
-            input_messages = _history_for_agent(history_msgs) + [HumanMessage(content=payload.message)]
+            # H64: compact history + load memory context
+            all_safe = _history_for_agent(history_msgs) + [HumanMessage(content=payload.message)]
+            input_messages = compact_history_for_agent(
+                all_safe, db_session.short_summary,
+            )
+            try:
+                lt_memories = await load_long_term_memories(db, str(current_user.id))
+            except Exception:
+                logger.warning("Failed to load long-term memories (stream)", exc_info=True)
+                lt_memories = []
+            memory_note = build_memory_context_note(db_session.short_summary, lt_memories)
+            if memory_note:
+                merged_context["memory_summary"] = memory_note
+
             final_state_messages = []
             tool_call_ids: dict[str, str] = {}
             tool_count = 0
@@ -783,6 +834,21 @@ async def chat_stream(
                 # Update DB after streaming finishes
                 if final_state_messages:
                     db_session.messages = messages_to_dict(final_state_messages)
+                    # H64: update short_summary + save long-term memories
+                    try:
+                        db_session.short_summary = build_deterministic_summary(final_state_messages)
+                        for focus in extract_academic_focus(final_state_messages[-4:]):
+                            await save_long_term_memory(
+                                db, str(current_user.id),
+                                focus["type"], focus["key"], focus["value"],
+                            )
+                        for pref in extract_user_preferences(final_state_messages[-4:]):
+                            await save_long_term_memory(
+                                db, str(current_user.id),
+                                pref["type"], pref["key"], pref["value"],
+                            )
+                    except Exception:
+                        logger.warning("H64: failed to update memory (stream)", exc_info=True)
                     await db.commit()
 
             except MissingLLMCredentialsError as exc:
