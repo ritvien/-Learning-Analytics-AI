@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { AlertTriangle, ArrowRight, CheckCircle2, GraduationCap, Search, Trash2, UserRound, Users } from "lucide-react"
+import { AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, ChevronUp, ClipboardCheck, GraduationCap, Mail, Search, Sparkles, Trash2, UserRound, Users } from "lucide-react"
 import {
   Bar,
   BarChart,
@@ -28,9 +28,12 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   api,
+  type ApiCampaignDeliveryStatus,
   type ApiHomeroomAssignment,
   type ApiHomeroomClassDetail,
   type ApiHomeroomClassSummary,
+  type ApiInterventionCampaign,
+  type ApiInterventionScopeSummary,
   type ApiStudent,
   type ApiTeacher,
   type ApiUser,
@@ -40,6 +43,15 @@ function riskBadge(level: "high" | "watch" | "normal") {
   if (level === "high") return <Badge variant="destructive">Cần ưu tiên</Badge>
   if (level === "watch") return <Badge className="border-orange-500/40 bg-orange-500/10 text-orange-600" variant="outline">Theo dõi</Badge>
   return <Badge className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600" variant="outline">Ổn định</Badge>
+}
+
+function messageStatusBadge(status: string) {
+  if (status === "sent") return <Badge className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700" variant="outline">Đã gửi</Badge>
+  if (status === "queued") return <Badge className="border-amber-500/40 bg-amber-500/10 text-amber-700" variant="outline">Chờ SMTP</Badge>
+  if (status === "approved") return <Badge variant="secondary">Đã duyệt</Badge>
+  if (status === "failed") return <Badge variant="destructive">Lỗi</Badge>
+  if (status === "cancelled") return <Badge variant="outline">Đã hủy</Badge>
+  return <Badge variant="outline">Nháp</Badge>
 }
 
 export default function HomeroomAnalyticsPage() {
@@ -58,6 +70,16 @@ export default function HomeroomAnalyticsPage() {
   const [studentQuery, setStudentQuery] = React.useState("")
   const [riskFilter, setRiskFilter] = React.useState<"all" | "high" | "watch" | "normal">("all")
   const [selectedWeakCourse, setSelectedWeakCourse] = React.useState<number | null>(null)
+  const [agentOpen, setAgentOpen] = React.useState(false)
+  const [agentLoading, setAgentLoading] = React.useState(false)
+  const [agentSummary, setAgentSummary] = React.useState<ApiInterventionScopeSummary | null>(null)
+  const [agentError, setAgentError] = React.useState("")
+  const [bulkLoading, setBulkLoading] = React.useState(false)
+  const [campaignResult, setCampaignResult] = React.useState<ApiInterventionCampaign | null>(null)
+  const [mailDraftLoading, setMailDraftLoading] = React.useState(false)
+  const [campaign, setCampaign] = React.useState<ApiInterventionCampaign | null>(null)
+  const [savingMessageId, setSavingMessageId] = React.useState<number | null>(null)
+  const [deliveryStatus, setDeliveryStatus] = React.useState<ApiCampaignDeliveryStatus | null>(null)
 
   const canManage = currentUser?.role === "superadmin" || currentUser?.role === "admin" || currentUser?.role === "manager"
 
@@ -86,6 +108,9 @@ export default function HomeroomAnalyticsPage() {
     refresh()
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Không tải được dữ liệu lớp chủ nhiệm."))
       .finally(() => setLoading(false))
+    api.getInterventionCampaignDeliveryStatus()
+      .then(setDeliveryStatus)
+      .catch(() => setDeliveryStatus(null))
   }, [refresh])
 
   React.useEffect(() => {
@@ -97,6 +122,14 @@ export default function HomeroomAnalyticsPage() {
       setDetail(null)
       setError(err instanceof Error ? err.message : "Không tải được lớp chủ nhiệm.")
     })
+  }, [selectedClass])
+
+  React.useEffect(() => {
+    setAgentOpen(false)
+    setAgentSummary(null)
+    setAgentError("")
+    setCampaign(null)
+    setCampaignResult(null)
   }, [selectedClass])
 
   const availableClassCodes = React.useMemo(
@@ -138,8 +171,109 @@ export default function HomeroomAnalyticsPage() {
       fill: student.risk_level === "high" ? "#ef4444" : student.risk_level === "watch" ? "#f59e0b" : "#10b981",
     })), [detail])
 
+  function getClassCampaignStudentIds(summary: ApiInterventionScopeSummary | null) {
+    const priorityIds = summary?.priority_students.map((student) => student.student_id) ?? []
+    if (priorityIds.length) return priorityIds
+    return (detail?.students ?? [])
+      .filter((student) => student.risk_level !== "normal")
+      .map((student) => student.id)
+      .slice(0, 20)
+  }
+
   const openStudent = (studentId: number) => {
     router.push(`/manager/analytics/students/${studentId}`)
+  }
+
+  async function runClassAgent() {
+    if (!selectedClass) return
+    setAgentOpen(true)
+    setAgentLoading(true)
+    setAgentError("")
+    setCampaignResult(null)
+    setCampaign(null)
+    try {
+      const summary = await api.summarizeInterventionScope({ scope_type: "homeroom", class_code: selectedClass })
+      setAgentSummary(summary)
+    } catch (err) {
+      setAgentSummary(null)
+      setAgentError(err instanceof Error ? err.message : "Không chạy được Agent hỗ trợ lớp cố vấn.")
+    } finally {
+      setAgentLoading(false)
+    }
+  }
+
+  async function createBulkNotifications() {
+    if (!campaign) return
+    setBulkLoading(true)
+    setAgentError("")
+    try {
+      await api.approveInterventionCampaign(campaign.id)
+      const result = await api.finalizeInterventionCampaign(campaign.id)
+      setCampaign(result)
+      setCampaignResult(result)
+    } catch (err) {
+      setAgentError(err instanceof Error ? err.message : "Không gửi được email campaign hỗ trợ học tập.")
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
+  async function buildBulkEmails(summaryOverride: ApiInterventionScopeSummary | null = agentSummary) {
+    if (!selectedClass) return
+    let summary = summaryOverride
+    setMailDraftLoading(true)
+    setAgentError("")
+    setCampaignResult(null)
+    try {
+      setAgentOpen(true)
+      if (!summary) {
+        summary = await api.summarizeInterventionScope({ scope_type: "homeroom", class_code: selectedClass })
+        setAgentSummary(summary)
+      }
+      const studentIds = getClassCampaignStudentIds(summary)
+      const created = await api.createInterventionCampaign({
+        scope_type: "homeroom",
+        class_code: selectedClass,
+        student_ids: studentIds.length ? studentIds : null,
+        title: `Campaign hỗ trợ học tập - ${selectedClass}`,
+        objective: "advisor_checkin",
+        max_students: 20,
+      })
+      const result = await api.generateInterventionCampaignDrafts(created.id, {
+        student_ids: studentIds.length ? studentIds : null,
+        channel: "email",
+        subject: `Hỗ trợ học tập lớp ${selectedClass}`,
+        max_students: 20,
+      })
+      setCampaign(result)
+    } catch (err) {
+      setAgentError(err instanceof Error ? err.message : "Không tạo được email nháp cho campaign.")
+    } finally {
+      setMailDraftLoading(false)
+    }
+  }
+
+  async function saveCampaignMessage(messageId: number) {
+    const draft = campaign?.messages.find((message) => message.id === messageId)
+    if (!draft) return
+    setSavingMessageId(messageId)
+    setAgentError("")
+    try {
+      const updated = await api.updateInterventionCampaignMessage(messageId, {
+        recipient_email: draft.recipient_email,
+        subject: draft.subject,
+        body: draft.body,
+        status: draft.status === "failed" && draft.recipient_email ? "drafted" : undefined,
+      })
+      setCampaign((current) => current ? {
+        ...current,
+        messages: current.messages.map((message) => message.id === messageId ? updated : message),
+      } : current)
+    } catch (err) {
+      setAgentError(err instanceof Error ? err.message : "Không lưu được chỉnh sửa email nháp.")
+    } finally {
+      setSavingMessageId(null)
+    }
   }
 
   async function assignClass() {
@@ -257,6 +391,287 @@ export default function HomeroomAnalyticsPage() {
 
           {detail ? (
             <>
+              <Card className="border-primary/20">
+                <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-semibold">Campaign can thiệp học tập cho lớp {detail.class_code}</p>
+                    <p className="text-sm text-muted-foreground">Xác định nhóm cần hỗ trợ, tạo email cá nhân hóa, rồi giảng viên duyệt gửi cho sinh viên.</p>
+                    {deliveryStatus ? (
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                        <Badge className={deliveryStatus.configured ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700" : "border-amber-500/40 bg-amber-500/10 text-amber-700"} variant="outline">
+                          {deliveryStatus.configured ? "SMTP Brevo sẵn sàng" : "Chưa cấu hình SMTP"}
+                        </Badge>
+                        <span className="text-muted-foreground">
+                          {deliveryStatus.configured
+                            ? `Gửi từ ${deliveryStatus.from_email} qua ${deliveryStatus.smtp_host}:${deliveryStatus.smtp_port}`
+                            : `Thiếu: ${deliveryStatus.missing.join(", ") || "cấu hình mail"}`}
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={runClassAgent} disabled={agentLoading}>
+                      <Sparkles className="mr-2 h-4 w-4" />{agentLoading ? "Đang phân tích..." : "Phân tích can thiệp"}
+                    </Button>
+                    <Button onClick={() => void buildBulkEmails()} disabled={mailDraftLoading}>
+                      <Mail className="mr-2 h-4 w-4" />{mailDraftLoading ? "Đang tạo..." : "Tạo nháp email"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {(agentOpen || agentSummary || campaign || agentLoading || mailDraftLoading || agentError || campaignResult) ? (
+                <section className="grid gap-4 rounded-lg border bg-muted/10 p-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-base font-semibold">Không gian can thiệp lớp {detail.class_code}</h2>
+                        {campaign ? <Badge variant="secondary">Campaign #{campaign.id}</Badge> : null}
+                        {campaign ? <Badge variant={campaign.messages.some((message) => message.status === "failed") ? "destructive" : "outline"}>{campaign.messages.filter((message) => !["failed", "queued"].includes(message.status)).length}/{campaign.messages.length} email sẵn sàng gửi</Badge> : null}
+                        {deliveryStatus?.configured ? <Badge className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700" variant="outline">SMTP sẵn sàng</Badge> : <Badge className="border-amber-500/40 bg-amber-500/10 text-amber-700" variant="outline">Chưa có SMTP</Badge>}
+                        {campaign?.messages.some((message) => message.status === "sent") ? <Badge className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700" variant="outline">{campaign.messages.filter((message) => message.status === "sent").length} đã gửi</Badge> : null}
+                        {campaign?.messages.some((message) => message.status === "queued") ? <Badge className="border-amber-500/40 bg-amber-500/10 text-amber-700" variant="outline">{campaign.messages.filter((message) => message.status === "queued").length} chờ SMTP</Badge> : null}
+                      </div>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Quy trình: Agent gợi ý nhóm ưu tiên, hệ thống tạo email nháp, giảng viên chỉnh sửa rồi gửi email. Mỗi lần gửi đều lưu vào lịch sử hỗ trợ.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {(agentSummary || campaign || agentError || campaignResult) ? (
+                        <Button variant="outline" size="sm" onClick={() => setAgentOpen((current) => !current)}>
+                          {agentOpen ? <ChevronUp className="mr-2 h-4 w-4" /> : <ChevronDown className="mr-2 h-4 w-4" />}
+                          {agentOpen ? "Thu gọn" : "Mở chi tiết"}
+                        </Button>
+                      ) : null}
+                      <Button variant="outline" size="sm" onClick={runClassAgent} disabled={agentLoading}>
+                        <Sparkles className="mr-2 h-4 w-4" />{agentLoading ? "Đang phân tích..." : "Chạy lại phân tích"}
+                      </Button>
+                      <Button size="sm" onClick={() => void buildBulkEmails()} disabled={mailDraftLoading}>
+                        <Mail className="mr-2 h-4 w-4" />{mailDraftLoading ? "Đang tạo..." : campaign ? "Tạo lại email nháp" : "Tạo email nháp"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={createBulkNotifications}
+                        disabled={bulkLoading || !campaign || campaign.messages.length === 0 || campaign.messages.every((message) => message.status === "failed")}
+                      >
+                        <ClipboardCheck className="mr-2 h-4 w-4" />{bulkLoading ? "Đang gửi..." : "Gửi email"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {!agentOpen && (agentSummary || campaign || campaignResult || agentError) ? (
+                    <button
+                      type="button"
+                      className="grid gap-3 rounded-md border bg-background p-4 text-left transition-colors hover:bg-primary/5 md:grid-cols-[1fr_auto]"
+                      onClick={() => setAgentOpen(true)}
+                    >
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        {agentSummary ? <Badge variant="outline">{agentSummary.summary.high} ưu tiên</Badge> : null}
+                        {agentSummary ? <Badge variant="outline">{agentSummary.summary.watch} theo dõi</Badge> : null}
+                        {campaign ? <Badge variant="secondary">{campaign.messages.length} email nháp</Badge> : null}
+                        {campaignResult?.delivery_mode === "smtp" ? <Badge className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700" variant="outline">Đã gửi email</Badge> : null}
+                        {campaignResult?.delivery_mode === "smtp_not_configured" ? <Badge className="border-amber-500/40 bg-amber-500/10 text-amber-700" variant="outline">Chưa cấu hình SMTP</Badge> : null}
+                        {agentError ? <Badge variant="destructive">Có lỗi cần xem</Badge> : null}
+                      </div>
+                      <span className="flex items-center justify-end text-sm font-medium text-primary">
+                        Mở workspace <ChevronDown className="ml-2 h-4 w-4" />
+                      </span>
+                    </button>
+                  ) : null}
+
+                  {agentOpen ? (
+                    <>
+                  {agentLoading ? (
+                    <div className="rounded-md border bg-background p-6 text-center text-sm text-muted-foreground">Agent đang tổng hợp cảnh báo, lịch sử liên hệ và nguyên nhân học tập...</div>
+                  ) : null}
+
+                  {agentError ? (
+                    <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{agentError}</div>
+                  ) : null}
+
+                  {campaignResult ? (
+                    <div className={`rounded-md border p-3 text-sm ${campaignResult.delivery_mode === "smtp" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700" : "border-amber-500/30 bg-amber-500/10 text-amber-700"}`}>
+                      <p className="font-medium">{campaignResult.message ?? "Đã xử lý campaign hỗ trợ học tập."}</p>
+                      <p className="mt-1">
+                        Đã lưu {campaignResult.created_contact_count ?? 0} liên hệ vào hồ sơ sinh viên
+                        {campaignResult.sent_count !== undefined ? ` · ${campaignResult.sent_count} email đã gửi` : ""}
+                        {campaignResult.queued_count ? ` · ${campaignResult.queued_count} email chờ cấu hình SMTP` : ""}
+                        {campaignResult.failed_count ? ` · ${campaignResult.failed_count} lỗi` : ""}.
+                      </p>
+                    </div>
+                  ) : null}
+
+                  <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
+                    <div className="space-y-4">
+                      <div className="rounded-md border bg-background p-4">
+                        <p className="text-xs font-semibold uppercase text-muted-foreground">Mức ưu tiên</p>
+                        {agentSummary ? (
+                          <div className="mt-3 grid grid-cols-2 gap-3">
+                            {[
+                              ["Tổng SV", agentSummary.summary.total],
+                              ["Ưu tiên", agentSummary.summary.high],
+                              ["Theo dõi", agentSummary.summary.watch],
+                              ["Đã liên hệ", agentSummary.summary.contacted],
+                            ].map(([label, value]) => (
+                              <div key={label} className="rounded-md bg-muted/40 p-3">
+                                <p className="text-xs text-muted-foreground">{label}</p>
+                                <p className="mt-1 text-2xl font-bold tabular-nums">{value}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-3 text-sm text-muted-foreground">Bấm “Phân tích can thiệp” để Agent gom nhóm sinh viên cần hỗ trợ.</p>
+                        )}
+                      </div>
+
+                      <div className="rounded-md border bg-background p-4">
+                        <p className="text-xs font-semibold uppercase text-muted-foreground">Sinh viên ưu tiên</p>
+                        {agentSummary?.priority_students.length ? (
+                          <div className="mt-3 space-y-2">
+                            {agentSummary.priority_students.slice(0, 6).map((student) => (
+                              <button
+                                key={student.student_id}
+                                type="button"
+                                className="w-full rounded-md border p-3 text-left transition-colors hover:bg-primary/5"
+                                onClick={() => openStudent(student.student_id)}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-medium">{student.full_name}</p>
+                                    <p className="font-mono text-[11px] text-muted-foreground">{student.student_code}</p>
+                                  </div>
+                                  <Badge variant={student.risk_level === "high" ? "destructive" : "outline"}>{student.risk_score}</Badge>
+                                </div>
+                                <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{student.reasons.join("; ") || "Theo dõi định kỳ"}</p>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-3 text-sm text-muted-foreground">Chưa có danh sách ưu tiên. Nếu tạo email ngay, backend sẽ tự chọn nhóm high/watch theo rule hiện có.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {agentSummary ? (
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          <div className="rounded-md border bg-background p-4">
+                            <p className="text-xs font-semibold uppercase text-muted-foreground">Nhóm nguyên nhân</p>
+                            <div className="mt-3 space-y-2">
+                              {Object.entries(agentSummary.reason_groups).length ? Object.entries(agentSummary.reason_groups).map(([reason, count]) => (
+                                <div key={reason} className="flex items-center justify-between gap-3 text-sm">
+                                  <span>{reason}</span>
+                                  <Badge variant="secondary">{count}</Badge>
+                                </div>
+                              )) : <p className="text-sm text-muted-foreground">Không có nhóm cảnh báo nổi bật.</p>}
+                            </div>
+                          </div>
+                          <div className="rounded-md border bg-background p-4">
+                            <p className="text-xs font-semibold uppercase text-muted-foreground">Kế hoạch đề xuất</p>
+                            <ol className="mt-3 space-y-2 text-sm">
+                              {agentSummary.recommendations.map((item, index) => (
+                                <li key={item} className="flex gap-2">
+                                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">{index + 1}</span>
+                                  <span>{item}</span>
+                                </li>
+                              ))}
+                            </ol>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {campaign ? (
+                        <div className="rounded-md border bg-background">
+                          <div className="flex flex-col gap-2 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className="font-medium">{campaign.title}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {campaign.messages.length} email nháp · {campaign.messages.filter((message) => message.status === "failed").length} cần bổ sung dữ liệu
+                              </p>
+                            </div>
+                          </div>
+                          {campaign.messages.length ? (
+                            <div className="max-h-[620px] divide-y overflow-auto">
+                              {campaign.messages.map((draft) => {
+                                const reasons = Array.isArray(draft.metadata_json.reasons) ? draft.metadata_json.reasons.map(String) : []
+                                const actions = Array.isArray(draft.metadata_json.recommended_actions) ? draft.metadata_json.recommended_actions.map(String) : []
+                                return (
+                                  <div key={draft.id} className="grid gap-3 p-4 text-sm 2xl:grid-cols-[280px_minmax(0,1fr)]">
+                                    <div className="space-y-3">
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                          <p className="font-medium">{draft.full_name ?? "Sinh viên"}</p>
+                                          <p className="font-mono text-[11px] text-muted-foreground">{draft.student_code}</p>
+                                          <p className="mt-1 text-xs text-muted-foreground">To: {draft.recipient_email ?? "Thiếu email"}</p>
+                                        </div>
+                                        {messageStatusBadge(draft.status)}
+                                      </div>
+                                      <div className="space-y-2 rounded-md bg-muted/30 p-3 text-xs">
+                                        <p className="font-semibold text-foreground">Vấn đề cần hỗ trợ</p>
+                                        {reasons.length ? reasons.slice(0, 4).map((reason) => <p key={reason}>- {reason}</p>) : <p className="text-muted-foreground">Check-in định kỳ, chưa có cảnh báo cụ thể.</p>}
+                                        {actions.length ? (
+                                          <>
+                                            <p className="pt-1 font-semibold text-foreground">Gợi ý can thiệp</p>
+                                            {actions.slice(0, 3).map((action) => <p key={action}>- {action}</p>)}
+                                          </>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                      {draft.error_message ? <p className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">{draft.error_message}</p> : null}
+                                      {draft.status === "queued" ? <p className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-700">Email này đã được duyệt và lưu lịch sử, nhưng chưa gửi thật vì hệ thống chưa cấu hình SMTP.</p> : null}
+                                      {draft.status === "sent" ? <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2 text-xs text-emerald-700">Email đã gửi tới sinh viên{draft.sent_at ? ` lúc ${new Date(draft.sent_at).toLocaleString("vi-VN")}` : ""}.</p> : null}
+                                      <input
+                                        className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                                        value={draft.recipient_email ?? ""}
+                                        onChange={(event) => setCampaign((current) => current ? {
+                                          ...current,
+                                          messages: current.messages.map((message) => message.id === draft.id ? { ...message, recipient_email: event.target.value } : message),
+                                        } : current)}
+                                        placeholder="Email sinh viên"
+                                      />
+                                      <input
+                                        className="w-full rounded-md border bg-background px-3 py-2 text-sm font-medium"
+                                        value={draft.subject ?? ""}
+                                        onChange={(event) => setCampaign((current) => current ? {
+                                          ...current,
+                                          messages: current.messages.map((message) => message.id === draft.id ? { ...message, subject: event.target.value } : message),
+                                        } : current)}
+                                        placeholder="Tiêu đề email"
+                                      />
+                                      <textarea
+                                        className="min-h-36 w-full resize-y rounded-md border bg-background px-3 py-2 text-xs leading-relaxed"
+                                        value={draft.body ?? ""}
+                                        onChange={(event) => setCampaign((current) => current ? {
+                                          ...current,
+                                          messages: current.messages.map((message) => message.id === draft.id ? { ...message, body: event.target.value } : message),
+                                        } : current)}
+                                        placeholder="Nội dung email nháp"
+                                      />
+                                      <div className="flex justify-end">
+                                        <Button size="sm" variant="outline" onClick={() => void saveCampaignMessage(draft.id)} disabled={savingMessageId === draft.id}>
+                                          {savingMessageId === draft.id ? "Đang lưu..." : "Lưu chỉnh sửa"}
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          ) : (
+                            <div className="p-6 text-sm text-muted-foreground">
+                              Chưa tạo được email nháp cho lớp này. Hệ thống không tìm thấy sinh viên thuộc nhóm high/watch hoặc dữ liệu cảnh báo chưa đủ.
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                    </>
+                  ) : null}
+                </section>
+              ) : null}
+
               <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
                 {[
                   { label: "Sinh viên", value: detail.student_count, icon: Users },
@@ -455,6 +870,7 @@ export default function HomeroomAnalyticsPage() {
           ) : null}
         </>
       )}
+
     </div>
   )
 }

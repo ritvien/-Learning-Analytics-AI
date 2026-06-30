@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
-import { ArrowUpDown, KeyRound, Pencil, Plus, Trash2, BookOpen, GraduationCap } from "lucide-react"
+import { ArrowUpDown, KeyRound, Pencil, Plus, Trash2, BookOpen, GraduationCap, Users } from "lucide-react"
 
 const ACTIVE_STATUS: Teacher["trangThai"] = "Đang công tác"
 const INACTIVE_STATUS: Teacher["trangThai"] = "Đã nghỉ"
@@ -28,6 +28,8 @@ type TeacherRow = Teacher & {
   accountRole?: string | null
   accountActive?: boolean | null
 }
+
+type DataCoverageFilter = "all" | "ready" | "missing-section" | "missing-homeroom" | "missing-account"
 
 function nullable(value: FormDataEntryValue | null) {
   const text = String(value ?? "").trim()
@@ -92,6 +94,8 @@ export default function TeachersPage() {
   const [accountTarget, setAccountTarget] = React.useState<TeacherRow | null>(null)
   const [assignTarget, setAssignTarget] = React.useState<TeacherRow | null>(null)
   const [homeroomTarget, setHomeroomTarget] = React.useState<TeacherRow | null>(null)
+  const [departmentFilter, setDepartmentFilter] = React.useState("all")
+  const [coverageFilter, setCoverageFilter] = React.useState<DataCoverageFilter>("all")
   const [isCreateOpen, setIsCreateOpen] = React.useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = React.useState(false)
   const [userRole] = React.useState<string | null>(() => {
@@ -142,6 +146,30 @@ export default function TeachersPage() {
   }, [loadTeachers])
 
   const canCreateTeacher = departments.length > 0
+
+  const getTeacherHomerooms = React.useCallback(
+    (teacherId: string | number) => homeroomAssignments.filter(item => item.teacher_id === Number(teacherId)),
+    [homeroomAssignments],
+  )
+
+  const summary = React.useMemo(() => {
+    const withSections = teachers.filter((teacher) => teacher.sectionCount > 0).length
+    const withHomeroom = teachers.filter((teacher) => getTeacherHomerooms(teacher.id).length > 0).length
+    const withAccount = teachers.filter((teacher) => Boolean(teacher.userId)).length
+    return { withSections, withHomeroom, withAccount }
+  }, [teachers, getTeacherHomerooms])
+
+  const filteredTeachers = React.useMemo(() => {
+    return teachers.filter((teacher) => {
+      if (departmentFilter !== "all" && String(teacher.departmentId) !== departmentFilter) return false
+      const homeroomCount = getTeacherHomerooms(teacher.id).length
+      if (coverageFilter === "ready") return teacher.sectionCount > 0 && homeroomCount > 0 && Boolean(teacher.userId)
+      if (coverageFilter === "missing-section") return teacher.sectionCount === 0
+      if (coverageFilter === "missing-homeroom") return homeroomCount === 0
+      if (coverageFilter === "missing-account") return !teacher.userId
+      return true
+    })
+  }, [teachers, departmentFilter, coverageFilter, getTeacherHomerooms])
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -225,25 +253,35 @@ export default function TeachersPage() {
   }
 
   const columns: ColumnDef<TeacherRow>[] = [
-    { accessorKey: "maGV", header: "Mã GV" },
     {
       accessorKey: "hoTen",
       header: ({ column }) => (
         <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Họ tên <ArrowUpDown className="ml-2 h-4 w-4" />
+          Giảng viên <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
-      cell: ({ row }) => <span className="font-medium">{row.getValue("hoTen")}</span>,
+      cell: ({ row }) => (
+        <div className="min-w-[220px]">
+          <div className="font-medium">{row.original.hoTen}</div>
+          <div className="text-xs text-muted-foreground">{row.original.maGV} · {row.original.email || "Chưa có email"}</div>
+        </div>
+      ),
     },
-    { accessorKey: "email", header: "Email" },
-    { accessorKey: "soDienThoai", header: "SĐT" },
-    { accessorKey: "khoaQuanLy", header: "Khoa" },
-    { accessorKey: "chucVu", header: "Chức vụ" },
+    {
+      accessorKey: "khoaQuanLy",
+      header: "Khoa / chuyên môn",
+      cell: ({ row }) => (
+        <div className="max-w-[260px]">
+          <div className="truncate font-medium" title={row.original.khoaQuanLy}>{row.original.khoaQuanLy}</div>
+          <div className="truncate text-xs text-muted-foreground" title={row.original.chucVu}>{row.original.chucVu}</div>
+        </div>
+      ),
+    },
     {
       accessorKey: "sectionCount",
-      header: "Số lớp phụ trách",
+      header: "Môn dạy",
       cell: ({ row }) => (
-        <Badge variant="outline">
+        <Badge variant={row.original.sectionCount > 0 ? "default" : "secondary"}>
           {row.original.sectionCount} lớp
         </Badge>
       ),
@@ -252,8 +290,13 @@ export default function TeachersPage() {
       id: "homeroomCount",
       header: "Lớp chủ nhiệm",
       cell: ({ row }) => {
-        const assigned = homeroomAssignments.filter(item => item.teacher_id === Number(row.original.id))
-        return <Badge variant="outline">{assigned.length ? assigned.map(item => item.class_code).join(", ") : "Chưa giao"}</Badge>
+        const assigned = getTeacherHomerooms(row.original.id)
+        const labels = assigned.map(item => item.class_code)
+        return (
+          <Badge variant={assigned.length ? "default" : "secondary"} title={labels.join(", ")}>
+            {assigned.length ? `${assigned.length} lớp` : "Chưa giao"}
+          </Badge>
+        )
       },
     },
     {
@@ -271,14 +314,6 @@ export default function TeachersPage() {
           return <Badge variant="destructive">Đã khóa</Badge>
         }
         return <Badge variant="default">Lecturer active</Badge>
-      },
-    },
-    {
-      accessorKey: "trangThai",
-      header: "Trạng thái",
-      cell: ({ row }) => {
-        const status = row.getValue("trangThai") as string
-        return <Badge variant={status === ACTIVE_STATUS ? "default" : "secondary"}>{status}</Badge>
       },
     },
     ...(hasWriteAccess ? [{
@@ -348,7 +383,66 @@ export default function TeachersPage() {
         </div>
       )}
 
-      <DataTable columns={columns} data={teachers} searchKey="hoTen" searchPlaceholder="Tìm theo tên GV..." />
+      <div className="grid gap-3 md:grid-cols-4">
+        <div className="rounded-md border p-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground"><Users className="h-4 w-4" /> Tổng</div>
+          <div className="mt-1 text-2xl font-semibold">{teachers.length}</div>
+        </div>
+        <div className="rounded-md border p-3">
+          <div className="text-sm text-muted-foreground">Có môn dạy</div>
+          <div className="mt-1 text-2xl font-semibold">{summary.withSections}</div>
+        </div>
+        <div className="rounded-md border p-3">
+          <div className="text-sm text-muted-foreground">Có chủ nhiệm</div>
+          <div className="mt-1 text-2xl font-semibold">{summary.withHomeroom}</div>
+        </div>
+        <div className="rounded-md border p-3">
+          <div className="text-sm text-muted-foreground">Có tài khoản</div>
+          <div className="mt-1 text-2xl font-semibold">{summary.withAccount}</div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 rounded-md border p-3 md:grid-cols-[minmax(220px,1fr)_220px_auto] md:items-end">
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold">Khoa</Label>
+          <Select value={departmentFilter} onValueChange={(value) => setDepartmentFilter(value ?? "all")}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="Tất cả khoa" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả khoa</SelectItem>
+              {departments.map((department) => (
+                <SelectItem key={department.id} value={String(department.id)}>
+                  {department.code} - {department.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold">Tình trạng dữ liệu</Label>
+          <Select value={coverageFilter} onValueChange={(value) => setCoverageFilter((value ?? "all") as DataCoverageFilter)}>
+            <SelectTrigger><SelectValue placeholder="Tất cả" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="ready">Đủ môn + chủ nhiệm</SelectItem>
+              <SelectItem value="missing-section">Thiếu môn dạy</SelectItem>
+              <SelectItem value="missing-homeroom">Thiếu chủ nhiệm</SelectItem>
+              <SelectItem value="missing-account">Thiếu tài khoản</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            setDepartmentFilter("all")
+            setCoverageFilter("all")
+          }}
+        >
+          Xóa lọc
+        </Button>
+      </div>
+
+      <DataTable columns={columns} data={filteredTeachers} searchKey="hoTen" searchPlaceholder="Tìm theo tên GV..." />
 
       <Dialog open={!!editTeacher} onOpenChange={(open) => { if (!open) setEditTeacher(null) }}>
         <DialogContent className="sm:max-w-[520px]">
@@ -885,7 +979,9 @@ function TeacherForm({ departments, teacher }: { departments: ApiDepartment[]; t
             <SelectTrigger><SelectValue placeholder="Chọn khoa quản lý" /></SelectTrigger>
             <SelectContent>
               {departments.map((department) => (
-                <SelectItem key={department.id} value={String(department.id)}>{department.name}</SelectItem>
+                <SelectItem key={department.id} value={String(department.id)}>
+                  {department.code} - {department.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>

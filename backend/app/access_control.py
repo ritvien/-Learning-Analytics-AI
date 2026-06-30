@@ -12,11 +12,27 @@ from app.models.report import Report, ReportSchedule
 from app.models.teaching import Enrollment, Section
 
 ADMIN_ROLES = {UserRole.superadmin, UserRole.admin}
+REPORT_SCOPE_TYPES = {
+    "school_overview": "school",
+    "department_health": "department",
+    "program_health": "program",
+    "course_health": "course",
+    "section_intervention": "section",
+}
 
 
 def is_admin(user: User) -> bool:
     """Return True for full-access roles."""
     return user.role in ADMIN_ROLES
+
+
+def _parse_scope_id(scope_id: str | None) -> int | None:
+    if scope_id is None:
+        return None
+    try:
+        return int(scope_id)
+    except ValueError:
+        return None
 
 
 async def get_teacher_for_user(db: AsyncSession, user: User) -> Teacher | None:
@@ -174,32 +190,37 @@ async def can_view_report_scope(
     db: AsyncSession, user: User, report_type: str, scope_type: str | None, scope_id: str | None
 ) -> bool:
     """Check whether the user can read a report with the given scope."""
+    expected_scope_type = REPORT_SCOPE_TYPES.get(report_type)
+    if expected_scope_type is None:
+        return False
+    if scope_type is not None and scope_type != expected_scope_type:
+        return False
+    scope_type = expected_scope_type
+    if scope_type == "school" and scope_id is not None:
+        return False
+    if scope_type != "school" and scope_id is None:
+        return False
+    parsed_scope_id = _parse_scope_id(scope_id)
+    if scope_type != "school" and parsed_scope_id is None:
+        return False
     if is_admin(user):
         return True
-    if report_type == "school_overview" or scope_type == "school":
+    if scope_type == "school":
         return False
     if user.role == UserRole.lecturer:
-        if report_type == "course_health" or scope_type == "course":
-            return scope_id is not None and await can_access_course(db, user, int(scope_id))
-        if report_type == "section_intervention" or scope_type == "section":
-            return scope_id is not None and await can_access_section(db, user, int(scope_id))
+        if scope_type == "course":
+            return await can_access_course(db, user, parsed_scope_id)
+        if scope_type == "section":
+            return await can_access_section(db, user, parsed_scope_id)
         return False
-    if report_type == "department_health" or scope_type == "department":
-        if scope_id is None:
-            return False
-        return await can_access_department(db, user, int(scope_id))
-    if report_type == "program_health" or scope_type == "program":
-        if scope_id is None:
-            return False
-        return await can_access_program(db, user, int(scope_id))
-    if report_type == "course_health" or scope_type == "course":
-        if scope_id is None:
-            return False
-        return await can_access_course(db, user, int(scope_id))
-    if report_type == "section_intervention" or scope_type == "section":
-        if scope_id is None:
-            return False
-        return await can_access_section(db, user, int(scope_id))
+    if scope_type == "department":
+        return await can_access_department(db, user, parsed_scope_id)
+    if scope_type == "program":
+        return await can_access_program(db, user, parsed_scope_id)
+    if scope_type == "course":
+        return await can_access_course(db, user, parsed_scope_id)
+    if scope_type == "section":
+        return await can_access_section(db, user, parsed_scope_id)
     return False
 
 
@@ -207,24 +228,37 @@ async def can_create_report_scope(
     db: AsyncSession, user: User, report_type: str, scope_type: str | None, scope_id: str | None
 ) -> bool:
     """Check whether the user can generate a report for a scope."""
+    expected_scope_type = REPORT_SCOPE_TYPES.get(report_type)
+    if expected_scope_type is None:
+        return False
+    if scope_type is not None and scope_type != expected_scope_type:
+        return False
+    scope_type = expected_scope_type
+    if scope_type == "school" and scope_id is not None:
+        return False
+    if scope_type != "school" and scope_id is None:
+        return False
+    parsed_scope_id = _parse_scope_id(scope_id)
+    if scope_type != "school" and parsed_scope_id is None:
+        return False
     if is_admin(user):
         return True
-    if report_type == "school_overview" or scope_type == "school":
+    if scope_type == "school":
         return False
     if user.role == UserRole.manager:
-        if report_type == "department_health" or scope_type == "department":
-            return scope_id is not None and await can_access_department(db, user, int(scope_id))
-        if report_type == "program_health" or scope_type == "program":
-            return scope_id is not None and await can_access_program(db, user, int(scope_id))
-        if report_type == "course_health" or scope_type == "course":
-            return scope_id is not None and await can_access_course(db, user, int(scope_id))
-        if report_type == "section_intervention" or scope_type == "section":
-            return scope_id is not None and await can_access_section(db, user, int(scope_id))
+        if scope_type == "department":
+            return await can_access_department(db, user, parsed_scope_id)
+        if scope_type == "program":
+            return await can_access_program(db, user, parsed_scope_id)
+        if scope_type == "course":
+            return await can_access_course(db, user, parsed_scope_id)
+        if scope_type == "section":
+            return await can_access_section(db, user, parsed_scope_id)
     if user.role == UserRole.lecturer:
-        if report_type == "course_health" or scope_type == "course":
-            return scope_id is not None and await can_access_course(db, user, int(scope_id))
-        if report_type == "section_intervention" or scope_type == "section":
-            return scope_id is not None and await can_access_section(db, user, int(scope_id))
+        if scope_type == "course":
+            return await can_access_course(db, user, parsed_scope_id)
+        if scope_type == "section":
+            return await can_access_section(db, user, parsed_scope_id)
     return False
 
 

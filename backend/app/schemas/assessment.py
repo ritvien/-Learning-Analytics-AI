@@ -109,3 +109,4 @@ class StudentCLOAchievementResponse(OrmBase):
     clo_id: int
     achievement_score: float | None
     is_achieved: bool | None
+    source: str

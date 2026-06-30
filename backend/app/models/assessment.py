@@ -121,5 +121,6 @@ class StudentCLOAchievement(Base):
     clo_id: Mapped[int] = mapped_column(ForeignKey("clos.id", ondelete="CASCADE"), nullable=False)
     achievement_score: Mapped[float | None] = mapped_column(Numeric(5, 2))
     is_achieved: Mapped[bool | None] = mapped_column(Boolean)
+    source: Mapped[str] = mapped_column(String(50), default="synthetic_from_grade", nullable=False)
 
     clo: Mapped[CLO] = relationship(back_populates="student_achievements")

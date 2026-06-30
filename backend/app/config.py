@@ -52,6 +52,17 @@ class Settings(BaseSettings):
     # Writable in Docker (non-root app user); override via ML_ARTIFACT_DIR.
     ml_artifact_dir: str = "/tmp/ml_artifacts"
 
+    # -------------------------------------------------------------------- mail
+    smtp_enabled: bool = False
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_from_name: str = "EduInsight"
+    smtp_use_tls: bool = True
+    smtp_timeout_seconds: int = 15
+
     model_config = SettingsConfigDict(env_file=(".env", "../.env"), env_file_encoding="utf-8", extra="ignore")
 
     @field_validator("debug", mode="before")

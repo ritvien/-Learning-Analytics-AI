@@ -279,9 +279,17 @@ async def _dashboard_meta(db: DBSession) -> dict:
     semesters = await _fetch_all(
         db,
         """
-        SELECT id, code, name, year, term
-        FROM semesters
-        ORDER BY year, term
+        SELECT
+            s.id,
+            s.code,
+            s.name,
+            s.year,
+            s.term,
+            COUNT(f.enrollment_id) FILTER (WHERE f.is_passed IS NOT NULL)::INTEGER AS completed_enrollments
+        FROM semesters s
+        LEFT JOIN dwh.fact_enrollment_outcome f ON f.semester_id = s.id
+        GROUP BY s.id, s.code, s.name, s.year, s.term
+        ORDER BY s.year, s.term
         """,
     )
     cohorts = await _fetch_all(
@@ -1137,6 +1145,7 @@ async def _analytics_dashboard_courses_payload(
     date_to: str | None = None,
     section_ids: set[int] | None = None,
 ) -> dict:
+    min_course_sample_size = 20
     where_sql, params = _dashboard_filter_sql(
         semester_code=semester_code,
         department_id=department_id,
@@ -1144,11 +1153,20 @@ async def _analytics_dashboard_courses_payload(
         date_from=date_from,
         date_to=date_to,
     )
+    trend_where_sql, trend_params = _dashboard_filter_sql(
+        department_id=department_id,
+        program_id=program_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
     if course_id is not None:
         params["course_id"] = course_id
+        trend_params["course_id"] = course_id
+    params["min_course_sample_size"] = min_course_sample_size
 
     course_filter = "WHERE cb.course_id = :course_id" if course_id is not None else ""
     clo_where_sql = where_sql.replace("f.updated_at", "ca.updated_at")
+    trend_clo_where_sql = trend_where_sql.replace("f.updated_at", "ca.updated_at")
     if section_ids is not None:
         if section_ids:
             placeholders = []
@@ -1156,6 +1174,7 @@ async def _analytics_dashboard_courses_payload(
                 key = f"scope_section_{index}"
                 placeholders.append(f":{key}")
                 params[key] = section_id
+                trend_params[key] = section_id
             values = ", ".join(placeholders)
             enrollment_scope = f"f.section_id IN ({values})"
             clo_scope = f"ca.section_id IN ({values})"
@@ -1164,6 +1183,12 @@ async def _analytics_dashboard_courses_payload(
             clo_scope = "1 = 0"
         where_sql = f"{where_sql} AND {enrollment_scope}" if where_sql else f"WHERE {enrollment_scope}"
         clo_where_sql = f"{clo_where_sql} AND {clo_scope}" if clo_where_sql else f"WHERE {clo_scope}"
+        trend_where_sql = (
+            f"{trend_where_sql} AND {enrollment_scope}" if trend_where_sql else f"WHERE {enrollment_scope}"
+        )
+        trend_clo_where_sql = (
+            f"{trend_clo_where_sql} AND {clo_scope}" if trend_clo_where_sql else f"WHERE {clo_scope}"
+        )
     filtered_cte = f"""
         WITH filtered AS (
             SELECT f.*, ds.program_id, dp.department_id, dsem.code AS semester_code
@@ -1200,17 +1225,16 @@ async def _analytics_dashboard_courses_payload(
                 )::FLOAT AS pass_rate
             FROM filtered f
             GROUP BY f.course_id
+            HAVING COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL) > 0
         ),
         clo_base AS (
             SELECT
                 course_id,
-                COALESCE(
-                    ROUND(
-                        COUNT(*) FILTER (WHERE is_achieved IS TRUE)::DECIMAL
-                        / NULLIF(COUNT(*) FILTER (WHERE is_achieved IS NOT NULL), 0),
-                        4
-                    ),
-                    0
+                COUNT(*) FILTER (WHERE is_achieved IS NOT NULL)::INTEGER AS clo_evidence_count,
+                ROUND(
+                    COUNT(*) FILTER (WHERE is_achieved IS TRUE)::DECIMAL
+                    / NULLIF(COUNT(*) FILTER (WHERE is_achieved IS NOT NULL), 0),
+                    4
                 )::FLOAT AS clo_attainment_rate
             FROM filtered_clo
             GROUP BY course_id
@@ -1232,21 +1256,32 @@ async def _analytics_dashboard_courses_payload(
             cb.failed_count,
             cb.near_fail_count,
             cb.section_count,
-            COALESCE(clo.clo_attainment_rate, 0)::FLOAT AS clo_attainment_rate,
-            ROUND(
-                (
-                    (cb.avg_grade / 10.0 * 40)
-                    + (cb.pass_rate / 100.0 * 40)
-                    + (COALESCE(clo.clo_attainment_rate, 0) * 20)
-                )::NUMERIC,
-                1
-            )::FLOAT AS health_score
+            clo.clo_attainment_rate,
+            COALESCE(clo.clo_evidence_count, 0)::INTEGER AS clo_evidence_count,
+            CASE
+                WHEN cb.completed_enrollments < :min_course_sample_size THEN 'insufficient_sample'
+                WHEN COALESCE(clo.clo_evidence_count, 0) = 0 THEN 'missing_clo'
+                ELSE 'ready'
+            END AS data_status,
+            CASE
+                WHEN cb.completed_enrollments >= :min_course_sample_size
+                    AND COALESCE(clo.clo_evidence_count, 0) > 0
+                THEN ROUND(
+                    (
+                        (cb.avg_grade / 10.0 * 40)
+                        + (cb.pass_rate / 100.0 * 30)
+                        + (clo.clo_attainment_rate * 30)
+                    )::NUMERIC,
+                    1
+                )::FLOAT
+                ELSE NULL
+            END AS health_score
         FROM course_base cb
         JOIN dwh.dim_course dc ON dc.course_id = cb.course_id
         LEFT JOIN clo_base clo ON clo.course_id = cb.course_id
         {course_filter}
         ORDER BY health_score ASC, cb.failed_count DESC, cb.pass_rate ASC, dc.name
-        LIMIT 200
+        LIMIT 1000
         """,
         params,
     )
@@ -1280,15 +1315,27 @@ async def _analytics_dashboard_courses_payload(
                 COALESCE(MAX(section_count), 0)::INTEGER AS section_count,
                 COALESCE(MAX(failed_count), 0)::INTEGER AS failed_count,
                 COALESCE(MAX(near_fail_count), 0)::INTEGER AS near_fail_count,
-                COALESCE(MAX(clo.clo_attainment_rate), 0)::FLOAT AS clo_attainment_rate,
-                ROUND(
-                    (
-                        (COALESCE(MAX(avg_grade), 0) / 10.0 * 40)
-                        + (COALESCE(MAX(pass_rate), 0) / 100.0 * 40)
-                        + (COALESCE(MAX(clo.clo_attainment_rate), 0) * 20)
-                    )::NUMERIC,
-                    1
-                )::FLOAT AS health_score
+                MAX(clo.clo_attainment_rate)::FLOAT AS clo_attainment_rate,
+                COALESCE(MAX(clo.clo_evidence_count), 0)::INTEGER AS clo_evidence_count,
+                CASE
+                    WHEN COALESCE(MAX(completed_enrollments), 0) < :min_course_sample_size
+                        THEN 'insufficient_sample'
+                    WHEN COALESCE(MAX(clo.clo_evidence_count), 0) = 0 THEN 'missing_clo'
+                    ELSE 'ready'
+                END AS data_status,
+                CASE
+                    WHEN COALESCE(MAX(completed_enrollments), 0) >= :min_course_sample_size
+                        AND COALESCE(MAX(clo.clo_evidence_count), 0) > 0
+                    THEN ROUND(
+                        (
+                            (COALESCE(MAX(avg_grade), 0) / 10.0 * 40)
+                            + (COALESCE(MAX(pass_rate), 0) / 100.0 * 30)
+                            + (MAX(clo.clo_attainment_rate) * 30)
+                        )::NUMERIC,
+                        1
+                    )::FLOAT
+                    ELSE NULL
+                END AS health_score
             FROM course_base cb
             LEFT JOIN clo_base clo ON clo.course_id = cb.course_id
             {selected_where}
@@ -1305,7 +1352,7 @@ async def _analytics_dashboard_courses_payload(
                 JOIN dwh.dim_student ds ON ds.student_id = f.student_id
                 JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
                 JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
-                {where_sql}
+                {trend_where_sql}
             )
             SELECT
                 dim_semester_id AS id,
@@ -1313,6 +1360,8 @@ async def _analytics_dashboard_courses_payload(
                 year,
                 term,
                 COUNT(*) FILTER (WHERE is_passed IS NOT NULL)::INTEGER AS count,
+                COUNT(*) FILTER (WHERE is_passed IS FALSE)::INTEGER AS failed_count,
+                COUNT(*) FILTER (WHERE final_grade >= 4 AND final_grade < 5)::INTEGER AS near_fail_count,
                 COALESCE(
                     ROUND(
                         COUNT(*) FILTER (WHERE is_passed IS TRUE)::DECIMAL
@@ -1326,6 +1375,63 @@ async def _analytics_dashboard_courses_payload(
             WHERE course_id = :course_id AND is_passed IS NOT NULL
             GROUP BY dim_semester_id, code, year, term
             ORDER BY year, term
+            """,
+            trend_params,
+        )
+
+        clo_trend = await _fetch_all(
+            db,
+            f"""
+            WITH filtered AS (
+                SELECT ca.*, dsem.code AS semester, dsem.year, dsem.term
+                FROM dwh.fact_clo_achievement ca
+                JOIN dwh.dim_student ds ON ds.student_id = ca.student_id
+                JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+                JOIN dwh.dim_semester dsem ON dsem.semester_id = ca.semester_id
+                {trend_clo_where_sql}
+            )
+            SELECT
+                c.id AS clo_id,
+                c.code AS clo_code,
+                c.name AS clo_name,
+                f.semester,
+                f.year,
+                f.term,
+                COUNT(f.is_achieved)::INTEGER AS evidence_count,
+                ROUND(
+                    COUNT(*) FILTER (WHERE f.is_achieved IS TRUE)::DECIMAL
+                    / NULLIF(COUNT(f.is_achieved), 0) * 100,
+                    1
+                )::FLOAT AS attainment_rate
+            FROM filtered f
+            JOIN clos c ON c.id = f.clo_id
+            WHERE f.course_id = :course_id AND c.is_active IS TRUE
+            GROUP BY c.id, c.code, c.name, c.sort_order, f.semester, f.year, f.term
+            ORDER BY c.sort_order, c.code, f.year, f.term
+            """,
+            trend_params,
+        )
+
+        clo_rows = await _fetch_all(
+            db,
+            f"""
+            {filtered_cte}
+            SELECT
+                c.id,
+                c.code,
+                c.name,
+                COUNT(fc.is_achieved)::INTEGER AS evidence_count,
+                ROUND(AVG(fc.achievement_score), 2)::FLOAT AS avg_score,
+                ROUND(
+                    COUNT(*) FILTER (WHERE fc.is_achieved IS TRUE)::DECIMAL
+                    / NULLIF(COUNT(fc.is_achieved), 0) * 100,
+                    1
+                )::FLOAT AS attainment_rate
+            FROM clos c
+            LEFT JOIN filtered_clo fc ON fc.clo_id = c.id AND fc.course_id = c.course_id
+            WHERE c.course_id = :course_id AND c.is_active IS TRUE
+            GROUP BY c.id, c.code, c.name, c.sort_order
+            ORDER BY c.sort_order, c.code
             """,
             params,
         )
@@ -1422,6 +1528,8 @@ async def _analytics_dashboard_courses_payload(
             "course": dict(course),
             "kpis": kpis,
             "trend": trend,
+            "clo_trend": clo_trend,
+            "clo_rows": clo_rows,
             "grade_distribution": grade_distribution,
             "section_rows": section_rows,
         }

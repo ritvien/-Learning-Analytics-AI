@@ -30,6 +30,7 @@ import {
 
 const roles: ApiUserRole[] = ["superadmin", "admin", "manager", "lecturer", "viewer"]
 const accountManagedRoles: ApiUserRole[] = ["superadmin", "admin", "manager", "viewer"]
+const minPasswordLength = 8
 
 const roleLabels: Record<ApiUserRole, string> = {
   superadmin: "Super Admin",
@@ -74,6 +75,9 @@ function userErrorMessage(err: unknown, fallback: string) {
   if (err.message.includes("Email already exists")) {
     return "Email này đã tồn tại."
   }
+  if (err.message.includes("Insufficient permissions")) {
+    return "Tài khoản hiện tại không có quyền tạo tài khoản. Vui lòng đăng nhập bằng Admin hoặc Super Admin."
+  }
   return err.message || fallback
 }
 
@@ -83,6 +87,8 @@ export default function UsersPage() {
   const [teachers, setTeachers] = React.useState<ApiTeacher[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState("")
+  const [createError, setCreateError] = React.useState("")
+  const [passwordError, setPasswordError] = React.useState("")
   const [isCreateOpen, setIsCreateOpen] = React.useState(false)
   const [editUser, setEditUser] = React.useState<ApiUser | null>(null)
 
@@ -117,17 +123,24 @@ export default function UsersPage() {
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
+    const password = String(form.get("password") ?? "")
+    if (password.length < minPasswordLength) {
+      setPasswordError(`Mật khẩu phải có ít nhất ${minPasswordLength} ký tự.`)
+      return
+    }
+    setPasswordError("")
+    setCreateError("")
     try {
       await api.createUser({
         email: String(form.get("email") ?? ""),
-        password: String(form.get("password") ?? ""),
+        password,
         full_name: String(form.get("full_name") ?? ""),
         role: String(form.get("role") ?? "viewer") as ApiUserRole,
       })
       setIsCreateOpen(false)
       await refreshUsers()
     } catch (err) {
-      setError(userErrorMessage(err, "Không tạo được tài khoản."))
+      setCreateError(userErrorMessage(err, "Không tạo được tài khoản."))
     }
   }
 
@@ -197,7 +210,16 @@ export default function UsersPage() {
             Quản lý tài khoản hệ thống. Tài khoản Lecturer được cấp từ hồ sơ giảng viên để giữ liên kết lớp học phần.
           </p>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <Dialog
+          open={isCreateOpen}
+          onOpenChange={(open) => {
+            setIsCreateOpen(open)
+            if (!open) {
+              setCreateError("")
+              setPasswordError("")
+            }
+          }}
+        >
           <DialogTrigger render={<Button />}>
             <Plus className="mr-2 h-4 w-4" />
             Tạo tài khoản
@@ -221,7 +243,22 @@ export default function UsersPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Mật khẩu</Label>
-                  <Input id="password" name="password" type="password" minLength={8} required />
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    required
+                    aria-invalid={Boolean(passwordError)}
+                    aria-describedby="create-password-help"
+                    onChange={() => { if (passwordError) setPasswordError("") }}
+                  />
+                  <p
+                    id="create-password-help"
+                    className={passwordError ? "text-xs font-medium text-destructive" : "text-xs text-muted-foreground"}
+                    role={passwordError ? "alert" : undefined}
+                  >
+                    {passwordError || `Tối thiểu ${minPasswordLength} ký tự.`}
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>Role</Label>
@@ -235,6 +272,7 @@ export default function UsersPage() {
                   </Select>
                 </div>
               </div>
+              {createError ? <p className="pb-4 text-sm font-medium text-destructive" role="alert">{createError}</p> : null}
               <DialogFooter>
                 <DialogClose render={<Button type="button" variant="outline" />}>Hủy</DialogClose>
                 <Button type="submit">Tạo</Button>

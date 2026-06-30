@@ -26,9 +26,11 @@ import {
 
 import {
   api,
+  getCachedCurrentUser,
   setReportBuildContext,
   type ApiCourse,
   type ApiDepartment,
+  type ApiUser,
   type ApiProgram,
   type ApiReport,
   type ApiReportAgentAskResponse,
@@ -64,6 +66,7 @@ import {
 
 type TemplateId = "department_report" | "program_report" | "course_report" | "section_report" | "school_report"
 type ReportWorkspace = "actions" | "library"
+type ReportUserRole = ApiUser["role"] | "unknown"
 
 interface ReportTemplate {
   id: TemplateId
@@ -123,6 +126,25 @@ const templates: ReportTemplate[] = [
   },
 ]
 
+function allowedTemplatesForRole(role: ReportUserRole) {
+  if (role === "superadmin" || role === "admin") return templates
+  if (role === "manager") {
+    return templates.filter((item) => item.scopeType !== "school")
+  }
+  if (role === "lecturer") {
+    return templates.filter((item) => item.scopeType === "course" || item.scopeType === "section")
+  }
+  return []
+}
+
+function reportActorLabel(role: ReportUserRole) {
+  if (role === "superadmin") return "Superadmin"
+  if (role === "admin") return "Admin"
+  if (role === "manager") return "Trưởng khoa / quản lý khoa"
+  if (role === "lecturer") return "Giảng viên"
+  return "Người dùng"
+}
+
 const scheduledReportPlans = [
   {
     name: "Báo cáo rủi ro lớp hằng tuần",
@@ -169,6 +191,11 @@ const scheduledReportPlans = [
     status: "Đang phát triển",
   },
 ]
+
+function allowedScheduledPlansForTemplates(allowed: ReportTemplate[]) {
+  const allowedIds = new Set(allowed.map((template) => template.id))
+  return scheduledReportPlans.filter((plan) => allowedIds.has(plan.templateId))
+}
 
 const actorReportViews = [
   { actor: "Ban giám hiệu", scope: "Toàn trường", reports: "Điều hành toàn trường, rủi ro lớn, PLO dưới mục tiêu", detail: "Tóm tắt" },
@@ -717,6 +744,10 @@ export default function ReportsPage() {
   const [sections, setSections] = React.useState<ApiSection[]>([])
   const [courses, setCourses] = React.useState<ApiCourse[]>([])
   const [semesters, setSemesters] = React.useState<ApiSemester[]>([])
+  const [currentUser, setCurrentUser] = React.useState<ApiUser | null>(() => {
+    if (typeof window === "undefined") return null
+    return getCachedCurrentUser()
+  })
   const [selectedTemplateId, setSelectedTemplateId] = React.useState<TemplateId>("program_report")
   const [workspace, setWorkspace] = React.useState<ReportWorkspace>("actions")
   const [selectedReport, setSelectedReport] = React.useState<ApiReport | null>(null)
@@ -759,11 +790,25 @@ export default function ReportsPage() {
 
   const courseMap = React.useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses])
   const semesterMap = React.useMemo(() => new Map(semesters.map((s) => [s.id, s])), [semesters])
+  const currentRole: ReportUserRole = currentUser?.role ?? "unknown"
+  const availableTemplates = React.useMemo(() => allowedTemplatesForRole(currentRole), [currentRole])
+  const availableScheduledPlans = React.useMemo(
+    () => allowedScheduledPlansForTemplates(availableTemplates),
+    [availableTemplates],
+  )
+  const canGenerateReports = availableTemplates.length > 0
 
-  const selectedTemplate = templates.find((t) => t.id === selectedTemplateId) ?? templates[0]
+  const selectedTemplate = availableTemplates.find((t) => t.id === selectedTemplateId) ?? availableTemplates[0] ?? templates[0]
   const selectedDepartment = departments.find((d) => String(d.id) === selectedDepartmentId)
   const selectedProgram = programs.find((p) => String(p.id) === selectedProgramId)
   const selectedSemester = semesters.find((s) => String(s.id) === selectedSemesterId)
+
+  React.useEffect(() => {
+    if (!availableTemplates.length) return
+    if (!availableTemplates.some((template) => template.id === selectedTemplateId)) {
+      setSelectedTemplateId(availableTemplates[0].id)
+    }
+  }, [availableTemplates, selectedTemplateId])
 
   React.useEffect(() => {
     const scopeId = selectedTemplate.scopeType === "department"
@@ -882,6 +927,11 @@ export default function ReportsPage() {
     : "Tất cả snapshot báo cáo trong phạm vi bạn được phép xem."
 
   function startReport(templateId: TemplateId) {
+    if (!availableTemplates.some((template) => template.id === templateId)) {
+      setSelectedTemplateId(availableTemplates[0]?.id ?? "section_report")
+      setGenerateOpen(true)
+      return
+    }
     setSelectedTemplateId(templateId)
     setGenerateOpen(true)
   }
@@ -932,7 +982,8 @@ export default function ReportsPage() {
     async function load() {
       setError("")
       try {
-        const [reportList, scheduleList, departmentList, programList, sectionList, courseList, semesterList] = await Promise.all([
+        const [me, reportList, scheduleList, departmentList, programList, sectionList, courseList, semesterList] = await Promise.all([
+          api.me().catch(() => null),
           api.getReports({ limit: 80 }),
           api.getReportSchedules({ limit: 80 }),
           api.getDepartments({ limit: 500 }),
@@ -941,6 +992,7 @@ export default function ReportsPage() {
           api.getCourses({ limit: 500 }),
           api.getSemesters(),
         ])
+        setCurrentUser(me)
         setReports(reportList)
         setReportSchedules(scheduleList)
         setSelectedReport(reportList[0] ?? null)
@@ -986,6 +1038,10 @@ export default function ReportsPage() {
 
   async function handleGenerate() {
     setError("")
+    if (!canGenerateReports) {
+      setError("Tài khoản hiện tại không có quyền tạo báo cáo.")
+      return
+    }
     const scopeId =
       selectedTemplate.scopeType === "department"
         ? selectedDepartmentId
@@ -1009,7 +1065,7 @@ export default function ReportsPage() {
     try {
       const report = await api.generateReport({
         report_type: selectedTemplate.backendType,
-        actor_role: ["course", "section"].includes(selectedTemplate.scopeType) ? "lecturer" : "manager",
+        actor_role: currentRole === "unknown" ? "manager" : currentRole,
         scope_type: selectedTemplate.scopeType,
         scope_id: scopeId,
         semester_id: selectedSemesterId ? Number(selectedSemesterId) : undefined,
@@ -1036,7 +1092,7 @@ export default function ReportsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setGenerateOpen(true)}>
+          <Button onClick={() => setGenerateOpen(true)} disabled={!canGenerateReports}>
             <Plus className="mr-2 size-4" />
             Tạo báo cáo
           </Button>
@@ -1072,15 +1128,21 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid gap-2 sm:grid-cols-3">
-        <Button variant="outline" className="justify-start" onClick={() => startReport("section_report")}>
-          <AlertTriangle className="mr-2 size-4 text-orange-600" /> Báo cáo can thiệp lớp
-        </Button>
-        <Button variant="outline" className="justify-start" onClick={() => startReport("program_report")}>
-          <ClipboardCheck className="mr-2 size-4 text-primary" /> Báo cáo sức khỏe ngành
-        </Button>
-        <Button variant="outline" className="justify-start" onClick={() => startReport("school_report")}>
-          <Library className="mr-2 size-4 text-emerald-600" /> Tóm tắt toàn trường
-        </Button>
+        {availableTemplates.some((item) => item.id === "section_report") ? (
+          <Button variant="outline" className="justify-start" onClick={() => startReport("section_report")}>
+            <AlertTriangle className="mr-2 size-4 text-orange-600" /> Báo cáo can thiệp lớp
+          </Button>
+        ) : null}
+        {availableTemplates.some((item) => item.id === "program_report") ? (
+          <Button variant="outline" className="justify-start" onClick={() => startReport("program_report")}>
+            <ClipboardCheck className="mr-2 size-4 text-primary" /> Báo cáo sức khỏe ngành
+          </Button>
+        ) : null}
+        {availableTemplates.some((item) => item.id === "school_report") ? (
+          <Button variant="outline" className="justify-start" onClick={() => startReport("school_report")}>
+            <Library className="mr-2 size-4 text-emerald-600" /> Tóm tắt toàn trường
+          </Button>
+        ) : null}
       </div>
 
       {error ? (
@@ -1210,7 +1272,7 @@ export default function ReportsPage() {
             <div className="space-y-2">
               <Label className="text-sm font-medium">Báo cáo cho cấp nào?</Label>
               <div className="grid gap-2 sm:grid-cols-3">
-                {templates.map((t) => (
+                {availableTemplates.map((t) => (
                   <button
                     key={t.id}
                     type="button"
@@ -1230,6 +1292,10 @@ export default function ReportsPage() {
             {/* Chọn phạm vi dữ liệu */}
             {selectedTemplate.scopeType !== "school" && (
               <div className="space-y-4">
+                <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  Đang tạo báo cáo với quyền <strong className="text-foreground">{reportActorLabel(currentRole)}</strong>.
+                  Danh sách khoa/ngành/môn/lớp bên dưới đã được lọc theo phạm vi tài khoản.
+                </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Học kỳ</Label>
@@ -1471,7 +1537,7 @@ export default function ReportsPage() {
 
           <div className="space-y-4">
             <div className="grid gap-3 xl:grid-cols-2">
-              {scheduledReportPlans.map((plan) => {
+              {availableScheduledPlans.map((plan) => {
                 const savedSchedule = savedScheduleByName.get(plan.name)
                 return (
                 <Card key={plan.name}>
