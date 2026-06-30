@@ -83,7 +83,7 @@ export default function ManagerDashboard() {
 
           if (feDepartments.length > 0) {
             setSelection({ id: feDepartments[0].id, type: "department" })
-            setExpandedDepts({ [feDepartments[0].id]: true })
+            setExpandedDepts(Object.fromEntries(feDepartments.map((department) => [department.id, true])))
           }
           setIsLoading(false)
         }
@@ -134,6 +134,7 @@ export default function ManagerDashboard() {
   const globalGpaAvg = tree?.metrics.avg_gpa ?? 0
   const globalFailRate = tree?.metrics.fail_rate ?? 0
   const scopeLabel = "toàn trường"
+  const totalMajors = departments.reduce((sum, department) => sum + department.nganhs.length, 0)
 
   return (
     <div className="space-y-6">
@@ -162,6 +163,10 @@ export default function ManagerDashboard() {
                 <p className="mt-1 text-xs text-muted-foreground">
                   Quan sát cấu trúc khoa, chương trình và chuyên ngành toàn trường. Dữ liệu chi tiết vẫn tuân theo phân quyền từng chức năng.
                 </p>
+                <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-medium text-muted-foreground">
+                  <span className="rounded-md border bg-muted/40 px-2 py-1">{departments.length} khoa</span>
+                  <span className="rounded-md border bg-muted/40 px-2 py-1">{totalMajors} ngành/chuyên ngành</span>
+                </div>
               </div>
 
               {/* ── Toolbar ── */}
@@ -199,8 +204,9 @@ export default function ManagerDashboard() {
               <div className="w-[1.5px] h-5 bg-gradient-to-b from-[#F5A623] to-primary/40 shrink-0" />
 
               {/* ── Columns Wrapper ── */}
-              <div className="relative w-full flex pt-0">
-                {departments.map((dept, index) => {
+              <div className="w-full overflow-x-auto pb-3">
+                <div className="relative flex min-w-[1120px] pt-0">
+                  {departments.map((dept, index) => {
                   const isExpanded = !!expandedDepts[dept.id]
                   const isDeptSelected = selection?.type === "department" && selection.id === dept.id
 
@@ -392,7 +398,8 @@ export default function ManagerDashboard() {
                       </div>
                     </div>
                   )
-                })}
+                  })}
+                </div>
               </div>
             </div>
           </div>

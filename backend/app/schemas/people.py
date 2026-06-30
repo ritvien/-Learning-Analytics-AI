@@ -16,6 +16,7 @@ class UserCreate(BaseModel):
     password: str = Field(min_length=8)
     full_name: str = Field(max_length=255)
     role: UserRole = UserRole.viewer
+    position: str | None = Field(None, max_length=50)
     department_id: int | None = None
 
 
@@ -24,6 +25,7 @@ class UserUpdate(BaseModel):
 
     full_name: str | None = Field(None, max_length=255)
     role: UserRole | None = None
+    position: str | None = Field(None, max_length=50)
     department_id: int | None = None
     is_active: bool | None = None
 
@@ -35,6 +37,7 @@ class UserResponse(OrmBase):
     email: str
     full_name: str
     role: UserRole
+    position: str | None
     department_id: int | None
     is_active: bool
     created_at: datetime

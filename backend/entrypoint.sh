@@ -11,6 +11,9 @@ if [ "${SEED_ON_EMPTY:-true}" != "false" ]; then
     python scripts/seed_database.py
 fi
 
+echo "[entrypoint] Backfilling student emails..."
+python scripts/seed_student_emails.py
+
 echo "[entrypoint] Refreshing CLO achievement materialization..."
 python -m app.analytics.clo
 

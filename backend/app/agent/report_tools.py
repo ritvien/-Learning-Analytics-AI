@@ -8,7 +8,11 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.access_control import get_teacher_for_user, is_admin, user_department_ids
+from app.models.academic import Course, Department, Program, Semester
+from app.models.people import User, UserRole
 from app.models.report import Report
+from app.models.teaching import Section
 
 
 @dataclass(frozen=True)
@@ -23,6 +27,16 @@ class ReportAgentToolSpec:
 
 
 TOOL_REGISTRY: tuple[ReportAgentToolSpec, ...] = (
+    ReportAgentToolSpec(
+        name="list_report_scope_options",
+        description="List report scopes visible to the authenticated actor, filtered by scope type, search text, and period.",
+        mode=("workflow",),
+    ),
+    ReportAgentToolSpec(
+        name="list_my_teaching_sections",
+        description="List active class sections assigned to the authenticated lecturer, optionally filtered by year or semester.",
+        mode=("workflow",),
+    ),
     ReportAgentToolSpec(
         name="get_report_snapshot",
         description="Load report metadata, summary, markdown, and metric snapshot.",
@@ -70,6 +84,172 @@ TOOL_REGISTRY: tuple[ReportAgentToolSpec, ...] = (
         write_action=True,
     ),
 )
+
+
+async def list_report_scope_options(
+    db: AsyncSession,
+    user: User,
+    *,
+    scope_type: str,
+    search: str | None = None,
+    year: int | None = None,
+    semester_id: int | None = None,
+    limit: int = 20,
+) -> dict[str, Any]:
+    """Return only report scopes the authenticated actor is allowed to select."""
+    limit = max(1, min(limit, 50))
+    pattern = f"%{search.strip()}%" if search and search.strip() else None
+    if not is_admin(user) and user.role not in {UserRole.manager, UserRole.lecturer}:
+        return {"status": "no_report_permission", "scope_type": scope_type, "options": [], "count": 0}
+    department_ids = await user_department_ids(db, user) if not is_admin(user) else set()
+    teacher = await get_teacher_for_user(db, user) if user.role == UserRole.lecturer else None
+
+    if scope_type == "department":
+        if user.role == UserRole.lecturer:
+            rows = []
+        else:
+            query = select(Department).where(Department.is_active.is_(True))
+            if not is_admin(user):
+                query = query.where(Department.id.in_(department_ids))
+            if pattern:
+                query = query.where(Department.code.ilike(pattern) | Department.name.ilike(pattern))
+            rows = list((await db.execute(query.order_by(Department.code).limit(limit))).scalars())
+        options = [
+            {"id": str(item.id), "scope_type": "department", "label": f"{item.code} - {item.name}"} for item in rows
+        ]
+    elif scope_type == "program":
+        if user.role == UserRole.lecturer:
+            rows = []
+        else:
+            query = select(Program).where(Program.is_active.is_(True))
+            if not is_admin(user):
+                query = query.where(Program.department_id.in_(department_ids))
+            if pattern:
+                query = query.where(Program.code.ilike(pattern) | Program.name.ilike(pattern))
+            rows = list((await db.execute(query.order_by(Program.code).limit(limit))).scalars())
+        options = [
+            {"id": str(item.id), "scope_type": "program", "label": f"{item.code} - {item.name}"} for item in rows
+        ]
+    elif scope_type == "course":
+        query = select(Course).where(Course.is_active.is_(True))
+        needs_section_join = user.role == UserRole.lecturer or year is not None or semester_id is not None
+        if needs_section_join:
+            query = query.join(Section, Section.course_id == Course.id).where(Section.is_active.is_(True))
+        if user.role == UserRole.lecturer:
+            if teacher is None:
+                return {"status": "no_linked_teacher", "scope_type": scope_type, "options": [], "count": 0}
+            query = query.where(Section.teacher_id == teacher.id)
+        elif not is_admin(user):
+            query = query.where(Course.department_id.in_(department_ids))
+        if year is not None:
+            query = query.join(Semester, Semester.id == Section.semester_id).where(Semester.year == year)
+        elif semester_id is not None:
+            query = query.where(Section.semester_id == semester_id)
+        if pattern:
+            query = query.where(Course.code.ilike(pattern) | Course.name.ilike(pattern))
+        rows = list((await db.execute(query.distinct().order_by(Course.code).limit(limit))).scalars())
+        options = [{"id": str(item.id), "scope_type": "course", "label": f"{item.code} - {item.name}"} for item in rows]
+    elif scope_type == "section":
+        query = (
+            select(Section, Course, Semester)
+            .join(Course, Course.id == Section.course_id)
+            .join(Semester, Semester.id == Section.semester_id)
+            .where(Section.is_active.is_(True), Course.is_active.is_(True))
+        )
+        if user.role == UserRole.lecturer:
+            if teacher is None:
+                return {"status": "no_linked_teacher", "scope_type": scope_type, "options": [], "count": 0}
+            query = query.where(Section.teacher_id == teacher.id)
+        elif not is_admin(user):
+            query = query.where(Course.department_id.in_(department_ids))
+        if year is not None:
+            query = query.where(Semester.year == year)
+        elif semester_id is not None:
+            query = query.where(Section.semester_id == semester_id)
+        if pattern:
+            query = query.where(
+                Section.section_code.ilike(pattern) | Course.code.ilike(pattern) | Course.name.ilike(pattern)
+            )
+        rows = (
+            await db.execute(
+                query.order_by(Semester.year.desc(), Semester.term.desc(), Course.code, Section.section_code).limit(
+                    limit
+                )
+            )
+        ).all()
+        options = [
+            {
+                "id": str(section.id),
+                "scope_type": "section",
+                "section_code": section.section_code,
+                "course_code": course.code,
+                "course_name": course.name,
+                "semester_id": semester.id,
+                "semester_code": semester.code,
+                "semester_name": semester.name,
+                "label": f"{course.code} - {course.name} · {section.section_code} · {semester.name or semester.code}",
+            }
+            for section, course, semester in rows
+        ]
+    else:
+        return {"status": "unsupported_scope", "scope_type": scope_type, "options": [], "count": 0}
+
+    return {
+        "status": "matched" if options else "no_match" if pattern else "no_scope_data",
+        "scope_type": scope_type,
+        "options": options,
+        "count": len(options),
+        "has_more": len(options) == limit,
+    }
+
+
+async def list_my_teaching_sections(
+    db: AsyncSession,
+    user: User,
+    *,
+    year: int | None = None,
+    semester_id: int | None = None,
+    limit: int = 12,
+) -> dict[str, Any]:
+    """Return real teaching assignments for the authenticated user."""
+    teacher = await get_teacher_for_user(db, user)
+    if teacher is None:
+        return {"status": "no_linked_teacher", "sections": [], "count": 0}
+
+    query = (
+        select(Section, Course, Semester)
+        .join(Course, Course.id == Section.course_id)
+        .join(Semester, Semester.id == Section.semester_id)
+        .where(
+            Section.teacher_id == teacher.id,
+            Section.is_active.is_(True),
+            Course.is_active.is_(True),
+        )
+    )
+    if year is not None:
+        query = query.where(Semester.year == year)
+    elif semester_id is not None:
+        query = query.where(Section.semester_id == semester_id)
+    query = query.order_by(Semester.year.desc(), Semester.term.desc(), Course.code, Section.section_code).limit(limit)
+    rows = (await db.execute(query)).all()
+    sections = [
+        {
+            "id": str(section.id),
+            "section_code": section.section_code,
+            "course_code": course.code,
+            "course_name": course.name,
+            "semester_id": semester.id,
+            "semester_code": semester.code,
+            "semester_name": semester.name,
+            "label": f"{course.code} - {course.name} · {section.section_code} · {semester.name or semester.code}",
+        }
+        for section, course, semester in rows
+    ]
+    return {
+        "status": "matched" if sections else "no_owned_sections",
+        "sections": sections,
+        "count": len(sections),
+    }
 
 
 METRIC_DEFINITIONS: dict[str, dict[str, str]] = {

@@ -3,7 +3,7 @@
 import * as React from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { Student } from "@/types"
-import { api, getCachedCurrentUser, type ApiProgram, type ApiCohort } from "@/lib/api"
+import { api, getCachedCurrentUser, type ApiDepartment, type ApiProgram, type ApiCohort } from "@/lib/api"
 import { DataTable } from "@/components/crud/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Plus, Pencil, Trash2, ArrowUpDown } from "lucide-react"
+import { Plus, Pencil, Trash2, ArrowUpDown, Users } from "lucide-react"
 
 const statusVariant = (s: string) => {
   switch (s) {
@@ -45,10 +45,23 @@ const STATUS_VI: Record<string, Student["trangThai"]> = {
   expelled: "Thôi học",
 }
 
+type StudentRow = Student & {
+  programId: number
+  departmentId: number | null
+  cohortId: number
+}
+
 export default function StudentsPage() {
-  const [students, setStudents] = React.useState<Student[]>([])
+  const [students, setStudents] = React.useState<StudentRow[]>([])
+  const [departments, setDepartments] = React.useState<ApiDepartment[]>([])
   const [programs, setPrograms] = React.useState<ApiProgram[]>([])
   const [cohorts, setCohorts] = React.useState<ApiCohort[]>([])
+  const [departmentFilter, setDepartmentFilter] = React.useState("all")
+  const [programFilter, setProgramFilter] = React.useState("all")
+  const [cohortFilter, setCohortFilter] = React.useState("all")
+  const [statusFilter, setStatusFilter] = React.useState("all")
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
   const [userRole] = React.useState<string | null>(() => {
     if (typeof window !== "undefined") {
       const u = getCachedCurrentUser()
@@ -60,50 +73,94 @@ export default function StudentsPage() {
   const hasWriteAccess = userRole === "superadmin" || userRole === "admin" || userRole === "manager"
 
   React.useEffect(() => {
+    setIsLoading(true)
+    setError(null)
     Promise.all([
-      api.getStudents({ limit: 500 }),
-      api.getPrograms({ limit: 100 }),
-      api.getCohorts({ limit: 100 })
+      api.getStudents({ limit: 5000 }),
+      api.getDepartments({ limit: 100 }),
+      api.getPrograms({ limit: 1000 }),
+      api.getCohorts({ limit: 100 }),
     ]).then(
-      ([apiStudents, apiPrograms, apiCohorts]) => {
+      ([apiStudents, apiDepartments, apiPrograms, apiCohorts]) => {
+        setDepartments(apiDepartments)
         setPrograms(apiPrograms)
         setCohorts(apiCohorts)
-        const progMap = new Map(apiPrograms.map((p) => [p.id, p.name]))
+        const progMap = new Map(apiPrograms.map((p) => [p.id, p]))
+        const deptMap = new Map(apiDepartments.map((d) => [d.id, d.name]))
+        const cohortMap = new Map(apiCohorts.map((c) => [c.id, c.code]))
         setStudents(
-          apiStudents.map((s) => ({
-            id: String(s.id),
-            mssv: s.student_code,
-            hoTen: s.full_name,
-            gioiTinh: (s.gender as Student["gioiTinh"]) ?? "Nam",
-            ngayVaoTruong: "",
-            khoa: "",
-            bacDaoTao: "Đại học - Tín chỉ",
-            loaiHinh: "Chính quy",
-            nganh: progMap.get(s.program_id) ?? "",
-            chuyenNganh: "",
-            khoaQuanLy: progMap.get(s.program_id) ?? "",
-            lop: s.class_code ?? "",
-            trangThai: STATUS_VI[s.status] ?? "Đang học",
-            coVanHocTap: "",
-            soDienThoaiCVHT: "",
-            tongTCTichLuy: 0,
-            diemTBTichLuy: s.gpa_cumulative ?? 0,
-            tongTCNo: 0,
-            soMonNo: 0,
-          }))
+          apiStudents.map((s) => {
+            const program = progMap.get(s.program_id)
+            const departmentName = program ? deptMap.get(program.department_id) : undefined
+            return {
+              id: String(s.id),
+              mssv: s.student_code,
+              hoTen: s.full_name,
+              gioiTinh: (s.gender as Student["gioiTinh"]) ?? "Nam",
+              ngayVaoTruong: "",
+              khoa: cohortMap.get(s.cohort_id) ?? "",
+              bacDaoTao: "Đại học - Tín chỉ",
+              loaiHinh: "Chính quy",
+              nganh: program?.name ?? "",
+              chuyenNganh: "",
+              khoaQuanLy: departmentName ?? "",
+              lop: s.class_code ?? "",
+              trangThai: STATUS_VI[s.status] ?? "Đang học",
+              coVanHocTap: "",
+              soDienThoaiCVHT: "",
+              tongTCTichLuy: 0,
+              diemTBTichLuy: s.gpa_cumulative ?? 0,
+              tongTCNo: 0,
+              soMonNo: 0,
+              programId: s.program_id,
+              departmentId: program?.department_id ?? null,
+              cohortId: s.cohort_id,
+            }
+          })
         )
       }
-    )
+    ).catch((err) => {
+      setError(err instanceof Error ? err.message : "Không tải được danh sách sinh viên")
+    }).finally(() => setIsLoading(false))
   }, [])
-  const [editStudent, setEditStudent] = React.useState<Student | null>(null)
+  const [editStudent, setEditStudent] = React.useState<StudentRow | null>(null)
   const [isCreateOpen, setIsCreateOpen] = React.useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = React.useState(false)
-  const [deleteTarget, setDeleteTarget] = React.useState<Student | null>(null)
+  const [deleteTarget, setDeleteTarget] = React.useState<StudentRow | null>(null)
 
   const STATUS_EN: Record<string, string> = {
     "Đang học": "active", "Đã tốt nghiệp": "graduated",
     "Bảo lưu": "withdrawn", "Thôi học": "expelled",
   }
+
+  const filteredPrograms = React.useMemo(() => {
+    return programs.filter((program) => departmentFilter === "all" || String(program.department_id) === departmentFilter)
+  }, [programs, departmentFilter])
+
+  React.useEffect(() => {
+    if (programFilter === "all") return
+    const selected = programs.find((program) => String(program.id) === programFilter)
+    if (selected && departmentFilter !== "all" && String(selected.department_id) !== departmentFilter) {
+      setProgramFilter("all")
+    }
+  }, [departmentFilter, programFilter, programs])
+
+  const filteredStudents = React.useMemo(() => {
+    return students.filter((student) => {
+      if (departmentFilter !== "all" && String(student.departmentId) !== departmentFilter) return false
+      if (programFilter !== "all" && String(student.programId) !== programFilter) return false
+      if (cohortFilter !== "all" && String(student.cohortId) !== cohortFilter) return false
+      if (statusFilter !== "all" && student.trangThai !== statusFilter) return false
+      return true
+    })
+  }, [students, departmentFilter, programFilter, cohortFilter, statusFilter])
+
+  const summary = React.useMemo(() => {
+    const active = students.filter((student) => student.trangThai === "Đang học").length
+    const lowGpa = students.filter((student) => student.diemTBTichLuy < 2).length
+    const classCount = new Set(students.map((student) => student.lop).filter(Boolean)).size
+    return { active, lowGpa, classCount }
+  }, [students])
 
   // CREATE
   const handleCreate = (e: React.FormEvent<HTMLFormElement>) => {
@@ -120,7 +177,9 @@ export default function StudentsPage() {
       class_code: fd.get("lop") as string,
       status: "active",
     }).then((s) => {
-      const progName = programs.find(p => p.id === s.program_id)?.name ?? ""
+      const program = programs.find(p => p.id === s.program_id)
+      const departmentName = departments.find(d => d.id === program?.department_id)?.name ?? ""
+      const cohortCode = cohorts.find(c => c.id === s.cohort_id)?.code ?? ""
       setStudents((prev) => [
         ...prev,
         {
@@ -129,12 +188,12 @@ export default function StudentsPage() {
           hoTen: s.full_name,
           gioiTinh: (s.gender as Student["gioiTinh"]) ?? "Nam",
           ngayVaoTruong: "",
-          khoa: "",
+          khoa: cohortCode,
           bacDaoTao: "Đại học - Tín chỉ",
           loaiHinh: "Chính quy",
-          nganh: progName,
+          nganh: program?.name ?? "",
           chuyenNganh: "",
-          khoaQuanLy: progName,
+          khoaQuanLy: departmentName,
           lop: s.class_code ?? "",
           trangThai: STATUS_VI[s.status] ?? "Đang học",
           coVanHocTap: "",
@@ -143,6 +202,9 @@ export default function StudentsPage() {
           diemTBTichLuy: s.gpa_cumulative ?? 0,
           tongTCNo: 0,
           soMonNo: 0,
+          programId: s.program_id,
+          departmentId: program?.department_id ?? null,
+          cohortId: s.cohort_id,
         },
       ])
       setIsCreateOpen(false)
@@ -193,26 +255,45 @@ export default function StudentsPage() {
     })
   }
 
-  const columns: ColumnDef<Student>[] = [
-    {
-      accessorKey: "mssv",
-      header: ({ column }) => (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          MSSV <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-    },
+  const columns: ColumnDef<StudentRow>[] = [
     {
       accessorKey: "hoTen",
       header: ({ column }) => (
         <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Họ tên <ArrowUpDown className="ml-2 h-4 w-4" />
+          Sinh viên <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
-      cell: ({ row }) => <span className="font-medium">{row.getValue("hoTen")}</span>,
+      cell: ({ row }) => (
+        <div className="min-w-[220px]">
+          <div className="font-medium">{row.original.hoTen}</div>
+          <div className="text-xs text-muted-foreground">{row.original.mssv} · {row.original.gioiTinh}</div>
+        </div>
+      ),
     },
-    { accessorKey: "lop", header: "Lớp" },
-    { accessorKey: "khoaQuanLy", header: "Khoa" },
+    {
+      accessorKey: "lop",
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Lớp / khóa <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => (
+        <div>
+          <div className="font-medium">{row.original.lop || "Chưa có lớp"}</div>
+          <div className="text-xs text-muted-foreground">{row.original.khoa || "Chưa có khóa"}</div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "khoaQuanLy",
+      header: "Khoa / ngành",
+      cell: ({ row }) => (
+        <div className="max-w-[300px]">
+          <div className="truncate font-medium" title={row.original.khoaQuanLy}>{row.original.khoaQuanLy || "Chưa rõ khoa"}</div>
+          <div className="truncate text-xs text-muted-foreground" title={row.original.nganh}>{row.original.nganh || "Chưa rõ ngành"}</div>
+        </div>
+      ),
+    },
     {
       accessorKey: "diemTBTichLuy",
       header: ({ column }) => (
@@ -249,7 +330,7 @@ export default function StudentsPage() {
           </div>
         )
       },
-    } as ColumnDef<Student>] : []),
+    } as ColumnDef<StudentRow>] : []),
   ]
 
   return (
@@ -257,6 +338,9 @@ export default function StudentsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Quản lý Sinh viên</h1>
+          <p className="text-sm text-muted-foreground">
+            {isLoading ? "Đang tải dữ liệu..." : `${filteredStudents.length} / ${students.length} sinh viên`}
+          </p>
         </div>
         {hasWriteAccess && (
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -288,7 +372,9 @@ export default function StudentsPage() {
                         <SelectTrigger><SelectValue placeholder="Chọn khóa..." /></SelectTrigger>
                         <SelectContent>
                           {cohorts.map((c) => (
-                            <SelectItem key={c.id} value={String(c.id)}>{c.code}</SelectItem>
+                            <SelectItem key={c.id} value={String(c.id)}>
+                              {c.code} ({c.year_start}{c.year_end ? `-${c.year_end}` : ""})
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -301,7 +387,7 @@ export default function StudentsPage() {
                         <SelectTrigger><SelectValue placeholder="Chọn ngành..." /></SelectTrigger>
                         <SelectContent>
                           {programs.map((p) => (
-                            <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                            <SelectItem key={p.id} value={String(p.id)}>{p.code} - {p.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -319,7 +405,102 @@ export default function StudentsPage() {
         )}
       </div>
 
-      <DataTable columns={columns} data={students} searchKey="hoTen" searchPlaceholder="Tìm theo tên..." />
+      {error && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <div className="rounded-md border p-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground"><Users className="h-4 w-4" /> Tổng</div>
+          <div className="mt-1 text-2xl font-semibold">{students.length}</div>
+        </div>
+        <div className="rounded-md border p-3">
+          <div className="text-sm text-muted-foreground">Đang học</div>
+          <div className="mt-1 text-2xl font-semibold">{summary.active}</div>
+        </div>
+        <div className="rounded-md border p-3">
+          <div className="text-sm text-muted-foreground">Lớp hành chính</div>
+          <div className="mt-1 text-2xl font-semibold">{summary.classCount}</div>
+        </div>
+        <div className="rounded-md border p-3">
+          <div className="text-sm text-muted-foreground">GPA dưới 2.0</div>
+          <div className="mt-1 text-2xl font-semibold">{summary.lowGpa}</div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 rounded-md border p-3 md:grid-cols-5 md:items-end">
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold">Khoa</Label>
+          <Select value={departmentFilter} onValueChange={(value) => setDepartmentFilter(value ?? "all")}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="Tất cả khoa" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả khoa</SelectItem>
+              {departments.map((department) => (
+                <SelectItem key={department.id} value={String(department.id)}>
+                  {department.code} - {department.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold">Ngành</Label>
+          <Select value={programFilter} onValueChange={(value) => setProgramFilter(value ?? "all")}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="Tất cả ngành" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả ngành</SelectItem>
+              {filteredPrograms.map((program) => (
+                <SelectItem key={program.id} value={String(program.id)}>
+                  {program.code} - {program.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold">Khóa</Label>
+          <Select value={cohortFilter} onValueChange={(value) => setCohortFilter(value ?? "all")}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="Tất cả khóa" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả khóa</SelectItem>
+              {cohorts.map((cohort) => (
+                <SelectItem key={cohort.id} value={String(cohort.id)}>
+                  {cohort.code} ({cohort.year_start}{cohort.year_end ? `-${cohort.year_end}` : ""})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold">Trạng thái</Label>
+          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value ?? "all")}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="Tất cả trạng thái" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả trạng thái</SelectItem>
+              <SelectItem value="Đang học">Đang học</SelectItem>
+              <SelectItem value="Đã tốt nghiệp">Đã tốt nghiệp</SelectItem>
+              <SelectItem value="Bảo lưu">Bảo lưu</SelectItem>
+              <SelectItem value="Thôi học">Thôi học</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            setDepartmentFilter("all")
+            setProgramFilter("all")
+            setCohortFilter("all")
+            setStatusFilter("all")
+          }}
+        >
+          Xóa lọc
+        </Button>
+      </div>
+
+      <DataTable columns={columns} data={filteredStudents} searchKey="hoTen" searchPlaceholder="Tìm theo tên sinh viên..." />
 
       {/* EDIT Dialog */}
       <Dialog open={!!editStudent} onOpenChange={(open) => { if (!open) setEditStudent(null) }}>

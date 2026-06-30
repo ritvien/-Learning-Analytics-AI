@@ -1,444 +1,318 @@
-# Starter Code Template — Cohort 2
+# EduInsight — Nền tảng AI Learning Analytics cho Khoa và Nhà trường
 
-## Dashboard Analytics — nguyên tắc thiết kế
+EduInsight biến dữ liệu học vụ rời rạc thành thông tin có thể hành động. Hệ thống kết hợp dashboard phân tích nhiều cấp, cây cơ cấu đào tạo, cảnh báo sớm bằng Machine Learning, báo cáo tự động và AI Agent để giúp nhà trường trả lời ba câu hỏi: **điều gì đang xảy ra, vì sao xảy ra và nên ưu tiên xử lý ở đâu**.
 
-Dashboard được thiết kế theo **đối tượng cần phân tích**, không bắt đầu từ câu hỏi “dùng biểu đồ gì”.
-Mỗi tầng phải trả lời một nhóm câu hỏi riêng và drill-down xuống tầng kế tiếp:
+> Triết lý sản phẩm: **Nhìn tổng thể → drill-down chi tiết → hỏi bằng ngôn ngữ tự nhiên → hành động dựa trên bằng chứng.**
 
-| Route | Đối tượng chính | Câu hỏi trung tâm | Không nên làm |
-|---|---|---|---|
-| `/manager/analytics` | Toàn trường + bức tranh các ngành | Trường đang vận hành thế nào, ngành nào cần chú ý? | Đi sâu vào từng lớp hoặc lấy cảnh báo làm trung tâm |
-| `/manager/analytics/programs` | Một ngành được chọn | Ngành yếu ở giai đoạn, khóa và nhóm môn nào? | Tiếp tục so sánh hàng loạt ngành |
-| `/manager/analytics/courses` | Một môn học | Môn khó qua các kỳ hay chỉ khó với một số ngành/lớp? | Trộn với phân tích toàn ngành |
-| `/manager/analytics/sections` | Một lớp học phần | Lớp cần hỗ trợ cả lớp hay một nhóm sinh viên? | Chỉ làm công cụ tìm lớp bất thường |
-| `/manager/analytics/students` | Một sinh viên | Sinh viên đang tiến bộ hay có nguy cơ học vụ? | Chỉ hiển thị điểm của một môn |
+## 1. Đặt vấn đề
 
-### Tổng quan toàn trường
+Trong một cơ sở đào tạo, dữ liệu sinh viên, điểm, lớp học phần, chuẩn đầu ra và chương trình đào tạo thường nằm ở nhiều bảng hoặc nhiều quy trình khác nhau. Người quản lý vì vậy gặp các khó khăn:
 
-- Filter: học kỳ và khoa; không lọc theo môn hoặc lớp học phần.
-- KPI: sinh viên active, số ngành, pass rate toàn trường, GPA tích lũy trung bình, sinh viên nguy cơ.
-- Chart chính: pass rate toàn trường theo học kỳ, bar ngang pass rate theo ngành, heatmap ngành × học kỳ.
-- Bảng chính: `Program Overview Table`, sắp xếp ưu tiên theo sinh viên nguy cơ giảm dần, pass rate tăng dần, GPA tăng dần.
-- Drill-down: mở dashboard của một ngành từ bảng tổng quan.
+- khó nhìn thấy sức khỏe đào tạo từ cấp trường xuống khoa, ngành, chuyên ngành, môn, lớp và sinh viên;
+- phát hiện sinh viên hoặc môn học có rủi ro quá muộn;
+- phải tổng hợp báo cáo thủ công, khó truy vết số liệu và so sánh giữa các học kỳ;
+- dashboard truyền thống cho biết “con số”, nhưng chưa hỗ trợ giải thích nguyên nhân;
+- dùng LLM trực tiếp để dự đoán dễ tạo ra xác suất không kiểm chứng được;
+- quyền xem dữ liệu giữa ban quản lý, giảng viên và người chỉ đọc cần được kiểm soát theo đúng phạm vi nghiệp vụ.
 
-### Dashboard ngành đào tạo
+## 2. Sản phẩm giải quyết bài toán như thế nào?
 
-- Filter ngành là bắt buộc; các metric chỉ tính trên sinh viên thuộc ngành đang chọn.
-- KPI: quy mô ngành, GPA, pass rate, sinh viên nguy cơ và số môn bottleneck.
-- Chart chính: trend pass rate, trend điểm trung bình, pass rate theo nhóm môn, phân bố học lực và heatmap khóa × học kỳ.
-- Bảng chính: `Course Performance in Program`, ưu tiên môn pass rate thấp và có nhiều sinh viên trượt/cận trượt.
-- Dữ liệu hiện chưa có `course_group`; frontend tạm suy luận nhóm môn từ `is_elective` và số tín chỉ. Cần bổ sung trường nhóm môn trong schema để thay thế quy tắc tạm này.
+EduInsight xây một luồng phân tích thống nhất:
 
-### Metric definitions
-
-| Metric | Định nghĩa MVP |
-|---|---|
-| Pass rate | Enrollment có `is_passed = true` / enrollment có kết quả hợp lệ |
-| GPA tích lũy TB | Trung bình `student.gpa_cumulative` của sinh viên active trong scope |
-| Sinh viên nguy cơ | Sinh viên active có GPA tích lũy `< 2.0` |
-| Môn bottleneck | Môn trong ngành có pass rate `< 70%` |
-| Cận trượt | Enrollment có điểm cuối kỳ từ `4.0` đến dưới `5.0` |
-
-> Data quality: các ngành chưa có sinh viên/điểm không được dùng để so sánh hiệu quả. Heatmap hiển thị `—` khi không đủ dữ liệu, không tự quy đổi thành `0%`.
-
-Empty starter template for AI20K Build Cohort 2 team repositories. Includes pre-configured AI usage logging hooks for Claude Code, Cursor, Codex, Gemini CLI, Antigravity, and GitHub Copilot.
-
-## Structure
-
-```
-├── scripts/
-│   ├── _pyrun.sh             # Cross-platform Python launcher (bash)
-│   ├── _pyrun.cmd            # Cross-platform Python launcher (Windows)
-│   ├── setup_hooks.sh        # One-time pre-push hook installer (POSIX)
-│   ├── setup_hooks.ps1       # One-time pre-push hook installer (Windows)
-│   ├── log_hook.py           # AI tool hook handler (Claude / Cursor / Codex / Gemini / Copilot)
-│   ├── log_antigravity.py    # Auto-log hook for Antigravity
-│   ├── log_manual.py         # Manual log for ChatGPT / web tools
-│   └── submit_log.py         # Submits logs on git push
-├── .agents/                  # Antigravity rules + workflows
-├── .claude/  .codex/  .cursor/  .gemini/  .github/hooks/   # Per-tool hook configs
-├── .env.example
-├── JOURNAL.md                # Weekly journal — product journey & learnings
-└── WORKLOG.md                # Technical decisions, task assignments, brainstorming
+```text
+Dữ liệu học vụ vận hành
+→ ETL và kiểm tra chất lượng
+→ Data Warehouse phục vụ phân tích
+→ mô hình ML chấm điểm rủi ro
+→ dashboard / Academic Tree / báo cáo
+→ AI Agent giải thích bằng ngôn ngữ tự nhiên
+→ người phụ trách ra quyết định
 ```
 
-## Getting Started
+Điểm cốt lõi là tách rõ trách nhiệm:
 
-### 1. Clone and install pre-push hook
+- **DWH** là nguồn dữ liệu lịch sử và KPI phân tích, không dùng trực tiếp các bảng CRUD như một kho dữ liệu.
+- **ML** tạo prediction có phiên bản, thời điểm chấm và các yếu tố giải thích.
+- **LLM/Agent** chỉ truy xuất và diễn giải dữ liệu DWH/ML; không tự bịa xác suất pass, trượt hoặc dropout.
+- **Backend** là nơi xác thực quyền cuối cùng; việc ẩn menu ở frontend không thay thế kiểm tra RBAC tại API.
 
-**Linux / macOS / Git Bash:**
-```bash
-git clone <repo-url>
-cd <repo>
-bash scripts/setup_hooks.sh
+## 3. Đối tượng sử dụng và chức năng
+
+| Actor | Phạm vi | Chức năng chính |
+|:--|:--|:--|
+| **Superadmin** | Toàn hệ thống | Quản trị tài khoản, toàn bộ dữ liệu, DWH/ML, báo cáo và nhật ký observability |
+| **Admin** | Toàn hệ thống | Quản lý dữ liệu học vụ, tài khoản, cấu trúc đào tạo và vận hành báo cáo |
+| **Manager** | Khoa/đơn vị được phân công | Xem analytics, quản lý dữ liệu trong phạm vi, theo dõi ngành, môn, lớp và rủi ro |
+| **Lecturer** | Lớp giảng dạy hoặc lớp chủ nhiệm được gán rõ ràng | Xem lớp, sinh viên, điểm, phân tích môn/lớp; sử dụng Chat AI và báo cáo trong phạm vi |
+| **Viewer** | Chỉ đọc theo phạm vi được cấp | Xem cơ cấu và dữ liệu được phép, không thực hiện thao tác ghi |
+
+Sinh viên hiện là **đối tượng được phân tích**, chưa phải actor đăng nhập riêng. Quan hệ lớp giảng dạy và lớp chủ nhiệm được tách biệt; hệ thống không suy đoán trách nhiệm chủ nhiệm từ lớp học phần.
+
+## 4. Các phân hệ chính
+
+### Academic Tree và cơ cấu đào tạo
+
+Cây học vụ chuẩn hóa theo cấu trúc:
+
+```text
+Trường → Khoa → Ngành/Chương trình → Chuyên ngành → Môn học
 ```
 
-**Windows PowerShell:**
-```powershell
-git clone <repo-url>
-cd <repo>
-powershell -ExecutionPolicy Bypass -File scripts\setup_hooks.ps1
-```
+Người dùng có thể mở từng nhánh, xem KPI/health score, tìm kiếm, drill-down và chuyển ngữ cảnh sang Chat AI. Một môn có thể thuộc nhiều ngành hoặc chuyên ngành; sinh viên chưa đủ dữ liệu chuyên ngành được giữ ở trạng thái chưa phân loại thay vì suy đoán.
 
-### 2. Configure environment
+### Dashboard Learning Analytics
 
-```bash
-cp .env.example .env       # macOS / Linux / Git Bash
-# copy .env.example .env   # Windows cmd
-```
+Các màn hình phân tích đi từ tổng quan tới chi tiết:
 
-Fill in `AI_LOG_SERVER` and `AI_LOG_API_KEY` (provided by the course).
+- toàn trường và khoa: quy mô, GPA, pass rate, xu hướng và đơn vị cần chú ý;
+- ngành/chương trình: hiệu quả theo khóa, học kỳ và nhóm môn;
+- môn học: phân bố điểm, tỷ lệ đạt/trượt và xu hướng;
+- lớp học phần: hiệu quả lớp, tiến độ điểm và nhóm sinh viên cần hỗ trợ;
+- lớp chủ nhiệm/sinh viên: hồ sơ học tập và tín hiệu rủi ro trong đúng phạm vi giảng viên.
 
-### 3. Run the application (Local Environment)
+Dashboard dùng aggregate API từ DWH cho các luồng chính, hỗ trợ bộ lọc học kỳ, khoa/ngành và liên kết drill-down giữa các cấp.
 
-To reproduce the full stack locally:
+### Cảnh báo sớm bằng Machine Learning
 
-1. **Backend & Database**:
-   ```powershell
-   # Run at project root directory
-   docker-compose up -d
-   ```
-2. **Frontend (Next.js)**:
-   ```powershell
-   cd frontend
-   # Note for Windows users: if PowerShell blocks npm script execution, use npm.cmd
-   npm.cmd run dev   # or "npm run dev" on macOS/Linux
-   ```
-3. **Ngrok Tunnel (Public Server Access)** — xem [scripts/setup-ngrok.ps1](./scripts/setup-ngrok.ps1):
+Pipeline ML huấn luyện, đánh giá và chấm điểm nguy cơ dropout từ feature học vụ như GPA, tỷ lệ trượt, tín chỉ và lịch sử học tập. Prediction được lưu trong schema `ml` cùng model run, version, metric đánh giá, thời điểm chấm và yếu tố đóng góp.
 
-   ```powershell
-   # Production (recommended for ngrok - less bandwidth than dev/HMR):
-   .\scripts\setup-ngrok.ps1 -Production
+Ngoài dropout risk, kiến trúc hỗ trợ prediction pass/trượt theo enrollment và tổng hợp expected passed/failed credits theo sinh viên–học kỳ. Agent chỉ đọc kết quả đã được mô hình tính sẵn.
 
-   # Dev mode:
-   .\scripts\setup-ngrok.ps1
-   ```
+### Contextual AI Chat
 
-   Script sẽ: cấu hình authtoken → mở tunnel port 3000 → ghi `frontend/.env.local` → cập nhật `docs/12-Evaluation/demo-day-phase1.md`.
+Chatbot sử dụng LangGraph và mô hình ReAct để định tuyến câu hỏi, gọi công cụ và trả lời theo ngữ cảnh. Các khả năng hiện có gồm:
 
-   **Yêu cầu:** frontend (`npm run dev`) + backend (Docker hoặc uvicorn :8000) đang chạy trước khi smoke public URL.
+- truy vấn dữ liệu học vụ bằng SQL chỉ đọc;
+- tra cứu sinh viên và tính mức đạt CLO;
+- đọc prediction dropout từ schema `ml`;
+- giải thích KPI, so sánh kỳ và chuyển người dùng tới dashboard phù hợp;
+- stream phản hồi bằng SSE, lưu phiên hội thoại và hỗ trợ chat toàn cục.
 
-### 4. Update Local Environment (After `git pull`)
+Agent có xử lý lỗi ba tầng: lỗi công cụ, retry node với lỗi tạm thời và khôi phục ở graph/tool loop.
 
-Nếu có thay đổi cấu trúc database hoặc thư viện sau khi pull code:
+### Report Center và Report Agent
 
-```powershell
-# 1. Cập nhật Database
-cd backend
-alembic upgrade head
+Hệ thống lưu báo cáo dưới dạng snapshot có version thay vì tính lại và ghi đè lịch sử. Người dùng có thể tạo báo cáo theo trường/khoa/ngành/môn/lớp, xem narrative, bằng chứng, chất lượng dữ liệu, biểu đồ và gợi ý hành động.
 
-# 2. Cập nhật Dependencies
-# (Backend): pip install -r requirements.txt
-cd ../frontend
-npm install
-```
+Report Agent hỗ trợ hiểu yêu cầu tự nhiên, lập bản nháp và xem trước dữ liệu. Mọi thao tác ghi phải qua bước xác nhận; báo cáo tự động có scheduler và audit trail.
 
-### 5. Run the application (Production)
+### Quản lý dữ liệu và chuẩn đầu ra
 
-```bash
-# Chạy Frontend (Next.js)
-cd frontend
-npm install
-npm run build
-npm start
+Các API/UI quản lý khoa, ngành, chuyên ngành, môn học, sinh viên, giảng viên, lớp học phần, học kỳ, khóa, enrollment và điểm. Hệ thống có mô hình CLO/PLO, mapping điểm thành phần và materialization kết quả đạt chuẩn phục vụ analytics và báo cáo.
 
-# Chạy Backend (FastAPI)
-cd backend
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
+### RBAC và Observability
 
-## Weekly Journal
+- JWT authentication và phân quyền theo role, khoa, giảng viên, lớp học phần, sinh viên và báo cáo.
+- Session, trace ID, structured event log, HTTP/chat/tool events và dashboard giám sát dành cho superadmin.
+- Theo dõi người dùng hoạt động, thời lượng phiên, tỷ lệ lỗi, route lỗi và event log có bộ lọc.
 
-Update **[JOURNAL.md](./JOURNAL.md)** at the end of every week:
-
-- Features shipped
-- AI tools used and how they helped
-- Hardest problem of the week and how you solved it
-- What you'd do differently
-- Plan for next week
-
-> JOURNAL.md **must be updated** before each PR — it is your learning record for the course.
-
-## Worklog
-
-Update **[WORKLOG.md](./WORKLOG.md)** whenever your team makes a technical decision or changes direction:
-
-- **Technical decisions** — why this approach over alternatives?
-- **Task assignments** — who does what, by when
-- **Brainstorming** — options considered, pros / cons, conclusion
-- **Important bugs** — root cause and fix
-
-## AI Logging
-
-Prompts and tool calls are **automatically logged** when you use any supported AI tool (Claude Code, Cursor, Codex, Gemini, Antigravity, Copilot). No manual steps needed after running `setup_hooks`.
-
-For ChatGPT or other web tools, log manually:
-
-```bash
-# POSIX
-bash scripts/_pyrun.sh scripts/log_manual.py --tool chatgpt --prompt "<what you did>"
-
-# Windows
-scripts\_pyrun.cmd scripts\log_manual.py --tool chatgpt --prompt "<what you did>"
-```
-
-### Python requirements
-
-The hook system needs **one** of: `python3`, `python`, or `py` on PATH.
-
-| OS | Recommended install |
-|---|---|
-| Windows | Python 3 from [python.org](https://www.python.org/downloads/) — installer adds both `python` and `py` to PATH |
-| Ubuntu / Debian | `sudo apt install python3` (already preinstalled on most distros) |
-| macOS | `brew install python3` or use system Python 3 |
-
-The `scripts/_pyrun.*` wrappers detect whichever is available — students do not need to alias `python3` → `python`.
-
-## Academic Tree Contract
-
-Academic Tree dùng một thứ tự nghiệp vụ duy nhất. `Program` mang nghĩa **Ngành / Chương trình đào tạo**;
-`Specialization` mang nghĩa **Chuyên ngành** và luôn thuộc một Program.
+## 5. Kiến trúc hệ thống
 
 ```mermaid
 flowchart LR
-    School["Trường"] --> Department["Khoa<br/>Department"]
-    Department --> Program["Ngành / CTĐT<br/>Program"]
-    Program --> Specialization["Chuyên ngành<br/>Specialization"]
-    Specialization --> Course["Môn học<br/>Course"]
+    U[Người dùng] --> FE[Next.js 16 Frontend]
+    FE <-->|REST / SSE| API[FastAPI API]
+
+    API --> AUTH[JWT + RBAC]
+    API --> AGENT[LangGraph Agent]
+    API --> ANALYTICS[Analytics & Report Services]
+    API --> PREDICT[ML Service]
+
+    AGENT --> LLM[LLM Router / Core]
+    AGENT --> TOOLS[Read-only Tools]
+
+    subgraph PostgreSQL
+        OLTP[(public — OLTP)]
+        DWH[(dwh — Star Schema)]
+        ML[(ml — Model & Prediction)]
+    end
+
+    OLTP -->|ETL + Data Quality| DWH
+    DWH --> ANALYTICS
+    DWH --> PREDICT
+    PREDICT --> ML
+    TOOLS --> DWH
+    TOOLS --> ML
 ```
 
-Các môn có thể dùng chung giữa nhiều Ngành hoặc Chuyên ngành. Vì vậy backend phải giữ mapping
-many-to-many, và metric cấp cha phải deduplicate student/course/enrollment theo ID thay vì cộng thẳng
-metric của các node con. Contract schema, API, backfill và rollout nằm tại
-[H45-Plan.md](./docs/07-Sprint-Planning/H45-Plan.md).
+Một PostgreSQL instance được tách schema theo workload để giữ hạ tầng MVP gọn nhưng vẫn có ranh giới rõ:
 
-## System Architecture
+| Schema | Trách nhiệm |
+|:--|:--|
+| `public` | OLTP: người dùng, cơ cấu đào tạo, sinh viên, lớp, điểm, CLO/PLO, chat và báo cáo |
+| `dwh` | Dimensions, facts, dữ liệu lịch sử, ETL run và data-quality result |
+| `ml` | Model run, prediction theo enrollment/sinh viên và kết quả tổng hợp |
+| `staging` | Vùng tạm tùy chọn khi tích hợp nguồn dữ liệu thô phức tạp |
 
-Dự án EduInsight sử dụng kiến trúc 4 tầng, tối ưu cho RAG và AI Agent với PostgreSQL (`pgvector`) đóng vai trò trung tâm cho cả dữ liệu quan hệ và vector.
+## 6. Công nghệ sử dụng
 
-### 1. High-Level System Overview
+| Tầng | Công nghệ |
+|:--|:--|
+| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS 4, shadcn/ui/Base UI |
+| Trực quan hóa | Recharts, cây học vụ và component dashboard tùy biến |
+| Backend API | Python 3.11+, FastAPI, Uvicorn, Pydantic v2 |
+| Database | PostgreSQL 16, SQLAlchemy 2 async, asyncpg, Alembic |
+| AI Agent | LangGraph, LangChain Core, OpenAI-compatible/Gemini integration, SSE |
+| Machine Learning | scikit-learn, XGBoost, pandas, NumPy, joblib |
+| Auth & bảo mật | JWT, python-jose, passlib, CORS, role/row-level scope |
+| Kiểm thử | pytest, pytest-asyncio, pytest-cov, Vitest, Testing Library, Playwright |
+| Chất lượng code | Ruff, ESLint, TypeScript, GitHub Actions/verify scripts |
+| Đóng gói & chạy | Docker, Docker Compose, Ngrok cho môi trường demo |
 
-```mermaid
-graph TB
-    %% ===== USERS =====
-    User(["👤 Lãnh đạo Khoa / Trưởng ngành"])
-    
-    %% ===== PRESENTATION LAYER =====
-    subgraph PRESENTATION ["🖥️ Tầng Trình Diễn (Presentation Layer)"]
-        direction LR
-        NextJS["<b>Next.js 16</b><br/>TypeScript + TailwindCSS<br/>+ shadcn/ui"]
-        Streamlit["<b>Streamlit</b><br/>AI Prototype<br/>(Sprint 2 — Demo 1)"]
-    end
+## 7. Tối ưu hóa và độ tin cậy
 
-    %% ===== API GATEWAY =====
-    subgraph GATEWAY ["🔐 Tầng API Gateway"]
-        direction LR
-        FastAPI["<b>FastAPI</b><br/>REST API + SSE Streaming"]
-        Auth["JWT Auth<br/>+ Rate Limiting<br/>(100 req/min)"]
-        Validation["Pydantic<br/>Input Validation"]
-    end
+- **Async I/O:** FastAPI, SQLAlchemy async và SSE giúp các luồng API/chat không chặn lẫn nhau.
+- **Đọc aggregate thay vì kéo raw data:** dashboard ưu tiên DWH và aggregate API; các index DWH hỗ trợ bộ lọc phổ biến.
+- **Cache có phạm vi:** cache dashboard, Academic Tree, CLO health score và current user; dữ liệu dashboard được pre-warm khi backend khởi động và prefetch theo điều hướng frontend.
+- **ETL idempotent:** chạy lại không tạo dòng trùng, có reconciliation và nhật ký chất lượng dữ liệu.
+- **Model tiering:** router và core model cấu hình độc lập để cân bằng latency, chi phí và năng lực suy luận.
+- **Giới hạn context:** SQL tool chỉ cho phép `SELECT`, kết nối read-only và giới hạn số dòng trả về để giảm rủi ro và token.
+- **Version hóa dữ liệu:** Alembic là đường thay đổi schema duy nhất; report snapshot và ML model run giữ lịch sử có thể audit.
+- **Quan sát xuyên suốt:** session ID, request/trace ID và event log nối frontend, API, chat và tool call.
 
-    %% ===== COGNITIVE LAYER =====
-    subgraph COGNITIVE ["🧠 Tầng Logic AI (Cognitive Layer)"]
-        direction LR
-        Agent["<b>LangGraph</b><br/>StateGraph + ReAct"]
-        MetricEngine["<b>Metric Engine</b><br/>Health Score<br/>GPA · Fail Rate · CLO"]
-        RAG["<b>RAG Pipeline</b><br/>Syllabus Retrieval"]
-    end
+## 8. Trạng thái hiện tại
 
-    %% ===== STORAGE LAYER =====
-    subgraph STORAGE ["💾 Tầng Lưu Trữ (Storage Layer)"]
-        direction LR
-        DB[("PostgreSQL<br/>(pgvector)<br/>Relational & Vectors")]
-        Cache[("Redis /<br/>In-Memory<br/>Cache")]
-    end
+Đã triển khai nền tảng chính gồm CRUD học vụ, Academic Tree 5 cấp, dashboard nhiều cấp, DWH/ETL, CLO/PLO, train/score dropout ML, Chat Agent, Report Center, RBAC và observability.
 
-    %% ===== EXTERNAL =====
-    subgraph EXTERNAL ["☁️ Dịch vụ Bên Ngoài"]
-        direction LR
-        LLM["OpenAI GPT-5.4 /<br/>GPT-5.4 Nano"]
-        Monitoring["Langfuse<br/>Observability"]
-    end
+Các hướng đang tiếp tục hoàn thiện:
 
-    %% ===== CONNECTIONS =====
-    User <-->|"HTTP / SSE"| PRESENTATION
-    NextJS <-->|"REST API"| FastAPI
-    Streamlit <-->|"REST API"| FastAPI
-    FastAPI --> Auth --> Validation
-    Validation <--> Agent
-    Validation <--> MetricEngine
-    Agent <-->|"Tool Calls"| DB
-    Agent <-->|"LLM Inference"| LLM
-    MetricEngine <--> DB
-    MetricEngine <--> Cache
-    RAG <--> DB
-    Agent --> RAG
-    Agent -.->|"Traces"| Monitoring
+- workflow giao việc/can thiệp/follow-up từ insight thành đối tượng nghiệp vụ đầy đủ;
+- mở rộng aggregate API và loại bỏ hoàn toàn việc aggregate raw data ở frontend;
+- siết thêm write scope ở một số luồng quản trị;
+- RAG corpus và retrieval production;
+- data-quality center, model calibration/drift và export báo cáo hoàn chỉnh.
+
+Tài liệu sprint và code là nguồn để xác định trạng thái chi tiết; không nên xem toàn bộ backlog trong PRD là tính năng đã phát hành.
+
+## 9. Chạy dự án
+
+### Yêu cầu
+
+- Git
+- Docker Desktop và Docker Compose v2
+- Node.js 20+
+- Python 3.11+ nếu chạy backend ngoài Docker
+
+### Khởi động lần đầu trên Windows PowerShell
+
+```powershell
+git clone <repository-url>
+cd C2-App-056
+
+Copy-Item .env.example .env
+Copy-Item backend/.env.example backend/.env
+# Cập nhật SECRET_KEY và cấu hình LLM trong backend/.env khi cần dùng AI.
+
+docker compose up --build -d
+
+cd frontend
+npm install
+npm run dev
 ```
 
-### 2. Deployment & DevOps Topology
+Migrations được chạy tự động khi backend container khởi động. Nếu database trống, seed runner sẽ nạp dữ liệu mẫu; không dùng `docker compose down -v` trong quy trình hằng ngày vì lệnh này xóa volume database.
 
-```mermaid
-graph LR
-    %% ===== SOURCE =====
-    subgraph DEV ["👨‍💻 Development"]
-        Code["Source Code<br/>(GitHub Repo)"]
-        PR["Pull Request"]
-        PreCommit["Pre-commit<br/>Hooks"]
-    end
+| Dịch vụ | Địa chỉ |
+|:--|:--|
+| Frontend | <http://localhost:3000> |
+| Backend API | <http://localhost:8000/api/v1> |
+| Swagger UI | <http://localhost:8000/api/docs> |
+| ReDoc | <http://localhost:8000/api/redoc> |
+| Health check | <http://localhost:8000/health> |
+| PostgreSQL | `localhost:5433` |
 
-    %% ===== CI/CD =====
-    subgraph CICD ["🔄 CI/CD — GitHub Actions"]
-        direction TB
-        Lint["Step 1: Ruff Lint<br/>+ Type Check"]
-        Test["Step 2: pytest<br/>Unit + Integration"]
-        DockerBuild["Step 3: Docker<br/>Build & Push"]
-        Lint --> Test --> DockerBuild
-    end
+### Một số lệnh vận hành
 
-    %% ===== CONTAINERS =====
-    subgraph DOCKER ["🐳 Docker Compose (Local Dev)"]
-        direction TB
-        BEContainer["Backend Container<br/>(Multi-stage Dockerfile)<br/>FastAPI + LangGraph"]
-        FEContainer["Frontend Container<br/>(Dockerfile)<br/>Next.js"]
-        DBContainer["Database Container<br/>PostgreSQL"]
-        BEContainer <--> DBContainer
-        FEContainer --> BEContainer
-    end
+```powershell
+# Xem trạng thái và log
+docker compose ps
+docker compose logs -f backend
 
-    %% ===== PRODUCTION =====
-    subgraph PROD ["☁️ Production"]
-        direction TB
-        Vercel["<b>Vercel</b><br/>Frontend<br/>(Next.js SSR)"]
-        Render["<b>Render</b><br/>Backend<br/>(FastAPI + Agent)"]
-        ProdDB[("Render<br/>PostgreSQL (pgvector)")]
-        Render <--> ProdDB
-        Vercel -->|"API Calls"| Render
-    end
+# Kiểm tra migration
+docker compose exec backend alembic current
 
-    %% ===== MONITORING =====
-    subgraph MON ["📊 Monitoring"]
-        HealthCheck["GET /health<br/>endpoint"]
-        Langfuse["Langfuse<br/>Agent Traces"]
-        AILogs["AI Usage<br/>Logging Hooks"]
-    end
+# Đồng bộ OLTP sang DWH
+docker compose exec backend python -m app.analytics.etl
 
-    %% ===== EXTERNAL =====
-    subgraph EXT ["☁️ External APIs"]
-        GPT54["OpenAI GPT-5.4<br/>API"]
-        GPT54Nano["OpenAI GPT-5.4 Nano<br/>API"]
-    end
-
-    %% ===== FLOWS =====
-    Code --> PreCommit --> PR
-    PR --> CICD
-    DockerBuild -->|"Deploy FE"| Vercel
-    DockerBuild -->|"Deploy BE"| Render
-    Render --> HealthCheck
-    Render -.-> Langfuse
-    Render --> GPT54
-    Render --> GPT54Nano
-    Code -.-> AILogs
+# Dừng dịch vụ nhưng giữ database
+docker compose down
 ```
 
-### 3. Data Flow — Contextual AI Chat
+### Public URL bằng Ngrok
 
-```mermaid
-sequenceDiagram
-    actor User as 👤 Lãnh đạo
-    participant FE as 🖥️ Next.js Frontend
-    participant API as ⚙️ FastAPI Gateway
-    participant Auth as 🔐 Auth + Validation
-    participant Agent as 🧠 LangGraph Agent
-    participant LLM as ☁️ GPT-5 Series
-    participant DB as 💾 PostgreSQL
-    participant VDB as 📚 pgvector
+Xem [scripts/setup-ngrok.ps1](./scripts/setup-ngrok.ps1):
 
-    Note over User, VDB: 💬 Contextual AI Chat (Auto-analysis)
+```powershell
+# Production, ít bandwidth hơn dev/HMR
+.\scripts\setup-ngrok.ps1 -Production
 
-    FE->>API: POST /api/v1/chat/auto-analyze<br/>{node_type: "program", node_id: 2}
-    API->>Auth: Verify JWT
-    Auth->>Agent: Invoke with context
-    Agent->>Agent: Router Node: classify intent
-    Agent->>LLM: Send prompt (Ngành-level template)<br/>"Phân tích ngành KTPM: top 5 môn trượt..."
-    LLM-->>Agent: Reasoning: need SQL data
-    Agent->>Agent: Tool Call: sql_query_tool
-    Agent->>DB: SELECT courses, grades, fail_rates<br/>WHERE program_id = 2
-    DB-->>Agent: Query results
-    Agent->>LLM: Observe results + generate analysis
-    LLM-->>Agent: Analysis text + chart spec
-    Agent->>Agent: Tool Call: chart_generator_tool
-    
-    loop SSE Streaming
-        Agent-->>API: Yield tokens
-        API-->>FE: SSE: data: {"type":"token","content":"..."}
-        FE-->>User: Typewriter effect 💬
-    end
-
-    Agent-->>API: Final: suggested_questions[]
-    API-->>FE: SSE: data: {"type":"suggestions","items":[...]}
-    FE-->>User: Display 3-4 follow-up questions
+# Dev mode
+.\scripts\setup-ngrok.ps1
 ```
 
-### 4. Agent Flow Diagram
+Script sẽ cấu hình authtoken, mở tunnel port 3000, ghi `frontend/.env.local` và cập nhật `docs/12-Evaluation/demo-day-phase1.md`. Frontend (`npm run dev`) và backend (Docker hoặc uvicorn `:8000`) cần chạy trước khi smoke public URL.
 
-```mermaid
-stateDiagram-v2
-    [*] --> ReceiveReq : User nhập câu hỏi
-    ReceiveReq : Nhận Yêu Cầu
-    
-    state StateInit {
-        ChatHistory --> Context
-        NewQuestion --> Context
-    }
-    StateInit : Khởi tạo State
-    ChatHistory : Lịch sử Chat
-    NewQuestion : Câu hỏi mới
-    
-    ReceiveReq --> StateInit
+## 10. Kiểm thử và chất lượng
 
-    StateInit --> RouterNode : Phân loại Intent
-    RouterNode : Router Node (GPT-5.4 Nano)
-    
-    RouterNode --> DirectResponse : Hỏi đáp thông thường
-    DirectResponse : Fast Response
-    DirectResponse --> [*] : Trả về Frontend (SSE)
+```powershell
+# Toàn bộ backend lint/test và frontend lint/test
+.\scripts\verify.ps1
 
-    state AgentNode {
-        Analyze --> Reasoning
-        Reasoning --> Act
-    }
-    AgentNode : Core Agent Node (GPT-5.4)<br/>*RetryPolicy (Max 3)*
-    Analyze : Phân tích ngữ cảnh
-    Reasoning : Suy luận Logic
-    Act : Quyết định gọi Tool
-    
-    RouterNode --> AgentNode : Cần tra cứu / Phân tích
+# Chỉ lint nhanh
+.\scripts\verify.ps1 -Quick
 
-    state Condition1 <<choice>>
-    AgentNode --> Condition1
-
-    Condition1 --> [*] : Không (Đã có câu trả lời)
-    
-    state ToolNode {
-        state ToolRouter <<choice>>
-        ToolRouter --> SQLTool : Lọc dữ liệu
-        ToolRouter --> VectorTool : Tra cứu RAG
-        ToolRouter --> CLOTool : Tính toán CLO
-        ToolRouter --> ChartTool : Vẽ biểu đồ
-        ToolRouter --> ReportTool : Viết báo cáo
-        ToolRouter --> DiagramTool : Tạo sơ đồ
-    }
-    ToolNode : Thực thi Công cụ (handle_tool_errors=True)
-    SQLTool : SQL Query Tool
-    VectorTool : Vector Search Tool (pgvector)
-    CLOTool : CLO Calculator Tool
-    ChartTool : Chart Generator Tool
-    ReportTool : Report Writer Tool
-    DiagramTool : Diagram Generator Tool
-
-    Condition1 --> ToolNode : Có (Danh sách Tool)
-
-    %% Lỗi ở Tool sẽ được handle_tool_errors chuyển thành Text trả về Agent tự sửa
-    ToolNode --> AgentNode : Kết quả (Thành công / Chuỗi báo lỗi)
+# Bao gồm agent evaluation chậm và có thể tốn API token
+.\scripts\verify.ps1 -AgentEval
 ```
+
+Hoặc chạy riêng từng tầng:
+
+```powershell
+cd backend
+ruff check .
+pytest -q -m "not slow and not eval"
+
+cd ../frontend
+npm run lint
+npm test
+npm run test:e2e
+```
+
+## 11. Cấu trúc repository
+
+```text
+.
+├── backend/                  # FastAPI, LangGraph, DWH/ETL, ML, reports
+│   ├── app/
+│   │   ├── agent/            # Graph, prompts, guardrails và tools
+│   │   ├── analytics/        # ETL, metrics, CLO/PLO và dashboard queries
+│   │   ├── api/v1/           # REST/SSE endpoints
+│   │   ├── ml/               # Train, evaluate, score và aggregate prediction
+│   │   ├── models/           # SQLAlchemy ORM — nguồn schema chuẩn
+│   │   └── reports/          # Report service và scheduler
+│   ├── migrations/           # Alembic revisions
+│   └── tests/                # Backend tests
+├── frontend/                 # Next.js App Router, dashboards, CRUD, chat, reports
+├── docs/                     # PRD, kiến trúc, ADR, sprint và tài liệu nghiệp vụ
+├── scripts/                  # Verify, setup và helper scripts
+└── docker-compose.yml        # PostgreSQL + backend local stack
+```
+
+## 12. Tài liệu nên đọc
+
+1. [Chỉ mục và thứ tự thẩm quyền tài liệu](docs/README.md)
+2. [Product Requirements Document](docs/02-PRD/PRD.md)
+3. [Kiến trúc hệ thống](docs/10-References/SystemArchitecture.md)
+4. [Kiến trúc ML và Data Warehouse](docs/10-References/ML_DWH_Architecture.md)
+5. [Kế hoạch hiện đại hóa database](docs/10-References/DatabaseModernizationPlan.md)
+6. [Sprint đang hoạt động](docs/07-Sprint-Planning/Sprint3.md)
+7. [Architecture Decision Records](docs/decisions/README.md)
+8. [Hướng dẫn setup chi tiết](docs/10-References/ProjectSetup.md)
+
+## 13. Nguyên tắc phát triển quan trọng
+
+- Không tạo xác suất ML bằng LLM; Agent chỉ giải thích prediction từ schema `ml`.
+- Không dùng bảng CRUD `public` trực tiếp như DWH cho analytics lịch sử.
+- Không sửa migration đã áp dụng ở môi trường dùng chung; tạo Alembic revision mới.
+- Không suy đoán chuyên ngành hoặc lớp chủ nhiệm từ tên lớp, tên môn hay phân công giảng dạy.
+- Mọi thay đổi database, API contract hoặc hành vi Agent phải đọc ADR liên quan trước.

@@ -8,10 +8,12 @@ import {
   Award,
   BookOpen,
   CheckCircle2,
+  Clock3,
   GraduationCap,
-  Mail,
   Phone,
   Search,
+  Send,
+  Sparkles,
   Target,
 } from "lucide-react"
 import {
@@ -32,9 +34,11 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
-import { api, type ApiHomeroomStudentAnalytics } from "@/lib/api"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { api, type ApiHomeroomStudentAnalytics, type ApiInterventionContact } from "@/lib/api"
 
 function riskPresentation(level: ApiHomeroomStudentAnalytics["risk"]["level"]) {
   if (level === "high") return { label: "Cần ưu tiên", className: "border-red-200 bg-red-50 text-red-700", icon: AlertTriangle }
@@ -60,6 +64,27 @@ function studentStatusLabel(value: string) {
   return labels[value.toLowerCase()] ?? value
 }
 
+function channelLabel(value: string) {
+  const labels: Record<string, string> = {
+    email: "Email",
+    phone: "Điện thoại",
+    meeting: "Hẹn gặp",
+    in_person: "Trao đổi trực tiếp",
+    other: "Khác",
+  }
+  return labels[value] ?? value
+}
+
+function statusLabel(value: string) {
+  const labels: Record<string, string> = {
+    drafted: "Bản nháp",
+    logged: "Đã ghi nhận",
+    emailed: "Đã gửi email",
+    failed: "Gửi lỗi",
+  }
+  return labels[value] ?? value
+}
+
 export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
   const [data, setData] = React.useState<ApiHomeroomStudentAnalytics | null>(null)
   const [loading, setLoading] = React.useState(true)
@@ -67,6 +92,15 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
   const [semesterFilter, setSemesterFilter] = React.useState("all")
   const [resultFilter, setResultFilter] = React.useState<"all" | "failed" | "passed">("all")
   const [query, setQuery] = React.useState("")
+  const [history, setHistory] = React.useState<ApiInterventionContact[]>([])
+  const [historyLoading, setHistoryLoading] = React.useState(false)
+  const [supportOpen, setSupportOpen] = React.useState(false)
+  const [supportChannel, setSupportChannel] = React.useState<"email" | "phone" | "meeting" | "in_person" | "other">("email")
+  const [supportStatus, setSupportStatus] = React.useState<"logged" | "emailed" | "drafted">("logged")
+  const [supportSubject, setSupportSubject] = React.useState("Trao đổi về kế hoạch hỗ trợ học tập")
+  const [supportMessage, setSupportMessage] = React.useState("")
+  const [supportNote, setSupportNote] = React.useState("")
+  const [supportBusy, setSupportBusy] = React.useState(false)
 
   React.useEffect(() => {
     let active = true
@@ -86,10 +120,75 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
     }
   }, [studentId])
 
+  React.useEffect(() => {
+    if (!data?.profile.class_code) return
+    let active = true
+    setHistoryLoading(true)
+    api.getInterventionHistory(studentId, { class_code: data.profile.class_code })
+      .then((items) => {
+        if (active) setHistory(items)
+      })
+      .catch(() => {
+        if (active) setHistory([])
+      })
+      .finally(() => {
+        if (active) setHistoryLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [data?.profile.class_code, studentId])
+
   const semesters = React.useMemo(() => {
     if (!data) return []
     return [...new Set(data.course_results.map((row) => row.semester))]
   }, [data])
+
+  const refreshHistory = React.useCallback(async () => {
+    if (!data?.profile.class_code) return
+    const items = await api.getInterventionHistory(studentId, { class_code: data.profile.class_code })
+    setHistory(items)
+  }, [data?.profile.class_code, studentId])
+
+  const draftSupportMessage = React.useCallback(async () => {
+    if (!data?.profile.class_code) return
+    setSupportBusy(true)
+    try {
+      const draft = await api.draftInterventionMessage({
+        student_id: studentId,
+        class_code: data.profile.class_code,
+        channel: supportChannel,
+        tone: "supportive",
+      })
+      setSupportSubject(draft.subject)
+      setSupportMessage(draft.message)
+      setSupportNote(`AI gợi ý dựa trên: ${draft.reasons.join("; ") || "theo dõi định kỳ"}`)
+    } finally {
+      setSupportBusy(false)
+    }
+  }, [data?.profile.class_code, studentId, supportChannel])
+
+  const saveSupportContact = React.useCallback(async () => {
+    if (!data?.profile.class_code) return
+    setSupportBusy(true)
+    try {
+      await api.createInterventionContact({
+        student_id: studentId,
+        class_code: data.profile.class_code,
+        channel: supportChannel,
+        status: supportStatus,
+        subject: supportSubject || null,
+        message: supportMessage || null,
+        note: supportNote || null,
+        metadata: { source: "student_profile_support_panel" },
+      })
+      await refreshHistory()
+      setSupportOpen(false)
+      setSupportStatus("logged")
+    } finally {
+      setSupportBusy(false)
+    }
+  }, [data?.profile.class_code, refreshHistory, studentId, supportChannel, supportMessage, supportNote, supportStatus, supportSubject])
 
   const filteredResults = React.useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("vi")
@@ -154,7 +253,6 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {profile.email ? <a href={`mailto:${profile.email}`} className={buttonVariants({ size: "sm", variant: "outline" })}><Mail className="mr-2 h-4 w-4" />Gửi email</a> : null}
           {profile.phone ? <a href={`tel:${profile.phone}`} className={buttonVariants({ size: "sm", variant: "outline" })}><Phone className="mr-2 h-4 w-4" />Liên hệ</a> : null}
         </div>
       </div>
@@ -241,6 +339,133 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-primary/20">
+        <CardHeader>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base"><Sparkles className="h-4 w-4 text-primary" />Hỗ trợ học tập</CardTitle>
+              <CardDescription>Agent hỗ trợ soạn nội dung trao đổi; giảng viên xác nhận và lưu lịch sử can thiệp.</CardDescription>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setSupportOpen(true)
+                  void draftSupportMessage()
+                }}
+              >
+                <Sparkles className="mr-2 h-4 w-4" />AI soạn
+              </Button>
+              <Button size="sm" onClick={() => setSupportOpen(true)}>
+                <Send className="mr-2 h-4 w-4" />Ghi nhận liên hệ
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
+          <div className="rounded-lg border bg-muted/20 p-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tín hiệu dùng cho hỗ trợ</p>
+            {risk.reasons.length ? (
+              <ul className="space-y-2 text-sm">
+                {risk.reasons.slice(0, 4).map((reason) => (
+                  <li key={reason} className="flex gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                    <span>{reason}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">Chưa có cảnh báo lớn; có thể ghi nhận trao đổi định kỳ.</p>
+            )}
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lịch sử gần nhất</p>
+              <Badge variant="secondary">{history.length} lượt</Badge>
+            </div>
+            {historyLoading ? (
+              <p className="py-5 text-sm text-muted-foreground">Đang tải lịch sử...</p>
+            ) : history.length ? (
+              <div className="space-y-3">
+                {history.slice(0, 3).map((item) => (
+                  <div key={item.id} className="border-l-2 border-primary/40 pl-3 text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{channelLabel(item.channel)}</span>
+                      <Badge variant={item.status === "emailed" ? "secondary" : "outline"} className="text-[10px]">{statusLabel(item.status)}</Badge>
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-muted-foreground">{item.note || item.subject || item.message || "Đã ghi nhận trao đổi"}</p>
+                    <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground"><Clock3 className="h-3 w-3" />{new Date(item.created_at).toLocaleString("vi-VN")}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="py-5 text-sm text-muted-foreground">Chưa có lượt trao đổi nào được lưu.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={supportOpen} onOpenChange={setSupportOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Hỗ trợ học tập cho {profile.full_name}</DialogTitle>
+            <DialogDescription>Chỉnh nội dung trước khi lưu lịch sử hoặc ghi nhận email đã gửi.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-muted-foreground">Kênh liên hệ</p>
+                <Select value={supportChannel} onValueChange={(value) => setSupportChannel(value as typeof supportChannel)}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="email">Email</SelectItem>
+                    <SelectItem value="phone">Điện thoại</SelectItem>
+                    <SelectItem value="meeting">Hẹn gặp</SelectItem>
+                    <SelectItem value="in_person">Trao đổi trực tiếp</SelectItem>
+                    <SelectItem value="other">Khác</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-muted-foreground">Trạng thái lưu</p>
+                <Select value={supportStatus} onValueChange={(value) => setSupportStatus(value as typeof supportStatus)}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="logged">Đã ghi nhận</SelectItem>
+                    <SelectItem value="emailed">Đã gửi email</SelectItem>
+                    <SelectItem value="drafted">Lưu bản nháp</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-muted-foreground">Tiêu đề</p>
+              <Input value={supportSubject} onChange={(event) => setSupportSubject(event.target.value)} />
+            </div>
+            <div>
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-muted-foreground">Nội dung / email draft</p>
+                <Button type="button" variant="ghost" size="sm" onClick={draftSupportMessage} disabled={supportBusy}>
+                  <Sparkles className="mr-2 h-4 w-4" />Soạn lại
+                </Button>
+              </div>
+              <Textarea value={supportMessage} onChange={(event) => setSupportMessage(event.target.value)} rows={9} />
+            </div>
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-muted-foreground">Ghi chú nội bộ</p>
+              <Textarea value={supportNote} onChange={(event) => setSupportNote(event.target.value)} rows={3} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSupportOpen(false)} disabled={supportBusy}>Hủy</Button>
+            <Button onClick={saveSupportContact} disabled={supportBusy}>
+              <Send className="mr-2 h-4 w-4" />{supportBusy ? "Đang lưu..." : "Lưu lịch sử"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>

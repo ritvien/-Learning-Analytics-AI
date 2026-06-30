@@ -4,7 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { GraduationCap, Lock, Pencil, Plus, ShieldCheck, Unlock, Users } from "lucide-react"
 
-import { api, type ApiTeacher, type ApiUser, type ApiUserRole } from "@/lib/api"
+import { api, type ApiDepartment, type ApiTeacher, type ApiUser, type ApiUserRole } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,6 +30,12 @@ import {
 
 const roles: ApiUserRole[] = ["superadmin", "admin", "manager", "lecturer", "viewer"]
 const accountManagedRoles: ApiUserRole[] = ["superadmin", "admin", "manager", "viewer"]
+const minPasswordLength = 8
+const managerPositions = [
+  { value: "dean", label: "Trưởng khoa" },
+  { value: "vice_dean", label: "Phó khoa" },
+  { value: "department_manager", label: "Quản lý khoa" },
+] as const
 
 const roleLabels: Record<ApiUserRole, string> = {
   superadmin: "Super Admin",
@@ -49,7 +55,7 @@ function roleDescription(role: ApiUserRole) {
     case "admin":
       return "Quản trị tài khoản, phân quyền và toàn quyền CRUD dữ liệu học vụ."
     case "manager":
-      return "CRUD dữ liệu học vụ, không quản trị tài khoản."
+      return "Quản lý và phân tích dữ liệu trong một khoa được gán."
     case "lecturer":
       return "Tài khoản giảng viên, được cấp từ hồ sơ Teacher."
     case "viewer":
@@ -57,13 +63,17 @@ function roleDescription(role: ApiUserRole) {
   }
 }
 
+function positionLabel(position?: string | null) {
+  return managerPositions.find((item) => item.value === position)?.label ?? "Chưa chọn chức vụ"
+}
+
 function userErrorMessage(err: unknown, fallback: string) {
   if (!(err instanceof Error)) return fallback
   if (err.message.includes("Create lecturer accounts from the teacher profile")) {
     return "Tài khoản lecturer phải được cấp từ trang Giảng viên."
   }
-  if (err.message.includes("Teacher-linked accounts must keep lecturer role")) {
-    return "Tài khoản đã liên kết hồ sơ giảng viên phải giữ role Lecturer."
+  if (err.message.includes("Teacher-linked accounts must keep lecturer or manager role")) {
+    return "Tài khoản đã liên kết hồ sơ giảng viên phải giữ role Lecturer hoặc Manager."
   }
   if (err.message.includes("Assign lecturer role from the teacher profile")) {
     return "Muốn cấp role Lecturer, hãy tạo/cấp tài khoản trong trang Giảng viên."
@@ -74,6 +84,18 @@ function userErrorMessage(err: unknown, fallback: string) {
   if (err.message.includes("Email already exists")) {
     return "Email này đã tồn tại."
   }
+  if (err.message.includes("Manager accounts must have a department position")) {
+    return "Tài khoản Manager phải chọn chức vụ trong khoa."
+  }
+  if (err.message.includes("Manager accounts must be assigned to a department")) {
+    return "Tài khoản Manager phải được gán khoa phụ trách."
+  }
+  if (err.message.includes("Department not found")) {
+    return "Khoa được chọn không tồn tại hoặc đã ngừng hoạt động."
+  }
+  if (err.message.includes("Insufficient permissions")) {
+    return "Tài khoản hiện tại không có quyền tạo tài khoản. Vui lòng đăng nhập bằng Admin hoặc Super Admin."
+  }
   return err.message || fallback
 }
 
@@ -81,21 +103,32 @@ export default function UsersPage() {
   const [currentUser, setCurrentUser] = React.useState<ApiUser | null>(null)
   const [users, setUsers] = React.useState<ApiUser[]>([])
   const [teachers, setTeachers] = React.useState<ApiTeacher[]>([])
+  const [departments, setDepartments] = React.useState<ApiDepartment[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState("")
+  const [createError, setCreateError] = React.useState("")
+  const [passwordError, setPasswordError] = React.useState("")
   const [isCreateOpen, setIsCreateOpen] = React.useState(false)
+  const [createRole, setCreateRole] = React.useState<ApiUserRole>("viewer")
+  const [createPosition, setCreatePosition] = React.useState("")
+  const [createDepartmentId, setCreateDepartmentId] = React.useState("")
   const [editUser, setEditUser] = React.useState<ApiUser | null>(null)
+  const [editRole, setEditRole] = React.useState<ApiUserRole>("viewer")
+  const [editPosition, setEditPosition] = React.useState("")
+  const [editDepartmentId, setEditDepartmentId] = React.useState("")
 
   const refreshUsers = React.useCallback(async () => {
     setError("")
-    const [me, list, teacherList] = await Promise.all([
+    const [me, list, teacherList, departmentList] = await Promise.all([
       api.me(),
       api.getUsers({ limit: 500 }),
       api.getTeachers({ limit: 1000 }),
+      api.getDepartments({ limit: 500 }),
     ])
     setCurrentUser(me)
     setUsers(list)
     setTeachers(teacherList)
+    setDepartments(departmentList)
   }, [])
 
   React.useEffect(() => {
@@ -114,20 +147,52 @@ export default function UsersPage() {
     return map
   }, [teachers])
 
+  const departmentById = React.useMemo(() => new Map(departments.map((department) => [department.id, department])), [departments])
+
+  function openEditUser(user: ApiUser) {
+    setEditUser(user)
+    setEditRole(accountManagedRoles.includes(user.role) ? user.role : "viewer")
+    setEditPosition(user.position ?? "")
+    setEditDepartmentId(user.department_id ? String(user.department_id) : "")
+  }
+
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
+    const password = String(form.get("password") ?? "")
+    if (password.length < minPasswordLength) {
+      setPasswordError(`Mật khẩu phải có ít nhất ${minPasswordLength} ký tự.`)
+      return
+    }
+    const role = String(form.get("role") ?? createRole) as ApiUserRole
+    const position = role === "manager" ? String(form.get("position") ?? createPosition) : ""
+    const departmentId = role === "manager" ? String(form.get("department_id") ?? createDepartmentId) : ""
+    if (role === "manager" && !position) {
+      setCreateError("Cần chọn chức vụ Trưởng khoa / Phó khoa / Quản lý khoa.")
+      return
+    }
+    if (role === "manager" && !departmentId) {
+      setCreateError("Cần chọn khoa phụ trách cho tài khoản Manager.")
+      return
+    }
+    setPasswordError("")
+    setCreateError("")
     try {
       await api.createUser({
         email: String(form.get("email") ?? ""),
-        password: String(form.get("password") ?? ""),
+        password,
         full_name: String(form.get("full_name") ?? ""),
-        role: String(form.get("role") ?? "viewer") as ApiUserRole,
+        role,
+        position: position || null,
+        department_id: departmentId ? Number(departmentId) : null,
       })
       setIsCreateOpen(false)
+      setCreateRole("viewer")
+      setCreatePosition("")
+      setCreateDepartmentId("")
       await refreshUsers()
     } catch (err) {
-      setError(userErrorMessage(err, "Không tạo được tài khoản."))
+      setCreateError(userErrorMessage(err, "Không tạo được tài khoản."))
     }
   }
 
@@ -136,10 +201,25 @@ export default function UsersPage() {
     if (!editUser) return
     const linkedTeacher = teacherByUserId.get(editUser.id)
     const form = new FormData(event.currentTarget)
+    const role = String(form.get("role") ?? editRole) as ApiUserRole
+    const position = role === "manager" ? String(form.get("position") ?? editPosition) : ""
+    const departmentId = role === "manager"
+      ? String(linkedTeacher?.department_id ?? form.get("department_id") ?? editDepartmentId)
+      : ""
+    if (role === "manager" && !position) {
+      setError("Cần chọn chức vụ Trưởng khoa / Phó khoa / Quản lý khoa.")
+      return
+    }
+    if (role === "manager" && !departmentId) {
+      setError("Cần chọn khoa phụ trách cho tài khoản Manager.")
+      return
+    }
     try {
       await api.updateUser(editUser.id, {
         full_name: String(form.get("full_name") ?? ""),
-        role: linkedTeacher ? "lecturer" : String(form.get("role") ?? editUser.role) as ApiUserRole,
+        role,
+        position: position || null,
+        department_id: departmentId ? Number(departmentId) : null,
         is_active: String(form.get("is_active") ?? "true") === "true",
       })
       setEditUser(null)
@@ -182,7 +262,7 @@ export default function UsersPage() {
     role,
     count: users.filter((user) => user.role === role).length,
   }))
-  const linkedLecturerCount = users.filter((user) => teacherByUserId.has(user.id)).length
+  const linkedTeachingAccountCount = users.filter((user) => teacherByUserId.has(user.id)).length
   const unlinkedLecturerCount = users.filter((user) => user.role === "lecturer" && !teacherByUserId.has(user.id)).length
   const assignableRoles = currentUser?.role === "superadmin"
     ? accountManagedRoles
@@ -197,7 +277,19 @@ export default function UsersPage() {
             Quản lý tài khoản hệ thống. Tài khoản Lecturer được cấp từ hồ sơ giảng viên để giữ liên kết lớp học phần.
           </p>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <Dialog
+          open={isCreateOpen}
+          onOpenChange={(open) => {
+            setIsCreateOpen(open)
+            if (!open) {
+              setCreateError("")
+              setPasswordError("")
+              setCreateRole("viewer")
+              setCreatePosition("")
+              setCreateDepartmentId("")
+            }
+          }}
+        >
           <DialogTrigger render={<Button />}>
             <Plus className="mr-2 h-4 w-4" />
             Tạo tài khoản
@@ -221,11 +313,33 @@ export default function UsersPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Mật khẩu</Label>
-                  <Input id="password" name="password" type="password" minLength={8} required />
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    required
+                    aria-invalid={Boolean(passwordError)}
+                    aria-describedby="create-password-help"
+                    onChange={() => { if (passwordError) setPasswordError("") }}
+                  />
+                  <p
+                    id="create-password-help"
+                    className={passwordError ? "text-xs font-medium text-destructive" : "text-xs text-muted-foreground"}
+                    role={passwordError ? "alert" : undefined}
+                  >
+                    {passwordError || `Tối thiểu ${minPasswordLength} ký tự.`}
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>Role</Label>
-                  <Select name="role" defaultValue="viewer">
+                  <Select name="role" value={createRole} onValueChange={(value) => {
+                    const nextRole = value as ApiUserRole
+                    setCreateRole(nextRole)
+                    if (nextRole !== "manager") {
+                      setCreatePosition("")
+                      setCreateDepartmentId("")
+                    }
+                  }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {assignableRoles.map((role) => (
@@ -234,7 +348,45 @@ export default function UsersPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                {createRole === "manager" ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Chức vụ trong khoa</Label>
+                      <Select name="position" value={createPosition} onValueChange={(value) => setCreatePosition(value ?? "")}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Chọn trưởng khoa / phó khoa" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {managerPositions.map((position) => (
+                            <SelectItem key={position.value} value={position.value}>
+                              {position.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Khoa phụ trách</Label>
+                      <Select name="department_id" value={createDepartmentId} onValueChange={(value) => setCreateDepartmentId(value ?? "")}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Chọn khoa cho manager" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {departments.map((department) => (
+                            <SelectItem key={department.id} value={String(department.id)}>
+                              {department.code} - {department.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Trưởng khoa, phó khoa và quản lý khoa chỉ thao tác trong khoa này.
+                      </p>
+                    </div>
+                  </>
+                ) : null}
               </div>
+              {createError ? <p className="pb-4 text-sm font-medium text-destructive" role="alert">{createError}</p> : null}
               <DialogFooter>
                 <DialogClose render={<Button type="button" variant="outline" />}>Hủy</DialogClose>
                 <Button type="submit">Tạo</Button>
@@ -265,9 +417,9 @@ export default function UsersPage() {
           <div className="flex items-start gap-3">
             <GraduationCap className="mt-0.5 h-5 w-5 text-primary" />
             <div>
-              <div className="font-semibold">Lecturer thuộc trang Giảng viên</div>
+              <div className="font-semibold">Tài khoản giảng dạy thuộc trang Giảng viên</div>
               <p className="text-sm text-muted-foreground">
-                {linkedLecturerCount} tài khoản lecturer đã liên kết hồ sơ giảng viên
+                {linkedTeachingAccountCount} tài khoản đã liên kết hồ sơ giảng viên
                 {unlinkedLecturerCount > 0 ? `, ${unlinkedLecturerCount} lecturer chưa liên kết cần rà soát.` : "."}
               </p>
             </div>
@@ -292,6 +444,7 @@ export default function UsersPage() {
                 <th className="px-4 py-3 font-medium">Người dùng</th>
                 <th className="px-4 py-3 font-medium">Role</th>
                 <th className="px-4 py-3 font-medium">Nguồn quản lý</th>
+                <th className="px-4 py-3 font-medium">Chức vụ / phạm vi</th>
                 <th className="px-4 py-3 font-medium">Quyền</th>
                 <th className="px-4 py-3 font-medium">Trạng thái</th>
                 <th className="px-4 py-3 font-medium">Ngày tạo</th>
@@ -324,6 +477,22 @@ export default function UsersPage() {
                         <span className="text-xs text-muted-foreground">Tài khoản hệ thống</span>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {user.role === "manager" ? (
+                        user.department_id ? (
+                          <div>
+                            <div className="font-medium text-foreground">{positionLabel(user.position)}</div>
+                            <div>{departmentById.get(user.department_id)?.name ?? `Khoa #${user.department_id}`}</div>
+                          </div>
+                        ) : (
+                          <Badge variant="destructive">Chưa gán khoa</Badge>
+                        )
+                      ) : user.department_id ? (
+                        <span>{departmentById.get(user.department_id)?.name ?? `Khoa #${user.department_id}`}</span>
+                      ) : (
+                        <span>Toàn hệ thống / không khóa khoa</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{roleDescription(user.role)}</td>
                     <td className="px-4 py-3">
                       <Badge variant={user.is_active ? "secondary" : "destructive"}>
@@ -338,7 +507,7 @@ export default function UsersPage() {
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          onClick={() => setEditUser(user)}
+                          onClick={() => openEditUser(user)}
                           disabled={user.role === "superadmin" && currentUser?.role !== "superadmin"}
                         >
                           <Pencil className="h-4 w-4" />
@@ -370,7 +539,6 @@ export default function UsersPage() {
             <form onSubmit={handleUpdate}>
               {(() => {
                 const linkedTeacher = teacherByUserId.get(editUser.id)
-                const editableRoleDefault = accountManagedRoles.includes(editUser.role) ? editUser.role : "viewer"
                 return (
                   <>
                     <DialogHeader>
@@ -380,7 +548,7 @@ export default function UsersPage() {
                     <div className="grid gap-4 py-4">
                       {linkedTeacher ? (
                         <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                          Tài khoản này thuộc hồ sơ giảng viên {linkedTeacher.full_name}; role luôn là Lecturer.
+                          Tài khoản này thuộc hồ sơ giảng viên {linkedTeacher.full_name}. Có thể giữ Lecturer hoặc Manager nếu là trưởng/phó khoa kiêm giảng dạy.
                         </div>
                       ) : editUser.role === "lecturer" ? (
                         <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -393,22 +561,69 @@ export default function UsersPage() {
                       </div>
                       <div className="space-y-2">
                         <Label>Role</Label>
-                        {linkedTeacher ? (
-                          <>
-                            <Input value={roleLabels.lecturer} disabled />
-                            <input type="hidden" name="role" value="lecturer" />
-                          </>
-                        ) : (
-                          <Select name="role" defaultValue={editableRoleDefault}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {assignableRoles.map((role) => (
-                                <SelectItem key={role} value={role}>{roleLabels[role]}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
+                        <Select name="role" value={editRole} onValueChange={(value) => {
+                          const nextRole = value as ApiUserRole
+                          setEditRole(nextRole)
+                          if (nextRole !== "manager") {
+                            setEditPosition("")
+                            setEditDepartmentId("")
+                          } else if (linkedTeacher) {
+                            setEditDepartmentId(String(linkedTeacher.department_id))
+                          }
+                        }}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {(linkedTeacher
+                              ? (["manager", "lecturer"] as ApiUserRole[])
+                              : assignableRoles
+                            ).map((role) => (
+                              <SelectItem key={role} value={role}>{roleLabels[role]}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
+                      {editRole === "manager" ? (
+                        <>
+                          <div className="space-y-2">
+                            <Label>Chức vụ trong khoa</Label>
+                            <Select name="position" value={editPosition} onValueChange={(value) => setEditPosition(value ?? "")}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Chọn trưởng khoa / phó khoa" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {managerPositions.map((position) => (
+                                  <SelectItem key={position.value} value={position.value}>
+                                    {position.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Khoa phụ trách</Label>
+                            <Select
+                              name="department_id"
+                              value={linkedTeacher ? String(linkedTeacher.department_id) : editDepartmentId}
+                              disabled={Boolean(linkedTeacher)}
+                              onValueChange={(value) => setEditDepartmentId(value ?? "")}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Chọn khoa cho manager" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {departments.map((department) => (
+                                  <SelectItem key={department.id} value={String(department.id)}>
+                                    {department.code} - {department.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                              Sau khi lưu, tài khoản này chỉ thao tác trong khoa được chọn.
+                            </p>
+                          </div>
+                        </>
+                      ) : null}
                       <div className="space-y-2">
                         <Label>Trạng thái</Label>
                         <Select name="is_active" defaultValue={String(editUser.is_active)} disabled={editUser.id === currentUser?.id}>

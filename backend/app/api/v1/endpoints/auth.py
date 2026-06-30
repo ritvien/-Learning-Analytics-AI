@@ -15,11 +15,36 @@ from app.dependencies import (
     require_admin_access,
     verify_password,
 )
+from app.models.academic import Department
 from app.models.people import Teacher, User, UserRole
 from app.schemas.people import TokenResponse, UserCreate, UserResponse, UserUpdate
 
 router = APIRouter()
 OAuthForm = Annotated[OAuth2PasswordRequestForm, Depends()]
+MANAGER_POSITIONS = {"dean", "vice_dean", "department_manager"}
+
+
+async def _ensure_valid_user_scope(
+    role: UserRole,
+    department_id: int | None,
+    position: str | None,
+    db: DBSession,
+) -> None:
+    if role == UserRole.manager and department_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Manager accounts must be assigned to a department",
+        )
+    if role == UserRole.manager and position not in MANAGER_POSITIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Manager accounts must have a department position",
+        )
+    if department_id is None:
+        return
+    department = await db.get(Department, department_id)
+    if department is None or not department.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Department not found")
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -63,6 +88,8 @@ async def create_user(payload: UserCreate, db: DBSession, current_user: CurrentU
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Create lecturer accounts from the teacher profile",
         )
+    position = payload.position if payload.role == UserRole.manager else None
+    await _ensure_valid_user_scope(payload.role, payload.department_id, position, db)
     existing = await db.execute(select(User).where(User.email == payload.email))
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already exists")
@@ -72,6 +99,7 @@ async def create_user(payload: UserCreate, db: DBSession, current_user: CurrentU
         hashed_password=hash_password(payload.password),
         full_name=payload.full_name,
         role=payload.role,
+        position=position,
         department_id=payload.department_id,
     )
     db.add(user)
@@ -104,16 +132,37 @@ async def update_user(user_id: str, payload: UserUpdate, db: DBSession, current_
     if user.id == current_user.id and data.get("is_active") is False:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot deactivate your own account")
     linked_teacher = (await db.execute(select(Teacher).where(Teacher.user_id == user.id))).scalar_one_or_none()
-    if linked_teacher is not None and data.get("role") is not None and data["role"] != UserRole.lecturer:
+    if (
+        linked_teacher is not None
+        and data.get("role") is not None
+        and data["role"] not in {UserRole.lecturer, UserRole.manager}
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Teacher-linked accounts must keep lecturer role",
+            detail="Teacher-linked accounts must keep lecturer or manager role",
         )
     if linked_teacher is None and data.get("role") == UserRole.lecturer:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Assign lecturer role from the teacher profile",
         )
+    next_role = data.get("role", user.role)
+    next_department_id = data.get("department_id", user.department_id)
+    next_position = data.get("position", user.position)
+    if linked_teacher is not None and next_role == UserRole.manager and next_department_id != linked_teacher.department_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Manager teaching account must stay in the teacher department",
+        )
+    if next_role in {UserRole.superadmin, UserRole.admin}:
+        next_department_id = None
+        next_position = None
+        data["department_id"] = None
+        data["position"] = None
+    if next_role != UserRole.manager:
+        next_position = None
+        data["position"] = None
+    await _ensure_valid_user_scope(next_role, next_department_id, next_position, db)
     for field, value in data.items():
         setattr(user, field, value)
     await db.flush()

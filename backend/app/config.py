@@ -52,6 +52,17 @@ class Settings(BaseSettings):
     # Writable in Docker (non-root app user); override via ML_ARTIFACT_DIR.
     ml_artifact_dir: str = "/tmp/ml_artifacts"
 
+    # -------------------------------------------------------------------- mail
+    smtp_enabled: bool = False
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_from_name: str = "EduInsight"
+    smtp_use_tls: bool = True
+    smtp_timeout_seconds: int = 15
+
     # --------------------------------------------------------------- langsmith
     langsmith_tracing: str = ""  # "true" to enable
     langsmith_api_key: str = ""

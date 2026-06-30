@@ -87,8 +87,10 @@ async def _provision_teacher_account(
     if existing_user is not None and linked_user is not None and existing_user.id != linked_user.id:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already belongs to another user")
     if existing_user is not None and linked_user is None:
-        if existing_user.role != UserRole.lecturer:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already belongs to another non-lecturer user")
+        if existing_user.role not in {UserRole.lecturer, UserRole.manager}:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already belongs to another non-teaching user")
+        if existing_user.role == UserRole.manager and existing_user.department_id != teacher.department_id:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Manager account belongs to another department")
         linked_user = existing_user
 
     if linked_user is None:
@@ -107,8 +109,8 @@ async def _provision_teacher_account(
         linked_user.email = account_email
         linked_user.hashed_password = hash_password(password)
         linked_user.full_name = teacher.full_name
-        linked_user.role = UserRole.lecturer
-        linked_user.department_id = teacher.department_id
+        if linked_user.role == UserRole.lecturer:
+            linked_user.department_id = teacher.department_id
         linked_user.is_active = True
 
     teacher.user_id = linked_user.id
@@ -201,13 +203,13 @@ async def provision_teacher_account(
     db: DBSession,
     current_user: CurrentUser,
 ) -> TeacherAccountResponse:
-    """Create or reset the lecturer login account linked to a teacher."""
+    """Create or reset the teaching login account linked to a teacher."""
     teacher = await crud.get_teacher(db, teacher_id)
     if teacher is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found")
     await _ensure_teacher_department_scope(db, current_user, teacher.department_id)
     user = await _provision_teacher_account(db, teacher, str(payload.email) if payload.email else None, payload.password)
-    return TeacherAccountResponse(teacher_id=teacher.id, user_id=user.id, email=user.email)
+    return TeacherAccountResponse(teacher_id=teacher.id, user_id=user.id, email=user.email, role=user.role)
 
 
 @router.patch("/{teacher_id}", response_model=TeacherResponse, dependencies=[Depends(require_write_access)])

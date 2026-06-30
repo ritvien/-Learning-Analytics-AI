@@ -27,6 +27,11 @@ from app.schemas.reports import (
 router = APIRouter()
 
 
+def _report_actor_role(current_user: CurrentUser) -> str:
+    """Persist the report actor from authenticated identity, not client input."""
+    return current_user.role.value
+
+
 async def _get_report_or_404(report_id: str, db: DBSession, current_user: CurrentUser) -> Report:
     result = await db.execute(
         select(Report).options(selectinload(Report.feedback_items)).where(Report.id == report_id)
@@ -132,7 +137,8 @@ async def create_report_schedule(
     if not allowed:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Report scope is outside your permissions")
     schedule = ReportSchedule(
-        **payload.model_dump(exclude={"next_run_at"}),
+        **payload.model_dump(exclude={"next_run_at", "actor_role"}),
+        actor_role=_report_actor_role(current_user),
         next_run_at=payload.next_run_at or next_run_after(payload.frequency),
         created_by=current_user.id,
     )
@@ -155,6 +161,7 @@ async def update_report_schedule(
     """Update a recurring report schedule."""
     schedule = await _get_schedule_or_404(schedule_id, db, current_user)
     updates = payload.model_dump(exclude_unset=True)
+    updates.pop("actor_role", None)
     await _ensure_schedule_write_access(
         db,
         current_user,
@@ -235,7 +242,7 @@ async def create_report(payload: ReportGenerateRequest, db: DBSession, current_u
         report = await generate_report(
             db,
             report_type=payload.report_type,
-            actor_role=payload.actor_role,
+            actor_role=_report_actor_role(current_user),
             generated_by=current_user.id,
             scope_type=payload.scope_type,
             scope_id=payload.scope_id,
