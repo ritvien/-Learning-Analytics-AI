@@ -1,0 +1,46 @@
+{
+  "queries": [
+    {
+      "id": "ctdt-cdr-cntt",
+      "query": "Chuẩn đầu ra ngành Công nghệ thông tin là gì?",
+      "program_name": "Công nghệ thông tin",
+      "expected_topics": ["chuẩn đầu ra", "PLO", "CDR"],
+      "min_hits": 1
+    },
+    {
+      "id": "ctdt-khoi-ttnt",
+      "query": "Ngành Trí tuệ nhân tạo có các khối kiến thức nào?",
+      "program_name": "Trí tuệ nhân tạo",
+      "expected_topics": ["khối kiến thức", "machine learning"],
+      "min_hits": 1
+    },
+    {
+      "id": "ctdt-muc-tieu-khdl",
+      "query": "Mục tiêu đào tạo ngành Khoa học dữ liệu?",
+      "program_name": "Khoa học dữ liệu",
+      "expected_topics": ["mục tiêu", "phân tích dữ liệu"],
+      "min_hits": 1
+    },
+    {
+      "id": "ctdt-hoc-phan-cntt",
+      "query": "Các học phần bắt buộc của ngành Công nghệ thông tin?",
+      "program_name": "Công nghệ thông tin",
+      "expected_topics": ["học phần", "lập trình"],
+      "min_hits": 1
+    },
+    {
+      "id": "ctdt-cau-truc-ttnt",
+      "query": "Cấu trúc CTĐT ngành Trí tuệ nhân tạo gồm những giai đoạn nào?",
+      "program_name": "Trí tuệ nhân tạo",
+      "expected_topics": ["cấu trúc", "giai đoạn"],
+      "min_hits": 1
+    },
+    {
+      "id": "ctdt-tin-chi-khdl",
+      "query": "Tín chỉ tối thiểu của ngành Khoa học dữ liệu?",
+      "program_name": "Khoa học dữ liệu",
+      "expected_topics": ["tín chỉ"],
+      "min_hits": 1
+    }
+  ]
+}

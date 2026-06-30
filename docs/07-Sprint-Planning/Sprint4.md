@@ -51,15 +51,15 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 
 | Task | Mô tả | Deadline | P | Depends | Status |
 |:-----|:------|:---------|:-:|:--------|:------:|
-| **H59** | **Langfuse hoặc LangSmith + prompt versioning** | 29/06 EOD | P0 | T41 | [ ] |
+| **H59** | **Langfuse hoặc LangSmith + prompt versioning** | 29/06 EOD | P0 | T41 | [x] |
 | | Config env (`LANGCHAIN_*` hoặc Langfuse); trace agent runs; prompt template `backend/app/agent/prompts/` + git tag/manifest; 5–10 trace screenshots → `docs/ai-traces/`. **Carry-over S3:** commit + restart backend instrumentation trước khi chạy eval. | | | | |
-| **H49** | Chốt scope chatbot data-access | 30/06 12:00 | P1 | H48, T54 draft | [ ] |
+| **H49** | Chốt scope chatbot data-access | 30/06 12:00 | P1 | H48, T54 draft | [x] |
 | | Capability matrix: intent → DWH/ML/API vs CTĐT RAG vs từ chối; không mở rộng tool khi chưa có matrix. | | | | |
-| **H62** | CTĐT PDF corpus prep cho RAG | 30/06 12:00 | P0 | — | [ ] |
+| **H62** | CTĐT PDF corpus prep cho RAG | 30/06 12:00 | P0 | — | [x] |
 | | Nguồn `crawl/pdf_ctdt`; manifest PDF (checksum, ngành, trang); chunk theo mục CTĐT; loại scan lỗi; output `docs/20` hoặc git-ignore artifact. | | | | |
-| **H63** | Embedding + `pgvector` index cho CTĐT | 30/06 EOD | P0 | H62 | [ ] |
+| **H63** | Embedding + `pgvector` index cho CTĐT | 30/06 EOD | P0 | H62 | [x] |
 | | Chọn embedding model; migration/bảng `pgvector`; metadata ngành/file/trang/section/chunk_id; ingest idempotent; smoke top-k retrieval. | | | | |
-| **D58** | AI Logs evidence (LangSmith/Langfuse URL) | 30/06 EOD | P0 | H59 | [ ] |
+| **D58** | AI Logs evidence (LangSmith/Langfuse URL) | 30/06 EOD | P0 | H59 | [x] |
 | **H64** | Kế hoạch memory/cache cho agent | 01/07 12:00 | P1 | H49, H63 | [ ] |
 | | Plan only: cache query/retrieval, Redis optional, conversation window, TTL, RBAC, invalidation khi corpus đổi; chốt S4 vs defer — không block H51. | | | | |
 | **H51** | CTĐT RAG Q&A MVP | 01/07 18:00 | P0 | H62, H63, H49 | [ ] |
@@ -159,7 +159,7 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 
 | ID | Deliverable | Task | Deadline | Status |
 |:--:|:------------|:-----|:---------|:------:|
-| D58 | AI Logs traces | H59 | 30/06 EOD | [ ] |
+| D58 | AI Logs traces | H59 | 30/06 EOD | [x] |
 | D59 | Live URL production | Hoàng | 02/07 EOD | [ ] |
 | D60 | Evaluation evidence | H60, H61, V47 | 03/07 EOD | [ ] |
 | D61 | Test coverage ≥60% | Hoàng | 03/07 EOD | [ ] |

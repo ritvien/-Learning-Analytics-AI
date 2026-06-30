@@ -27,6 +27,7 @@ jobs:
     runs-on: self-hosted
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      APP_ENV: test
       # Prevent host .env / runner secrets from turning CI into live LLM calls (Test.md §8.3).
       LLM_API_KEY: ""
       OPENAI_API_KEY: ""
@@ -61,7 +62,7 @@ jobs:
 
       - name: Test (pytest + coverage)
         working-directory: backend
-        run: pytest -q -m "not slow and not eval" --cov-report=term-missing:skip-covered
+        run: pytest -q -m "not slow and not eval and not integration" --cov-report=term-missing:skip-covered
 
   frontend:
     runs-on: self-hosted

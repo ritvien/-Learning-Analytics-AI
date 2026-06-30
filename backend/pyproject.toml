@@ -38,6 +38,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+corpus = ["pymupdf", "pillow", "google-genai", "tiktoken"]
 dev = [
     "httpx>=0.27.0",
     "pytest>=8.3.0",
@@ -81,6 +82,7 @@ addopts = [
 markers = [
     "slow: slow integration or report generation (excluded from default CI; Test.md §8.3)",
     "eval: LLM/RAGAS evaluation — run manually, not in CI (Test.md §8.3)",
+    "integration: requires PostgreSQL with pgvector extension (excluded from default CI)",
 ]
 
 [tool.coverage.run]
