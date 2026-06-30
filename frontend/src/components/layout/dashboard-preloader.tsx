@@ -110,13 +110,8 @@ export function DashboardPreloader({ userRole }: { userRole?: ApiUserRole | null
         )
       }
 
-      if (userRole === "lecturer" || userRole === "viewer") {
-        tasks.push(
-          () => api.getSections({ limit: 5000 }),
-          () => api.getCourses({ limit: 1000 }),
-          () => api.getStudents({ limit: 5000 }),
-        )
-      }
+      // Preloading of raw data is disabled to prevent blank pages and slow responses over Ngrok.
+      // Individual pages will load data using pagination or summary metrics.
 
       if (userRole === "superadmin" || userRole === "admin") {
         tasks.push(() => api.getUsers({ limit: 100 }))

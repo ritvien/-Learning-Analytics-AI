@@ -44,26 +44,19 @@ const STRUCTURE_ROLES: ApiUserRole[] = ["superadmin", "admin", "manager", "lectu
 const data: { navMain: { title: string; items: NavItem[] }[] } = {
   navMain: [
     {
-      title: "Quản lý chung",
+      title: "Điều hành & Phân tích",
       items: [
+        { title: "Tổng quan", url: "/manager/analytics", icon: Layers, roles: MANAGEMENT_ROLES },
         { title: "Cơ cấu đào tạo", url: "/manager", icon: LayoutDashboard, roles: STRUCTURE_ROLES },
-        { title: "Sinh viên", url: "/manager/students", icon: Users, roles: READ_ROLES },
-        { title: "Giảng viên", url: "/manager/teachers", icon: GraduationCap, roles: MANAGEMENT_ROLES },
-      ],
-    },
-    {
-      title: "Phân tích",
-      items: [
-        { title: "Tổng quan toàn trường", url: "/manager/analytics", icon: Layers, roles: MANAGEMENT_ROLES },
-        { title: "Khoa / Ngành", url: "/manager/analytics/departments", icon: Settings, roles: STAFF_ROLES },
         { title: "Môn học", url: "/manager/analytics/courses", icon: BookOpen, roles: STAFF_ROLES },
         { title: "Lớp học phần", url: "/manager/analytics/sections", icon: FileText, roles: STAFF_ROLES },
-        { title: "Lớp chủ nhiệm", url: "/manager/analytics/students", icon: UserRound, roles: ["lecturer"] },
       ],
     },
     {
-      title: "Đào tạo",
+      title: "Dữ liệu đào tạo",
       items: [
+        { title: "Sinh viên", url: "/manager/students", icon: Users, roles: READ_ROLES },
+        { title: "Giảng viên", url: "/manager/teachers", icon: GraduationCap, roles: MANAGEMENT_ROLES },
         { title: "Môn học", url: "/manager/courses", icon: BookOpen, roles: READ_ROLES },
         { title: "Lớp học phần", url: "/manager/sections", icon: FileText, roles: READ_ROLES },
         { title: "Điểm số", url: "/manager/grades", icon: FileText, roles: READ_ROLES },
@@ -116,7 +109,7 @@ function prefetchNavData(url: string) {
 }
 
 export function AppSidebar({ userRole, ...props }: React.ComponentProps<typeof Sidebar> & { userRole?: ApiUserRole | null }) {
-  const homeUrl = userRole === "lecturer" ? "/manager/analytics/sections" : "/manager"
+  const homeUrl = userRole === "lecturer" ? "/manager/analytics/sections" : "/manager/analytics"
   const groups = data.navMain
     .map((group) => ({
       ...group,
