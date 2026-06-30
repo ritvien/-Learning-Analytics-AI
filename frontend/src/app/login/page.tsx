@@ -33,7 +33,12 @@ export default function LoginPage() {
         email: String(form.get("email") ?? ""),
         password: String(form.get("password") ?? ""),
       })
-      router.replace("/manager")
+      const user = await api.me()
+      if (user.role === "lecturer") {
+        router.replace("/manager/analytics/sections")
+      } else {
+        router.replace("/manager/analytics")
+      }
     } catch {
       setError("Email hoặc mật khẩu không đúng.")
     } finally {
