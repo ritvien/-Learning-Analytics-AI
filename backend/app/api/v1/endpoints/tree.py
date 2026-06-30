@@ -23,8 +23,7 @@ _TREE_CACHE: dict[str, tuple[float, TreeNode]] = {}
 
 
 def _tree_cache_key(current_user: CurrentUser) -> str:
-    _ = current_user
-    return "institution_overview"
+    return f"institution_overview:{current_user.id}"
 
 
 def _get_cached_tree(current_user: CurrentUser) -> TreeNode | None:
