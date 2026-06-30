@@ -29,6 +29,14 @@ from app.models.people import User, UserRole
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 
+@pytest.fixture(autouse=True)
+def _clear_settings_cache() -> None:
+    """Ensure each test sees APP_ENV=test settings without a stale cached .env."""
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+
 @pytest.fixture
 async def test_engine():
     """Create a fresh async engine with schema for each test."""
