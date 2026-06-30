@@ -264,6 +264,16 @@ export default function CourseAnalyticsPage() {
     const latest = trend[comparisonIndex]
     const previous = trend[comparisonIndex - 1]
     const maxFailSemester = trend.find((row) => 100 - row.passRate === maxFailRate)?.hk ?? null
+    const abnormalSections = [...selected.section_rows]
+      .filter((section) => section.completed_enrollments > 0)
+      .sort((a, b) => a.pass_rate_diff - b.pass_rate_diff || a.pass_rate - b.pass_rate)
+      .slice(0, 10)
+      .map((section) => ({
+        ...section,
+        label: section.section_code,
+        passRateDiff: section.pass_rate_diff,
+        passRate: section.pass_rate,
+      }))
     return {
       ...selected,
       trend,
@@ -271,6 +281,7 @@ export default function CourseAnalyticsPage() {
       cloTrend: selected.clo_trend.filter((row) => visibleSemesters.has(row.semester)),
       dist,
       cloRows,
+      abnormalSections,
       maxFailRate,
       maxFailSemester,
       passDelta: latest && previous ? +(latest.passRate - previous.passRate).toFixed(1) : null,
@@ -538,6 +549,39 @@ export default function CourseAnalyticsPage() {
               </Card>
             ))}
           </div>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Lớp học phần lệch chuẩn nhất</CardTitle>
+              <p className="text-xs text-muted-foreground">So sánh từng lớp với trung bình môn trong cùng kỳ; lớp lệch âm lớn cần mở sang can thiệp.</p>
+            </CardHeader>
+            <CardContent>
+              {courseStats.abnormalSections.length ? (
+                <ResponsiveContainer width="100%" height={Math.max(220, courseStats.abnormalSections.length * 34)}>
+                  <BarChart data={courseStats.abnormalSections} layout="vertical" margin={{ left: 8, right: 32, top: 8, bottom: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" tickFormatter={(value) => `${value}%`} tick={{ fontSize: 10 }} />
+                    <YAxis type="category" dataKey="label" width={96} tick={{ fontSize: 10 }} />
+                    <ReferenceLine x={0} stroke="#64748b" strokeDasharray="4 4" />
+                    <Tooltip
+                      formatter={(value, name, item) => [
+                        name === "passRateDiff" ? `${Number(value).toFixed(1)} điểm %` : value,
+                        `So TB môn · đạt ${item.payload.passRate}% · ${item.payload.completed_enrollments} lượt`,
+                      ]}
+                      contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                    />
+                    <Bar dataKey="passRateDiff" radius={[0, 5, 5, 0]} maxBarSize={20}>
+                      {courseStats.abnormalSections.map((section) => (
+                        <Cell key={section.id} fill={section.passRateDiff < -15 ? "#dc2626" : section.passRateDiff < 0 ? "#f59e0b" : "#16a34a"} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-[180px] items-center justify-center text-sm text-muted-foreground">Chưa có lớp đủ dữ liệu để so sánh lệch chuẩn.</div>
+              )}
+            </CardContent>
+          </Card>
 
           <div className="grid lg:grid-cols-2 gap-4">
             <Card>

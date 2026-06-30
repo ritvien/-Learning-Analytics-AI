@@ -48,7 +48,7 @@ function teacherErrorMessage(err: unknown, fallback: string) {
     return "Số điện thoại này đã được dùng cho giảng viên khác."
   }
   if (err.message.includes("Teacher email is required to create login account")) {
-    return "Cần nhập email công tác nếu muốn cấp tài khoản đăng nhập lecturer."
+    return "Cần nhập email công tác nếu muốn cấp tài khoản đăng nhập giảng dạy."
   }
   if (err.message.includes("String should have at most 20 characters")) {
     return "Mã giảng viên tối đa 20 ký tự."
@@ -307,8 +307,11 @@ export default function TeachersPage() {
         if (!teacher.userId) {
           return <Badge variant="secondary">Chưa cấp</Badge>
         }
+        if (teacher.accountRole === "manager") {
+          return <Badge variant="default">Manager kiêm giảng dạy</Badge>
+        }
         if (teacher.accountRole && teacher.accountRole !== "lecturer") {
-          return <Badge variant="destructive">Role lệch</Badge>
+          return <Badge variant="destructive">Role không hợp lệ</Badge>
         }
         if (teacher.accountActive === false) {
           return <Badge variant="destructive">Đã khóa</Badge>
@@ -363,7 +366,7 @@ export default function TeachersPage() {
                 <DialogHeader>
                   <DialogTitle>Thêm Giảng viên</DialogTitle>
                   <DialogDescription>
-                    Tạo hồ sơ giảng viên trước; nhập email và mật khẩu nếu muốn cấp luôn tài khoản đăng nhập lecturer.
+                    Tạo hồ sơ giảng viên trước; nhập email và mật khẩu nếu muốn cấp hoặc liên kết tài khoản giảng dạy.
                   </DialogDescription>
                 </DialogHeader>
                 <TeacherForm departments={departments} />
@@ -1003,7 +1006,7 @@ function TeacherForm({ departments, teacher }: { departments: ApiDepartment[]; t
         </div>
         {!teacher && (
           <div className="space-y-2">
-            <Label>Mật khẩu tài khoản lecturer</Label>
+            <Label>Mật khẩu tài khoản giảng dạy</Label>
             <Input name="loginPassword" type="password" minLength={6} placeholder="Bỏ trống nếu chưa cấp account" />
             <p className="text-xs text-muted-foreground">Cần có email công tác để tạo tài khoản đăng nhập.</p>
           </div>

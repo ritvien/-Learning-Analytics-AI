@@ -103,7 +103,7 @@ async def test_academic_tree_returns_rollup_metrics(client: AsyncClient, db_sess
     assert specialization_metrics.json()["metrics"]["pass_rate"] == 100.0
 
 
-async def test_lecturer_sees_full_academic_tree_overview(
+async def test_scoped_users_see_full_academic_tree_overview(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
     university = University(code="TREE-ALL", name="Tree Overview University")
@@ -119,17 +119,17 @@ async def test_lecturer_sees_full_academic_tree_overview(
             Program(department_id=other_department.id, code="OTHER-P", name="Other Program"),
         ]
     )
-    lecturer = User(
-        id="tree-overview-lecturer",
-        email="tree.overview@example.com",
+    manager = User(
+        id="tree-overview-manager",
+        email="tree.overview.manager@example.com",
         hashed_password=hash_password("password123"),
-        full_name="Tree Overview Lecturer",
-        role=UserRole.lecturer,
+        full_name="Tree Overview Manager",
+        role=UserRole.manager,
         department_id=own_department.id,
     )
-    db_session.add(lecturer)
+    db_session.add(manager)
     await db_session.flush()
-    client.headers["Authorization"] = f"Bearer {create_access_token(lecturer.id, lecturer.role)}"
+    client.headers["Authorization"] = f"Bearer {create_access_token(manager.id, manager.role)}"
 
     response = await client.get("/api/v1/tree")
 

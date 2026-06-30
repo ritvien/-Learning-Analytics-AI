@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   Clock3,
   GraduationCap,
-  Mail,
   Phone,
   Search,
   Send,
@@ -254,7 +253,6 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {profile.email ? <a href={`mailto:${profile.email}`} className={buttonVariants({ size: "sm", variant: "outline" })}><Mail className="mr-2 h-4 w-4" />Gửi email</a> : null}
           {profile.phone ? <a href={`tel:${profile.phone}`} className={buttonVariants({ size: "sm", variant: "outline" })}><Phone className="mr-2 h-4 w-4" />Liên hệ</a> : null}
         </div>
       </div>

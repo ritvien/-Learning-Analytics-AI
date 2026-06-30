@@ -159,6 +159,7 @@ export interface ApiUser {
   email: string
   full_name: string
   role: ApiUserRole
+  position: string | null
   department_id: number | null
   is_active: boolean
   created_at: string
@@ -1314,6 +1315,7 @@ export const api = {
     password: string
     full_name: string
     role: ApiUserRole
+    position?: string | null
     department_id?: number | null
   }) =>
     fetcher<ApiUser>("/api/v1/auth/users", {
@@ -1321,7 +1323,7 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
-  updateUser: (id: string, body: Partial<Pick<ApiUser, "full_name" | "role" | "department_id" | "is_active">>) =>
+  updateUser: (id: string, body: Partial<Pick<ApiUser, "full_name" | "role" | "position" | "department_id" | "is_active">>) =>
     fetcher<ApiUser>(`/api/v1/auth/users/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -1691,7 +1693,7 @@ export const api = {
   deleteTeacher: (id: number) =>
     fetcher<void>(`/api/v1/teachers/${id}`, { method: "DELETE" }),
   provisionTeacherAccount: (id: number, body: { email?: string | null; password: string }) =>
-    fetcher<{ teacher_id: number; user_id: string; email: string; role: "lecturer" }>(`/api/v1/teachers/${id}/account`, {
+    fetcher<{ teacher_id: number; user_id: string; email: string; role: ApiUserRole }>(`/api/v1/teachers/${id}/account`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

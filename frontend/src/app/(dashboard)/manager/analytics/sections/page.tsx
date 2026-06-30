@@ -1,18 +1,32 @@
 "use client"
 
 import * as React from "react"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   Activity,
   AlertTriangle,
   CheckCircle2,
   Clock3,
   Mail,
+  MessageSquare,
   Sparkles,
   TrendingDown,
   Users,
 } from "lucide-react"
-import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ReferenceLine,
+  ResponsiveContainer,
+  Scatter,
+  ScatterChart,
+  Tooltip,
+  XAxis,
+  YAxis,
+  ZAxis,
+} from "recharts"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -22,15 +36,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/u
 import {
   api,
   getCachedCurrentUser,
+  type ApiDepartment,
   type ApiInterventionCampaign,
   type ApiInterventionScopeSummary,
   type ApiSection,
   type ApiSemester,
+  type ApiProgram,
 } from "@/lib/api"
+import { requestDashboardAgent, setDashboardAgentContext } from "@/lib/dashboard-agent-context"
 
 type Raw = {
+  departments: ApiDepartment[]
   courses: Awaited<ReturnType<typeof api.getCourses>>
   enrollments: Awaited<ReturnType<typeof api.getEnrollments>>
+  programs: ApiProgram[]
   sections: ApiSection[]
   semesters: ApiSemester[]
   students: Awaited<ReturnType<typeof api.getStudents>>
@@ -79,13 +98,24 @@ function riskClass(level: SectionRiskLevel) {
   return "border-emerald-500/40 bg-emerald-500/10 text-emerald-600"
 }
 
+function riskDotColor(level: SectionRiskLevel) {
+  if (level === "high") return "#dc2626"
+  if (level === "medium") return "#f97316"
+  if (level === "watch") return "#f59e0b"
+  if (level === "pending") return "#64748b"
+  return "#16a34a"
+}
+
 export default function SectionsRiskPage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [raw, setRaw] = React.useState<Raw | null>(null)
   const [selSem, setSelSem] = React.useState(() => {
     if (typeof window !== "undefined") return sessionStorage.getItem("vinuni_selected_semester") || "all"
     return "all"
   })
+  const [selDept, setSelDept] = React.useState("all")
+  const [selProg, setSelProg] = React.useState("all")
   const [selCourse, setSelCourse] = React.useState("all")
   const [selStatus, setSelStatus] = React.useState<"all" | "needs_action" | "pending">("all")
   const [selSection, setSelSection] = React.useState("all")
@@ -104,6 +134,8 @@ export default function SectionsRiskPage() {
 
   const currentUser = React.useMemo(() => getCachedCurrentUser(), [])
   const isLecturer = currentUser?.role === "lecturer"
+  const isScopedDepartmentManager = currentUser?.role === "manager" && currentUser.department_id !== null
+  const lockedDepartmentId = (isLecturer || isScopedDepartmentManager) && currentUser?.department_id ? String(currentUser.department_id) : null
 
   React.useEffect(() => {
     const querySection = searchParams.get("section_id") ?? searchParams.get("section")
@@ -119,14 +151,19 @@ export default function SectionsRiskPage() {
     setLoading(true)
     setLoadError("")
     Promise.all([
+      api.getDepartments({ limit: 100 }),
       api.getCourses({ limit: 500 }),
       api.getEnrollments(enrollmentFilter),
+      api.getPrograms({ limit: 1000 }),
       api.getSections({ limit: 5000 }),
       api.getSemesters(),
       api.getStudents({ limit: 5000 }),
     ])
-      .then(([courses, enrollments, sections, semesters, students]) => {
-        setRaw({ courses, enrollments, sections, semesters, students })
+      .then(([departments, courses, enrollments, programs, sections, semesters, students]) => {
+        setRaw({ departments, courses, enrollments, programs, sections, semesters, students })
+        const defaultDept = lockedDepartmentId ?? "all"
+        setSelDept(defaultDept)
+        setSelProg("all")
         const querySemester = searchParams.get("semester") ?? searchParams.get("semester_id")
         const linkedSection = querySection ? sections.find((section) => String(section.id) === querySection) : undefined
         const linkedSemester = linkedSection
@@ -138,12 +175,23 @@ export default function SectionsRiskPage() {
         if (linkedSection) {
           setSelCourse(String(linkedSection.course_id))
           setSelSection(String(linkedSection.id))
+          const linkedCourse = courses.find((course) => course.id === linkedSection.course_id)
+          if (linkedCourse) {
+            setSelDept(String(linkedCourse.department_id))
+            setSelProg(linkedCourse.program_ids.length === 1 ? String(linkedCourse.program_ids[0]) : "all")
+          }
         } else if (queryCourse && courses.some((course) => String(course.id) === queryCourse)) {
           setSelCourse(queryCourse)
+          const linkedCourse = courses.find((course) => String(course.id) === queryCourse)
+          if (linkedCourse) {
+            setSelDept(String(linkedCourse.department_id))
+            setSelProg(linkedCourse.program_ids.length === 1 ? String(linkedCourse.program_ids[0]) : "all")
+          }
         }
       })
       .catch((err: unknown) => setLoadError(err instanceof Error ? err.message : "Không tải được dữ liệu lớp học phần."))
       .finally(() => setLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
   React.useEffect(() => {
@@ -178,22 +226,51 @@ export default function SectionsRiskPage() {
 
   const coursesForSem = React.useMemo(() => {
     if (!raw) return []
-    if (selSem === "all") return [...raw.courses].sort((a, b) => a.name.localeCompare(b.name))
-    const semId = raw.semesters.find((semester) => semester.code === selSem)?.id
-    if (!semId) return []
-    const courseIds = new Set(raw.sections.filter((section) => section.semester_id === semId).map((section) => section.course_id))
-    return raw.courses.filter((course) => courseIds.has(course.id)).sort((a, b) => a.name.localeCompare(b.name))
-  }, [raw, selSem])
+    const semId = selSem === "all" ? null : raw.semesters.find((semester) => semester.code === selSem)?.id ?? null
+    const selectedDeptId = selDept === "all" ? null : Number(selDept)
+    const selectedProgId = selProg === "all" ? null : Number(selProg)
+    const courseIdsForSem = semId === null
+      ? null
+      : new Set(raw.sections.filter((section) => section.semester_id === semId).map((section) => section.course_id))
+    return raw.courses
+      .filter((course) => (courseIdsForSem === null || courseIdsForSem.has(course.id)))
+      .filter((course) => selectedDeptId === null || course.department_id === selectedDeptId)
+      .filter((course) => selectedProgId === null || course.program_ids.includes(selectedProgId))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [raw, selDept, selProg, selSem])
+
+  const programsForDept = React.useMemo(() => {
+    if (!raw) return []
+    const selectedDeptId = selDept === "all" ? null : Number(selDept)
+    return raw.programs
+      .filter((program) => selectedDeptId === null || program.department_id === selectedDeptId)
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [raw, selDept])
+
+  React.useEffect(() => {
+    if (!raw) return
+    if (selDept !== "all" && selProg !== "all") {
+      const currentProgram = raw.programs.find((program) => program.id === Number(selProg))
+      if (currentProgram && currentProgram.department_id !== Number(selDept)) {
+        setSelProg("all")
+      }
+    }
+  }, [raw, selDept, selProg])
 
   const sectionsForFilter = React.useMemo(() => {
     if (!raw) return []
     const semId = selSem === "all" ? null : raw.semesters.find((semester) => semester.code === selSem)?.id
+    const selectedDeptId = selDept === "all" ? null : Number(selDept)
+    const selectedProgId = selProg === "all" ? null : Number(selProg)
     return raw.sections.filter((section) => {
+      const course = raw.courses.find((item) => item.id === section.course_id)
       const matchesSemester = semId === null || section.semester_id === semId
       const matchesCourse = selCourse === "all" || section.course_id === Number(selCourse)
-      return matchesSemester && matchesCourse
+      const matchesDept = selectedDeptId === null || course?.department_id === selectedDeptId
+      const matchesProgram = selectedProgId === null || !!course?.program_ids.includes(selectedProgId)
+      return matchesSemester && matchesCourse && matchesDept && matchesProgram
     })
-  }, [raw, selCourse, selSem])
+  }, [raw, selCourse, selDept, selProg, selSem])
 
   const sectionRows = React.useMemo(() => {
     if (!raw || !maps) return []
@@ -239,6 +316,14 @@ export default function SectionsRiskPage() {
       else if ((diff !== null && diff <= -15) || (passRate !== null && passRate <= 60)) risk = "high"
       else if ((passRate !== null && passRate < 70) || nearFailRate > 15) risk = "medium"
       else if (watchRate > 20) risk = "watch"
+      const riskReasons = [
+        !valid.length ? "Chưa đủ điểm" : null,
+        passRate !== null && passRate <= 60 ? "Tỷ lệ đạt <= 60%" : null,
+        diff !== null && diff <= -15 ? "Thấp hơn benchmark >= 15đ" : null,
+        passRate !== null && passRate > 60 && passRate < 70 ? "Tỷ lệ đạt dưới 70%" : null,
+        nearFailRate > 15 ? "Cận trượt > 15%" : null,
+        watchRate > 20 ? "Sát ngưỡng > 20%" : null,
+      ].filter((item): item is string => Boolean(item))
       return {
         id: section.id,
         courseId: section.course_id,
@@ -258,6 +343,7 @@ export default function SectionsRiskPage() {
         benchmarkPassRate,
         diff,
         risk,
+        riskReasons,
       }
     })
   }, [raw, maps, sectionsForFilter])
@@ -290,8 +376,38 @@ export default function SectionsRiskPage() {
       pendingGrades: sectionRows.reduce((sum, row) => sum + row.pending, 0),
       overallPassRate: totalValid ? +(totalPassed / totalValid * 100).toFixed(1) : null,
       overallAvgGrade: totalGraded ? +(gradedRows.reduce((sum, row) => sum + (row.avgGrade ?? 0) * row.graded, 0) / totalGraded).toFixed(2) : null,
+      riskCounts: {
+        high: sectionRows.filter((row) => row.risk === "high").length,
+        medium: sectionRows.filter((row) => row.risk === "medium").length,
+        watch: sectionRows.filter((row) => row.risk === "watch").length,
+        pending: sectionRows.filter((row) => row.risk === "pending").length,
+        normal: sectionRows.filter((row) => row.risk === "normal").length,
+      },
     }
   }, [sectionRows])
+
+  const riskScatterRows = React.useMemo(() => visibleRows
+    .filter((row) => row.passRate !== null && row.diff !== null && row.graded > 0)
+    .slice(0, 120)
+    .map((row) => ({
+      id: row.id,
+      code: row.code,
+      course: row.course,
+      passRate: row.passRate ?? 0,
+      diff: row.diff ?? 0,
+      atRisk: row.atRisk,
+      total: row.total,
+      risk: row.risk,
+      reason: row.riskReasons[0] ?? SECTION_RISK_LABEL[row.risk],
+      size: Math.max(50, row.atRisk * 24 + row.total),
+    })), [visibleRows])
+  const riskDistribution = React.useMemo(() => [
+    { label: "Ưu tiên", value: overview.riskCounts.high, color: "bg-red-600" },
+    { label: "Cần xử lý", value: overview.riskCounts.medium, color: "bg-orange-500" },
+    { label: "Theo dõi", value: overview.riskCounts.watch, color: "bg-yellow-500" },
+    { label: "Thiếu điểm", value: overview.riskCounts.pending, color: "bg-slate-500" },
+    { label: "Ổn định", value: overview.riskCounts.normal, color: "bg-emerald-600" },
+  ], [overview.riskCounts.high, overview.riskCounts.medium, overview.riskCounts.normal, overview.riskCounts.pending, overview.riskCounts.watch])
 
   const sectionStats = React.useMemo(() => {
     if (!raw || !maps || !selectedSection) return null
@@ -350,7 +466,80 @@ export default function SectionsRiskPage() {
   }, [raw, maps, selectedSection, selectedSemester?.code, sectionRows])
 
   const semLabel = selSem === "all" ? "Tất cả học kỳ" : raw?.semesters.find((semester) => semester.code === selSem)?.name ?? selSem
+  const deptLabel = selDept === "all" ? "Tất cả khoa" : raw?.departments.find((item) => item.id === Number(selDept))?.name ?? selDept
+  const progLabel = selProg === "all" ? "Tất cả ngành" : raw?.programs.find((item) => item.id === Number(selProg))?.name ?? selProg
   const courseLabel = selCourse === "all" ? "Tất cả môn" : raw?.courses.find((course) => course.id === Number(selCourse))?.name ?? "Môn đã chọn"
+
+  React.useEffect(() => {
+    if (!raw) return
+    const highRiskRows = visibleRows
+      .filter((row) => row.risk === "high" || row.risk === "medium")
+      .slice(0, 12)
+    setDashboardAgentContext({
+      source: "sections_analytics_dashboard",
+      route: "/manager/analytics/sections",
+      dashboard_type: "sections_overview",
+      scope: {
+        scope_type: "section_collection",
+        semester_code: selSem === "all" ? null : selSem,
+        department_id: selDept === "all" ? null : Number(selDept),
+        program_id: selProg === "all" ? null : Number(selProg),
+        course_id: selCourse === "all" ? null : Number(selCourse),
+      },
+      filters: {
+        semester: semLabel,
+        department: deptLabel,
+        program: progLabel,
+        course: courseLabel,
+        status: selStatus,
+      },
+      visible_metrics: {
+        total_sections: overview.totalSections,
+        risky_sections: overview.riskySections,
+        total_at_risk_students: overview.totalAtRisk,
+        pending_grades: overview.pendingGrades,
+        overall_pass_rate: overview.overallPassRate,
+        overall_average_grade: overview.overallAvgGrade,
+        visible_rows: visibleRows.length,
+      },
+      alerts: highRiskRows.flatMap((row) => row.riskReasons.length ? row.riskReasons : [SECTION_RISK_LABEL[row.risk]]).slice(0, 10),
+      selected_entities: {
+        semester: semLabel,
+        department: deptLabel,
+        program: progLabel,
+        course: courseLabel,
+      },
+      chart_summaries: {
+        risk_distribution: riskDistribution.map((item) => ({ label: item.label, count: item.value })),
+        risk_scatter_extremes: [...riskScatterRows]
+          .sort((a, b) => a.diff - b.diff)
+          .slice(0, 10)
+          .map((row) => ({
+            section_id: row.id,
+            section_code: row.code,
+            course_name: row.course,
+            pass_rate: row.passRate,
+            benchmark_diff_points: row.diff,
+            at_risk_students: row.atRisk,
+            reason: row.reason,
+          })),
+      },
+      rows_preview: highRiskRows.map((row) => ({
+        section_id: row.id,
+        section_code: row.code,
+        course_name: row.course,
+        semester_code: row.semester,
+        total_students: row.total,
+        average_grade: row.avgGrade,
+        pass_rate: row.passRate,
+        benchmark_diff_points: row.diff,
+        at_risk_students: row.atRisk,
+        risk_level: row.risk,
+        reasons: row.riskReasons,
+      })),
+    })
+  }, [courseLabel, deptLabel, overview, progLabel, raw, riskDistribution, riskScatterRows, selCourse, selDept, selProg, selSem, selStatus, semLabel, visibleRows])
+
   const campaignStudentIds = React.useMemo(() => {
     const priorityIds = agentSummary?.priority_students.map((student) => student.student_id) ?? []
     if (priorityIds.length) return priorityIds
@@ -466,28 +655,76 @@ export default function SectionsRiskPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          {isLecturer ? "Đánh giá các lớp được giao" : "Lớp học phần cần hỗ trợ"}
-        </h1>
-        <p className="text-sm text-muted-foreground">Dashboard kỳ hiện tại, phân tích lớp được chọn và hỗ trợ can thiệp sinh viên.</p>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {isLecturer ? "Đánh giá các lớp được giao" : "Lớp học phần cần hỗ trợ"}
+          </h1>
+          <p className="text-sm text-muted-foreground">Dashboard kỳ hiện tại để lọc, so sánh và mở phân tích chuyên sâu cho từng lớp học phần.</p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => requestDashboardAgent("Phân tích dashboard lớp học phần hiện tại: nêu lớp rủi ro nhất, xu hướng từ biểu đồ, cảnh báo cần ưu tiên và bước xử lý tiếp theo.")}
+        >
+          <MessageSquare className="mr-2 h-4 w-4" />Agent phân tích màn hình
+        </Button>
       </div>
 
       {loadError ? <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{loadError}</div> : null}
 
       <Card>
-        <CardContent className="grid gap-3 py-4 lg:grid-cols-[180px_minmax(260px,1fr)_220px]">
+        <CardContent className="grid gap-3 py-4 lg:grid-cols-[170px_180px_220px_minmax(240px,1fr)_220px]">
           <Select value={selSem} onValueChange={(value) => {
             const next = value ?? "all"
             setSelSem(next)
             sessionStorage.setItem("vinuni_selected_semester", next)
-            setSelCourse("all")
             setSelSection("all")
+            setSelCourse("all")
+            setSelProg("all")
           }}>
             <SelectTrigger><span className="truncate">{semLabel}</span></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả học kỳ</SelectItem>
               {semestersWithData.map((semester) => <SelectItem key={semester.id} value={semester.code}>{semester.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select
+            value={selDept}
+            onValueChange={(value) => {
+              setSelDept(value ?? "all")
+              setSelProg("all")
+              setSelCourse("all")
+              setSelSection("all")
+            }}
+            disabled={Boolean(lockedDepartmentId)}
+          >
+            <SelectTrigger>
+              <span className="truncate">{deptLabel}</span>
+            </SelectTrigger>
+            <SelectContent>
+              {!lockedDepartmentId ? <SelectItem value="all">Tất cả khoa</SelectItem> : null}
+              {raw?.departments.map((department) => (
+                <SelectItem key={department.id} value={String(department.id)}>{department.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={selProg}
+            onValueChange={(value) => {
+              setSelProg(value ?? "all")
+              setSelCourse("all")
+              setSelSection("all")
+            }}
+            disabled={selDept === "all" || (Boolean(lockedDepartmentId) && programsForDept.length === 0)}
+          >
+            <SelectTrigger>
+              <span className="truncate">{progLabel}</span>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả ngành</SelectItem>
+              {programsForDept.map((program) => (
+                <SelectItem key={program.id} value={String(program.id)}>{program.name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select value={selCourse} onValueChange={(value) => { setSelCourse(value ?? "all"); setSelSection("all") }}>
@@ -529,6 +766,92 @@ export default function SectionsRiskPage() {
         ))}
       </div>
 
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Bản đồ rủi ro lớp học phần</CardTitle>
+            <p className="text-xs text-muted-foreground">Mỗi điểm là một lớp; càng lệch xuống dưới và càng gần bên trái càng cần mở phân tích trước.</p>
+          </CardHeader>
+          <CardContent>
+            {riskScatterRows.length ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <ScatterChart margin={{ left: 0, right: 16, top: 12, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    type="number"
+                    dataKey="passRate"
+                    name="Tỷ lệ đạt"
+                    domain={[0, 100]}
+                    tickFormatter={(value) => `${value}%`}
+                    tick={{ fontSize: 10 }}
+                  />
+                  <YAxis
+                    type="number"
+                    dataKey="diff"
+                    name="So benchmark"
+                    tickFormatter={(value) => `${value}%`}
+                    tick={{ fontSize: 10 }}
+                    width={42}
+                  />
+                  <ZAxis type="number" dataKey="size" range={[70, 420]} />
+                  <ReferenceLine x={70} stroke="#f59e0b" strokeDasharray="5 4" />
+                  <ReferenceLine y={-15} stroke="#dc2626" strokeDasharray="5 4" />
+                  <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="3 3" />
+                  <Tooltip
+                    cursor={{ strokeDasharray: "3 3" }}
+                    formatter={(value, name, item) => {
+                      const row = item.payload as (typeof riskScatterRows)[number]
+                      if (name === "Tỷ lệ đạt") return [`${Number(value).toFixed(1)}%`, `${row.code} · ${row.reason}`]
+                      if (name === "So benchmark") return [`${Number(value).toFixed(1)} điểm %`, `${row.atRisk} SV cần hỗ trợ · ${row.total} SV`]
+                      return [value, name]
+                    }}
+                    contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                  />
+                  <Scatter
+                    data={riskScatterRows}
+                    onClick={(point: unknown) => {
+                      const row = point as { id?: number }
+                      if (row.id) router.push(`/manager/analytics/sections/${row.id}`)
+                    }}
+                    className="cursor-pointer"
+                  >
+                    {riskScatterRows.map((row) => (
+                      <Cell key={row.id} fill={riskDotColor(row.risk)} />
+                    ))}
+                  </Scatter>
+                </ScatterChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">Chưa có lớp đủ dữ liệu điểm và benchmark để vẽ bản đồ rủi ro.</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Cơ cấu cảnh báo</CardTitle>
+            <p className="text-xs text-muted-foreground">Phân bổ lớp theo mức ưu tiên trong phạm vi lọc.</p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {riskDistribution.map((item) => {
+              const count = item.value
+              const percent = overview.totalSections ? Math.round(count / overview.totalSections * 100) : 0
+              return (
+                <div key={item.label}>
+                  <div className="mb-1 flex items-center justify-between text-xs">
+                    <span className="font-medium">{item.label}</span>
+                    <span className="text-muted-foreground">{count} lớp · {percent}%</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-muted">
+                    <div className={`h-full rounded-full ${item.color}`} style={{ width: `${percent}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Dashboard lớp học phần kỳ hiện tại</CardTitle>
@@ -547,12 +870,16 @@ export default function SectionsRiskPage() {
                   <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">Điểm TB</th>
                   <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">Tỷ lệ đạt</th>
                   <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">SV hỗ trợ</th>
-                  <th className="px-4 py-2.5 text-right font-medium text-muted-foreground">Hành động</th>
+                  <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Lý do</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {visibleRows.slice(0, 100).map((row) => (
-                  <tr key={row.id} className={selectedSection?.id === row.id ? "bg-primary/5" : "hover:bg-muted/30"}>
+                  <tr
+                    key={row.id}
+                    className="cursor-pointer hover:bg-primary/5"
+                    onClick={() => router.push(`/manager/analytics/sections/${row.id}`)}
+                  >
                     <td className="px-4 py-2"><Badge variant="outline" className={`text-[10px] ${riskClass(row.risk)}`}>{SECTION_RISK_LABEL[row.risk]}</Badge></td>
                     <td className="px-3 py-2 font-mono text-[11px] font-medium">{row.code}<p className="font-sans text-[10px] text-muted-foreground">{row.semester}</p></td>
                     <td className="max-w-[320px] truncate px-3 py-2">{row.course}</td>
@@ -561,8 +888,12 @@ export default function SectionsRiskPage() {
                     <td className="px-3 py-2 text-right tabular-nums">{row.avgGrade === null ? "-" : row.avgGrade.toFixed(2)}</td>
                     <td className="px-3 py-2 text-right">{row.passRate === null ? "-" : `${row.passRate}%`}</td>
                     <td className={`px-3 py-2 text-right tabular-nums ${row.atRisk ? "font-semibold text-orange-600" : "text-muted-foreground"}`}>{row.atRisk}</td>
-                    <td className="px-4 py-2 text-right">
-                      <Button size="sm" variant={selectedSection?.id === row.id ? "default" : "outline"} onClick={() => setSelSection(String(row.id))}>Phân tích</Button>
+                    <td className="px-3 py-2">
+                      <div className="flex max-w-[220px] flex-wrap gap-1">
+                        {(row.riskReasons.length ? row.riskReasons.slice(0, 2) : ["Không có cảnh báo"]).map((reason) => (
+                          <Badge key={reason} variant="outline" className="text-[10px]">{reason}</Badge>
+                        ))}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -583,6 +914,13 @@ export default function SectionsRiskPage() {
                   <Badge variant="outline" className={riskClass(selectedRow.risk)}>{SECTION_RISK_LABEL[selectedRow.risk]}</Badge>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{selectedCourse?.name ?? "Môn học"} · {selectedSemester?.name ?? selectedSemester?.code ?? "-"}</p>
+                {selectedRow.riskReasons.length ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {selectedRow.riskReasons.map((reason) => (
+                      <Badge key={reason} variant="outline" className="text-[10px]">{reason}</Badge>
+                    ))}
+                  </div>
+                ) : null}
               </div>
               <div className="grid grid-cols-3 gap-2 text-center text-sm sm:min-w-[360px]">
                 <div className="rounded-md bg-muted/30 p-2"><p className="text-xs text-muted-foreground">SV</p><p className="font-bold">{selectedRow.total}</p></div>
@@ -636,24 +974,24 @@ export default function SectionsRiskPage() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">So với lớp cùng môn/kỳ</CardTitle>
-                <p className="text-xs text-muted-foreground">Thanh xanh là lớp đang chọn.</p>
+                <p className="text-xs text-muted-foreground">So theo tỷ lệ đạt; thanh xanh là lớp đang chọn.</p>
               </CardHeader>
               <CardContent>
                 {(sectionStats?.peerComparison.length ?? 0) > 1 ? (
                   <ResponsiveContainer width="100%" height={240}>
                     <BarChart data={sectionStats?.peerComparison ?? []} layout="vertical" margin={{ left: 4, right: 20, top: 8 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                      <XAxis type="number" domain={[0, 10]} tick={{ fontSize: 10 }} />
+                      <XAxis type="number" domain={[0, 100]} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 10 }} />
                       <YAxis type="category" dataKey="label" width={92} tick={{ fontSize: 10 }} />
                       <Tooltip
                         formatter={(value, _name, item) => [
-                          Number(value).toFixed(2),
-                          `Điểm TB · đạt ${item.payload.passRate}% · ${item.payload.atRisk} SV hỗ trợ`,
+                          `${Number(value).toFixed(1)}%`,
+                          `Tỷ lệ đạt · điểm TB ${item.payload.avgGrade.toFixed(2)} · ${item.payload.atRisk} SV hỗ trợ`,
                         ]}
                         contentStyle={{ fontSize: 12, borderRadius: 6 }}
                       />
-                      <ReferenceLine x={5} stroke="#ef4444" strokeDasharray="5 4" />
-                      <Bar dataKey="avgGrade" radius={[0, 5, 5, 0]}>
+                      <ReferenceLine x={70} stroke="#f59e0b" strokeDasharray="5 4" />
+                      <Bar dataKey="passRate" radius={[0, 5, 5, 0]}>
                         {(sectionStats?.peerComparison ?? []).map((row) => <Cell key={row.id} fill={row.isSelected ? "#2563eb" : "#94a3b8"} />)}
                       </Bar>
                     </BarChart>
@@ -724,12 +1062,6 @@ export default function SectionsRiskPage() {
                 {agentError ? <p className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">{agentError}</p> : null}
                 <Button className="w-full" onClick={runSectionAgent} disabled={agentLoading}>
                   <Sparkles className="mr-2 h-4 w-4" />{agentLoading ? "Đang phân tích..." : "Chạy Agent"}
-                </Button>
-                <Button className="w-full" onClick={() => void buildBulkEmails(true)} disabled={mailDraftLoading || campaignStudentIds.length === 0}>
-                  <Mail className="mr-2 h-4 w-4" />{mailDraftLoading ? "Đang tạo..." : "Tạo & xem danh sách mail"}
-                </Button>
-                <Button className="w-full" variant="outline" onClick={() => void buildBulkEmails()} disabled={!agentSummary || mailDraftLoading || campaignStudentIds.length === 0}>
-                  <Mail className="mr-2 h-4 w-4" />{mailDraftLoading ? "Đang tạo..." : "Tạo email nháp"}
                 </Button>
                 <Button className="w-full" variant="outline" onClick={() => { setMailPreviewMode(campaign ? "mail" : "agent"); setMailPreviewOpen(true) }} disabled={!agentSummary && !campaign}>
                   Xem kế hoạch / mail
@@ -823,7 +1155,7 @@ export default function SectionsRiskPage() {
                   })}
                 </div>
               </div>
-            ) : <p className="py-10 text-center text-sm text-muted-foreground">Chưa tạo campaign. Bấm “Tạo email nháp” trong panel Agent.</p>
+            ) : <p className="py-10 text-center text-sm text-muted-foreground">Chưa tạo campaign. Mở “Xem kế hoạch / mail” để bắt đầu.</p>
           ) : agentSummary ? (
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
               <div className="rounded-lg border p-4">
@@ -862,10 +1194,10 @@ export default function SectionsRiskPage() {
             {agentSummary ? (
               <>
                 <Button variant="outline" onClick={() => void buildBulkEmails()} disabled={mailDraftLoading || campaignStudentIds.length === 0}>
-                  <Mail className="mr-2 h-4 w-4" />{mailDraftLoading ? "Đang tạo..." : "Tạo email nháp"}
+                  <Mail className="mr-2 h-4 w-4" />{mailDraftLoading ? "Đang tạo..." : "Tạo nháp email"}
                 </Button>
                 <Button onClick={createBulkNotifications} disabled={bulkLoading || !campaign || campaign.messages.every((message) => message.status === "failed")}>
-                  <Sparkles className="mr-2 h-4 w-4" />{bulkLoading ? "Đang lưu..." : "Duyệt & lưu campaign"}
+                  <Sparkles className="mr-2 h-4 w-4" />{bulkLoading ? "Đang gửi..." : "Gửi email"}
                 </Button>
               </>
             ) : null}

@@ -103,6 +103,7 @@ async def _assign_demo_scopes(db, users_by_email: dict[str, User]) -> None:
     lecturer_user = users_by_email.get("lecturer@epu.edu.vn")
     if manager is not None:
         manager.department_id = department.id
+        manager.position = "department_manager"
     if viewer is not None:
         viewer.department_id = department.id
 

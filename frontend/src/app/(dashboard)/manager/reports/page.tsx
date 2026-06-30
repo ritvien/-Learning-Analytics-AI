@@ -248,6 +248,22 @@ function labelFromMap(value: unknown, map: Record<string, string>, fallback = "C
   return map[key] ?? (key ? key : fallback)
 }
 
+function reportScopeDisplay(report: ApiReport) {
+  const metrics = report.metrics_json ?? {}
+  const scopeType = String(report.scope_type ?? "")
+  if (scopeType === "school") return "Toàn trường"
+  if (scopeType === "department" && metrics.department_name) return `Khoa - ${localizeReportText(metrics.department_name)}`
+  if (scopeType === "program" && metrics.program_name) return `Ngành - ${localizeReportText(metrics.program_name)}`
+  if (scopeType === "course" && metrics.course_name) return `Môn học - ${localizeReportText(metrics.course_name)}`
+  if (scopeType === "section") {
+    const sectionCode = localizeReportText(metrics.section_code ?? report.scope_id)
+    const courseName = metrics.course_name ? ` · ${localizeReportText(metrics.course_name)}` : ""
+    return `Lớp học phần - ${sectionCode}${courseName}`
+  }
+  const typeLabel = labelFromMap(report.scope_type, scopeTypeLabels)
+  return report.scope_id ? `${typeLabel} - ${report.scope_id}` : typeLabel
+}
+
 function reportUrl(reportId: string) {
   return `/manager/reports?report=${encodeURIComponent(reportId)}`
 }
@@ -679,7 +695,7 @@ function buildReportHtml(report: ApiReport) {
   <h2>I. Thông tin báo cáo</h2>
   <table>
     <tr><td><strong>Loại báo cáo</strong></td><td>${escapeHtml(labelFromMap(report.report_type, reportTypeLabels))}</td></tr>
-    <tr><td><strong>Phạm vi</strong></td><td>${escapeHtml(labelFromMap(report.scope_type, scopeTypeLabels))}${report.scope_id ? ` - ${escapeHtml(report.scope_id)}` : ""}</td></tr>
+    <tr><td><strong>Phạm vi</strong></td><td>${escapeHtml(reportScopeDisplay(report))}</td></tr>
     <tr><td><strong>Kỳ dữ liệu phân tích</strong></td><td>${escapeHtml(reportPeriodLabel(report))}</td></tr>
     <tr><td><strong>Actor nhận báo cáo</strong></td><td>${escapeHtml(report.actor_role === "lecturer" ? "Giảng viên" : "Quản lý")}</td></tr>
     <tr><td><strong>Trạng thái</strong></td><td>${escapeHtml(labelFromMap(report.status, statusLabels))}</td></tr>
@@ -791,15 +807,23 @@ export default function ReportsPage() {
   const courseMap = React.useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses])
   const semesterMap = React.useMemo(() => new Map(semesters.map((s) => [s.id, s])), [semesters])
   const currentRole: ReportUserRole = currentUser?.role ?? "unknown"
+  const lockedDepartmentId =
+    currentUser?.role === "manager" && currentUser.department_id != null ? String(currentUser.department_id) : ""
+  const managerMissingScope = currentUser?.role === "manager" && currentUser.department_id == null
+  const effectiveDepartmentId = lockedDepartmentId || selectedDepartmentId
+  const scopedDepartments = React.useMemo(() => {
+    if (!lockedDepartmentId) return departments
+    return departments.filter((department) => String(department.id) === lockedDepartmentId)
+  }, [departments, lockedDepartmentId])
   const availableTemplates = React.useMemo(() => allowedTemplatesForRole(currentRole), [currentRole])
   const availableScheduledPlans = React.useMemo(
     () => allowedScheduledPlansForTemplates(availableTemplates),
     [availableTemplates],
   )
-  const canGenerateReports = availableTemplates.length > 0
+  const canGenerateReports = availableTemplates.length > 0 && !managerMissingScope
 
   const selectedTemplate = availableTemplates.find((t) => t.id === selectedTemplateId) ?? availableTemplates[0] ?? templates[0]
-  const selectedDepartment = departments.find((d) => String(d.id) === selectedDepartmentId)
+  const selectedDepartment = departments.find((d) => String(d.id) === effectiveDepartmentId)
   const selectedProgram = programs.find((p) => String(p.id) === selectedProgramId)
   const selectedSemester = semesters.find((s) => String(s.id) === selectedSemesterId)
 
@@ -811,8 +835,16 @@ export default function ReportsPage() {
   }, [availableTemplates, selectedTemplateId])
 
   React.useEffect(() => {
+    if (!lockedDepartmentId || selectedDepartmentId === lockedDepartmentId) return
+    setSelectedDepartmentId(lockedDepartmentId)
+    setSelectedProgramId("")
+    setSelectedCourseId("")
+    setSelectedSectionId("")
+  }, [lockedDepartmentId, selectedDepartmentId])
+
+  React.useEffect(() => {
     const scopeId = selectedTemplate.scopeType === "department"
-      ? selectedDepartmentId
+      ? effectiveDepartmentId
       : selectedTemplate.scopeType === "program"
         ? selectedProgramId
         : selectedTemplate.scopeType === "course"
@@ -831,26 +863,26 @@ export default function ReportsPage() {
       },
       filters: {
         report_type: selectedTemplate.backendType,
-        department_id: selectedDepartmentId || undefined,
+        department_id: effectiveDepartmentId || undefined,
         program_id: selectedProgramId || undefined,
         course_id: selectedCourseId || undefined,
         section_id: selectedSectionId || undefined,
       },
     })
-  }, [selectedTemplate, selectedDepartmentId, selectedProgramId, selectedCourseId, selectedSectionId, selectedSemesterId, periodStartDate, periodEndDate])
+  }, [selectedTemplate, effectiveDepartmentId, selectedProgramId, selectedCourseId, selectedSectionId, selectedSemesterId, periodStartDate, periodEndDate])
 
   const programOptions = React.useMemo(() => {
-    if (!selectedDepartmentId) return programs
-    return programs.filter((p) => String(p.department_id) === selectedDepartmentId)
-  }, [programs, selectedDepartmentId])
+    if (!effectiveDepartmentId) return programs
+    return programs.filter((p) => String(p.department_id) === effectiveDepartmentId)
+  }, [programs, effectiveDepartmentId])
 
   const courseOptions = React.useMemo(() => {
     return courses.filter((course) => {
       if (selectedProgramId && !course.program_ids.includes(Number(selectedProgramId))) return false
-      if (!selectedProgramId && selectedDepartmentId && String(course.department_id) !== selectedDepartmentId) return false
+      if (!selectedProgramId && effectiveDepartmentId && String(course.department_id) !== effectiveDepartmentId) return false
       return true
     })
-  }, [courses, selectedDepartmentId, selectedProgramId])
+  }, [courses, effectiveDepartmentId, selectedProgramId])
 
   const filteredCourseOptions = React.useMemo(() => {
     const q = courseSearch.trim().toLowerCase()
@@ -867,7 +899,7 @@ export default function ReportsPage() {
       .filter((section) => {
         if (selectedCourseId) return String(section.course_id) === selectedCourseId
         if (selectedProgramId) return courseMap.get(section.course_id)?.program_ids.includes(Number(selectedProgramId))
-        if (selectedDepartmentId) return String(courseMap.get(section.course_id)?.department_id) === selectedDepartmentId
+        if (effectiveDepartmentId) return String(courseMap.get(section.course_id)?.department_id) === effectiveDepartmentId
         return true
       })
       .filter((section) => {
@@ -875,7 +907,7 @@ export default function ReportsPage() {
         return buildSectionLabel(section, courseMap, semesterMap).toLowerCase().includes(q)
       })
       .slice(0, 120)
-  }, [sections, selectedSemesterId, selectedCourseId, selectedProgramId, selectedDepartmentId, sectionSearch, courseMap, semesterMap])
+  }, [sections, selectedSemesterId, selectedCourseId, selectedProgramId, effectiveDepartmentId, sectionSearch, courseMap, semesterMap])
 
   const selectedSection = filteredSections.find((s) => String(s.id) === selectedSectionId)
 
@@ -952,7 +984,6 @@ export default function ReportsPage() {
   // Reset section when semester changes and current section no longer exists
   React.useEffect(() => {
     if (selectedSectionId && !filteredSections.find((s) => String(s.id) === selectedSectionId)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedSectionId(filteredSections[0] ? String(filteredSections[0].id) : "")
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -960,14 +991,12 @@ export default function ReportsPage() {
 
   React.useEffect(() => {
     if (selectedProgramId && !programOptions.some((p) => String(p.id) === selectedProgramId)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedProgramId(programOptions[0] ? String(programOptions[0].id) : "")
     }
   }, [programOptions, selectedProgramId])
 
   React.useEffect(() => {
     if (selectedCourseId && !courseOptions.some((c) => String(c.id) === selectedCourseId)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedCourseId(courseOptions[0] ? String(courseOptions[0].id) : "")
     }
   }, [courseOptions, selectedCourseId])
@@ -1031,7 +1060,6 @@ export default function ReportsPage() {
     if (!reportId || reports.length === 0) return
     const linkedReport = reports.find((item) => item.id === reportId)
     if (linkedReport) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedReport(linkedReport)
     }
   }, [reports, searchParams])
@@ -1039,12 +1067,12 @@ export default function ReportsPage() {
   async function handleGenerate() {
     setError("")
     if (!canGenerateReports) {
-      setError("Tài khoản hiện tại không có quyền tạo báo cáo.")
+      setError(managerMissingScope ? "Tài khoản manager chưa được gán khoa phụ trách." : "Tài khoản hiện tại không có quyền tạo báo cáo.")
       return
     }
     const scopeId =
       selectedTemplate.scopeType === "department"
-        ? selectedDepartmentId
+        ? effectiveDepartmentId
         : selectedTemplate.scopeType === "program"
           ? selectedProgramId
           : selectedTemplate.scopeType === "course"
@@ -1088,7 +1116,7 @@ export default function ReportsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Báo cáo học vụ</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Mở báo cáo đã có, tạo báo cáo theo phạm vi cần xem, rồi xuất PDF khi cần.
+            Mở báo cáo đã có, tạo báo cáo theo phạm vi được phân quyền, rồi xuất PDF khi cần.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1148,6 +1176,12 @@ export default function ReportsPage() {
       {error ? (
         <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {error}
+        </div>
+      ) : null}
+
+      {managerMissingScope ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Tài khoản manager hiện chưa được gán khoa phụ trách. Hãy cập nhật <strong>department_id</strong> cho user để báo cáo và dashboard khóa đúng phạm vi.
         </div>
       ) : null}
 
@@ -1243,6 +1277,7 @@ export default function ReportsPage() {
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
                           <span>{labelFromMap(report.report_type, reportTypeLabels)}</span>
+                          <span>{reportScopeDisplay(report)}</span>
                           <span>{formatDate(report.created_at)}</span>
                         </div>
                       </button>
@@ -1328,14 +1363,24 @@ export default function ReportsPage() {
                 {["department", "program", "course", "section"].includes(selectedTemplate.scopeType) && (
                   <div className="space-y-2">
                     <Label>Khoa</Label>
-                    <Select value={selectedDepartmentId} onValueChange={(v) => { if (v) setSelectedDepartmentId(v) }}>
+                    <Select
+                      value={effectiveDepartmentId}
+                      disabled={Boolean(lockedDepartmentId)}
+                      onValueChange={(v) => {
+                        if (!v || lockedDepartmentId) return
+                        setSelectedDepartmentId(v)
+                        setSelectedProgramId("")
+                        setSelectedCourseId("")
+                        setSelectedSectionId("")
+                      }}
+                    >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Chon khoa">
-                          {selectedDepartment ? `${selectedDepartment.code} - ${selectedDepartment.name}` : "Chon khoa"}
+                        <SelectValue placeholder="Chọn khoa">
+                          {selectedDepartment ? `${selectedDepartment.code} - ${selectedDepartment.name}` : "Chọn khoa"}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        {departments.map((d) => (
+                        {scopedDepartments.map((d) => (
                           <SelectItem key={d.id} value={String(d.id)}>
                             {d.code} - {d.name}
                           </SelectItem>
@@ -1484,6 +1529,32 @@ export default function ReportsPage() {
                 </div>
               </div>
             )}
+
+            <div className="rounded-lg border bg-background p-3 text-sm">
+              <div className="text-xs font-medium uppercase text-muted-foreground">Phạm vi báo cáo sẽ sinh</div>
+              <div className="mt-1 font-semibold">
+                {selectedTemplate.scopeType === "school"
+                  ? "Toàn trường"
+                  : selectedTemplate.scopeType === "department"
+                    ? selectedDepartment
+                      ? `Khoa - ${selectedDepartment.name}`
+                      : "Chưa chọn khoa"
+                    : selectedTemplate.scopeType === "program"
+                      ? selectedProgram
+                        ? `Ngành - ${selectedProgram.name}`
+                        : "Chưa chọn ngành"
+                      : selectedTemplate.scopeType === "course"
+                        ? courses.find((course) => String(course.id) === selectedCourseId)?.name ?? "Chưa chọn môn học"
+                        : selectedSection
+                          ? buildSectionLabel(selectedSection, courseMap, semesterMap)
+                          : "Chưa chọn lớp học phần"}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {lockedDepartmentId
+                  ? "Phạm vi khoa đã được khóa theo tài khoản manager."
+                  : "Phạm vi này sẽ được lưu vào report để lọc thư viện, xuất PDF và kiểm quyền xem lại."}
+              </p>
+            </div>
 
             <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
               <Label className="text-sm font-medium">Phạm vi thời gian dữ liệu</Label>
@@ -2020,7 +2091,7 @@ function ReportStandardDocument({
           rows={[
             { label: "Tên báo cáo", value: report.title },
             { label: "Loại báo cáo", value: labelFromMap(report.report_type, reportTypeLabels) },
-            { label: "Phạm vi", value: labelFromMap(report.scope_type, scopeTypeLabels), note: report.scope_id ?? "Tất cả" },
+            { label: "Phạm vi", value: reportScopeDisplay(report), note: report.scope_id ? `Mã phạm vi: ${report.scope_id}` : "Tất cả" },
             { label: "Kỳ dữ liệu phân tích", value: reportPeriodLabel(report) },
             { label: "Người tạo", value: report.generated_by ? "Người dùng hệ thống" : "Hệ thống" },
             { label: "Dữ liệu tính đến", value: formatDate(report.created_at) },
@@ -2358,7 +2429,7 @@ function ReportPreview({ report, isLoading }: { report: ApiReport; isLoading: bo
             <ReportMetricCard
               title="Phạm vi"
               value={labelFromMap(report.scope_type, scopeTypeLabels)}
-              caption={report.scope_id ?? "tất cả"}
+              caption={reportScopeDisplay(report)}
               tone="neutral"
             />
           </div>

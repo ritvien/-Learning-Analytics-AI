@@ -314,7 +314,9 @@ async def analytics_dashboard_overview(
 ) -> dict:
     """Return pre-aggregated school dashboard metrics from the DWH."""
     _require_dashboard_role(current_user)
-    cache_key = ("overview", semester_code, department_id, date_from, date_to)
+    if current_user.role.value == "manager":
+        department_id = await _scoped_department_filter(db, current_user, department_id)
+    cache_key = ("overview", current_user.role.value, current_user.id, semester_code, department_id, date_from, date_to)
     cached = _dashboard_cache_get(cache_key)
     if cached is not None:
         return cached
@@ -552,6 +554,9 @@ async def analytics_dashboard_overview(
     )
 
     meta = await _dashboard_meta(db)
+    if department_id is not None:
+        meta["departments"] = [item for item in meta["departments"] if item["id"] == department_id]
+        meta["programs"] = [item for item in meta["programs"] if item["department_id"] == department_id]
     return _dashboard_cache_set(cache_key, {
         **meta,
         "kpis": kpis,

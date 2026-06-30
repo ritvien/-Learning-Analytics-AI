@@ -6,6 +6,12 @@ import { MessageSquare, X, Send, Bot, User, Maximize2, Loader2 } from "lucide-re
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { api, chatStreamV2, getReportBuildContext, resolveChatHandoffRoute, type ApiReportBuildPlan } from "@/lib/api"
+import {
+  DASHBOARD_AGENT_CONTEXT_EVENT,
+  DASHBOARD_AGENT_PROMPT_EVENT,
+  getDashboardAgentContext,
+  type DashboardAgentContext,
+} from "@/lib/dashboard-agent-context"
 
 interface Message {
   id: string
@@ -210,11 +216,25 @@ function GlobalChatWindow({
   const [reportIntakeMode, setReportIntakeMode] = React.useState<"template" | "custom">("template")
   const [reportRequest, setReportRequest] = React.useState("")
   const [reportBuildSessionId, setReportBuildSessionId] = React.useState<string | undefined>()
+  const [dashboardContext, setDashboardContext] = React.useState<DashboardAgentContext | null>(null)
   
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
-  const abortControllerRef = React.useRef<AbortController | null>(null)
   const wrapperRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    setDashboardContext(getDashboardAgentContext(pathname))
+
+    const handleContext = (event: Event) => {
+      const detail = (event as CustomEvent<DashboardAgentContext>).detail
+      if (detail?.route === pathname || pathname.startsWith(`${detail?.route}/`) || detail?.route?.startsWith(`${pathname}/`)) {
+        setDashboardContext(detail)
+      }
+    }
+
+    window.addEventListener(DASHBOARD_AGENT_CONTEXT_EVENT, handleContext)
+    return () => window.removeEventListener(DASHBOARD_AGENT_CONTEXT_EVENT, handleContext)
+  }, [pathname])
 
   // ── Drag state ────────────────────────────────────────────────────
   const [pos, setPos] = React.useState<{ x: number; y: number } | null>(null)
@@ -283,8 +303,9 @@ function GlobalChatWindow({
   // ─────────────────────────────────────────────────────────────────
 
   React.useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    const scrollEl = scrollRef.current
+    if (scrollEl) {
+      scrollEl.scrollTop = scrollEl.scrollHeight
     }
   }, [messages, isOpen])
 
@@ -433,7 +454,6 @@ function GlobalChatWindow({
     }])
 
     const controller = new AbortController()
-    abortControllerRef.current = controller
 
     try {
       let fullContent = ""
@@ -442,8 +462,21 @@ function GlobalChatWindow({
 
       let handoffHandled = false
 
+      const activeDashboardContext = getDashboardAgentContext(pathname) ?? dashboardContext
+
       for await (const event of chatStreamV2(
-        { message: text.trim(), thread_id: currentSessionId },
+        {
+          message: text.trim(),
+          thread_id: currentSessionId,
+          context: activeDashboardContext
+            ? {
+                source: "global_chat",
+                dashboard_context: activeDashboardContext,
+                scope: activeDashboardContext.scope,
+                filters: activeDashboardContext.filters,
+              }
+            : { source: "global_chat" },
+        },
         controller.signal,
       )) {
         switch (event.type) {
@@ -466,6 +499,15 @@ function GlobalChatWindow({
 
           case "route_decision":
             if (event.route_decision.mode === "full_chat") {
+              if (activeDashboardContext) {
+                setMessages(prev => prev.map(m =>
+                  m.id === assistantMsgId ? {
+                    ...m,
+                    statuses: [...(m.statuses || []), "Giữ phân tích tại dashboard hiện tại vì đã có ngữ cảnh màn hình"]
+                  } : m
+                ))
+                break
+              }
               handoffHandled = true
               setMessages(prev => prev.map(m =>
                 m.id === assistantMsgId ? { 
@@ -542,6 +584,20 @@ function GlobalChatWindow({
       setIsLoading(false)
     }
   }
+
+  React.useEffect(() => {
+    const handlePrompt = (event: Event) => {
+      const prompt = (event as CustomEvent<{ prompt?: string }>).detail?.prompt
+      if (!prompt) return
+      setIsOpen(true)
+      void sendMessage(prompt)
+    }
+
+    window.addEventListener(DASHBOARD_AGENT_PROMPT_EVENT, handlePrompt)
+    return () => window.removeEventListener(DASHBOARD_AGENT_PROMPT_EVENT, handlePrompt)
+    // sendMessage intentionally closes over the current chat state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, activeSessionId, pathname, dashboardContext])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
