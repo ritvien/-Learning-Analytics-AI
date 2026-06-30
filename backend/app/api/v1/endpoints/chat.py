@@ -17,6 +17,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, messages_from_dict, messages_to_dict
+from langchain_core.runnables import RunnableConfig
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +31,7 @@ from app.agent.errors import (
 )
 from app.agent.guardrails import build_refusal, classify_input
 from app.agent.nodes import get_model
+from app.agent.prompts import get_universal_agent_prompt_manifest
 from app.agent.route_decision import RouteDecision
 from app.config import get_settings
 from app.database import AsyncSessionLocal, get_db
@@ -59,6 +61,40 @@ def _merge_client_context(request: Request, client_context: dict[str, Any] | Non
         if key not in merged and value is not None:
             merged[key] = value
     return merged
+
+
+def _build_langsmith_config(
+    *,
+    run_name: str,
+    mode: str,
+    agent_run_id: str,
+    conversation_id: str,
+    user_role: str,
+    obs_context: dict[str, Any],
+) -> RunnableConfig:
+    """Build a LangChain RunnableConfig with LangSmith metadata.
+
+    When ``LANGSMITH_TRACING=true``, LangChain SDK automatically sends
+    this metadata to the configured LangSmith project.
+    """
+    manifest = get_universal_agent_prompt_manifest()
+    prompt_versions = {
+        entry["name"]: f"{entry['version']}:{entry['checksum'][:12]}"
+        for entry in manifest
+    }
+    return RunnableConfig(
+        run_name=run_name,
+        tags=["h59", "eduinsight", mode],
+        metadata={
+            "trace_id": obs_context.get("trace_id", ""),
+            "request_id": obs_context.get("request_id", ""),
+            "agent_run_id": agent_run_id,
+            "conversation_id": conversation_id,
+            "user_role": user_role,
+            "route": f"/api/v1/chat{'/stream' if mode == 'stream' else ''}",
+            "prompt_versions": prompt_versions,
+        },
+    )
 
 
 # ── Request / Response schemas ─────────────────────────────────────────
@@ -125,7 +161,18 @@ async def generate_title(message: str) -> str:
     try:
         llm = get_model(_settings.chat_title_model, temperature=0.3).bind(max_tokens=20)
         prompt = f"Viết tiêu đề thật ngắn gọn (tối đa 5-6 từ) tóm tắt nội dung câu hỏi sau. Không dùng ngoặc kép, không giải thích:\n\n{message}"
-        res = await llm.ainvoke(prompt)
+        res = await llm.ainvoke(
+            prompt,
+            config=RunnableConfig(
+                run_name="chat-title-generation",
+                tags=["eduinsight", "title generation"],
+                metadata={
+                    "component": "chat_title",
+                    "trace_kind": "title_generation",
+                    "model_role": "title_generation",
+                },
+            ),
+        )
         return res.content.strip().strip('"').strip("'")
     except Exception:
         # Fallback if LLM fails
@@ -138,6 +185,26 @@ def _guardrail_refusal(message: str) -> str | None:
     if decision == "ok":
         return None
     return build_refusal(decision)
+
+
+def _history_for_agent(messages: list[Any]) -> list[Any]:
+    """Return chat history safe to pass back into the agent.
+
+    Blocked turns remain persisted for UI/audit, but they must not become
+    context for later safe questions.
+    """
+    safe_messages: list[Any] = []
+    skip_block_refusal = False
+    for message in messages:
+        if isinstance(message, HumanMessage) and _guardrail_refusal(str(message.content)):
+            skip_block_refusal = True
+            continue
+        if skip_block_refusal and isinstance(message, AIMessage):
+            skip_block_refusal = False
+            continue
+        skip_block_refusal = False
+        safe_messages.append(message)
+    return safe_messages
 
 
 # ── Endpoints ───────────────────────────────────────────────────────────
@@ -214,6 +281,7 @@ async def chat(
     async with AsyncSessionLocal() as db:
         history_msgs = []
         db_session = None
+        refusal = _guardrail_refusal(payload.message)
 
         if payload.thread_id:
             db_session = await db.get(ChatSession, uuid.UUID(payload.thread_id))
@@ -223,7 +291,7 @@ async def chat(
                 raise HTTPException(status_code=404, detail="Session not found")
         else:
             # Generate title and create session
-            title = await generate_title(payload.message)
+            title = "Yêu cầu bị chặn" if refusal else await generate_title(payload.message)
             db_session = ChatSession(
                 user_id=current_user.id,
                 title=title,
@@ -233,7 +301,6 @@ async def chat(
             await db.commit()
             await db.refresh(db_session)
 
-        refusal = _guardrail_refusal(payload.message)
         if refusal:
             elapsed_ms = int((time.perf_counter() - start) * 1000)
             await log_event(
@@ -301,15 +368,28 @@ async def chat(
             **obs_context,
         )
 
-        input_messages = history_msgs + [HumanMessage(content=payload.message)]
+        input_messages = _history_for_agent(history_msgs) + [HumanMessage(content=payload.message)]
+
+        # H59: build LangSmith tracing config (prompt versions seeded at startup)
+        langsmith_config = _build_langsmith_config(
+            run_name="eduinsight-chat",
+            mode="standard",
+            agent_run_id=agent_run_id,
+            conversation_id=str(db_session.id),
+            user_role=current_user.role.value,
+            obs_context=obs_context,
+        )
 
         run_metrics = AgentRunMetrics()
         metrics_token = set_run_metrics(run_metrics)
         try:
-            result = await _agent.ainvoke({
-                "messages": input_messages,
-                "context": merged_context,
-            })
+            result = await _agent.ainvoke(
+                {
+                    "messages": input_messages,
+                    "context": merged_context,
+                },
+                config=langsmith_config,
+            )
         except MissingLLMCredentialsError as exc:
             logger.warning("Agent invocation blocked by missing LLM credentials")
             status_code, detail = map_agent_exception_to_http(
@@ -483,6 +563,7 @@ async def chat_stream(
         async with AsyncSessionLocal() as db:
             history_msgs = []
             db_session = None
+            refusal = _guardrail_refusal(payload.message)
 
             if payload.thread_id:
                 try:
@@ -498,7 +579,7 @@ async def chat_stream(
                     return
             else:
                 # Generate title and create session
-                title = await generate_title(payload.message)
+                title = "Yêu cầu bị chặn" if refusal else await generate_title(payload.message)
                 db_session = ChatSession(
                     user_id=current_user.id,
                     title=title,
@@ -511,8 +592,8 @@ async def chat_stream(
                 # Báo cho frontend biết session ID vừa được tạo
                 yield f"data: {json.dumps({'type': 'session_created', 'thread_id': str(db_session.id), 'title': title})}\n\n"
 
-            refusal = _guardrail_refusal(payload.message)
             if refusal:
+                guardrail_decision = classify_input(payload.message)
                 await log_event(
                     "guardrail_triggered",
                     user_id=str(current_user.id),
@@ -521,10 +602,11 @@ async def chat_stream(
                     conversation_id=str(db_session.id),
                     agent_run_id=agent_run_id,
                     status="blocked",
-                    payload={"decision": classify_input(payload.message), "mode": "stream"},
+                    payload={"decision": guardrail_decision, "mode": "stream"},
                     **obs_context,
                 )
                 elapsed_ms = int((time.perf_counter() - start) * 1000)
+                yield f"data: {json.dumps({'type': 'guardrail', 'decision': guardrail_decision, 'trace_source': 'guardrail_pre_llm'})}\n\n"
                 yield f"data: {json.dumps({'type': 'token', 'content': refusal})}\n\n"
                 blocked_messages = history_msgs + [
                     HumanMessage(content=payload.message),
@@ -532,7 +614,7 @@ async def chat_stream(
                 ]
                 db_session.messages = messages_to_dict(blocked_messages)
                 await db.commit()
-                yield f"data: {json.dumps({'type': 'done', 'latency_ms': elapsed_ms, 'thread_id': str(db_session.id)})}\n\n"
+                yield f"data: {json.dumps({'type': 'done', 'latency_ms': elapsed_ms, 'thread_id': str(db_session.id), 'trace_source': 'guardrail_pre_llm'})}\n\n"
                 return
 
             await log_event(
@@ -563,10 +645,20 @@ async def chat_stream(
                 **obs_context,
             )
 
-            input_messages = history_msgs + [HumanMessage(content=payload.message)]
+            input_messages = _history_for_agent(history_msgs) + [HumanMessage(content=payload.message)]
             final_state_messages = []
             tool_call_ids: dict[str, str] = {}
             tool_count = 0
+
+            # H59: build LangSmith tracing config (prompt versions seeded at startup)
+            langsmith_config = _build_langsmith_config(
+                run_name="eduinsight-chat-stream",
+                mode="stream",
+                agent_run_id=agent_run_id,
+                conversation_id=str(db_session.id),
+                user_role=current_user.role.value,
+                obs_context=obs_context,
+            )
 
             try:
                 async for event in _agent.astream_events(
@@ -574,6 +666,7 @@ async def chat_stream(
                         "messages": input_messages,
                         "context": merged_context,
                     },
+                    config=langsmith_config,
                     version="v2",
                 ):
                     kind = event["event"]
