@@ -39,7 +39,6 @@ from app.config import get_settings
 from app.eval.token_accumulator import record_llm_from_ai_message
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 # Re-export for callers that import from nodes (e.g. chat endpoint).
 __all__ = ["TOOLS", "MissingLLMCredentialsError", "route_after_router"]
@@ -54,8 +53,38 @@ _BASE_TOOLS = [
 TOOLS = wrap_tools_with_timing(_BASE_TOOLS)
 
 
+def _ai_message_text(content: object) -> str:
+    """Normalize AIMessage content to plain text for output guardrails."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        chunks: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                chunks.append(block)
+            elif isinstance(block, dict) and block.get("type") == "text":
+                chunks.append(str(block.get("text", "")))
+        return "\n".join(part for part in chunks if part)
+    return str(content) if content is not None else ""
+
+
+def _apply_guardrails_to_message(response: AIMessage) -> None:
+    text = _ai_message_text(response.content)
+    if text:
+        response.content = apply_output_guardrails(text)
+
+
+def _record_llm_metrics(step: str, response: AIMessage, duration_ms: int) -> None:
+    """Record token metrics without letting telemetry failures drop the LLM reply."""
+    try:
+        record_llm_from_ai_message(step, response, duration_ms)
+    except Exception:
+        logger.warning("Failed to record %s LLM metrics", step, exc_info=True)
+
+
 def _build_openai_model(model_name: str, temperature: float) -> ChatOpenAI:
     """Build an OpenAI-compatible model with explicit credential checks."""
+    settings = get_settings()
     if not model_name.strip():
         raise MissingLLMCredentialsError(
             "Missing LLM model. Set LLM_MODEL, AGENT_ROUTER_MODEL, AGENT_CORE_MODEL, or CHAT_TITLE_MODEL."
@@ -82,6 +111,7 @@ def _build_openai_model(model_name: str, temperature: float) -> ChatOpenAI:
 
 def get_model(model_name: str, temperature: float = 0) -> BaseChatModel:
     """Build a ChatOpenAI or ChatGoogleGenerativeAI model."""
+    settings = get_settings()
     provider = settings.llm_provider.lower().strip()
     selected_model = model_name.strip() or settings.llm_model.strip()
     if not selected_model:
@@ -133,7 +163,7 @@ async def router_node(state: AgentState) -> dict:
     page_context = dict(state.get("context", {}))
 
     try:
-        llm = get_model(settings.agent_router_model, temperature=0)
+        llm = get_model(get_settings().agent_router_model, temperature=0)
 
         last_user_msg = messages[-1].content if messages else ""
         context_hint = ""
@@ -146,7 +176,7 @@ async def router_node(state: AgentState) -> dict:
 
         router_start = time.perf_counter()
         response = await llm.ainvoke(eval_messages)
-        record_llm_from_ai_message(
+        _record_llm_metrics(
             "router",
             response,
             int((time.perf_counter() - router_start) * 1000),
@@ -184,7 +214,7 @@ async def core_agent_node(state: AgentState) -> dict:
     """Core Agent that reasons and may call tools."""
 
     try:
-        llm = get_model(settings.agent_core_model, temperature=0.2)
+        llm = get_model(get_settings().agent_core_model, temperature=0.2)
         llm_with_tools = llm.bind_tools(TOOLS)
 
         messages = list(state.get("messages", []))
@@ -199,13 +229,12 @@ async def core_agent_node(state: AgentState) -> dict:
 
         core_start = time.perf_counter()
         response = await llm_with_tools.ainvoke(messages)
-        record_llm_from_ai_message(
+        _record_llm_metrics(
             "core_agent",
             response,
             int((time.perf_counter() - core_start) * 1000),
         )
-        if isinstance(response.content, str) and response.content:
-            response.content = apply_output_guardrails(response.content)
+        _apply_guardrails_to_message(response)
 
         return {"messages": [response]}
     except MissingLLMCredentialsError:
@@ -222,7 +251,7 @@ async def core_agent_node(state: AgentState) -> dict:
 async def fast_response_node(state: AgentState) -> dict:
     """Answer simple queries using page context when available."""
     try:
-        llm = get_model(settings.agent_router_model, temperature=0.7)
+        llm = get_model(get_settings().agent_router_model, temperature=0.7)
 
         messages = state.get("messages", [])
         last_user_msg = messages[-1].content if messages else ""
@@ -239,14 +268,15 @@ async def fast_response_node(state: AgentState) -> dict:
 
         fast_start = time.perf_counter()
         response = await llm.ainvoke(eval_messages)
-        record_llm_from_ai_message(
+        _record_llm_metrics(
             "fast_response",
             response,
             int((time.perf_counter() - fast_start) * 1000),
         )
-        if isinstance(response.content, str) and response.content:
-            response.content = apply_output_guardrails(response.content)
+        _apply_guardrails_to_message(response)
         return {"messages": [response]}
+    except MissingLLMCredentialsError:
+        raise
     except Exception:
         logger.exception("fast_response_node LLM call failed, using static fallback")
         fallback = AIMessage(content="Xin chào! Tôi là EduInsight AI. Bạn có thể hỏi tôi về thống kê học vụ.")

@@ -112,7 +112,7 @@ class TestNodeOutputGuardrails:
             captured.extend(messages)
             return AIMessage(content="OK")
 
-        mock_llm.ainvoke = _capture
+        mock_llm.ainvoke = AsyncMock(side_effect=_capture)
 
         with patch("app.agent.nodes.get_model", return_value=mock_llm):
             await core_agent_node(
