@@ -12,6 +12,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import sys
 import time
 from datetime import UTC, datetime
@@ -43,6 +44,37 @@ logger = logging.getLogger(__name__)
 DEFAULT_BASE_URL = "http://localhost:8000"
 DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent.parent.parent / "docs" / "12-Evaluation"
 MODEL = "gpt-5.4-nano"
+
+
+def _parse_sse_line(line: str) -> dict[str, Any] | None:
+    """Parse one Server-Sent Events data line from the streaming chat API."""
+    stripped = line.strip()
+    if not stripped.startswith("data:"):
+        return None
+    payload = stripped.removeprefix("data:").strip()
+    if not payload:
+        return None
+    try:
+        data = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _load_local_env(path: Path | str) -> None:
+    """Load simple KEY=VALUE pairs from a local .env file without overriding env vars."""
+    env_path = Path(path)
+    if not env_path.exists():
+        return
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key or key in os.environ:
+            continue
+        os.environ[key] = value.strip().strip('"').strip("'")
 
 
 def login(base_url: str, email: str, password: str) -> str:
