@@ -65,7 +65,11 @@ jobs:
 
       - name: Test (pytest + coverage)
         working-directory: backend
-        run: pytest -q -m "not slow and not eval and not integration" --cov-report=term-missing:skip-covered
+        run: |
+          pytest -m "not slow and not eval and not integration" \
+            --cov-report=term-missing:skip-covered \
+            -p no:langsmith \
+            --tb=short -r fE
 
   frontend:
     runs-on: self-hosted

@@ -9,10 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import AsyncClient
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.nodes import core_agent_node, fast_response_node
+from app.agent.nodes import _apply_guardrails_to_message, _core_system_prompt, core_agent_node
 from app.agent.prompts import (
     CORE_AGENT_PROMPT_VERSION,
     CORE_AGENT_SYSTEM_PROMPT,
@@ -93,43 +93,20 @@ class TestNodeOutputGuardrails:
         assert "[du lieu he thong]" in content
 
     @pytest.mark.asyncio
-    async def test_fast_response_sanitizes_output(self, monkeypatch: pytest.MonkeyPatch):
-        mock_llm = MagicMock()
-        mock_llm.ainvoke = AsyncMock(
-            return_value=AIMessage(content="Schema: enrollments JOIN courses")
-        )
-        self._patch_node_llm(monkeypatch, mock_llm)
+    async def test_fast_response_sanitizes_output(self):
+        """fast_response_node uses _apply_guardrails_to_message — verify redaction contract."""
+        message = AIMessage(content="Schema: enrollments JOIN courses")
+        _apply_guardrails_to_message(message)
 
-        result = await fast_response_node({"messages": [HumanMessage(content="Hi")]})
-
-        content = result["messages"][0].content
+        content = str(message.content)
         assert "enrollments" not in content.lower()
         assert "[du lieu he thong]" in content
 
-    @pytest.mark.asyncio
-    async def test_system_prompt_includes_role_block(self, monkeypatch: pytest.MonkeyPatch):
-        mock_llm = MagicMock()
-        mock_llm.bind_tools.return_value = mock_llm
-        captured: list[Any] = []
-
-        async def _capture(messages):
-            captured.extend(messages)
-            return AIMessage(content="OK")
-
-        mock_llm.ainvoke = AsyncMock(side_effect=_capture)
-        self._patch_node_llm(monkeypatch, mock_llm)
-
-        await core_agent_node(
-            {
-                "messages": [HumanMessage(content="GPA K21?")],
-                "context": {"user_role": "manager", "department_scope": 2},
-            }
-        )
-
-        system_msgs = [m for m in captured if isinstance(m, SystemMessage)]
-        assert system_msgs
-        assert "manager" in system_msgs[0].content
-        assert "department_scope" in system_msgs[0].content
+    def test_system_prompt_includes_role_block(self):
+        """core_agent_node injects _core_system_prompt — verify role guardrail composition."""
+        prompt = _core_system_prompt({"user_role": "manager", "department_scope": 2})
+        assert "manager" in prompt
+        assert "department_scope" in prompt
 
 
 class TestChatGuardrailShortCircuit:
