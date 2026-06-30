@@ -35,7 +35,7 @@ class Settings(BaseSettings):
 
     # --------------------------------------------------------------------- llm
     llm_provider: str = "openai"  # gemini | openai-compatible providers, including DeepSeek
-    llm_model: str = "deepseek-chat"
+    llm_model: str = "gpt-5.4-nano"
     llm_api_key: str = ""
     llm_base_url: str = ""  # override API base, e.g. https://api.deepseek.com/v1
     # Standard provider env vars — used as fallback when llm_api_key is not set.
@@ -43,9 +43,9 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
 
     # ------------------------------------------------------------------- agent
-    agent_router_model: str = "deepseek-chat"
-    agent_core_model: str = "deepseek-chat"
-    chat_title_model: str = "deepseek-chat"
+    agent_router_model: str = "gpt-5.4-nano"
+    agent_core_model: str = "gpt-5.4-nano"
+    chat_title_model: str = "gpt-5.4-nano"
     agent_db_url: str = "postgresql://eduinsight:eduinsight_dev@localhost:5433/eduinsight"
 
     # ---------------------------------------------------------------------- ml
@@ -62,6 +62,16 @@ class Settings(BaseSettings):
     smtp_from_name: str = "EduInsight"
     smtp_use_tls: bool = True
     smtp_timeout_seconds: int = 15
+
+    # --------------------------------------------------------------- langsmith
+    langsmith_tracing: str = ""  # "true" to enable
+    langsmith_api_key: str = ""
+    langsmith_project: str = "eduinsight-s4-demo"
+    langsmith_endpoint: str = ""  # optional override
+
+    # --------------------------------------------------------------------- rag
+    rag_embedding_model: str = "text-embedding-3-small"
+    rag_embedding_dimension: int = 1536
 
     model_config = SettingsConfigDict(env_file=(".env", "../.env"), env_file_encoding="utf-8", extra="ignore")
 
@@ -84,6 +94,12 @@ class Settings(BaseSettings):
         Lets the app pick up OPENAI_API_KEY / GEMINI_API_KEY without forcing the
         operator to duplicate the secret into LLM_API_KEY.
         """
+        if self.app_env.strip().lower() in {"test", "testing"}:
+            # Pytest/CI must never call live LLMs — block .env/host key fallback.
+            self.llm_api_key = ""
+            self.openai_api_key = ""
+            self.gemini_api_key = ""
+            return self
         if not self.llm_api_key.strip():
             provider = self.llm_provider.lower().strip()
             if provider == "openai" and self.openai_api_key.strip():
@@ -109,6 +125,14 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         """Return True when running in production environment."""
         return self.app_env == "production"
+
+    @property
+    def langsmith_enabled(self) -> bool:
+        """Return True when LangSmith tracing is configured and enabled."""
+        return (
+            self.langsmith_tracing.strip().lower() == "true"
+            and bool(self.langsmith_api_key.strip())
+        )
 
 
 @lru_cache

@@ -137,14 +137,24 @@ export default function DashboardLayout({
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span className="hidden font-semibold text-foreground/80 sm:inline-block">VinUniversity</span>
               <span className="hidden sm:inline-block">/</span>
-              <span>Hệ thống Quản lý</span>
+            <span>Hệ thống Quản lý</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {user ? (
               <div className="hidden text-right text-xs sm:block">
                 <div className="font-medium text-foreground">{user.full_name}</div>
-                <div className="text-muted-foreground">{user.role}</div>
+                <div className="text-muted-foreground">
+                  {user.role === "superadmin" || user.role === "admin"
+                    ? "Quản trị"
+                    : user.role === "manager"
+                    ? "Quản lý khoa"
+                    : user.role === "lecturer"
+                    ? "Giảng viên"
+                    : user.role === "viewer"
+                    ? "Người xem"
+                    : user.role || "Người dùng"}
+                </div>
               </div>
             ) : null}
             <ThemeToggle />

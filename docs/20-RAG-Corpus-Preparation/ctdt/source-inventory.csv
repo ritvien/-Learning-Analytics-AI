@@ -1,0 +1,39 @@
+source_id,file_name,program_name,program_code,sha256,page_count,file_size,text_extract_chars,status
+7340301-ke toan,10_ Ke toan.pdf,Kế toán,7340301,e32e309f3aca3735f9070647e5effbb4bcbf43c41eaf674116fee1ff417f1587,14,10966207,0,needs_ocr
+7340302-kiem toan,11_ Kiem toan.pdf,Kiểm toán,7340302,f6203660a4946501088a64aff14668e517dd81d021ff4f0e4094a4509a133c49,12,8793367,0,needs_ocr
+7520115-ky thuat nhiet,12_ Ky thuat nhiet.pdf,Kỹ thuật nhiệt,7520115,781dab12601ac8a37cecb563601665e64ab599a002ddbeca92cc7f38d917b62d,18,12094115,0,needs_ocr
+7510605-logistics va ql chuoi cung ung,13_ Logistics va QL chuoi cung ung.pdf,Logistics và quản lý chuỗi cung ứng,7510605,135efc01c7a667e0243f0d690170caa44fd1e83f509a20b7b26225d356d7a3fd,12,12558007,21496,usable_text
+7510601-quan ly cong nghiep,14_ Quan ly cong nghiep.pdf,Quản lý công nghiệp,7510601,ef0469f8c0a0508d5642fff09057d0b48a2dde7bccf6cc75116a04747c91571f,13,10106605,0,needs_ocr
+7510602-quan ly nang luong,15_ Quan ly nang luong.pdf,Quản lý năng lượng,7510602,732cffe1ddab33d909504b2b87b1260db7425fa03068e1b395eb256cda1ad614,14,10371397,0,needs_ocr
+7340101-quan tri kinh doanh,16_ Quan tri kinh doanh.pdf,Quản trị kinh doanh,7340101,f8f158e2f62398d30c1f1b604d657cbda010e2213e74de3e576264ffc22ea090,15,9358428,0,needs_ocr
+7340201-tai chinh ngan hang,17_ Tai chinh Ngan hang.pdf,Tài chính - Ngân hàng,7340201,6dac675c98411a7831586f08eaf91a44b00fd66682f717e47f5c054b7453606d,14,11129405,0,needs_ocr
+7340122-thuong mai dien tu,18_ Thuong mai dien tu.pdf,Thương mại điện tử,7340122,baa8dd5beccaff57671d7847d5d3f6e991dfa30689f4fdbec084a43240899451,13,8863299,0,needs_ocr
+7810103-quan tri dich vu lu hanh,19_ Quan tri dich vu_lu hanh.pdf,Quản trị dịch vụ du lịch và lữ hành,7810103,d487d00bc0a013931f8654618ed22dbcd7e56070b87f1a460ac8c66d9fe6516a,10,7760319,0,needs_ocr
+7510102-cnkt cong trinh xay dung,1_ CNKT Cong trinh Xay dung.pdf,Công nghệ kỹ thuật công trình xây dựng,7510102,7173a2a8cc14aab235cacec3acc2173f1992b06538d0c7ec9af40b244ef8c2be,25,17514549,0,needs_ocr
+7510407-cong nghe ky thuat hat nhan,20_ Cong nghe ky thuat hat nhan.pdf,Công nghệ kỹ thuật hạt nhân,7510407,12e5f8dc74a1077f9bec839078bae703977894ebf424c3eb167536ed77c76364,21,8477783,0,needs_ocr
+7520107-ky thuat robot,21_ Ky thuat Robot.pdf,Kỹ thuật Robot,7520107,d8239577e612497fa4756d1ce2b5e9f1bc98ef581001a81674e1fee83e7f703e,24,9928423,0,needs_ocr
+7460108-khoa hoc du lieu,22_ Khoa hoc du lieu.pdf,Khoa học dữ liệu,7460108,51c9ae242d6aa209c232fb3b385df0956bcc577d4fae43cd1ccf2b7ba2d6eb45,18,7008786,0,selected_for_mvp
+7480106-ky thuat may tinh,23_ Ky thuat may tinh.pdf,Kỹ thuật máy tính,7480106,1b3dece123ad9886a77309d0e9a3a49039b9cadaab81c8696d0e54295e8df852,27,9701696,0,needs_ocr
+7510301-cn ky thuat oto,24_ CN ky thuat oto.pdf,"Công nghệ kỹ thuật điện, điện tử",7510301,b8bb0b4a89a7b96cec162e9704ab17cc076be1555d1640f5096b6552d29a9a90,15,6072329,0,needs_ocr
+7810201-quan tri khach san,25_ Quan tri khach san.pdf,Quản trị khách sạn,7810201,be4ef72c17dced82f352c32000c4b1ac94d3b4b767998d7300263f9af41928f7,15,5718923,0,needs_ocr
+7340115-marketing,26_ Marketing.pdf,Marketing,7340115,b52efad1e84f477eaee2e47c1348c7a4406f29a49b9cddce8885aa2ddbfa89c0,14,5639431,0,needs_ocr
+7380107-luat kinh te,28_ Luat kinh te.pdf,Luật kinh tế,7380107,936798878264b3a6ea56cc92e1531411495743135d3f15f4cfe5ae6ffbc9ff61,15,5931616,0,needs_ocr
+7460117-toan tin,29_ Toan tin.pdf,Toán tin,7460117,f9c7822a22af0ed0cb6f1835a6cadf478546ec50d3b34d0732c3a37c37a6ae8b,10,3582659,0,needs_ocr
+7510203-cnkt co dien tu,2_ CNKT Co dien tu.pdf,Công nghệ kỹ thuật cơ điện tử,7510203,16b294bd6a9253582da469def52ee1629cefe66da1b420c6b30c40c0a272b938,11,9413513,0,needs_ocr
+7480107-tri tue nhan tao,30_ Tri tue nhan tao.pdf,Trí tuệ nhân tạo,7480107,73a50a7764558e80c6ecc7df3527480e0020e50536a61cfa4e9b7d57481badc8,24,9817321,0,selected_for_mvp
+7220201-ngon ngu anh,31_ Ngon ngu Anh.pdf,Ngôn ngữ Anh,7220201,e2d0f6f77cde7603f38fd4d2290b1cf153c9f7d9ddbd4958af5b8b9892093b13,22,8917258,0,needs_ocr
+7510402-cn vat lieu,32_ CN vat lieu.pdf,Công nghệ vật liệu,7510402,11fce0c71a329f26d5480fcd15f02f5bce7ce13c09e2814729594e60ad88c3eb,10,3987308,0,needs_ocr
+7340120-kinh doanh quoc te,33_ Kinh doanh quoc te.pdf,Kinh doanh quốc tế,7340120,52e03401d70435c8643abfcb6a67e869e19675bc25f47e1c8ae4c045c8ae2123,5,2827097,0,needs_ocr
+7480102-mang may tinh va truyen thong du lieu,34_ Mang may tinh va truyen thong du lieu.pdf,Mạng máy tính và truyền thông dữ liệu,7480102,c142a35eba9d22746d2a6d9aa246a542fac5fdf46d40903cbac20a3e9bcd9c78,6,4091176,0,needs_ocr
+7520117-ky thuat cong nghiep,35_ Ky thuat cong nghiep.pdf,Kỹ thuật công nghiệp,7520117,b2c7a7633a9ff7032bc2bc5a4aec24cc2eb5874fec3a2052c89255b9bf90b0d3,6,4441097,0,needs_ocr
+7520118-ky thuat he thong cong nghiep,36_ Ky thuat he thong cong nghiep.pdf,Kỹ thuật hệ thống công nghiệp,7520118,e75776ed6d9531a76422ffcb68719309aa0f9a67514131082cf5d66dd4cd9998,6,18549771,0,needs_ocr
+7520401-vat ly ky thuat,37_ Vat ly ky thuat.pdf,Vật lý kỹ thuật,7520401,e37b656ea752c680391b093cda077974544caf1487114270d1804dde979972bd,6,4438368,0,needs_ocr
+38 quan ly xay dung pdf,38_ Quan ly xay dung.pdf,Quản lý xây dựng,,5b2274b095858c7a6675a08cb62134963f39d5ce71ad1da25518233b55e50b4e,6,3803869,0,needs_ocr
+7510201-cnkt co khi,3_ CNKT Co khi.pdf,Công nghệ kỹ thuật cơ khí,7510201,f88b234c0f82a2b87cfa1d7e1355fbd8b7dd4682cdf0c44d9996d5b0d7896325,16,13412281,0,needs_ocr
+7340205-415 qd ban hanh ban mo ta ctdt nganh cn tai chinh 0001 compressed,415-QD ban hanh ban mo ta CTDT nganh CN tai chinh_0001_compressed.pdf,Công nghệ tài chính,7340205,2c81c08783f5f6a5324e213c2aa652cae1c1eae9edb745ec1423e1b7433499e8,57,12765911,0,rejected_for_h62_mvp
+7510302-cnkt dien tu vien thong,4_ CNKT Dien tu - Vien thong.pdf,Công nghệ kỹ thuật điện tử - viễn thông,7510302,def4022807c226bca2d91849b5e3b910ea3d726f951d389fa5512fcbab637a48,35,23073528,0,needs_ocr
+cnkt dien dien tu,"5_ CNKT Dien, Dien tu.pdf","CNKT Dien, Dien tu",,a723fa4b5459339256151240493d68e53c456b5a08bdc3d3f20f7637196c27f4,31,12720155,0,needs_ocr
+7510303-cnkt dieu khien tu dong hoa,6_ CNKT Dieu khien_Tu dong hoa.pdf,Công nghệ kỹ thuật điều khiển và tự động hoá,7510303,4778caf86a030e64d7dcfe71c3d3c2165fdafcac8ce0dc4b4116d6629c584bc5,27,19404406,0,needs_ocr
+7510406-cnkt moi truong,7_ CNKT Moi truong.pdf,Công nghệ kỹ thuật môi trường,7510406,8adb10079912a6c99dbd39cda6e20812f9c2d5f85b3c0a017ec06833de2d8055,14,9469738,0,needs_ocr
+7510403-cnkt nang luong,8_ CNKT Nang luong.pdf,Công nghệ kỹ thuật năng lượng,7510403,80822b44067cd0bb358a963373cba2d8580d193be2810f588e89deea8cb30ff5,12,9066458,0,needs_ocr
+7480201-cong nghe thong tin,9_ Cong nghe thong tin.pdf,Công nghệ thông tin,7480201,b3b2d7919fc1694710219d5531eac901e2e2a3c909bce8a3ef71a3c7d4496c52,28,20130967,0,selected_for_mvp

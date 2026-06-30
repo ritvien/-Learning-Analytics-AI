@@ -18,7 +18,12 @@ from app.models.assessment import (
     StudentCLOAchievement,
 )
 from app.models.chat import ChatSession
-from app.models.intervention import InterventionCampaign, InterventionMessage, InterventionMessageEvent, StudentInterventionContact
+from app.models.intervention import (
+    InterventionCampaign,
+    InterventionMessage,
+    InterventionMessageEvent,
+    StudentInterventionContact,
+)
 from app.models.people import Cohort, Student, Teacher, User, UserRole
 from app.models.report import Report, ReportFeedback, ReportSchedule, ReportScheduleRun
 from app.models.teaching import Enrollment, GradeComponent, GradeComponentType, Section

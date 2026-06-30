@@ -10,6 +10,8 @@ Design principles:
 import json
 import logging
 import re
+from contextvars import ContextVar, Token
+from typing import Any
 
 import psycopg2
 from langchain_core.tools import tool
@@ -28,6 +30,79 @@ _FORBIDDEN_KEYWORDS = re.compile(
 
 MAX_ROWS = 50  # prevent token explosion in LLM context
 
+_TOOL_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar(
+    "eduinsight_agent_tool_context",
+    default=None,
+)
+_UNRESTRICTED_ROLES = {"superadmin", "admin"}
+_ALLOWED_ANALYTICS_RELATIONS = {
+    "vw_course_stats",
+    "vw_program_stats",
+    "vw_department_stats",
+    "vw_section_stats",
+}
+_RELATION_PATTERN = re.compile(
+    r"\b(?:FROM|JOIN)\s+([A-Za-z_][\w.]*|\"[^\"]+\"(?:\.\"[^\"]+\")?)",
+    re.IGNORECASE,
+)
+_CTE_PATTERN = re.compile(r"(?:WITH|,)\s+([A-Za-z_][\w]*)\s+AS\s*\(", re.IGNORECASE)
+
+
+def set_agent_tool_context(context: dict[str, Any] | None) -> Token[dict[str, Any] | None]:
+    """Set server-authoritative context for subsequent agent tool calls."""
+    return _TOOL_CONTEXT.set(dict(context or {}))
+
+
+def reset_agent_tool_context(token: Token[dict[str, Any] | None]) -> None:
+    """Reset tool context, primarily for tests that set it explicitly."""
+    _TOOL_CONTEXT.reset(token)
+
+
+def get_agent_tool_context() -> dict[str, Any]:
+    """Return the current agent tool context."""
+    return dict(_TOOL_CONTEXT.get() or {})
+
+
+def _normalize_relation_name(raw: str) -> str:
+    return raw.replace('"', "").strip().lower()
+
+
+def _cte_names(query: str) -> set[str]:
+    return {match.group(1).lower() for match in _CTE_PATTERN.finditer(query)}
+
+
+def _extract_relation_names(query: str) -> list[str]:
+    ctes = _cte_names(query)
+    relations: list[str] = []
+    for match in _RELATION_PATTERN.finditer(query):
+        relation = _normalize_relation_name(match.group(1))
+        if relation in ctes:
+            continue
+        relations.append(relation)
+    return relations
+
+
+def _is_allowed_analytics_relation(relation: str) -> bool:
+    return relation.startswith("dwh.") or relation in _ALLOWED_ANALYTICS_RELATIONS
+
+
+def _is_scope_allowed(student_department_id: int | None) -> bool:
+    context = get_agent_tool_context()
+    role = str(context.get("user_role") or "").strip().lower()
+    department_scope = context.get("department_scope") or context.get("department_id")
+    if not context or role in _UNRESTRICTED_ROLES or department_scope in (None, ""):
+        return True
+    if student_department_id is None:
+        return True
+    try:
+        return int(department_scope) == int(student_department_id)
+    except (TypeError, ValueError):
+        return False
+
+
+def _scope_refusal() -> str:
+    return "ERROR: Tôi không có quyền truy cập dữ liệu ngoài phạm vi vai trò hiện tại."
+
 
 def _sanitize_query(query: str) -> str:
     """Validate that a SQL query is read-only SELECT.
@@ -37,9 +112,24 @@ def _sanitize_query(query: str) -> str:
 
     """
     query = query.strip().rstrip(";")
+    if ";" in query:
+        raise ValueError("Chỉ được phép chạy một câu SELECT tại một thời điểm.")
+    if not re.match(r"^\s*(SELECT|WITH)\b", query, flags=re.IGNORECASE):
+        raise ValueError("Chỉ được phép dùng SELECT read-only.")
     if _FORBIDDEN_KEYWORDS.search(query):
         raise ValueError(
             "Chỉ được phép dùng SELECT. Câu lệnh chứa từ khóa bị cấm."
+        )
+    blocked = [
+        relation
+        for relation in _extract_relation_names(query)
+        if not _is_allowed_analytics_relation(relation)
+    ]
+    if blocked:
+        raise ValueError(
+            "Nguồn dữ liệu không nằm trong phạm vi H49. "
+            "Analytics chỉ được đọc từ schema dwh hoặc các view thống kê đã whitelist; "
+            "tra MSSV/CLO/dropout phải dùng tool chuyên biệt."
         )
     return query
 
@@ -121,9 +211,10 @@ def calculate_student_clo_scores(student_code: str, course_name: str) -> str:
         with conn.cursor() as cur:
             # 1. Find enrollment and course
             query_enrollment = """
-                SELECT e.id, c.name, s.full_name
+                SELECT e.id, c.name, s.full_name, p.department_id
                 FROM enrollments e
                 JOIN students s ON e.student_id = s.id
+                LEFT JOIN programs p ON p.id = s.program_id
                 JOIN sections sec ON e.section_id = sec.id
                 JOIN courses c ON sec.course_id = c.id
                 WHERE s.student_code = %s AND c.name ILIKE %s
@@ -135,7 +226,10 @@ def calculate_student_clo_scores(student_code: str, course_name: str) -> str:
             if not enroll_row:
                 return f"ERROR: Không tìm thấy dữ liệu học tập của sinh viên '{student_code}' cho môn '{course_name}'."
                 
-            enrollment_id, found_course, student_name = enroll_row
+            enrollment_id, found_course, student_name = enroll_row[:3]
+            student_department_id = enroll_row[3] if len(enroll_row) > 3 else None
+            if not _is_scope_allowed(student_department_id):
+                return _scope_refusal()
 
             # 2. Calculate CLO scores
             query_clo = """
@@ -211,9 +305,11 @@ def lookup_student_by_code(student_code: str) -> str:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, student_code, full_name, status, program_id, cohort_id, gpa_cumulative
-                FROM students
-                WHERE student_code = %s
+                SELECT s.id, s.student_code, s.full_name, s.status, s.program_id,
+                       s.cohort_id, s.gpa_cumulative, p.department_id
+                FROM students s
+                LEFT JOIN programs p ON p.id = s.program_id
+                WHERE s.student_code = %s
                 LIMIT 1
                 """,
                 (student_code.strip(),),
@@ -221,6 +317,10 @@ def lookup_student_by_code(student_code: str) -> str:
             row = cur.fetchone()
             if row is None:
                 return f"ERROR: Không tìm thấy sinh viên với mã '{student_code}'."
+
+            student_department_id = row[7] if len(row) > 7 else None
+            if not _is_scope_allowed(student_department_id):
+                return _scope_refusal()
 
             payload = {
                 "student_id": row[0],
@@ -275,10 +375,12 @@ def get_student_dropout_risk(student_code: str) -> str:
                     p.top_factors,
                     p.scored_at,
                     r.model_name,
-                    r.model_version
+                    r.model_version,
+                    prog.department_id
                 FROM ml.student_dropout_prediction p
                 JOIN ml.model_run r ON r.id = p.model_run_id
                 JOIN students s ON s.id = p.student_id
+                LEFT JOIN programs prog ON prog.id = s.program_id
                 WHERE s.student_code = %s AND r.status = 'completed'
                 ORDER BY p.scored_at DESC
                 LIMIT 1
@@ -291,6 +393,10 @@ def get_student_dropout_risk(student_code: str) -> str:
                     f"ERROR: Chưa có dự đoán dropout ML cho sinh viên '{student_code}'. "
                     "Cần chạy train/score trước."
                 )
+
+            student_department_id = row[8] if len(row) > 8 else None
+            if not _is_scope_allowed(student_department_id):
+                return _scope_refusal()
 
             payload = {
                 "student_name": row[0],

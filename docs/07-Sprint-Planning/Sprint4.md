@@ -51,15 +51,15 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 
 | Task | Mô tả | Deadline | P | Depends | Status |
 |:-----|:------|:---------|:-:|:--------|:------:|
-| **H59** | **Langfuse hoặc LangSmith + prompt versioning** | 29/06 EOD | P0 | T41 | [ ] |
+| **H59** | **Langfuse hoặc LangSmith + prompt versioning** | 29/06 EOD | P0 | T41 | [x] |
 | | Config env (`LANGCHAIN_*` hoặc Langfuse); trace agent runs; prompt template `backend/app/agent/prompts/` + git tag/manifest; 5–10 trace screenshots → `docs/ai-traces/`. **Carry-over S3:** commit + restart backend instrumentation trước khi chạy eval. | | | | |
-| **H49** | Chốt scope chatbot data-access | 30/06 12:00 | P1 | H48, T54 draft | [ ] |
+| **H49** | Chốt scope chatbot data-access | 30/06 12:00 | P1 | H48, T54 draft | [x] |
 | | Capability matrix: intent → DWH/ML/API vs CTĐT RAG vs từ chối; không mở rộng tool khi chưa có matrix. | | | | |
-| **H62** | CTĐT PDF corpus prep cho RAG | 30/06 12:00 | P0 | — | [ ] |
+| **H62** | CTĐT PDF corpus prep cho RAG | 30/06 12:00 | P0 | — | [x] |
 | | Nguồn `crawl/pdf_ctdt`; manifest PDF (checksum, ngành, trang); chunk theo mục CTĐT; loại scan lỗi; output `docs/20` hoặc git-ignore artifact. | | | | |
-| **H63** | Embedding + `pgvector` index cho CTĐT | 30/06 EOD | P0 | H62 | [ ] |
+| **H63** | Embedding + `pgvector` index cho CTĐT | 30/06 EOD | P0 | H62 | [x] |
 | | Chọn embedding model; migration/bảng `pgvector`; metadata ngành/file/trang/section/chunk_id; ingest idempotent; smoke top-k retrieval. | | | | |
-| **D58** | AI Logs evidence (LangSmith/Langfuse URL) | 30/06 EOD | P0 | H59 | [ ] |
+| **D58** | AI Logs evidence (LangSmith/Langfuse URL) | 30/06 EOD | P0 | H59 | [x] |
 | **H64** | Kế hoạch memory/cache cho agent | 01/07 12:00 | P1 | H49, H63 | [ ] |
 | | Plan only: cache query/retrieval, Redis optional, conversation window, TTL, RBAC, invalidation khi corpus đổi; chốt S4 vs defer — không block H51. | | | | |
 | **H51** | CTĐT RAG Q&A MVP | 01/07 18:00 | P0 | H62, H63, H49 | [ ] |
@@ -120,17 +120,17 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 
 | Task | Mô tả | Deadline | P | Depends | Status |
 |:-----|:------|:---------|:-:|:--------|:------:|
-| **V57** | **FE demo audit + smoke checklist** | 29/06 18:00 | P0 | — | [ ] |
+| **V57** | **FE demo audit + smoke checklist** | 29/06 18:00 | P0 | — | [x] |
 | | Rà route demo: login, overview, analytics, tree, dropout, lecturer sections, reports, chat. Ghi route trống/chậm/lỗi copy/perf; checklist Playwright smoke; feed T54, V59, VUX-1. | | | | |
-| **V59** | **Ngành thưa: audit + crawl/chuẩn hóa artifact** *(gộp ex-V60)* | 30/06 12:00 | P0 | V57 | [ ] |
+| **V59** | **Ngành thưa: audit + crawl/chuẩn hóa artifact** *(gộp ex-V60)* | 30/06 12:00 | P0 | V57 | [x] |
 | | **Phase A (29/06):** liệt kê ngành <10 SV hoặc heatmap `—`; chọn ngành demo ưu tiên; tìm nguồn crawl. **Phase B (30/06 sáng):** CSV/JSON chuẩn `student_id`, name, class, major, source, `synthetic` flag; dedupe 1.277 SV; bàn giao T55c. | | | | |
-| **VUX-1** | **Demo perf + navigation** *(UX22-01, UX22-02)* | 30/06 12:00 | P0 | V57 | [ ] |
+| **VUX-1** | **Demo perf + navigation** *(UX22-01, UX22-02)* | 30/06 12:00 | P0 | V57 | [x] |
 | | **UX22-01:** bỏ preload enrollment/grade thô sau login (`dashboard-preloader` + analytics routes dùng summary/pagination); Ngrok không trắng màn. **UX22-02:** sidebar actor-first, `Tổng quan` đầu menu; manager/lecturer vào demo ≤1 click; không phá RBAC V41. | | | | |
-| **V58** | **README/screenshot skeleton Demo Day** | 30/06 12:00 | P1 | V57 | [ ] |
+| **V58** | **README/screenshot skeleton Demo Day** | 30/06 12:00 | P1 | V57 | [x] |
 | | Checklist ảnh chụp; flow demo 3–5 màn; placeholder README section; khung nộp sẵn trước D59/D60 final. | | | | |
-| **VUX-2** | **Việt hóa UI demo** *(UX22-04, UX22-05)* | 30/06 EOD | P1 | VUX-1 | [ ] |
+| **VUX-2** | **Việt hóa UI demo** *(UX22-04, UX22-05)* | 30/06 EOD | P1 | VUX-1 | [x] |
 | | **UX22-04:** dashboard/report/analytics không còn label EN lộ; empty/error states tiếng Việt. **UX22-05:** header role `Quản trị`, `Quản lý khoa`, `Giảng viên`, `Người xem`; nhất quán sidebar. | | | | |
-| **VUX-3** | **Overview drill-down** *(UX22-16)* | 02/07 12:00 | P1 | VUX-1, T55e | [ ] |
+| **VUX-3** | **Overview drill-down** *(UX22-16)* | 02/07 12:00 | P1 | VUX-1, T55e | [] |
 | | Click chart/table → filter đúng khoa/ngành; deep-link analytics programs; empty state khi synthetic chưa phủ. Luồng demo 3 phút: Tổng quan → ngành. | | | | |
 | **V56** | **UI cảnh báo SV + luồng liên hệ GV** | 02/07 EOD | P0 | T56b, T57b | [ ] |
 | | Lecturer thấy section/SV “Cần can thiệp”; badge at-risk; CTA liên hệ; hiển thị trạng thái email/log; đồng bộ T56/T57 API; Playwright smoke at-risk flow. | | | | |
@@ -159,7 +159,7 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 
 | ID | Deliverable | Task | Deadline | Status |
 |:--:|:------------|:-----|:---------|:------:|
-| D58 | AI Logs traces | H59 | 30/06 EOD | [ ] |
+| D58 | AI Logs traces | H59 | 30/06 EOD | [x] |
 | D59 | Live URL production | Hoàng | 02/07 EOD | [ ] |
 | D60 | Evaluation evidence | H60, H61, V47 | 03/07 EOD | [ ] |
 | D61 | Test coverage ≥60% | Hoàng | 03/07 EOD | [ ] |

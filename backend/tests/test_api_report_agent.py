@@ -120,7 +120,14 @@ async def test_report_build_plan_requires_confirmation_before_snapshot(client: A
 
 
 @pytest.mark.asyncio
-async def test_report_build_plan_asks_for_missing_context(client: AsyncClient):
+async def test_report_build_plan_asks_for_missing_context(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    async def fake_extract_report_build_intent(message, context, previous_definition):
+        return {"intent_source": "rules_fallback"}
+
+    monkeypatch.setattr(report_service, "_extract_report_build_intent", fake_extract_report_build_intent)
     response = await client.post(
         "/api/v1/report-agent/build/plan",
         json={
@@ -144,7 +151,12 @@ async def test_report_build_plan_asks_for_missing_context(client: AsyncClient):
 async def test_report_build_plan_accumulates_brief_across_turns(
     client: AsyncClient,
     db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
 ):
+    async def fake_extract_report_build_intent(message, context, previous_definition):
+        return {"intent_source": "rules_fallback"}
+
+    monkeypatch.setattr(report_service, "_extract_report_build_intent", fake_extract_report_build_intent)
     university = University(id=1, code="VIN", name="VinUni", is_active=True)
     department = Department(
         id=11,

@@ -83,7 +83,7 @@ def sanitize_payload(value: Any, *, depth: int = 0) -> Any:
         return [sanitize_payload(item, depth=depth + 1) for item in value[:50]]
     if isinstance(value, str):
         return value if len(value) <= 500 else f"{value[:500]}...[truncated]"
-    if isinstance(value, (int, float, bool)) or value is None:
+    if isinstance(value, int | float | bool) or value is None:
         return value
     return str(value)
 

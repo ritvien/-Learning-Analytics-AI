@@ -37,3 +37,4 @@ coverage.xml
 backend/coverage-out.txt
 ngrok_dir/
 backend/ml_artifacts/
+docs/20-RAG-Corpus-Preparation/ctdt/ocr_cache/

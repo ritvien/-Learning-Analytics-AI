@@ -3,9 +3,33 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Literal
 
 InputDecision = Literal["ok", "injection", "out_of_domain", "unsafe", "privacy"]
+
+
+def _normalize_guardrail_text(text: str) -> str:
+    """Fold Vietnamese diacritics for stable regex guards across NFC/NFD input."""
+    value = unicodedata.normalize("NFD", text)
+    value = "".join(ch for ch in value if unicodedata.category(ch) != "Mn")
+    replacements = {
+        "à": "a", "á": "a", "ạ": "a", "ả": "a", "ã": "a",
+        "â": "a", "ầ": "a", "ấ": "a", "ậ": "a", "ẩ": "a", "ẫ": "a",
+        "ă": "a", "ằ": "a", "ắ": "a", "ặ": "a", "ẳ": "a", "ẵ": "a",
+        "è": "e", "é": "e", "ẹ": "e", "ẻ": "e", "ẽ": "e",
+        "ê": "e", "ề": "e", "ế": "e", "ệ": "e", "ể": "e", "ễ": "e",
+        "ì": "i", "í": "i", "ị": "i", "ỉ": "i", "ĩ": "i",
+        "ò": "o", "ó": "o", "ọ": "o", "ỏ": "o", "õ": "o",
+        "ô": "o", "ồ": "o", "ố": "o", "ộ": "o", "ổ": "o", "ỗ": "o",
+        "ơ": "o", "ờ": "o", "ớ": "o", "ợ": "o", "ở": "o", "ỡ": "o",
+        "ù": "u", "ú": "u", "ụ": "u", "ủ": "u", "ũ": "u",
+        "ư": "u", "ừ": "u", "ứ": "u", "ự": "u", "ử": "u", "ữ": "u",
+        "ỳ": "y", "ý": "y", "ỵ": "y", "ỷ": "y", "ỹ": "y",
+        "đ": "d",
+    }
+    lower = value.lower()
+    return "".join(replacements.get(char, char) for char in lower)
 
 OUT_OF_DOMAIN_REFUSAL = (
     "Xin lỗi, câu hỏi này nằm ngoài phạm vi dữ liệu học vụ mà tôi có thể hỗ trợ. "
@@ -90,6 +114,17 @@ _UNSAFE_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+_UNSAFE_PATTERNS_ASCII = re.compile(
+    r"("
+    r"\bmalware\b|\bhack\b|tan\s+cong\s+(?!hoc\s+vu)"
+    r"|cach\s+lam\s+sung|che\s+tao\s+vu\s+khi"
+    r"|huong\s+dan.*tan\s+cong\s+sql\s+injection"
+    r"|khai\s+thac\s+lo\s+hong\s+sql"
+    r"|lua\s+dao|phishing\s+script"
+    r")",
+    re.IGNORECASE,
+)
+
 _PRIVACY_EXFIL_PATTERNS = re.compile(
     r"("
     r"\bapi\s*key\b|\bopenai_api_key\b|\bjwt\s+secret\b"
@@ -159,12 +194,21 @@ def is_out_of_domain(text: str) -> bool:
 
 def is_unsafe_request(text: str) -> bool:
     """Return True for harmful or abusive instruction requests."""
-    normalized = text.strip()
-    if not normalized:
+    raw = text.strip()
+    normalized = _normalize_guardrail_text(text)
+    if not raw:
         return False
-    if re.search(r"phòng\s+chống|bảo\s+mật\s+học\s+vụ|an\s+toàn\s+thông\s+tin", normalized, re.IGNORECASE):
+    if re.search(
+        r"phòng\s+chống|bảo\s+mật\s+học\s+vụ|an\s+toàn\s+thông\s+tin",
+        raw,
+        re.IGNORECASE,
+    ) or re.search(
+        r"phong\s+chong|bao\s+mat\s+hoc\s+vu|an\s+toan\s+thong\s+tin",
+        normalized,
+        re.IGNORECASE,
+    ):
         return False
-    return bool(_UNSAFE_PATTERNS.search(normalized))
+    return bool(_UNSAFE_PATTERNS.search(raw)) or bool(_UNSAFE_PATTERNS_ASCII.search(normalized))
 
 
 def is_privacy_exfil_request(text: str) -> bool:

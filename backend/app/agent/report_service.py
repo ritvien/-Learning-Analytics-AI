@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import time
+import unicodedata
 from datetime import UTC, datetime
 from inspect import isawaitable
 from typing import Any
@@ -1468,6 +1469,9 @@ def _build_scope_denied_answer(user: User, definition: dict[str, Any]) -> str:
 
 
 def _normalized_text(value: str) -> str:
+    """Fold Vietnamese diacritics for stable keyword matching across NFC/NFD input."""
+    value = unicodedata.normalize("NFD", value)
+    value = "".join(ch for ch in value if unicodedata.category(ch) != "Mn")
     replacements = {
         "à": "a",
         "á": "a",
