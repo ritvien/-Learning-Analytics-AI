@@ -67,6 +67,7 @@ ignore = ["E501", "B008"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = []
+"tests/conftest.py" = ["E402"]
 "app/agent/prompts.py" = ["E501"]
 
 [tool.pytest.ini_options]

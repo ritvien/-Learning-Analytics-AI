@@ -86,6 +86,8 @@ class Settings(BaseSettings):
         if self.app_env.strip().lower() in {"test", "testing"}:
             # Pytest/CI must never call live LLMs — block .env/host key fallback.
             self.llm_api_key = ""
+            self.openai_api_key = ""
+            self.gemini_api_key = ""
             return self
         if not self.llm_api_key.strip():
             provider = self.llm_provider.lower().strip()

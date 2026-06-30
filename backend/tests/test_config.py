@@ -14,3 +14,5 @@ def test_settings_block_llm_key_fallback_when_app_env_is_test(monkeypatch: pytes
     settings = get_settings()
 
     assert settings.llm_api_key == ""
+    assert settings.openai_api_key == ""
+    assert settings.gemini_api_key == ""

@@ -58,6 +58,10 @@ async def _mock_chat_agent(db_session: AsyncSession):
 
 
 class TestNodeOutputGuardrails:
+    def _patch_node_llm(self, monkeypatch: pytest.MonkeyPatch, mock_llm: MagicMock) -> None:
+        """Patch get_model via monkeypatch — reliable on self-hosted runners."""
+        monkeypatch.setattr("app.agent.nodes.get_model", lambda *_args, **_kwargs: mock_llm)
+
     def test_h49_data_access_scope_is_in_core_prompt(self):
         prompt = CORE_AGENT_SYSTEM_PROMPT
 
@@ -74,36 +78,36 @@ class TestNodeOutputGuardrails:
         assert FAST_RESPONSE_PROMPT_VERSION == "2026-06-30.2"
 
     @pytest.mark.asyncio
-    async def test_core_agent_sanitizes_final_text(self):
+    async def test_core_agent_sanitizes_final_text(self, monkeypatch: pytest.MonkeyPatch):
         mock_llm = MagicMock()
         mock_llm.bind_tools.return_value = mock_llm
         mock_llm.ainvoke = AsyncMock(
             return_value=AIMessage(content="Kết quả: SELECT name FROM students")
         )
+        self._patch_node_llm(monkeypatch, mock_llm)
 
-        with patch("app.agent.nodes.get_model", return_value=mock_llm):
-            result = await core_agent_node({"messages": [HumanMessage(content="Top 5?")]})
+        result = await core_agent_node({"messages": [HumanMessage(content="Top 5?")]})
 
         content = result["messages"][0].content
         assert "students" not in content.lower()
         assert "[du lieu he thong]" in content
 
     @pytest.mark.asyncio
-    async def test_fast_response_sanitizes_output(self):
+    async def test_fast_response_sanitizes_output(self, monkeypatch: pytest.MonkeyPatch):
         mock_llm = MagicMock()
         mock_llm.ainvoke = AsyncMock(
             return_value=AIMessage(content="Schema: enrollments JOIN courses")
         )
+        self._patch_node_llm(monkeypatch, mock_llm)
 
-        with patch("app.agent.nodes.get_model", return_value=mock_llm):
-            result = await fast_response_node({"messages": [HumanMessage(content="Hi")]})
+        result = await fast_response_node({"messages": [HumanMessage(content="Hi")]})
 
         content = result["messages"][0].content
         assert "enrollments" not in content.lower()
         assert "[du lieu he thong]" in content
 
     @pytest.mark.asyncio
-    async def test_system_prompt_includes_role_block(self):
+    async def test_system_prompt_includes_role_block(self, monkeypatch: pytest.MonkeyPatch):
         mock_llm = MagicMock()
         mock_llm.bind_tools.return_value = mock_llm
         captured: list[Any] = []
@@ -113,14 +117,14 @@ class TestNodeOutputGuardrails:
             return AIMessage(content="OK")
 
         mock_llm.ainvoke = AsyncMock(side_effect=_capture)
+        self._patch_node_llm(monkeypatch, mock_llm)
 
-        with patch("app.agent.nodes.get_model", return_value=mock_llm):
-            await core_agent_node(
-                {
-                    "messages": [HumanMessage(content="GPA K21?")],
-                    "context": {"user_role": "manager", "department_scope": 2},
-                }
-            )
+        await core_agent_node(
+            {
+                "messages": [HumanMessage(content="GPA K21?")],
+                "context": {"user_role": "manager", "department_scope": 2},
+            }
+        )
 
         system_msgs = [m for m in captured if isinstance(m, SystemMessage)]
         assert system_msgs

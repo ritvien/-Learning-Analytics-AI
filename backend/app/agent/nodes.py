@@ -82,6 +82,26 @@ def _record_llm_metrics(step: str, response: AIMessage, duration_ms: int) -> Non
         logger.warning("Failed to record %s LLM metrics", step, exc_info=True)
 
 
+def _resolve_llm_api_key(provider: str) -> str:
+    """Return provider API key; never read host env in test mode (self-hosted CI)."""
+    settings = get_settings()
+    if settings.app_env.strip().lower() in {"test", "testing"}:
+        return settings.llm_api_key.strip()
+    if provider == "gemini":
+        return (
+            settings.llm_api_key.strip()
+            or settings.gemini_api_key.strip()
+            or os.environ.get("GEMINI_API_KEY", "")
+            or os.environ.get("GOOGLE_API_KEY", "")
+        )
+    return (
+        settings.llm_api_key.strip()
+        or settings.openai_api_key.strip()
+        or os.environ.get("OPENAI_API_KEY", "")
+        or os.environ.get("OPENAI_ADMIN_KEY", "")
+    )
+
+
 def _build_openai_model(model_name: str, temperature: float) -> ChatOpenAI:
     """Build an OpenAI-compatible model with explicit credential checks."""
     settings = get_settings()
@@ -89,11 +109,7 @@ def _build_openai_model(model_name: str, temperature: float) -> ChatOpenAI:
         raise MissingLLMCredentialsError(
             "Missing LLM model. Set LLM_MODEL, AGENT_ROUTER_MODEL, AGENT_CORE_MODEL, or CHAT_TITLE_MODEL."
         )
-    api_key = (
-        settings.llm_api_key
-        or os.environ.get("OPENAI_API_KEY")
-        or os.environ.get("OPENAI_ADMIN_KEY")
-    )
+    api_key = _resolve_llm_api_key("openai")
     if not api_key:
         raise MissingLLMCredentialsError(
             "Missing OpenAI credentials. Set OPENAI_API_KEY or LLM_API_KEY for the backend service."
@@ -122,7 +138,7 @@ def get_model(model_name: str, temperature: float = 0) -> BaseChatModel:
         from langchain_google_genai import ChatGoogleGenerativeAI
 
         kwargs = {"model": selected_model, "temperature": temperature}
-        api_key = settings.llm_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        api_key = _resolve_llm_api_key("gemini")
         if api_key:
             kwargs["google_api_key"] = api_key
         return ChatGoogleGenerativeAI(**kwargs)

@@ -33,6 +33,8 @@ jobs:
       OPENAI_API_KEY: ""
       GEMINI_API_KEY: ""
       GOOGLE_API_KEY: ""
+      LANGSMITH_TRACING: "false"
+      LANGSMITH_API_KEY: ""
       # Avoid sklearn/xgboost thread pools blocking pytest process exit on Linux runners.
       OMP_NUM_THREADS: "1"
       OPENBLAS_NUM_THREADS: "1"
@@ -54,7 +56,8 @@ jobs:
         working-directory: backend
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
+          rm -f .env ../.env
+          python -m pip install --force-reinstall -e ".[dev]"
 
       - name: Lint (Ruff)
         working-directory: backend
