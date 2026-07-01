@@ -1,12 +1,20 @@
-"""CTĐT vector retrieval over rag.ctdt_chunks (pgvector)."""
+"""CTDT vector retrieval over rag.ctdt_chunks (pgvector).
+
+H64: in-process cachetools TTLCache for embedding and retrieval results.
+Cache invalidation is automatic via corpus_version in cache key.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import threading
+import unicodedata
 from collections import OrderedDict
 from typing import Any
 
+import psycopg2
+from cachetools import TTLCache
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -14,6 +22,21 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+# H64: cache configuration
+_CACHE_MAXSIZE = 512
+_CACHE_TTL = 86400  # 24 hours in seconds
+
+_embedding_cache: TTLCache[str, list[float]] = TTLCache(
+    maxsize=_CACHE_MAXSIZE,
+    ttl=_CACHE_TTL,
+)
+_retrieval_cache: TTLCache[str, list[CtdtRetrievalHit]] = TTLCache(
+    maxsize=_CACHE_MAXSIZE,
+    ttl=_CACHE_TTL,
+)
+_cache_lock = threading.Lock()
+
 _RAG_ENGINE_CACHE_SIZE = 4
 _RAG_ENGINES: OrderedDict[str, AsyncEngine] = OrderedDict()
 _RAG_ENGINE_LOCK = asyncio.Lock()
@@ -41,9 +64,27 @@ def _embedding_api_key() -> str:
     raise RuntimeError("OPENAI_API_KEY or LLM_API_KEY required for embeddings")
 
 
+def _normalize_query(text: str) -> str:
+    """Normalize query text for consistent cache keys."""
+    text = unicodedata.normalize("NFC", text.strip().lower())
+    return " ".join(text.split())
+
+
 def embed_query(text: str) -> list[float]:
-    """Embed a single query using configured RAG embedding model."""
+    """Embed a single query using configured RAG embedding model.
+
+    H64: Results are cached by (model, normalized_query).
+    """
     settings = get_settings()
+    normalized = _normalize_query(text)
+    cache_key = f"{settings.rag_embedding_model}:{normalized}"
+
+    with _cache_lock:
+        cached = _embedding_cache.get(cache_key)
+        if cached is not None:
+            logger.debug("H64: embedding cache hit for %s", cache_key[:60])
+            return cached
+
     from langchain_openai import OpenAIEmbeddings
 
     embeddings = OpenAIEmbeddings(
@@ -55,6 +96,9 @@ def embed_query(text: str) -> list[float]:
         raise ValueError(
             f"Embedding dimension {len(vector)} != configured {settings.rag_embedding_dimension}"
         )
+
+    with _cache_lock:
+        _embedding_cache[cache_key] = vector
     return vector
 
 
@@ -92,6 +136,40 @@ async def _rag_engine(url: str) -> AsyncEngine:
     return engine
 
 
+def get_corpus_version(db_url: str | None = None) -> str:
+    """Get corpus version from DB for cache invalidation.
+
+    Returns ``"{count}:{max_updated_at_iso}"`` or ``"unknown"`` on failure.
+    """
+    settings = get_settings()
+    url = db_url or settings.agent_db_url
+    try:
+        conn = psycopg2.connect(url)
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*), MAX(updated_at) FROM rag.ctdt_chunks")
+                row = cur.fetchone()
+                if row and row[0]:
+                    count = row[0]
+                    max_updated = row[1].isoformat() if row[1] else "none"
+                    return f"{count}:{max_updated}"
+        finally:
+            conn.close()
+    except Exception:
+        logger.debug("H64: corpus version query failed, using 'unknown'")
+    return "unknown"
+
+
+def _retrieval_cache_key(
+    corpus_version: str,
+    program_name: str | None,
+    top_k: int,
+    normalized_query: str,
+    model: str,
+) -> str:
+    return f"{corpus_version}|{program_name}|{top_k}|{model}|{normalized_query}"
+
+
 async def search_ctdt_chunks(
     query: str,
     *,
@@ -99,9 +177,28 @@ async def search_ctdt_chunks(
     top_k: int = 5,
     db_url: str | None = None,
 ) -> list[CtdtRetrievalHit]:
-    """Top-k cosine similarity search over indexed CTĐT chunks."""
+    """Top-k cosine similarity search over indexed CTDT chunks.
+
+    H64: Results are cached by (corpus_version, program_name, top_k,
+    model, normalized_query). Cache auto-invalidates when corpus changes.
+    """
     settings = get_settings()
     url = db_url or settings.agent_db_url
+    normalized = _normalize_query(query)
+    corpus_version = await asyncio.to_thread(get_corpus_version, url)
+    cache_key = _retrieval_cache_key(
+        corpus_version,
+        program_name,
+        top_k,
+        normalized,
+        settings.rag_embedding_model,
+    )
+    with _cache_lock:
+        cached = _retrieval_cache.get(cache_key)
+        if cached is not None:
+            logger.debug("H64: retrieval cache hit for %s", cache_key[:80])
+            return cached
+
     query_vec = await asyncio.to_thread(embed_query, query)
     vec_literal = _vector_literal(query_vec)
 
@@ -147,4 +244,8 @@ async def search_ctdt_chunks(
                 program_code=row.get("program_code"),
             )
         )
+
+    with _cache_lock:
+        _retrieval_cache[cache_key] = hits
+
     return hits

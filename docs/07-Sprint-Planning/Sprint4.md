@@ -60,8 +60,8 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | **H63** | Embedding + `pgvector` index cho CTĐT | 30/06 EOD | P0 | H62 | [x] |
 | | Chọn embedding model; migration/bảng `pgvector`; metadata ngành/file/trang/section/chunk_id; ingest idempotent; smoke top-k retrieval. | | | | |
 | **D58** | AI Logs evidence (LangSmith/Langfuse URL) | 30/06 EOD | P0 | H59 | [x] |
-| **H64** | Kế hoạch memory/cache cho agent | 01/07 12:00 | P1 | H49, H63 | [ ] |
-| | Plan only: cache query/retrieval, Redis optional, conversation window, TTL, RBAC, invalidation khi corpus đổi; chốt S4 vs defer — không block H51. | | | | |
+| **H64** | Kế hoạch memory/cache cho agent | 01/07 12:00 | P1 | H49, H63 | [x] |
+| | Done: contract + short-term summary compaction, `agent_memories` reuse, CTĐT embedding/retrieval cache, prompt policy, migration/test coverage. Redis/tool-result cache deferred sau Demo Day. | | | | |
 | **H51** | CTĐT RAG Q&A MVP | 01/07 18:00 | P0 | H62, H63, H49 | [ ] |
 | | Retrieval cho hỏi CTĐT (ngành, mục tiêu, CĐR, khối KT, học phần); citation file/trang; **không** dùng cho điểm/CLO cá nhân. H64 plan có thể song song, không chờ implement cache. | | | | |
 | **H61** | **Mở rộng test case evaluation** | 02/07 12:00 | P0 | H59, T55e, H51 | [ ] |

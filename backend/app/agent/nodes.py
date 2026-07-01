@@ -241,6 +241,10 @@ async def core_agent_node(state: AgentState) -> dict:
             context_note = ""
             if page_context:
                 context_note = f"\n\nPage context:\n{page_context}"
+            # H64: inject memory context if available
+            memory_summary = page_context.get("memory_summary", "") if page_context else ""
+            if memory_summary:
+                context_note += f"\n{memory_summary}"
             messages = [SystemMessage(content=_core_system_prompt(page_context) + context_note), *messages]
 
         core_start = time.perf_counter()
@@ -275,6 +279,10 @@ async def fast_response_node(state: AgentState) -> dict:
         context_block = ""
         if page_context:
             context_block = f"\n\nNgữ cảnh trang hiện tại:\n{page_context}"
+        # H64: inject memory context if available
+        memory_summary = page_context.get("memory_summary", "") if page_context else ""
+        if memory_summary:
+            context_block += f"\n{memory_summary}"
         role_block = build_role_guardrail_block(page_context) if page_context else ""
 
         eval_messages = [

@@ -2,7 +2,7 @@
 
 import uuid
 
-from sqlalchemy import JSON, ForeignKey, String, Uuid
+from sqlalchemy import JSON, ForeignKey, String, Text, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -29,6 +29,9 @@ class ChatSession(Base, TimestampMixin):
     messages: Mapped[list[dict]] = mapped_column(
         JSON().with_variant(JSONB(), "postgresql"), nullable=False, server_default="[]"
     )
+
+    # H64: deterministic session summary for context compaction (≤ 2000 chars).
+    short_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     user: Mapped["User"] = relationship()
