@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import smtplib
 import ssl
 from datetime import UTC, datetime
@@ -441,7 +442,7 @@ async def send_intervention_campaign(campaign_id: int, db: DBSession, current_us
         next_status = "queued"
         if message.channel == "email" and smtp_ready:
             try:
-                provider_message_id = _send_smtp_message(message)
+                provider_message_id = await asyncio.to_thread(_send_smtp_message, message)
                 sent_at = _now()
                 contact_status = "emailed"
                 next_status = "sent"

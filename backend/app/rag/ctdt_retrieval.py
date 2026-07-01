@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from functools import lru_cache
 from typing import Any
 
-import psycopg2
-from psycopg2.extras import RealDictCursor
 from pydantic import BaseModel
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from app.config import get_settings
 
@@ -57,6 +59,25 @@ def _vector_literal(values: list[float]) -> str:
     return "[" + ",".join(f"{v:.8f}" for v in values) + "]"
 
 
+def _async_postgres_url(url: str) -> str:
+    if url.startswith("postgresql+asyncpg://"):
+        return url
+    if url.startswith("postgresql+psycopg2://"):
+        return url.replace("postgresql+psycopg2://", "postgresql+asyncpg://", 1)
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url
+
+
+@lru_cache(maxsize=4)
+def _rag_engine(url: str) -> AsyncEngine:
+    return create_async_engine(
+        _async_postgres_url(url),
+        pool_pre_ping=True,
+        pool_recycle=3600,
+    )
+
+
 async def search_ctdt_chunks(
     query: str,
     *,
@@ -67,7 +88,7 @@ async def search_ctdt_chunks(
     """Top-k cosine similarity search over indexed CTĐT chunks."""
     settings = get_settings()
     url = db_url or settings.agent_db_url
-    query_vec = embed_query(query)
+    query_vec = await asyncio.to_thread(embed_query, query)
     vec_literal = _vector_literal(query_vec)
 
     sql = """
@@ -81,21 +102,20 @@ async def search_ctdt_chunks(
             section_title,
             content,
             citation_label,
-            1 - (embedding <=> %s::vector) AS score
+            1 - (embedding <=> CAST(:vec_literal AS vector)) AS score
         FROM rag.ctdt_chunks
         WHERE embedding IS NOT NULL
-          AND (%s IS NULL OR program_name = %s)
-        ORDER BY embedding <=> %s::vector
-        LIMIT %s
+          AND (:program_name IS NULL OR program_name = :program_name)
+        ORDER BY embedding <=> CAST(:vec_literal AS vector)
+        LIMIT :top_k
     """
 
-    conn = psycopg2.connect(url)
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(sql, (vec_literal, program_name, program_name, vec_literal, top_k))
-            rows: list[dict[str, Any]] = cur.fetchall()
-    finally:
-        conn.close()
+    async with _rag_engine(url).connect() as conn:
+        result = await conn.execute(
+            text(sql),
+            {"vec_literal": vec_literal, "program_name": program_name, "top_k": top_k},
+        )
+        rows: list[dict[str, Any]] = [dict(row) for row in result.mappings().all()]
 
     hits: list[CtdtRetrievalHit] = []
     for row in rows:

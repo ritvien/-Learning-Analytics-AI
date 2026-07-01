@@ -187,6 +187,16 @@ def _guardrail_refusal(message: str) -> str | None:
     return build_refusal(decision)
 
 
+_GUARDRAIL_REFUSAL_TEXTS = {
+    build_refusal(kind)
+    for kind in ("injection", "out_of_domain", "unsafe", "privacy")
+}
+
+
+def _is_guardrail_refusal_text(content: Any) -> bool:
+    return str(content).strip() in _GUARDRAIL_REFUSAL_TEXTS
+
+
 def _history_for_agent(messages: list[Any]) -> list[Any]:
     """Return chat history safe to pass back into the agent.
 
@@ -194,15 +204,17 @@ def _history_for_agent(messages: list[Any]) -> list[Any]:
     context for later safe questions.
     """
     safe_messages: list[Any] = []
-    skip_block_refusal = False
+    blocked_turn_pending = False
     for message in messages:
         if isinstance(message, HumanMessage) and _guardrail_refusal(str(message.content)):
-            skip_block_refusal = True
+            blocked_turn_pending = True
             continue
-        if skip_block_refusal and isinstance(message, AIMessage):
-            skip_block_refusal = False
+        if isinstance(message, AIMessage) and (
+            blocked_turn_pending or _is_guardrail_refusal_text(message.content)
+        ):
+            blocked_turn_pending = False
             continue
-        skip_block_refusal = False
+        blocked_turn_pending = False
         safe_messages.append(message)
     return safe_messages
 
