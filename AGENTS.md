@@ -13,9 +13,9 @@ Read this file first before changing code or docs in this repository.
 
 | Done | Open focus |
 |:-------|:----------------------------|
-| S3 carry closed · H59 · H49 · H62 · H63 · D58 · **H64** | H51 · H61 · H60/D60/D61 · D56/D57/D59/D63 · T55/T56/T57/T58 · VUX/V56/V47 |
+| S3 carry closed · H59 · H49 · H62 · H63 · D58 · **H64** · **H51** | H61 · H60/D60/D61 · D56/D57/D59/D63 · T55/T56/T57/T58 · VUX/V56/V47 |
 
-**Eval / observability:** H59/D58 LangSmith tracing done; H64 memory/cache done; H61 expands eval after H51/T55e. Reference: [docs/07-Sprint-Planning/Sprint4.md](docs/07-Sprint-Planning/Sprint4.md).
+**Eval / observability:** H59/D58 LangSmith tracing done; H64 memory/cache done; H51 CTĐT RAG Q&A MVP done; H61 expands eval after H51/T55e. Reference: [docs/07-Sprint-Planning/Sprint4.md](docs/07-Sprint-Planning/Sprint4.md).
 
 Handoff snapshot: [.cursor/session-handoff.md](.cursor/session-handoff.md). UX polish backlog (non-blocking): [docs/22-UX-Simplification-Review/README.md](docs/22-UX-Simplification-Review/README.md).
 

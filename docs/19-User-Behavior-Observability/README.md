@@ -15,7 +15,7 @@ Khi triển khai, UI sẽ consume T53 admin APIs và tính metric hiển thị t
 RBAC: chỉ `superadmin` thấy nav/route; API vẫn là authority (non-superadmin → 403).
 
 > Scope: session/cookie, structured event log, correlation/trace ID cho page, chat, tool va retrieval de quan sat hanh vi nguoi dung.
-> Status: MVP da trien khai cho Sprint 3 task `T41`; API doc/loc/aggregate cho superadmin da bo sung theo `T53`; retrieval-specific events se noi vao khi `H51` them RAG/corpus wrapper.
+> Status: MVP da trien khai cho Sprint 3 task `T41`; API doc/loc/aggregate cho superadmin da bo sung theo `T53`; H51 CTDT RAG hien di qua tool-call events chung. Retrieval-specific `retrieval_started/completed` events van la backlog hardening.
 
 ## 1. Muc tieu
 
@@ -207,7 +207,7 @@ Acceptance:
 - [x] Chat endpoint tao `conversation_id` va `agent_run_id` neu chua co.
 - [x] Agent orchestration log started/completed/failed.
 - [x] Tool wrapper log before/after/error voi `tool_call_id`.
-- [ ] Retrieval wrapper log corpus, filters, top_k, citation_count voi `retrieval_id` khi `H51` co RAG/corpus.
+- [ ] Retrieval wrapper log corpus, filters, top_k, citation_count voi `retrieval_id`. H51 da co RAG tool, nhung chua tach event retrieval rieng ngoai tool-call tracing.
 - [ ] Route decision log `inline/full_chat`, target route, reason code khi `V40/H48` chot route decision.
 
 Acceptance:

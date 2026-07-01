@@ -258,4 +258,4 @@ Thu tu nen lam truoc:
 - [ ] Moi document co access scope va citation label.
 - [ ] Khong dua secret/PII/raw student data vao corpus.
 - [ ] Co 5 cau smoke test voi expected citation.
-- [ ] Hoang co the dung corpus de lam `H51` ma khong phai doan source nao dung/source nao bo.
+- [x] Sprint 4 pivot: Hoang da dung CTDT corpus rieng trong `ctdt/` de lam `H51`; T49 generic corpus van la backlog rieng.

@@ -33,6 +33,7 @@ from app.agent.tools import (
     execute_sql_query,
     get_student_dropout_risk,
     lookup_student_by_code,
+    search_ctdt_program_info,
     set_agent_tool_context,
 )
 from app.config import get_settings
@@ -49,6 +50,7 @@ _BASE_TOOLS = [
     calculate_student_clo_scores,
     lookup_student_by_code,
     get_student_dropout_risk,
+    search_ctdt_program_info,
 ]
 TOOLS = wrap_tools_with_timing(_BASE_TOOLS)
 

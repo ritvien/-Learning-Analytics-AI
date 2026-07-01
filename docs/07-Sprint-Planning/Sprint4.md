@@ -1,6 +1,6 @@
 # Sprint 4 — Demo Day final & chất lượng sản phẩm
 
-> **29/06 – 05/07/2026** · Cập nhật **29/06/2026** (một deadline/task + sort theo owner)  
+> **29/06 – 05/07/2026** · Cập nhật **01/07/2026** (H51 CTĐT RAG Q&A MVP done)  
 > **Goal:** Hoàn thiện 10/10 deliverables BTC · mở rộng eval · dữ liệu đủ cho UI demo · cảnh báo SV + luồng liên hệ GV.  
 > **Deadline cuối Demo Day:** **05/07/2026 23:59**.  
 > **Checklist:** [Checklist.md](../10-References/Checklist.md) · **Sprint trước:** [Sprint3.md](./Sprint3.md)
@@ -16,7 +16,7 @@
 | Nhóm | Đã xong (S3 carry) | Sprint 4 focus |
 |:-----|:-------------------|:---------------|
 | Demo Day Phase 1 | H54, H55, V34, V35, V45, V46 | Deliverables BTC còn thiếu (README, deploy, eval evidence) |
-| Agent / Eval | 35 TC framework, guardrails | CTĐT RAG tách nhỏ · H61 mở rộng TC trước · V47 review sau H61 · H60 review/re-run eval sau |
+| Agent / Eval | 35 TC framework, guardrails, CTĐT RAG Q&A MVP | H61 mở rộng TC trước · V47 review sau H61 · H60 review/re-run eval sau |
 | Data / UI | 1.277 SV seed v2 | Gap audit · T55a–e phased seed · ML score đủ MSSV demo |
 | UX | RBAC, observability | **VUX-1/2/3** (gộp 5 UX22 thiết yếu) |
 | Product | Dropout UI (V20) | Cảnh báo SV kém + liên hệ GV–SV (T56a–b) |
@@ -36,7 +36,7 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | **`course_group` chưa official** | Dashboard/agent trả lời mơ hồ | README dashboard spec | Ghi trong T54 audit: display taxonomy tạm `general`, `foundation`, `major_core`, `major_elective`, `internship_capstone` — không migration P0. |
 | **GV / phân công lớp thưa** | Lecturer không thấy “lớp của tôi”; luồng cảnh báo thiếu data | [24-Teacher-Section-Assignment](../24-Teacher-Section-Assignment/README.md) | **T55b:** synthetic catalog GV + `sections.teacher_id` + lecturer demo account |
 | **CLO seed tự động, chưa official** | CLO inventory cần review | [clo-inventory.md](../12-Evaluation/clo-inventory.md) | Badge/warning UI; H62/H51 CTĐT RAG đọc PDF chính thức — không khẳng định achievement cá nhân. |
-| **RAG hỏi đáp CTĐT chưa có** | Chat chưa grounded về CTĐT | `C:\Users\Admin\Work\AI In Action\crawl\pdf_ctdt` | **H62 → H63 → H64 → H51** (bỏ T49 generic corpus) |
+| **RAG hỏi đáp CTĐT** | Chat đã có CTĐT Q&A MVP cho 3 ngành demo, citation file/trang/section | `docs/20-RAG-Corpus-Preparation/ctdt` + `rag.ctdt_chunks` | **H62 → H63 → H64 → H51 done**; H61 thêm TC eval CTĐT. |
 
 **Manifest hiện tại:** 1.277 SV · 549 courses · 56.301 enrollments · 26 specializations ([seed-academic-v2.manifest.json](../../backend/db/seed-academic-v2.manifest.json)).
 
@@ -62,8 +62,8 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | **D58** | AI Logs evidence (LangSmith/Langfuse URL) | 30/06 EOD | P0 | H59 | [x] |
 | **H64** | Kế hoạch memory/cache cho agent | 01/07 12:00 | P1 | H49, H63 | [x] |
 | | Done: contract + short-term summary compaction, `agent_memories` reuse, CTĐT embedding/retrieval cache, prompt policy, migration/test coverage. Redis/tool-result cache deferred sau Demo Day. | | | | |
-| **H51** | CTĐT RAG Q&A MVP | 01/07 18:00 | P0 | H62, H63, H49 | [ ] |
-| | Retrieval cho hỏi CTĐT (ngành, mục tiêu, CĐR, khối KT, học phần); citation file/trang; **không** dùng cho điểm/CLO cá nhân. H64 plan có thể song song, không chờ implement cache. | | | | |
+| **H51** | CTĐT RAG Q&A MVP | 01/07 18:00 | P0 | H62, H63, H49 | [x] |
+| | Done: LangGraph tool `search_ctdt_program_info`, CTĐT prompt/router policy, alias/query program detection, unsupported non-MVP guard, citation JSON file/trang/section, no use for điểm/CLO cá nhân/dropout. Evidence: `walkthrough.md`, `backend/tests/test_ctdt_tool_h51.py`. | | | | |
 | **H61** | **Mở rộng test case evaluation** | 02/07 12:00 | P0 | H59, T55e, H51 | [ ] |
 | | Phase A: 35→50 TC (lookup, aggregation, dropout, guardrail, report, CTĐT RAG). Phase B stretch 100 TC chỉ khi H60 đã có draft. Map TC → feature + owner + expected source. | | | | |
 | **D59** | Production deploy Render + Vercel (+ UptimeRobot) | 02/07 EOD | P1 | T45 | [ ] |

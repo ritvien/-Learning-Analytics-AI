@@ -10,6 +10,7 @@ Design principles:
 import json
 import logging
 import re
+import unicodedata
 from contextvars import ContextVar, Token
 from typing import Any
 
@@ -418,3 +419,202 @@ def get_student_dropout_risk(student_code: str) -> str:
     finally:
         if conn is not None:
             conn.close()
+
+
+# ---------------------------------------------------------------------------
+# H51: CTĐT RAG Q&A tool — program alias → retrieval → citation JSON
+# ---------------------------------------------------------------------------
+
+# MVP programs indexed by H62/H63
+_MVP_PROGRAMS: dict[str, str] = {
+    "Công nghệ thông tin": "Công nghệ thông tin",
+    "Khoa học dữ liệu": "Khoa học dữ liệu",
+    "Trí tuệ nhân tạo": "Trí tuệ nhân tạo",
+}
+
+# Abbreviation / code → canonical program_name
+def _normalize_program_key(value: str) -> str:
+    """Normalize Vietnamese program names/codes for alias matching."""
+    value = value.strip().lower().replace("đ", "d")
+    value = unicodedata.normalize("NFD", value)
+    value = "".join(ch for ch in value if unicodedata.category(ch) != "Mn")
+    value = re.sub(r"[^a-z0-9]+", " ", value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
+_PROGRAM_ALIASES: dict[str, str] = {
+    # Abbreviations
+    "cntt": "Công nghệ thông tin",
+    "cong nghe thong tin": "Công nghệ thông tin",
+    "khdl": "Khoa học dữ liệu",
+    "khoa hoc du lieu": "Khoa học dữ liệu",
+    "ttnt": "Trí tuệ nhân tạo",
+    "tri tue nhan tao": "Trí tuệ nhân tạo",
+    # Program codes
+    "7480201": "Công nghệ thông tin",
+    "7460108": "Khoa học dữ liệu",
+    "7480107": "Trí tuệ nhân tạo",
+}
+
+_COMMON_NON_MVP_PROGRAM_ALIASES: dict[str, str] = {
+    "qtkd": "Quản trị kinh doanh",
+    "quan tri kinh doanh": "Quản trị kinh doanh",
+    "7340101": "Quản trị kinh doanh",
+    "ke toan": "Kế toán",
+    "7340301": "Kế toán",
+    "kiem toan": "Kiểm toán",
+    "7340302": "Kiểm toán",
+    "thuong mai dien tu": "Thương mại điện tử",
+    "7340122": "Thương mại điện tử",
+}
+
+_MIN_SCORE_THRESHOLD = 0.3
+
+
+def _known_program_aliases() -> dict[str, str]:
+    """Return known program aliases, including non-MVP catalog entries."""
+    aliases = dict(_PROGRAM_ALIASES)
+    aliases.update(_COMMON_NON_MVP_PROGRAM_ALIASES)
+    try:
+        from app.rag.ctdt_corpus import PROGRAM_CATALOG
+
+        for row in PROGRAM_CATALOG:
+            name = row.get("name", "").strip()
+            code = row.get("code", "").strip()
+            if name:
+                aliases[_normalize_program_key(name)] = name
+            if code:
+                aliases[_normalize_program_key(code)] = name
+    except Exception:
+        logger.debug("Unable to load CTDT program catalog for alias detection", exc_info=True)
+    return aliases
+
+
+def _alias_in_normalized_query(alias: str, normalized_query: str) -> bool:
+    if not alias:
+        return False
+    if alias.isdigit() or " " not in alias:
+        return re.search(rf"(?<![a-z0-9]){re.escape(alias)}(?![a-z0-9])", normalized_query) is not None
+    return alias in normalized_query
+
+
+def detect_program_from_query(query: str) -> str | None:
+    """Detect a known program mentioned in the user query."""
+    normalized_query = _normalize_program_key(query)
+    if not normalized_query:
+        return None
+    aliases = sorted(_known_program_aliases().items(), key=lambda item: len(item[0]), reverse=True)
+    for alias, canonical in aliases:
+        if len(alias) < 3 and not alias.isdigit():
+            continue
+        if _alias_in_normalized_query(alias, normalized_query):
+            return canonical
+    return None
+
+
+def resolve_program_alias(name: str | None) -> str | None:
+    """Resolve abbreviation/code to canonical program_name.
+
+    Returns ``None`` when *name* is ``None`` or empty (= search all programs).
+    Returns the canonical name if found, otherwise returns the original input
+    unchanged so the caller can decide whether to reject or pass through.
+    """
+    if not name:
+        return None
+    normalized = _normalize_program_key(name)
+    return _known_program_aliases().get(normalized, name.strip())
+
+
+@tool
+async def search_ctdt_program_info(
+    query: str,
+    program_name: str | None = None,
+    top_k: int = 4,
+) -> str:
+    """Tìm kiếm thông tin Chương trình đào tạo (CTĐT) chính thức từ nguồn PDF đã lập chỉ mục.
+
+    Dùng tool này KHI người dùng hỏi về:
+    - Chuẩn đầu ra (CĐR/PLO) của một ngành
+    - Mục tiêu đào tạo
+    - Khối kiến thức, học phần bắt buộc / tự chọn
+    - Cấu trúc chương trình đào tạo
+    - Tín chỉ tối thiểu
+
+    Chỉ có 3 ngành MVP đã index: Công nghệ thông tin (CNTT), Khoa học dữ liệu (KHDL),
+    Trí tuệ nhân tạo (TTNT). Ngành khác sẽ trả lỗi chưa được index.
+
+    Args:
+        query: Câu hỏi bằng tiếng Việt về CTĐT (ví dụ: "Chuẩn đầu ra ngành CNTT").
+        program_name: Tên ngành, mã viết tắt (CNTT, KHDL, TTNT) hoặc mã ngành (7480201).
+                      Để trống nếu muốn tìm trên tất cả ngành đã index.
+        top_k: Số kết quả tối đa (1–5, mặc định 4).
+
+    Returns:
+        JSON string chứa kết quả tìm kiếm với citation nguồn (file, trang, section),
+        hoặc chuỗi bắt đầu bằng "ERROR:" nếu không tìm thấy hoặc ngành chưa được index.
+
+    """
+    try:
+        # 1. Resolve explicit alias, or infer from query if the LLM omits program_name.
+        resolved = resolve_program_alias(program_name)
+        inferred_from_query = False
+        if resolved is None:
+            resolved = detect_program_from_query(query)
+            inferred_from_query = resolved is not None
+
+        # 2. MVP scope check — only allow indexed programs
+        if resolved is not None and resolved not in _MVP_PROGRAMS:
+            label = program_name or resolved
+            return (
+                f"ERROR: Ngành '{label}' chưa được lập chỉ mục trong hệ thống CTĐT RAG. "
+                "Hiện tại chỉ hỗ trợ: Công nghệ thông tin (CNTT), "
+                "Khoa học dữ liệu (KHDL), Trí tuệ nhân tạo (TTNT)."
+            )
+
+        # 3. Clamp top_k
+        clamped_k = max(1, min(5, top_k))
+
+        # 4. Call retrieval
+        from app.rag.ctdt_retrieval import search_ctdt_chunks
+
+        hits = await search_ctdt_chunks(
+            query,
+            program_name=resolved,
+            top_k=clamped_k,
+        )
+
+        # 5. Filter low-score hits
+        good_hits = [h for h in hits if h.score >= _MIN_SCORE_THRESHOLD]
+
+        if not good_hits:
+            return (
+                f"ERROR: Không tìm thấy nguồn phù hợp cho câu hỏi '{query}'. "
+                "Hãy thử hỏi cụ thể hơn hoặc chỉ rõ tên ngành."
+            )
+
+        # 6. Build response
+        result = {
+            "status": "ok",
+            "query": query,
+            "program_name": resolved,
+            "program_name_inferred": inferred_from_query,
+            "hits": [
+                {
+                    "content": h.content,
+                    "score": round(h.score, 4),
+                    "citation_label": h.citation_label,
+                    "source_file": h.source_file,
+                    "page_start": h.page_start,
+                    "page_end": h.page_end,
+                    "section_title": h.section_title,
+                    "program_name": h.program_name,
+                    "program_code": h.program_code,
+                }
+                for h in good_hits
+            ],
+        }
+        return json.dumps(result, ensure_ascii=False, indent=2)
+
+    except Exception as exc:
+        logger.exception("search_ctdt_program_info error")
+        return f"ERROR: Lỗi khi tìm kiếm CTĐT — {exc}"
