@@ -2,6 +2,8 @@
 
 Artifact directory for Sprint 4 CTĐT RAG pipeline (`H62 → H63 → H51`).
 
+Current status (01/07/2026): H51 is implemented. Universal Chat uses `search_ctdt_program_info()` for CTĐT/CDR/PLO questions, returns citation file/page/section, and refuses non-MVP programs before retrieval.
+
 ## Source
 
 - PDF crawl: `C:\Users\Admin\Work\AI In Action\crawl\pdf_ctdt` (38 files)
@@ -52,3 +54,7 @@ python scripts/ingest_ctdt_rag.py --input ../docs/20-RAG-Corpus-Preparation/ctdt
 Retrieval contract: `backend/app/rag/ctdt_retrieval.py` → `search_ctdt_chunks(query, program_name?, top_k)`.
 
 Returns: `chunk_id`, `score`, `content`, `citation_label`, `source_file`, `page_start`, `page_end`, `section_title`.
+
+H51 agent tool: `backend/app/agent/tools.py` → `search_ctdt_program_info(query, program_name?, top_k?)`.
+
+Supported MVP programs: Công nghệ thông tin, Khoa học dữ liệu, Trí tuệ nhân tạo.

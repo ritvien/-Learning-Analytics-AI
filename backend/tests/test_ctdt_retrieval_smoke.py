@@ -52,6 +52,33 @@ async def test_ctdt_retrieval_smoke_queries() -> None:
 
 
 @pytest.mark.asyncio
+async def test_ctdt_tool_smoke_queries() -> None:
+    from app.agent.tools import search_ctdt_program_info
+    from app.config import get_settings
+
+    settings = get_settings()
+    if not (settings.llm_api_key.strip() or settings.openai_api_key.strip()):
+        pytest.skip("OPENAI_API_KEY or LLM_API_KEY required")
+
+    queries = json.loads(SMOKE_QUERIES.read_text(encoding="utf-8"))["queries"]
+    for item in queries[:3]:
+        result = await search_ctdt_program_info.coroutine(
+            query=item["query"],
+            program_name=item.get("program_name"),
+            top_k=3,
+        )
+        assert not result.startswith("ERROR:"), result
+        data = json.loads(result)
+        assert data["status"] == "ok"
+        assert data["hits"], f"No tool hits for: {item['query']}"
+        first = data["hits"][0]
+        assert first["citation_label"]
+        assert first["source_file"]
+        assert first["page_start"] is not None
+        assert first["section_title"]
+
+
+@pytest.mark.asyncio
 async def test_ctdt_retrieval_plan_queries() -> None:
     from app.config import get_settings
     from app.rag.ctdt_retrieval import search_ctdt_chunks

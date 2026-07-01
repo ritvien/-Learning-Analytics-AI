@@ -25,7 +25,7 @@ Ket luan ngan gon:
 | Nhieu nganh khong co/qua it SV | `25/38` programs co `<10` active students | **V59 -> T55c** crawl/import bo sung SV nganh thua |
 | Report Center rat mong | manager `/reports?limit=80` chi tra `1` report | **T55d/T55e** bo sung CLO/lineage va refresh golden/report evidence |
 | CLO van can lineage | `student_clo_achievements=108789` nhung `4/549` courses thieu CLO evidence; CLO seed unofficial | **T55d** ghi source/lineage + synthetic warning |
-| Chat data-access chua ro scope | dropout 404, CTDT RAG chua co, CLO lineage chua chot | **H49** capability matrix |
+| Chat data-access chua ro scope | dropout 404, CTDT RAG da co MVP sau H51, CLO lineage chua chot | **H49** capability matrix; **H51 done** cho CTDT Q&A 3 nganh MVP |
 
 ## 2. Manifest baseline
 
@@ -108,7 +108,7 @@ Chatbot scope can chot nhu sau:
 | Dropout risk tung SV | **Chua san sang** vi prediction 404 | Chi tra khi co ML prediction; khong suy doan |
 | GPA/pass/fail/top mon truot | Co DWH/analytics data | Cho phep, nhung neu sample nho phai noi ro |
 | CLO/PLO | Co `student_clo_achievements`, nhung lineage chua chot | Cho phep kem warning synthetic/unofficial sau T55d |
-| CTDT/CDR/chuan dau ra chinh thuc | Chua co CTDT RAG | Tu choi/bao chua co nguon cho toi khi H51 xong |
+| CTDT/CDR/chuan dau ra chinh thuc | H51 da co CTDT RAG MVP cho CNTT/KHDL/TTNT | Tra loi bang `search_ctdt_program_info` kem citation file/trang/section; nganh ngoai MVP tu choi mem |
 | Cross-scope student lookup | Can RBAC/context | Tu choi neu ngoai scope |
 
 ## 7. Done / not done
@@ -124,3 +124,9 @@ Chua lam trong T54:
 
 - [ ] Chua crawl/import/seed bo sung. Day la T55.
 - [ ] Chua browser screenshot visual. Neu can screenshot cho Demo Day thi V57/V58 chay them frontend visual smoke.
+
+## 8. Post-H51 update (01/07/2026)
+
+- CTDT RAG khong con la data-access blocker cho 3 nganh MVP: Cong nghe thong tin, Khoa hoc du lieu, Tri tue nhan tao.
+- Universal Chat da co tool `search_ctdt_program_info` voi citation file/trang/section.
+- Nganh ngoai MVP van bi tu choi mem; H61 can them eval case cho ca answer co citation va unsupported program.

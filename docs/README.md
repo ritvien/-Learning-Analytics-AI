@@ -19,7 +19,7 @@ Trang này giúp team biết tài liệu nào là nguồn chuẩn hiện tại, 
 | UX simplification review | [README.md](./22-UX-Simplification-Review/README.md) — P0 polish backlog |
 | Contract Academic Tree 3-tier | [H45-Plan.md](./07-Sprint-Planning/H45-Plan.md) |
 | User Behavior Observability | [README.md](./19-User-Behavior-Observability/README.md) |
-| RAG Corpus Preparation TODO | [README.md](./20-RAG-Corpus-Preparation/README.md) |
+| CTĐT RAG corpus + H51 agent handoff | [ctdt/README.md](./20-RAG-Corpus-Preparation/ctdt/README.md), [H51.md](./07-Sprint-Planning/stories/H51.md) |
 | System Refinement Review | [README.md](./25-System-Refinement-Review/README.md) |
 
 Khi có mâu thuẫn giữa tài liệu, ưu tiên theo thứ tự:
