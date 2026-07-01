@@ -72,9 +72,9 @@ class TestNodeOutputGuardrails:
         assert "synthetic/unofficial" in prompt
         assert "Cross-scope" in prompt
 
-    def test_h49_prompt_versions_are_bumped(self):
-        assert ROUTER_PROMPT_VERSION == "2026-07-01.1"
-        assert CORE_AGENT_PROMPT_VERSION == "2026-07-01.1"
+    def test_prompt_versions_track_h51_ctdt_update(self):
+        assert ROUTER_PROMPT_VERSION == "2026-07-01.2"
+        assert CORE_AGENT_PROMPT_VERSION == "2026-07-01.2"
         assert FAST_RESPONSE_PROMPT_VERSION == "2026-07-01.1"
 
     @pytest.mark.asyncio
