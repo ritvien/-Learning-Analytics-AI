@@ -7,6 +7,7 @@ import re
 import time
 import unicodedata
 from datetime import UTC, datetime
+from functools import lru_cache
 from inspect import isawaitable
 from typing import Any
 
@@ -1468,6 +1469,7 @@ def _build_scope_denied_answer(user: User, definition: dict[str, Any]) -> str:
     return f"{base}\n\n{_build_report_permission_answer(user)}"
 
 
+@lru_cache(maxsize=2048)
 def _normalized_text(value: str) -> str:
     """Fold Vietnamese diacritics for stable keyword matching across NFC/NFD input."""
     value = unicodedata.normalize("NFD", value)

@@ -1,4 +1,4 @@
-"""CTĐT vector retrieval over rag.ctdt_chunks (pgvector).
+"""CTDT vector retrieval over rag.ctdt_chunks (pgvector).
 
 H64: in-process cachetools TTLCache for embedding and retrieval results.
 Cache invalidation is automatic via corpus_version in cache key.
@@ -6,28 +6,40 @@ Cache invalidation is automatic via corpus_version in cache key.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 import unicodedata
+from collections import OrderedDict
 from typing import Any
 
 import psycopg2
 from cachetools import TTLCache
-from psycopg2.extras import RealDictCursor
 from pydantic import BaseModel
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-# ── H64: Cache configuration ──────────────────────────────────────────
+# H64: cache configuration
 _CACHE_MAXSIZE = 512
 _CACHE_TTL = 86400  # 24 hours in seconds
 
 _embedding_cache: TTLCache[str, list[float]] = TTLCache(
-    maxsize=_CACHE_MAXSIZE, ttl=_CACHE_TTL
+    maxsize=_CACHE_MAXSIZE,
+    ttl=_CACHE_TTL,
+)
+_retrieval_cache: TTLCache[str, list[CtdtRetrievalHit]] = TTLCache(
+    maxsize=_CACHE_MAXSIZE,
+    ttl=_CACHE_TTL,
 )
 _cache_lock = threading.Lock()
+
+_RAG_ENGINE_CACHE_SIZE = 4
+_RAG_ENGINES: OrderedDict[str, AsyncEngine] = OrderedDict()
+_RAG_ENGINE_LOCK = asyncio.Lock()
 
 
 class CtdtRetrievalHit(BaseModel):
@@ -41,11 +53,6 @@ class CtdtRetrievalHit(BaseModel):
     section_title: str | None = None
     program_name: str
     program_code: str | None = None
-
-
-_retrieval_cache: TTLCache[str, list[CtdtRetrievalHit]] = TTLCache(
-    maxsize=_CACHE_MAXSIZE, ttl=_CACHE_TTL
-)
 
 
 def _embedding_api_key() -> str:
@@ -99,6 +106,36 @@ def _vector_literal(values: list[float]) -> str:
     return "[" + ",".join(f"{v:.8f}" for v in values) + "]"
 
 
+def _async_postgres_url(url: str) -> str:
+    if url.startswith("postgresql+asyncpg://"):
+        return url
+    if url.startswith("postgresql+psycopg2://"):
+        return url.replace("postgresql+psycopg2://", "postgresql+asyncpg://", 1)
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url
+
+
+async def _rag_engine(url: str) -> AsyncEngine:
+    evicted: AsyncEngine | None = None
+    async with _RAG_ENGINE_LOCK:
+        engine = _RAG_ENGINES.get(url)
+        if engine is not None:
+            _RAG_ENGINES.move_to_end(url)
+            return engine
+        engine = create_async_engine(
+            _async_postgres_url(url),
+            pool_pre_ping=True,
+            pool_recycle=3600,
+        )
+        _RAG_ENGINES[url] = engine
+        if len(_RAG_ENGINES) > _RAG_ENGINE_CACHE_SIZE:
+            _, evicted = _RAG_ENGINES.popitem(last=False)
+    if evicted is not None:
+        await evicted.dispose()
+    return engine
+
+
 def get_corpus_version(db_url: str | None = None) -> str:
     """Get corpus version from DB for cache invalidation.
 
@@ -110,9 +147,7 @@ def get_corpus_version(db_url: str | None = None) -> str:
         conn = psycopg2.connect(url)
         try:
             with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT COUNT(*), MAX(updated_at) FROM rag.ctdt_chunks"
-                )
+                cur.execute("SELECT COUNT(*), MAX(updated_at) FROM rag.ctdt_chunks")
                 row = cur.fetchone()
                 if row and row[0]:
                     count = row[0]
@@ -142,7 +177,7 @@ async def search_ctdt_chunks(
     top_k: int = 5,
     db_url: str | None = None,
 ) -> list[CtdtRetrievalHit]:
-    """Top-k cosine similarity search over indexed CTĐT chunks.
+    """Top-k cosine similarity search over indexed CTDT chunks.
 
     H64: Results are cached by (corpus_version, program_name, top_k,
     model, normalized_query). Cache auto-invalidates when corpus changes.
@@ -150,11 +185,13 @@ async def search_ctdt_chunks(
     settings = get_settings()
     url = db_url or settings.agent_db_url
     normalized = _normalize_query(query)
-
-    # H64: check retrieval cache
-    corpus_version = get_corpus_version(url)
+    corpus_version = await asyncio.to_thread(get_corpus_version, url)
     cache_key = _retrieval_cache_key(
-        corpus_version, program_name, top_k, normalized, settings.rag_embedding_model
+        corpus_version,
+        program_name,
+        top_k,
+        normalized,
+        settings.rag_embedding_model,
     )
     with _cache_lock:
         cached = _retrieval_cache.get(cache_key)
@@ -162,7 +199,7 @@ async def search_ctdt_chunks(
             logger.debug("H64: retrieval cache hit for %s", cache_key[:80])
             return cached
 
-    query_vec = embed_query(query)
+    query_vec = await asyncio.to_thread(embed_query, query)
     vec_literal = _vector_literal(query_vec)
 
     sql = """
@@ -176,21 +213,20 @@ async def search_ctdt_chunks(
             section_title,
             content,
             citation_label,
-            1 - (embedding <=> %s::vector) AS score
+            1 - (embedding <=> CAST(:vec_literal AS vector)) AS score
         FROM rag.ctdt_chunks
         WHERE embedding IS NOT NULL
-          AND (%s IS NULL OR program_name = %s)
-        ORDER BY embedding <=> %s::vector
-        LIMIT %s
+          AND (:program_name IS NULL OR program_name = :program_name)
+        ORDER BY embedding <=> CAST(:vec_literal AS vector)
+        LIMIT :top_k
     """
 
-    conn = psycopg2.connect(url)
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(sql, (vec_literal, program_name, program_name, vec_literal, top_k))
-            rows: list[dict[str, Any]] = cur.fetchall()
-    finally:
-        conn.close()
+    async with (await _rag_engine(url)).connect() as conn:
+        result = await conn.execute(
+            text(sql),
+            {"vec_literal": vec_literal, "program_name": program_name, "top_k": top_k},
+        )
+        rows: list[dict[str, Any]] = [dict(row) for row in result.mappings().all()]
 
     hits: list[CtdtRetrievalHit] = []
     for row in rows:
@@ -209,7 +245,6 @@ async def search_ctdt_chunks(
             )
         )
 
-    # H64: store in retrieval cache
     with _cache_lock:
         _retrieval_cache[cache_key] = hits
 
