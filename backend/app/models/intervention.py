@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -22,6 +22,7 @@ class StudentInterventionContact(TimestampMixin, Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    case_id: Mapped[int | None] = mapped_column(ForeignKey("intervention_cases.id", ondelete="SET NULL"))
     actor_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="RESTRICT"), nullable=False)
     section_id: Mapped[int | None] = mapped_column(ForeignKey("sections.id", ondelete="SET NULL"))
@@ -36,6 +37,58 @@ class StudentInterventionContact(TimestampMixin, Base):
     actor = relationship("User")
     student = relationship("Student")
     section = relationship("Section")
+
+
+class InterventionCase(TimestampMixin, Base):
+    """A scoped, owned workflow for supporting one at-risk student."""
+
+    __tablename__ = "intervention_cases"
+    __table_args__ = (
+        UniqueConstraint("student_id", "scope_key", "active_key", name="uq_intervention_case_active_scope"),
+        Index("idx_intervention_case_queue", "status", "priority", "follow_up_at"),
+        Index("idx_intervention_case_assignee", "assignee_user_id", "status"),
+        Index("idx_intervention_case_scope", "scope_type", "section_id", "class_code"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="RESTRICT"), nullable=False)
+    scope_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    scope_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    section_id: Mapped[int | None] = mapped_column(ForeignKey("sections.id", ondelete="SET NULL"))
+    class_code: Mapped[str | None] = mapped_column(String(30))
+    source: Mapped[str] = mapped_column(String(50), default="manual", nullable=False)
+    priority: Mapped[str] = mapped_column(String(20), default="medium", nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="new", nullable=False)
+    active_key: Mapped[str | None] = mapped_column(String(10), default="active")
+    assignee_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_by_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    follow_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolution: Mapped[str | None] = mapped_column(Text)
+    signal_snapshot: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+    student = relationship("Student")
+    section = relationship("Section")
+    assignee = relationship("User", foreign_keys=[assignee_user_id])
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
+    events = relationship("InterventionCaseEvent", back_populates="case", cascade="all, delete-orphan")
+
+
+class InterventionCaseEvent(Base):
+    """Append-only audit timeline for an intervention case."""
+
+    __tablename__ = "intervention_case_events"
+    __table_args__ = (Index("idx_intervention_case_event_case", "case_id", "created_at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("intervention_cases.id", ondelete="CASCADE"), nullable=False)
+    actor_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    payload_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    case = relationship("InterventionCase", back_populates="events")
+    actor = relationship("User")
 
 
 class InterventionCampaign(TimestampMixin, Base):

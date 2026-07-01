@@ -34,6 +34,7 @@ import {
   api,
   type ApiInterventionCampaign,
   type ApiInterventionScopeSummary,
+  type ApiInterventionWorkspace,
   type ApiSection,
   type ApiSemester,
 } from "@/lib/api"
@@ -106,6 +107,7 @@ export function SectionAnalyticsDetail({ sectionId }: { sectionId: number }) {
   const [campaign, setCampaign] = React.useState<ApiInterventionCampaign | null>(null)
   const [bulkLoading, setBulkLoading] = React.useState(false)
   const [campaignResult, setCampaignResult] = React.useState<ApiInterventionCampaign | null>(null)
+  const [workspace, setWorkspace] = React.useState<ApiInterventionWorkspace | null>(null)
 
   React.useEffect(() => {
     let active = true
@@ -117,9 +119,11 @@ export function SectionAnalyticsDetail({ sectionId }: { sectionId: number }) {
       api.getSections({ limit: 5000 }),
       api.getSemesters(),
       api.getStudents({ limit: 5000 }),
+      api.getSectionInterventionWorkspace(sectionId).catch(() => null),
     ])
-      .then(([courses, enrollments, sections, semesters, students]) => {
+      .then(([courses, enrollments, sections, semesters, students, interventionWorkspace]) => {
         if (active) setRaw({ courses, enrollments, sections, semesters, students })
+        if (active) setWorkspace(interventionWorkspace)
       })
       .catch((err: unknown) => {
         if (active) setError(err instanceof Error ? err.message : "Không tải được phân tích lớp học phần.")
@@ -201,7 +205,20 @@ export function SectionAnalyticsDetail({ sectionId }: { sectionId: number }) {
       watchRate > 20 ? "Sát ngưỡng > 20%" : null,
     ].filter((item): item is string => Boolean(item))
 
-    const riskStudents: { id: number; code: string; name: string; grade: number | null; gpa: number | null; failed: number; level: RiskLevel }[] = []
+    const workspaceStudents = new Map((workspace?.students ?? []).map((student) => [student.student_id, student]))
+    const riskStudents: {
+      id: number
+      code: string
+      name: string
+      grade: number | null
+      gpa: number | null
+      failed: number
+      level: RiskLevel
+      courseFailProbability: number | null
+      supportReasons: string[]
+      lastContactedAt: string | null
+      openCaseStatus: string | null
+    }[] = []
     for (const enrollment of secEnrolls) {
       const student = maps.studentMap.get(enrollment.student_id)
       if (!student) continue
@@ -210,6 +227,7 @@ export function SectionAnalyticsDetail({ sectionId }: { sectionId: number }) {
       else if (enrollment.final_grade !== null && enrollment.final_grade >= 4 && enrollment.final_grade < 5) level = "nearFail"
       else if (enrollment.final_grade !== null && enrollment.final_grade >= 5 && enrollment.final_grade < 5.5) level = "risk"
       if (level) {
+        const support = workspaceStudents.get(student.id)
         riskStudents.push({
           id: student.id,
           code: student.student_code,
@@ -218,8 +236,31 @@ export function SectionAnalyticsDetail({ sectionId }: { sectionId: number }) {
           gpa: student.gpa_cumulative,
           failed: 0,
           level,
+          courseFailProbability: support?.course_fail_probability ?? null,
+          supportReasons: support?.reasons?.slice(0, 2) ?? [],
+          lastContactedAt: support?.last_contacted_at ?? null,
+          openCaseStatus: support?.open_case?.status ?? null,
         })
       }
+    }
+    for (const support of workspace?.students ?? []) {
+      if (riskStudents.some((student) => student.id === support.student_id)) continue
+      if (!["high", "watch"].includes(support.risk_level)) continue
+      const student = maps.studentMap.get(support.student_id)
+      if (!student) continue
+      riskStudents.push({
+        id: student.id,
+        code: student.student_code,
+        name: student.full_name,
+        grade: null,
+        gpa: student.gpa_cumulative,
+        failed: 0,
+        level: support.risk_level === "high" ? "nearFail" : "risk",
+        courseFailProbability: support.course_fail_probability ?? null,
+        supportReasons: support.reasons?.slice(0, 2) ?? [],
+        lastContactedAt: support.last_contacted_at ?? null,
+        openCaseStatus: support.open_case?.status ?? null,
+      })
     }
     const order: Record<RiskLevel, number> = { fail: 0, nearFail: 1, risk: 2 }
     riskStudents.sort((a, b) => order[a.level] - order[b.level] || (a.grade ?? 99) - (b.grade ?? 99))
@@ -261,7 +302,7 @@ export function SectionAnalyticsDetail({ sectionId }: { sectionId: number }) {
       riskStudents,
       studentRiskMap,
     }
-  }, [raw, maps, selectedSection, selectedSemester])
+  }, [raw, maps, selectedSection, selectedSemester, workspace])
 
   const campaignStudentIds = React.useMemo(() => {
     const priorityIds = agentSummary?.priority_students.map((student) => student.student_id) ?? []
@@ -652,9 +693,28 @@ export function SectionAnalyticsDetail({ sectionId }: { sectionId: number }) {
                 <tbody className="divide-y">
                   {sectionStats.riskStudents.map((student) => (
                     <tr key={student.id}>
-                      <td className="px-4 py-2"><p className="font-medium">{student.name}</p><p className="font-mono text-[10px] text-muted-foreground">{student.code}</p></td>
-                      <td className="px-3 py-2 text-right tabular-nums">{student.grade === null ? "-" : student.grade.toFixed(1)}</td>
-                      <td className="px-4 py-2 text-right"><Badge variant={student.level === "fail" ? "destructive" : "outline"} className="text-[10px]">{LEVEL_LABEL[student.level]}</Badge></td>
+                      <td className="px-4 py-2">
+                        <p className="font-medium">{student.name}</p>
+                        <p className="font-mono text-[10px] text-muted-foreground">{student.code}</p>
+                        {student.supportReasons.length ? (
+                          <div className="mt-1 flex max-w-[240px] flex-wrap gap-1">
+                            {student.supportReasons.slice(0, 2).map((reason) => (
+                              <Badge key={reason} variant="outline" className="text-[10px]">{reason}</Badge>
+                            ))}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        <p>{student.grade === null ? "-" : student.grade.toFixed(1)}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          risk {student.courseFailProbability === null ? "N/A" : `${Math.round(student.courseFailProbability * 100)}%`}
+                        </p>
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <Badge variant={student.level === "fail" ? "destructive" : "outline"} className="text-[10px]">{LEVEL_LABEL[student.level]}</Badge>
+                        <p className="mt-1 text-[10px] text-muted-foreground">{student.lastContactedAt ? new Date(student.lastContactedAt).toLocaleDateString("vi-VN") : "Chưa liên hệ"}</p>
+                        {student.openCaseStatus ? <p className="text-[10px] text-primary">case {student.openCaseStatus}</p> : null}
+                      </td>
                     </tr>
                   ))}
                   {!sectionStats.riskStudents.length ? <tr><td colSpan={3} className="py-10 text-center text-muted-foreground">Không có sinh viên cần hỗ trợ.</td></tr> : null}

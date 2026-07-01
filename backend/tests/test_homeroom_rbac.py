@@ -3,6 +3,7 @@
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.access_control import can_access_student
 from app.api.v1.endpoints.homeroom import _academic_risk
 from app.dependencies import create_access_token, hash_password
 from app.models.academic import Department, Program, University
@@ -108,6 +109,14 @@ async def test_lecturer_cannot_open_student_outside_homeroom(
     response = await client.get(f"/api/v1/homeroom/students/{data['other_student'].id}/analytics")
 
     assert response.status_code == 404
+
+
+async def test_lecturer_student_scope_includes_assigned_homeroom(db_session: AsyncSession) -> None:
+    data = await _seed_homeroom_data(db_session)
+    lecturer = data["lecturer"]
+
+    assert await can_access_student(db_session, lecturer, data["own_student"].id)
+    assert not await can_access_student(db_session, lecturer, data["other_student"].id)
 
 
 def test_academic_risk_prioritizes_status_and_keeps_stable_students_normal() -> None:

@@ -977,6 +977,163 @@ export interface ApiAtRiskStudent {
   recommended_actions: string[]
   last_contacted_at: string | null
   contact_count: number
+  course_fail_probability?: number | null
+  course_predicted_status?: "likely_fail" | "at_risk" | "likely_pass" | string | null
+  signals?: ApiRiskSignal[]
+  data_confidence?: ApiDataConfidence
+  credit_progress_prediction?: ApiCreditProgressPrediction | null
+  case_summary?: ApiCaseSummary
+  open_case?: ApiInterventionCaseRef | null
+}
+
+export interface ApiRiskSignal {
+  type: "academic_rule" | "dropout_ml" | "course_failure_rule" | "credit_progress_ml" | string
+  level: "high" | "watch" | "normal" | string
+  label: string
+  reason: string
+  probability: number | null
+  model_name?: string | null
+  model_version?: string | null
+  model_type?: string | null
+  source?: string | null
+  availability?: "ready" | "insufficient_data" | string | null
+  component_weight_coverage?: number | null
+  scored_at?: string | null
+  top_factors?: unknown[]
+  count?: number
+}
+
+export interface ApiDataConfidence {
+  level: "high" | "medium" | "low" | string
+  prediction_coverage?: number
+  ml_coverage?: number
+  dropout_coverage?: number
+  course_risk_coverage?: number
+  is_stale?: boolean
+  latest_scored_at?: string | null
+  warning?: string
+  message?: string
+}
+
+export interface ApiCreditProgressPrediction {
+  semester_id: number
+  semester_code: string
+  registered_credits: number
+  expected_passed_credits: number
+  expected_failed_credits: number
+  high_risk_failed_credits: number
+  risk_level: "high" | "medium" | "low" | string
+  scored_at: string
+  model_name: string
+  model_version: string
+}
+
+export interface ApiCaseSummary {
+  total?: number
+  open: number
+  new?: number
+  monitoring?: number
+  resolved?: number
+  overdue?: number
+}
+
+export interface ApiInterventionCaseRef {
+  id: number
+  student_id: number
+  status: string
+  priority: string
+  assignee_user_id: string | null
+  follow_up_at: string | null
+}
+
+export interface ApiSectionInterventionWorklistRow {
+  id: number
+  section_code: string
+  course_id: number
+  semester_id: number
+  course_code: string
+  course_name: string
+  department_id: number | null
+  semester_code: string
+  semester_name: string
+  teacher_name: string | null
+  student_count: number
+  graded_count: number
+  failed_count: number
+  pass_rate: number | null
+  avg_grade: number | null
+  support_priority: "high" | "watch" | "normal"
+  high_students: number
+  watch_students: number
+  students_with_signals: number
+  signals: ApiRiskSignal[]
+  case_summary: ApiCaseSummary
+  data_confidence: ApiDataConfidence
+}
+
+export interface ApiSectionInterventionWorklist {
+  summary: {
+    total_sections: number
+    needs_action: number
+    students_with_signals: number
+    open_cases: number
+  }
+  sections: ApiSectionInterventionWorklistRow[]
+}
+
+export interface ApiInterventionWorkspace {
+  scope: Record<string, unknown>
+  summary: ApiInterventionScopeSummary["summary"]
+  students: ApiAtRiskStudent[]
+  cases?: ApiInterventionCaseRef[]
+  case_summary?: ApiCaseSummary
+  data_confidence?: ApiDataConfidence
+  next_action?: string
+  support?: {
+    scope_type: "section" | "homeroom" | string
+    section_id?: number | null
+    class_code?: string | null
+    history?: ApiInterventionContact[]
+    campaigns?: unknown
+    workflow_actions?: Record<string, unknown>
+  }
+}
+
+export interface ApiStudentSupportProfile {
+  profile: Record<string, unknown>
+  scope: { section_id?: number | null; class_code?: string | null }
+  risk: {
+    risk_level: "high" | "watch" | "normal" | string
+    risk_score: number
+    reasons: string[]
+    recommended_actions: string[]
+  }
+  signals: {
+    fail_count: number
+    near_fail_count: number
+    dropout_prediction?: Record<string, unknown> | null
+    credit_progress_prediction?: ApiCreditProgressPrediction | null
+    course_predictions: Array<{
+      enrollment_id: number
+      section_id: number
+      section_code: string
+      course_id: number
+      course_code: string
+      course_name: string
+      credits: number
+      fail_probability: number | null
+      predicted_status: string | null
+      explanation?: { reasons?: string[]; component_weight_coverage?: number | null; model_type?: string; availability?: string }
+      scored_at: string | null
+      model_type?: string | null
+      source?: string | null
+    }>
+  }
+  contact_history: ApiInterventionContact[]
+  case_summary?: ApiCaseSummary
+  cases?: ApiInterventionCaseRef[]
+  data_confidence?: ApiDataConfidence
+  next_actions: string[]
 }
 
 export interface ApiInterventionScopeSummary {
@@ -1258,6 +1415,10 @@ export function getCurrentUserCached() {
   const cachedUser = getCachedCurrentUser()
   if (cachedUser) return Promise.resolve(cachedUser)
 
+  return getCurrentUserFresh()
+}
+
+export function getCurrentUserFresh() {
   if (!meInFlight) {
     const requestedToken = getAccessToken()
     meInFlight = fetcher<ApiUser>("/api/v1/auth/me")
@@ -1308,6 +1469,7 @@ export const api = {
     return result
   },
   me: getCurrentUserCached,
+  meFresh: getCurrentUserFresh,
   getUsers: (params?: { limit?: number; skip?: number }) =>
     fetcher<ApiUser[]>(`/api/v1/auth/users${qs({ limit: params?.limit, skip: params?.skip })}`),
   createUser: (body: {
@@ -1506,16 +1668,38 @@ export const api = {
     fetcher<{ scope: Record<string, unknown>; summary: ApiInterventionScopeSummary["summary"]; students: ApiAtRiskStudent[] }>(
       `/api/v1/interventions/sections/${sectionId}/at-risk-students`,
     ),
+  getSectionInterventionWorklist: (params?: {
+    semester_code?: string
+    department_id?: number
+    program_id?: number
+    course_id?: number
+    limit?: number
+  }) => fetcher<ApiSectionInterventionWorklist>(`/api/v1/interventions/sections/worklist${qs(params ?? {})}`),
+  getSectionInterventionWorkspace: (sectionId: number) =>
+    fetcher<ApiInterventionWorkspace>(`/api/v1/interventions/sections/${sectionId}/workspace`),
   getHomeroomAtRiskStudents: (classCode: string) =>
     fetcher<{ scope: Record<string, unknown>; summary: ApiInterventionScopeSummary["summary"]; students: ApiAtRiskStudent[] }>(
       `/api/v1/interventions/homeroom/${encodeURIComponent(classCode)}/at-risk-students`,
     ),
+  getHomeroomInterventionWorkspace: (classCode: string) =>
+    fetcher<ApiInterventionWorkspace>(`/api/v1/interventions/homeroom/${encodeURIComponent(classCode)}/workspace`),
+  getStudentSupportProfile: async (studentId: number, params?: { section_id?: number; class_code?: string }) => {
+    try {
+      return await fetcher<ApiStudentSupportProfile>(
+        `/api/v1/interventions/students/${studentId}/support-profile${qs(params ?? {})}`,
+      )
+    } catch (err) {
+      if (isApiError(err, 403) || isApiError(err, 404)) return null
+      throw err
+    }
+  },
   getInterventionHistory: (studentId: number, params?: { section_id?: number; class_code?: string }) =>
     fetcher<ApiInterventionContact[]>(`/api/v1/interventions/students/${studentId}/history${qs(params ?? {})}`),
   createInterventionContact: (body: {
     student_id: number
     section_id?: number | null
     class_code?: string | null
+    case_id?: number | null
     channel: "email" | "phone" | "meeting" | "in_person" | "other"
     status: "drafted" | "logged" | "emailed" | "failed"
     subject?: string | null

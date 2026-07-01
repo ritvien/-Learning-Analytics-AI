@@ -13,7 +13,6 @@ from app.access_control import (
     can_access_program,
     can_access_section,
     can_access_student,
-    get_teacher_for_user,
     user_department_ids,
 )
 from app.analytics.etl import refresh_dwh
@@ -25,12 +24,13 @@ from app.analytics.health_score import (
 )
 from app.config import get_settings
 from app.dependencies import CurrentUser, DBSession, require_admin_access
+from app.ml.course_risk import score_course_failure_predictions
 from app.ml.dropout import predict_dropout_risk_for_student, score_dropout_predictions, train_dropout_model
 from app.ml.dropout.score import DropoutModelNotFoundError, DropoutStudentNotFoundError
 from app.ml.dropout.types import DropoutRiskResult
 from app.ml.scoring import aggregate_student_semester_predictions
 from app.models.people import Student
-from app.models.teaching import Enrollment, Section
+from app.models.teaching import Enrollment
 
 router = APIRouter()
 
@@ -1566,15 +1566,8 @@ async def analytics_dashboard_courses(
     date_to: str | None = None,
 ) -> dict:
     """Return DWH-backed aggregate metrics for course analytics."""
-    section_ids = None
     if _is_lecturer_role(current_user):
         department_id = await _scoped_department_filter(db, current_user, department_id)
-        teacher = await get_teacher_for_user(db, current_user)
-        section_ids = (
-            set((await db.execute(select(Section.id).where(Section.teacher_id == teacher.id))).scalars().all())
-            if teacher is not None
-            else set()
-        )
     elif current_user.role.value == "manager":
         department_id = await _scoped_department_filter(db, current_user, department_id)
     elif not _is_dashboard_role(current_user):
@@ -1592,7 +1585,6 @@ async def analytics_dashboard_courses(
         program_id=program_id,
         date_from=date_from,
         date_to=date_to,
-        section_ids=section_ids,
     )
     return _dashboard_cache_set(cache_key, payload)
 
@@ -1612,21 +1604,8 @@ async def analytics_dashboard_course_detail(
     if not (_is_dashboard_role(current_user) or _is_lecturer_role(current_user)):
         _require_dashboard_role(current_user)
     await _require_course_scope(db, current_user, course_id)
-    section_ids = None
     if _is_lecturer_role(current_user):
         department_id = await _scoped_department_filter(db, current_user, department_id)
-        teacher = await get_teacher_for_user(db, current_user)
-        section_ids = (
-            set(
-                (
-                    await db.execute(
-                        select(Section.id).where(Section.teacher_id == teacher.id, Section.course_id == course_id)
-                    )
-                ).scalars().all()
-            )
-            if teacher is not None
-            else set()
-        )
     elif current_user.role.value == "manager":
         department_id = await _scoped_department_filter(db, current_user, department_id)
     if program_id is not None:
@@ -1652,7 +1631,6 @@ async def analytics_dashboard_course_detail(
         program_id=program_id,
         date_from=date_from,
         date_to=date_to,
-        section_ids=section_ids,
     )
     return _dashboard_cache_set(cache_key, payload)
 
@@ -1724,6 +1702,15 @@ async def trigger_ml_score(model_run_id: int) -> dict[str, int | str]:
     """Batch-score all enrollments for a completed model run and aggregate per student-semester."""
     rows = await aggregate_student_semester_predictions(model_run_id)
     return {"status": "completed", "rows_upserted": rows}
+
+
+@router.post("/admin/ml/score-course-risk", dependencies=[Depends(require_admin_access)])
+async def trigger_course_risk_score() -> dict[str, int | str]:
+    """Score course-failure risk for enrollments and aggregate expected credits."""
+    try:
+        return await score_course_failure_predictions(aggregate=True)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
 
 @router.post("/admin/ml/aggregate/{model_run_id}", dependencies=[Depends(require_admin_access)])

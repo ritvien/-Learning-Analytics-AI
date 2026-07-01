@@ -556,6 +556,12 @@ export default function CourseAnalyticsPage() {
               <p className="text-xs text-muted-foreground">So sánh từng lớp với trung bình môn trong cùng kỳ; lớp lệch âm lớn cần mở sang can thiệp.</p>
             </CardHeader>
             <CardContent>
+              <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                <Badge variant="outline">Lớp cần rà soát</Badge>
+                <Badge variant="outline">Pass-rate difference</Badge>
+                <Badge variant="outline">CLO/course health</Badge>
+                <span className="text-muted-foreground">Không kết luận lỗi cá nhân; dùng để drill-down tới section.</span>
+              </div>
               {courseStats.abnormalSections.length ? (
                 <ResponsiveContainer width="100%" height={Math.max(220, courseStats.abnormalSections.length * 34)}>
                   <BarChart data={courseStats.abnormalSections} layout="vertical" margin={{ left: 8, right: 32, top: 8, bottom: 8 }}>

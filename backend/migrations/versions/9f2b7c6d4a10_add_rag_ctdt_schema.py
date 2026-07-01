@@ -1,16 +1,16 @@
 """add rag ctdt schema with pgvector
 
-Revision ID: c5d6e7f8a9b0
-Revises: b4c5d6e7f8a9
-Create Date: 2026-06-30
+Revision ID: 9f2b7c6d4a10
+Revises: f3a4b5c6d7e8
+Create Date: 2026-07-01
 """
 
 from collections.abc import Sequence
 
 from alembic import op
 
-revision: str = "c5d6e7f8a9b0"
-down_revision: str | Sequence[str] | None = "b4c5d6e7f8a9"
+revision: str = "9f2b7c6d4a10"
+down_revision: str | Sequence[str] | None = "f3a4b5c6d7e8"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
