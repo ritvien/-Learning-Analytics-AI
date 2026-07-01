@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from functools import lru_cache
+from collections import OrderedDict
 from typing import Any
 
 from pydantic import BaseModel
@@ -14,6 +14,9 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
+_RAG_ENGINE_CACHE_SIZE = 4
+_RAG_ENGINES: OrderedDict[str, AsyncEngine] = OrderedDict()
+_RAG_ENGINE_LOCK = asyncio.Lock()
 
 
 class CtdtRetrievalHit(BaseModel):
@@ -69,13 +72,24 @@ def _async_postgres_url(url: str) -> str:
     return url
 
 
-@lru_cache(maxsize=4)
-def _rag_engine(url: str) -> AsyncEngine:
-    return create_async_engine(
-        _async_postgres_url(url),
-        pool_pre_ping=True,
-        pool_recycle=3600,
-    )
+async def _rag_engine(url: str) -> AsyncEngine:
+    evicted: AsyncEngine | None = None
+    async with _RAG_ENGINE_LOCK:
+        engine = _RAG_ENGINES.get(url)
+        if engine is not None:
+            _RAG_ENGINES.move_to_end(url)
+            return engine
+        engine = create_async_engine(
+            _async_postgres_url(url),
+            pool_pre_ping=True,
+            pool_recycle=3600,
+        )
+        _RAG_ENGINES[url] = engine
+        if len(_RAG_ENGINES) > _RAG_ENGINE_CACHE_SIZE:
+            _, evicted = _RAG_ENGINES.popitem(last=False)
+    if evicted is not None:
+        await evicted.dispose()
+    return engine
 
 
 async def search_ctdt_chunks(
@@ -110,7 +124,7 @@ async def search_ctdt_chunks(
         LIMIT :top_k
     """
 
-    async with _rag_engine(url).connect() as conn:
+    async with (await _rag_engine(url)).connect() as conn:
         result = await conn.execute(
             text(sql),
             {"vec_literal": vec_literal, "program_name": program_name, "top_k": top_k},

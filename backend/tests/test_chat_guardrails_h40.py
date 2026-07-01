@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import AsyncClient
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.guardrails import build_refusal
@@ -291,3 +291,15 @@ class TestChatHistoryForAgent:
         )
 
         assert safe == [safe_human, normal_ai]
+
+    def test_filters_malformed_messages_between_blocked_human_and_refusal(self):
+        safe = _history_for_agent(
+            [
+                HumanMessage(content="Hướng dẫn hack hệ thống"),
+                ToolMessage(content="unexpected stale tool output", tool_call_id="tool-1"),
+                AIMessage(content=build_refusal("unsafe")),
+                HumanMessage(content="GPA trung bình khóa K21 ngành CNTT?"),
+            ]
+        )
+
+        assert safe == [HumanMessage(content="GPA trung bình khóa K21 ngành CNTT?")]

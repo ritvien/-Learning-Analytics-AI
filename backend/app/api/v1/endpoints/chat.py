@@ -204,17 +204,20 @@ def _history_for_agent(messages: list[Any]) -> list[Any]:
     context for later safe questions.
     """
     safe_messages: list[Any] = []
-    blocked_turn_pending = False
+    skip_block_refusal = False
     for message in messages:
         if isinstance(message, HumanMessage) and _guardrail_refusal(str(message.content)):
-            blocked_turn_pending = True
+            skip_block_refusal = True
             continue
         if isinstance(message, AIMessage) and (
-            blocked_turn_pending or _is_guardrail_refusal_text(message.content)
+            skip_block_refusal or _is_guardrail_refusal_text(message.content)
         ):
-            blocked_turn_pending = False
+            skip_block_refusal = False
             continue
-        blocked_turn_pending = False
+        if skip_block_refusal and not isinstance(message, HumanMessage):
+            continue
+        if isinstance(message, HumanMessage):
+            skip_block_refusal = False
         safe_messages.append(message)
     return safe_messages
 
