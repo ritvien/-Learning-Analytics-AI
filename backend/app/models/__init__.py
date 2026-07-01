@@ -20,6 +20,8 @@ from app.models.assessment import (
 from app.models.chat import ChatSession
 from app.models.intervention import (
     InterventionCampaign,
+    InterventionCase,
+    InterventionCaseEvent,
     InterventionMessage,
     InterventionMessageEvent,
     StudentInterventionContact,
@@ -44,6 +46,8 @@ __all__ = [
     "GradeComponentCLOMapping",
     "GradeComponentType",
     "InterventionCampaign",
+    "InterventionCase",
+    "InterventionCaseEvent",
     "InterventionMessage",
     "InterventionMessageEvent",
     "Program",

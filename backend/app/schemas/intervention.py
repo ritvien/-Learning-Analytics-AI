@@ -10,6 +10,8 @@ from app.schemas.common import OrmBase
 InterventionChannel = Literal["email", "phone", "meeting", "in_person", "other"]
 InterventionStatus = Literal["drafted", "logged", "emailed", "failed"]
 InterventionScopeType = Literal["student", "section", "homeroom"]
+InterventionCaseStatus = Literal["new", "assigned", "contacting", "monitoring", "resolved", "closed"]
+InterventionPriority = Literal["low", "medium", "high", "critical"]
 CampaignStatus = Literal["draft", "reviewing", "approved", "sending", "completed", "cancelled"]
 CampaignObjective = Literal["early_support", "course_recovery", "advisor_checkin"]
 MessageStatus = Literal["drafted", "approved", "queued", "sent", "failed", "cancelled"]
@@ -19,6 +21,7 @@ class InterventionContactCreate(BaseModel):
     """Payload for logging or drafting a student support contact."""
 
     student_id: int
+    case_id: int | None = None
     section_id: int | None = None
     class_code: str | None = Field(default=None, max_length=30)
     channel: InterventionChannel = "email"
@@ -33,6 +36,7 @@ class InterventionContactResponse(OrmBase):
     """One support-contact history item."""
 
     id: int
+    case_id: int | None
     actor_user_id: str
     actor_name: str | None = None
     student_id: int
@@ -46,6 +50,34 @@ class InterventionContactResponse(OrmBase):
     metadata_json: dict
     created_at: datetime
     updated_at: datetime
+
+
+class InterventionCaseCreate(BaseModel):
+    student_id: int
+    scope_type: Literal["section", "homeroom"]
+    section_id: int | None = None
+    class_code: str | None = Field(default=None, max_length=30)
+    source: str = Field(default="manual", max_length=50)
+    priority: InterventionPriority = "medium"
+    assignee_user_id: str | None = None
+    follow_up_at: datetime | None = None
+    signal_snapshot: dict = Field(default_factory=dict)
+
+
+class InterventionCaseUpdate(BaseModel):
+    status: InterventionCaseStatus | None = None
+    priority: InterventionPriority | None = None
+    follow_up_at: datetime | None = None
+    resolution: str | None = None
+
+
+class InterventionCaseAssign(BaseModel):
+    assignee_user_id: str
+
+
+class InterventionCaseEventCreate(BaseModel):
+    event_type: Literal["note", "reply", "meeting", "escalation", "follow_up"]
+    payload: dict = Field(default_factory=dict)
 
 
 class InterventionDraftRequest(BaseModel):

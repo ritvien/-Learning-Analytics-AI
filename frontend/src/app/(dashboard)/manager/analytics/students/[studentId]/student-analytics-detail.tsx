@@ -38,7 +38,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { api, type ApiHomeroomStudentAnalytics, type ApiInterventionContact } from "@/lib/api"
+import { api, type ApiHomeroomStudentAnalytics, type ApiInterventionContact, type ApiStudentSupportProfile } from "@/lib/api"
 
 function riskPresentation(level: ApiHomeroomStudentAnalytics["risk"]["level"]) {
   if (level === "high") return { label: "Cần ưu tiên", className: "border-red-200 bg-red-50 text-red-700", icon: AlertTriangle }
@@ -85,6 +85,17 @@ function statusLabel(value: string) {
   return labels[value] ?? value
 }
 
+function toNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+function formatFixed(value: unknown, digits = 1) {
+  const numeric = toNumber(value)
+  return numeric === null ? "—" : numeric.toFixed(digits)
+}
+
 export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
   const [data, setData] = React.useState<ApiHomeroomStudentAnalytics | null>(null)
   const [loading, setLoading] = React.useState(true)
@@ -101,6 +112,7 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
   const [supportMessage, setSupportMessage] = React.useState("")
   const [supportNote, setSupportNote] = React.useState("")
   const [supportBusy, setSupportBusy] = React.useState(false)
+  const [supportProfile, setSupportProfile] = React.useState<ApiStudentSupportProfile | null>(null)
 
   React.useEffect(() => {
     let active = true
@@ -133,6 +145,21 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
       })
       .finally(() => {
         if (active) setHistoryLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [data?.profile.class_code, studentId])
+
+  React.useEffect(() => {
+    if (!data?.profile.class_code) return
+    let active = true
+    api.getStudentSupportProfile(studentId, { class_code: data.profile.class_code })
+      .then((profile) => {
+        if (active) setSupportProfile(profile)
+      })
+      .catch(() => {
+        if (active) setSupportProfile(null)
       })
     return () => {
       active = false
@@ -232,6 +259,15 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
     && previousTrend?.gpa_semester !== null && previousTrend?.gpa_semester !== undefined
     ? latestTrend.gpa_semester - previousTrend.gpa_semester
     : null
+  const creditPrediction = supportProfile?.signals.credit_progress_prediction ?? null
+  const courseRiskItems = (supportProfile?.signals.course_predictions ?? [])
+    .filter((item) => item.fail_probability !== null)
+    .sort((a, b) => (toNumber(b.fail_probability) ?? 0) - (toNumber(a.fail_probability) ?? 0))
+    .slice(0, 3)
+  const weakCompetencies = [...data.competencies]
+    .filter((competency) => (competency.score ?? 10) < 7)
+    .sort((a, b) => (a.score ?? 10) - (b.score ?? 10))
+    .slice(0, 3)
 
   return (
     <div className="flex flex-col gap-6">
@@ -276,6 +312,85 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <Card className="border-amber-200/70">
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <CardTitle className="text-base">Tín chỉ có nguy cơ kỳ này</CardTitle>
+                <CardDescription>Ước tính từ các tín hiệu học tập hiện có; chưa kết luận chậm tốt nghiệp.</CardDescription>
+              </div>
+              <Badge variant="outline">{creditPrediction ? creditPrediction.risk_level : "Chưa đủ dữ liệu"}</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-2 text-center text-sm">
+              <div className="rounded-lg bg-muted/40 p-3">
+                <p className="text-xs text-muted-foreground">Đăng ký</p>
+                <p className="mt-1 text-xl font-bold tabular-nums">{creditPrediction ? formatFixed(creditPrediction.registered_credits) : "—"}</p>
+              </div>
+              <div className="rounded-lg bg-muted/40 p-3">
+                <p className="text-xs text-muted-foreground">Dự kiến đạt</p>
+                <p className="mt-1 text-xl font-bold tabular-nums text-emerald-600">{creditPrediction ? formatFixed(creditPrediction.expected_passed_credits) : "—"}</p>
+              </div>
+              <div className="rounded-lg bg-muted/40 p-3">
+                <p className="text-xs text-muted-foreground">Có nguy cơ</p>
+                <p className="mt-1 text-xl font-bold tabular-nums text-orange-600">{creditPrediction ? formatFixed(creditPrediction.expected_failed_credits) : "—"}</p>
+              </div>
+            </div>
+            {courseRiskItems.length ? (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Học phần kéo rủi ro lên</p>
+                {courseRiskItems.map((item) => (
+                  <div key={item.enrollment_id} className="flex items-start justify-between gap-3 rounded-md border p-2 text-sm">
+                    <div>
+                      <p className="font-medium">{item.course_code} · {item.course_name}</p>
+                      <p className="text-xs text-muted-foreground">{item.explanation?.reasons?.slice(0, 2).join("; ") || "Tín hiệu course-risk theo quy tắc"}</p>
+                    </div>
+                    <Badge variant={(toNumber(item.fail_probability) ?? 0) >= 0.6 ? "destructive" : "outline"}>
+                      {Math.round((toNumber(item.fail_probability) ?? 0) * 100)}%
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-md bg-muted/30 p-3 text-sm text-muted-foreground">Chưa có học phần đang học đủ điểm thành phần để ước tính course-risk.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <CardTitle className="text-base">Năng lực cần chú ý</CardTitle>
+                <CardDescription>CLO/PLO giúp giải thích yếu ở đâu, không chỉ mức rủi ro tổng.</CardDescription>
+              </div>
+              <Badge variant="outline">Dữ liệu mô phỏng từ điểm</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {weakCompetencies.length ? weakCompetencies.map((competency) => (
+              <div key={competency.id} className="rounded-md border p-3">
+                <div className="flex items-start justify-between gap-3 text-sm">
+                  <div>
+                    <p className="font-semibold">{competency.code}</p>
+                    <p className="text-xs text-muted-foreground">{competency.name}</p>
+                  </div>
+                  <span className="font-semibold tabular-nums">{(competency.score ?? 0).toFixed(1)}/10</span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                  <div className={(competency.score ?? 0) >= 5 ? "h-full rounded-full bg-amber-500" : "h-full rounded-full bg-red-500"} style={{ width: `${Math.min(100, (competency.score ?? 0) * 10)}%` }} />
+                </div>
+                <p className="mt-1 text-[11px] text-muted-foreground">{competency.evidence_count} bằng chứng CLO · TB lớp {(competency.class_score ?? 0).toFixed(1)}</p>
+              </div>
+            )) : (
+              <p className="rounded-md bg-muted/30 p-3 text-sm text-muted-foreground">Chưa có CLO/PLO dưới ngưỡng hoặc chưa đủ dữ liệu mapping.</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">

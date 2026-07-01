@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.dependencies import (
     CurrentUser,
@@ -53,7 +53,10 @@ async def login(
     form_data: OAuthForm,
 ) -> TokenResponse:
     """Authenticate a user with email/password and return a bearer token."""
-    result = await db.execute(select(User).where(User.email == form_data.username, User.is_active == True))  # noqa: E712
+    normalized_email = form_data.username.strip().lower()
+    result = await db.execute(
+        select(User).where(func.lower(User.email) == normalized_email, User.is_active == True)  # noqa: E712
+    )
     user = result.scalar_one_or_none()
     if user is None or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(

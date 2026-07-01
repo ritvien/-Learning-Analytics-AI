@@ -18,6 +18,8 @@ from app.config import get_settings
 from app.dependencies import CurrentUser, DBSession
 from app.models.intervention import (
     InterventionCampaign,
+    InterventionCase,
+    InterventionCaseEvent,
     InterventionMessage,
     InterventionMessageEvent,
     StudentInterventionContact,
@@ -30,7 +32,13 @@ from app.schemas.intervention import (
     InterventionMessageUpdate,
 )
 
-from .interventions import _bulk_candidates, _bulk_message, _require_homeroom_scope, _scope_payload_for_bulk
+from .interventions import (
+    _bulk_candidates,
+    _bulk_message,
+    _require_homeroom_scope,
+    _scope_payload_for_bulk,
+    require_intervention_actor,
+)
 
 router = APIRouter()
 
@@ -169,6 +177,7 @@ async def create_intervention_campaign(
     current_user: CurrentUser,
 ) -> dict:
     """Create an empty learning-support campaign for a visible scope."""
+    require_intervention_actor(current_user)
     bulk_payload = InterventionBulkNotifyRequest(
         scope_type=payload.scope_type,
         scope_id=payload.scope_id,
@@ -277,6 +286,7 @@ async def generate_campaign_drafts(
     current_user: CurrentUser,
 ) -> dict:
     """Generate personalized message drafts for selected at-risk students."""
+    require_intervention_actor(current_user)
     campaign = await _get_campaign(db, current_user, campaign_id)
     if payload.replace_existing:
         for message in list(campaign.messages):
@@ -357,6 +367,7 @@ async def update_campaign_message(
     current_user: CurrentUser,
 ) -> dict:
     """Edit one campaign message before approval."""
+    require_intervention_actor(current_user)
     message = await db.get(InterventionMessage, message_id)
     if message is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
@@ -376,6 +387,7 @@ async def update_campaign_message(
 @router.post("/messages/{message_id}/approve")
 async def approve_campaign_message(message_id: int, db: DBSession, current_user: CurrentUser) -> dict:
     """Approve one message after lecturer review."""
+    require_intervention_actor(current_user)
     message = await db.get(InterventionMessage, message_id)
     if message is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
@@ -394,6 +406,7 @@ async def approve_campaign_message(message_id: int, db: DBSession, current_user:
 @router.post("/{campaign_id}/approve")
 async def approve_intervention_campaign(campaign_id: int, db: DBSession, current_user: CurrentUser) -> dict:
     """Approve all valid drafted messages in a campaign."""
+    require_intervention_actor(current_user)
     campaign = await _get_campaign(db, current_user, campaign_id)
     approved = 0
     for message in campaign.messages:
@@ -417,6 +430,7 @@ async def approve_intervention_campaign(campaign_id: int, db: DBSession, current
 @router.post("/{campaign_id}/send")
 async def send_intervention_campaign(campaign_id: int, db: DBSession, current_user: CurrentUser) -> dict:
     """Send approved campaign emails when SMTP is configured, and always keep an audit trail."""
+    require_intervention_actor(current_user)
     campaign = await _get_campaign(db, current_user, campaign_id)
     smtp_ready = _smtp_ready()
     delivery_mode = "smtp" if smtp_ready else "smtp_not_configured"
@@ -458,7 +472,17 @@ async def send_intervention_campaign(campaign_id: int, db: DBSession, current_us
         elif message.channel == "email":
             note = "Campaign đã được duyệt và lưu audit, nhưng chưa gửi email vì SMTP chưa được cấu hình."
             queued += 1
+        scope_key = f"section:{campaign.section_id}" if campaign.section_id is not None else f"homeroom:{campaign.class_code}"
+        active_case = await db.scalar(
+            select(InterventionCase).where(
+                InterventionCase.student_id == message.student_id,
+                InterventionCase.scope_key == scope_key,
+                InterventionCase.active_key == "active",
+                InterventionCase.assignee_user_id == current_user.id,
+            )
+        )
         contact = StudentInterventionContact(
+            case_id=active_case.id if active_case else None,
             actor_user_id=current_user.id,
             student_id=message.student_id,
             section_id=campaign.section_id,
@@ -477,6 +501,17 @@ async def send_intervention_campaign(campaign_id: int, db: DBSession, current_us
         )
         db.add(contact)
         await db.flush()
+        if active_case is not None:
+            if active_case.status in {"new", "assigned"}:
+                active_case.status = "contacting"
+            db.add(
+                InterventionCaseEvent(
+                    case_id=active_case.id,
+                    actor_user_id=current_user.id,
+                    event_type="contact",
+                    payload_json={"contact_id": contact.id, "campaign_id": campaign.id, "channel": message.channel},
+                )
+            )
         message.contact_id = contact.id
         message.status = next_status
         message.sent_at = sent_at

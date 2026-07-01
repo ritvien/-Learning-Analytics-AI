@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from fastapi import HTTPException, status
-from sqlalchemy import exists, or_, select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.academic import Course, Department, Program, Specialization
-from app.models.people import Student, Teacher, User, UserRole
+from app.models.people import HomeroomAssignment, Student, Teacher, User, UserRole
 from app.models.report import Report, ReportSchedule
 from app.models.teaching import Enrollment, Section
 
@@ -108,26 +108,13 @@ async def can_access_specialization(db: AsyncSession, user: User, specialization
 
 
 async def can_access_course(db: AsyncSession, user: User, course_id: int) -> bool:
-    """Return whether a user can access a Course through scope or teaching assignment."""
+    """Return whether a user can access a Course through department scope."""
     if is_admin(user):
         return True
-    teacher = await get_teacher_for_user(db, user)
-    if user.role == UserRole.lecturer:
-        if teacher is None:
-            return False
-        result = await db.execute(
-            select(exists().where(Section.course_id == course_id, Section.teacher_id == teacher.id))
-        )
-        return bool(result.scalar())
     department_ids = await user_department_ids(db, user)
-    conditions = []
-    if department_ids:
-        conditions.append(Course.department_id.in_(department_ids))
-    if teacher is not None:
-        conditions.append(exists().where(Section.course_id == Course.id, Section.teacher_id == teacher.id))
-    if not conditions:
+    if not department_ids:
         return False
-    query = select(exists().where(Course.id == course_id, or_(*conditions)))
+    query = select(exists().where(Course.id == course_id, Course.department_id.in_(department_ids)))
     result = await db.execute(query)
     return bool(result.scalar())
 
@@ -164,7 +151,7 @@ async def can_access_student(db: AsyncSession, user: User, student_id: int) -> b
     if user.role == UserRole.lecturer:
         if teacher is None:
             return False
-        result = await db.execute(
+        section_result = await db.execute(
             select(
                 exists()
                 .where(Enrollment.student_id == student_id)
@@ -172,7 +159,18 @@ async def can_access_student(db: AsyncSession, user: User, student_id: int) -> b
                 .where(Section.teacher_id == teacher.id)
             )
         )
-        return bool(result.scalar())
+        if bool(section_result.scalar()):
+            return True
+        homeroom_result = await db.execute(
+            select(
+                exists()
+                .where(Student.id == student_id)
+                .where(Student.class_code == HomeroomAssignment.class_code)
+                .where(HomeroomAssignment.teacher_id == teacher.id)
+                .where(HomeroomAssignment.is_active == True)  # noqa: E712
+            )
+        )
+        return bool(homeroom_result.scalar())
     department_ids = await user_department_ids(db, user)
     if not department_ids:
         return False

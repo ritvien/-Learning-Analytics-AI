@@ -68,11 +68,10 @@ async def seed_default_users() -> None:
                 users_by_email[email] = new_user
                 logger.info(f"Created default user: {email} with role {user_data['role'].value}")
             else:
-                # Update password just in case it was changed
-                user.hashed_password = hash_password(settings.seed_password)
+                # Startup seeding must never overwrite a password changed by an administrator.
                 user.role = user_data["role"]
                 users_by_email[email] = user
-                logger.info(f"Updated default user: {email}")
+                logger.info(f"Kept existing default user credentials: {email}")
 
         await _ensure_demo_lecturer_catalog(db, users_by_email)
         await _assign_demo_scopes(db, users_by_email)

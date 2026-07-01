@@ -34,7 +34,7 @@ function canAccessDashboardPath(pathname: string, role: ApiUser["role"]) {
   if (pathname.startsWith("/manager/analytics/programs")) return isManagementRole(role) || role === "lecturer"
   if (pathname.startsWith("/manager/analytics/courses")) return isManagementRole(role) || role === "lecturer"
   if (pathname.startsWith("/manager/analytics/sections")) return isManagementRole(role) || role === "lecturer"
-  if (pathname.startsWith("/manager/analytics/students")) return role === "lecturer"
+  if (pathname.startsWith("/manager/analytics/students")) return isManagementRole(role) || role === "lecturer"
   if (pathname.startsWith("/manager/analytics")) return isManagementRole(role)
   if (pathname.startsWith("/manager/students")) return isReadRole(role)
   if (pathname.startsWith("/manager/teachers")) return isManagementRole(role)
@@ -58,32 +58,40 @@ export default function DashboardLayout({
   const [isChecking, setIsChecking] = useState(true)
 
   useEffect(() => {
+    let isActive = true
+
     if (!getAccessToken()) {
       router.replace("/login")
-      return
+      return () => {
+        isActive = false
+      }
     }
 
     const cachedUser = getCachedCurrentUser()
     if (cachedUser) {
       setTimeout(() => {
+        if (!isActive) return
         setUser(cachedUser)
-        setIsChecking(false)
       }, 0)
-      return
     }
 
-    api.me()
+    api.meFresh()
       .then((freshUser) => {
+        if (!isActive) return
         setUser(freshUser)
-        setIsChecking(false)
       })
       .catch(() => {
+        if (!isActive) return
         clearAccessToken()
         router.replace("/login")
       })
       .finally(() => {
-        setIsChecking(false)
+        if (isActive) setIsChecking(false)
       })
+
+    return () => {
+      isActive = false
+    }
   }, [router])
 
   useEffect(() => {

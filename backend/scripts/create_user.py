@@ -1,7 +1,7 @@
 """Create or update an auth user from the command line.
 
 Usage example:
-python scripts/create_user.py --email admin@example.com --password password123 --name "Admin" --role admin
+python scripts/create_user.py --email admin@epu.edu.vn --password password123 --name "System Admin" --role admin
 """
 
 import argparse

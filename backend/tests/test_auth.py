@@ -23,6 +23,16 @@ async def test_login_returns_token_and_me(client: AsyncClient) -> None:
     assert me_response.json()["role"] == "admin"
 
 
+async def test_login_normalizes_email_case_and_whitespace(client: AsyncClient) -> None:
+    response = await client.post(
+        "/api/v1/auth/login",
+        data={"username": "  ADMIN@EXAMPLE.COM  ", "password": "password123"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["access_token"]
+
+
 async def test_lecturer_can_read_but_cannot_write(client: AsyncClient, db_session: AsyncSession) -> None:
     """Lecturer role is view-only for CRUD resources."""
     lecturer = User(

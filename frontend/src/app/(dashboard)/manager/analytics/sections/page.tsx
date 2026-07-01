@@ -40,6 +40,7 @@ import {
   type ApiInterventionCampaign,
   type ApiInterventionScopeSummary,
   type ApiSection,
+  type ApiSectionInterventionWorklist,
   type ApiSemester,
   type ApiProgram,
 } from "@/lib/api"
@@ -131,6 +132,7 @@ export default function SectionsRiskPage() {
   const [savingMessageId, setSavingMessageId] = React.useState<number | null>(null)
   const [mailPreviewOpen, setMailPreviewOpen] = React.useState(false)
   const [mailPreviewMode, setMailPreviewMode] = React.useState<MailPreviewMode>("agent")
+  const [interventionWorklist, setInterventionWorklist] = React.useState<ApiSectionInterventionWorklist | null>(null)
 
   const currentUser = React.useMemo(() => getCachedCurrentUser(), [])
   const isLecturer = currentUser?.role === "lecturer"
@@ -158,9 +160,11 @@ export default function SectionsRiskPage() {
       api.getSections({ limit: 5000 }),
       api.getSemesters(),
       api.getStudents({ limit: 5000 }),
+      api.getSectionInterventionWorklist({ limit: 2000 }).catch(() => null),
     ])
-      .then(([departments, courses, enrollments, programs, sections, semesters, students]) => {
+      .then(([departments, courses, enrollments, programs, sections, semesters, students, worklist]) => {
         setRaw({ departments, courses, enrollments, programs, sections, semesters, students })
+        setInterventionWorklist(worklist)
         const defaultDept = lockedDepartmentId ?? "all"
         setSelDept(defaultDept)
         setSelProg("all")
@@ -276,6 +280,7 @@ export default function SectionsRiskPage() {
     if (!raw || !maps) return []
     const { courseMap, semMap } = maps
     const filterSecIds = new Set(sectionsForFilter.map((section) => section.id))
+    const interventionMap = new Map((interventionWorklist?.sections ?? []).map((section) => [section.id, section]))
     const sectionEnrollments = new Map<number, typeof raw.enrollments>()
     for (const enrollment of raw.enrollments) {
       if (!filterSecIds.has(enrollment.section_id)) continue
@@ -297,6 +302,7 @@ export default function SectionsRiskPage() {
     }
 
     return sectionsForFilter.map((section) => {
+      const intervention = interventionMap.get(section.id)
       const enrollments = sectionEnrollments.get(section.id) ?? []
       const graded = enrollments.filter((enrollment) => enrollment.final_grade !== null)
       const valid = enrollments.filter((enrollment) => enrollment.is_passed !== null)
@@ -344,9 +350,18 @@ export default function SectionsRiskPage() {
         diff,
         risk,
         riskReasons,
+        supportPriority: intervention?.support_priority ?? "normal",
+        supportStudents: intervention?.students_with_signals ?? atRisk,
+        highSupportStudents: intervention?.high_students ?? 0,
+        watchSupportStudents: intervention?.watch_students ?? 0,
+        openCases: intervention?.case_summary.open ?? 0,
+        overdueCases: intervention?.case_summary.overdue ?? 0,
+        courseRiskCoverage: intervention?.data_confidence.course_risk_coverage ?? null,
+        predictionCoverage: intervention?.data_confidence.prediction_coverage ?? intervention?.data_confidence.ml_coverage ?? null,
+        interventionSignals: intervention?.signals ?? [],
       }
     })
-  }, [raw, maps, sectionsForFilter])
+  }, [raw, maps, sectionsForFilter, interventionWorklist])
 
   const visibleRows = React.useMemo(() => {
     const riskOrder: Record<SectionRiskLevel, number> = { high: 0, medium: 1, watch: 2, pending: 3, normal: 4 }
@@ -372,7 +387,7 @@ export default function SectionsRiskPage() {
     return {
       totalSections: sectionRows.length,
       riskySections: sectionRows.filter((row) => row.risk === "high" || row.risk === "medium").length,
-      totalAtRisk: sectionRows.reduce((sum, row) => sum + row.atRisk, 0),
+      totalAtRisk: sectionRows.reduce((sum, row) => sum + row.supportStudents, 0),
       pendingGrades: sectionRows.reduce((sum, row) => sum + row.pending, 0),
       overallPassRate: totalValid ? +(totalPassed / totalValid * 100).toFixed(1) : null,
       overallAvgGrade: totalGraded ? +(gradedRows.reduce((sum, row) => sum + (row.avgGrade ?? 0) * row.graded, 0) / totalGraded).toFixed(2) : null,
@@ -887,7 +902,12 @@ export default function SectionsRiskPage() {
                     <td className="px-3 py-2 text-right tabular-nums">{row.graded}/{row.total}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{row.avgGrade === null ? "-" : row.avgGrade.toFixed(2)}</td>
                     <td className="px-3 py-2 text-right">{row.passRate === null ? "-" : `${row.passRate}%`}</td>
-                    <td className={`px-3 py-2 text-right tabular-nums ${row.atRisk ? "font-semibold text-orange-600" : "text-muted-foreground"}`}>{row.atRisk}</td>
+                    <td className={`px-3 py-2 text-right tabular-nums ${row.supportStudents ? "font-semibold text-orange-600" : "text-muted-foreground"}`}>
+                      {row.supportStudents}
+                      <p className="text-[10px] font-normal text-muted-foreground">
+                        case {row.openCases} Â· risk {row.courseRiskCoverage === null ? "N/A" : `${Math.round(row.courseRiskCoverage * 100)}%`}
+                      </p>
+                    </td>
                     <td className="px-3 py-2">
                       <div className="flex max-w-[220px] flex-wrap gap-1">
                         {(row.riskReasons.length ? row.riskReasons.slice(0, 2) : ["Không có cảnh báo"]).map((reason) => (

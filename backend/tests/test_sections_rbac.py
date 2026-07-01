@@ -112,6 +112,34 @@ async def test_lecturer_cannot_mutate_sections(
     assert resp.status_code == 403
 
 
+async def test_lecturer_reads_department_courses_but_only_assigned_sections(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    data = await _create_test_data(db_session)
+    lecturer = await _create_user(db_session, role=UserRole.lecturer, department_id=None)
+    data["teacher_allowed"].user_id = lecturer.id
+    data["section_allowed"].teacher_id = data["teacher_allowed"].id
+    await db_session.flush()
+    client.headers["Authorization"] = f"Bearer {create_access_token(lecturer.id, lecturer.role)}"
+
+    courses_response = await client.get("/api/v1/courses")
+    assert courses_response.status_code == 200
+    course_ids = {item["id"] for item in courses_response.json()}
+    assert data["course_allowed"].id in course_ids
+    assert data["course_denied"].id not in course_ids
+
+    own_course_response = await client.get(f"/api/v1/courses/{data['course_allowed'].id}")
+    denied_course_response = await client.get(f"/api/v1/courses/{data['course_denied'].id}")
+    assert own_course_response.status_code == 200
+    assert denied_course_response.status_code == 404
+
+    sections_response = await client.get("/api/v1/sections")
+    assert sections_response.status_code == 200
+    section_ids = {item["id"] for item in sections_response.json()}
+    assert section_ids == {data["section_allowed"].id}
+
+
 async def test_manager_scope_check_on_create(
     client: AsyncClient,
     db_session: AsyncSession,
