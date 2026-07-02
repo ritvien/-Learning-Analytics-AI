@@ -1,79 +1,103 @@
 # Session Handoff
 
-> Updated: 2026-07-01 · Source: Sprint 4 H51/H64 agent work on branch `hoang`
+> Generated: 2026-07-02 · Source: D59 Render + Vercel production deploy  
+> New session: `@.cursor/session-handoff.md`
 
-## Current Goal
+## Goal
 
-Finish Demo Day final scope with agent/eval evidence, data refresh, deploy/docs, and rehearsal. Agent-side CTĐT RAG MVP is now complete and ready for H61 eval expansion.
+Close **D59** (Live URL deliverable): production stack live, bootstrap ETL/ML, smoke pass, UptimeRobot, evidence + handoff D56 URLs.
 
 ## Status
 
 | Area | State |
 |------|-------|
-| Overall | in progress — H59/H49/H62/H63/H64/H51 done; H61/H60/D60 next for eval evidence |
-| Branch `hoang` | active local branch, tracks `origin/hoang` |
-| Agent CTĐT RAG | done — `search_ctdt_program_info` registered in Universal Chat |
-| Tests / verify | pass — H51/H49/H59/H64/corpus bundle 85 tests; H51 unit 41 tests |
-| Integration smoke | present but skipped locally without DB/embedding key |
+| Overall | **bootstrap done** — Render ETL+ML complete; smoke/UptimeRobot/evidence remain |
+| Branch | `hoang` (clean, `68395c8e` — deploy configs committed) |
+| Render backend | **Live** — `https://eduinsight-backend-jxmm.onrender.com` |
+| Vercel frontend | **Live** — `https://c2-app-056.vercel.app` |
+| Render PG | Seeded: 1277 students, 56301 enrollments (first deploy log confirmed) |
+| Tests / verify | Local: `alembic heads` → `bc4d5e6f7a81`; smoke script OK on local backend; prod health 200 |
 
-## Done Since Previous Handoff
+## Decisions (settled — do not re-litigate)
 
-- [x] H59/D58 LangSmith/prompt versioning and trace evidence.
-- [x] H49 chatbot data-access capability matrix and runtime scope guard.
-- [x] H62 CTĐT PDF corpus artifacts for CNTT/KHDL/TTNT.
-- [x] H63 pgvector schema/ingest/retrieval contract.
-- [x] H64 memory/cache plan and implementation.
-- [x] H51 CTĐT RAG Q&A MVP:
-  - LangGraph tool `search_ctdt_program_info(query, program_name?, top_k?)`.
-  - Router/core prompt policy for CTĐT/CDR/PLO.
-  - Citation JSON with file/page/section.
-  - Alias and query-based program detection.
-  - Non-MVP program refusal before retrieval.
-  - Guardrails: no CTĐT RAG for personal grades/CLO/dropout.
+- **Bootstrap local, not Render Shell:** Render Free has no Shell; use scripts + admin API from dev machine.
+- **No Alembic merge:** Single head `bc4d5e6f7a81` only; verify `upgrade head`, do not create merge migrations.
+- **`SEED_PASSWORD=123456` on Render:** Code default is `password123`; demo login `admin@epu.edu.vn` / `123456`.
+- **Admin API paths:** `/api/v1/admin/dwh/refresh`, `/api/v1/admin/ml/train`, `/api/v1/admin/ml/score-dropout` (not `/analytics/admin/...`).
+- **Vercel:** Root Directory `frontend`, Framework **Next.js** (not Services); always use `https://` URLs (308 without scheme).
+- **`DATABASE_URL`:** Must be `postgresql+asyncpg://...` (internal host on Render); `AGENT_DB_URL` sync `postgresql://`.
 
-## In Progress / Next
+## Done
 
-- [ ] H61 expand agent eval cases from 35 to 50:
-  - CTĐT RAG answer with citation.
-  - Unsupported program refusal.
-  - H49 boundaries for ML dropout/CLO/RBAC.
-- [ ] H60 re-run evaluation after H61 + V47.
-- [ ] D60/D61 evaluation evidence and coverage artifact.
-- [ ] D59 deploy, D56 README, D57 architecture export, D63 journal/worklog.
-- [ ] Data-side T55/T56 and frontend VUX/V56/V47 remain team open focus.
+- [x] `backend/.dockerignore` — `db/` no longer ignored (seed in Docker image).
+- [x] `render.yaml` — `rootDir: backend`, `dockerContext: .`, `SEED_PASSWORD=123456`.
+- [x] `backend/.env.example` — production notes + `SEED_PASSWORD`.
+- [x] `docs/21-Release-Readiness/README.md` §6 + `d59-deployment-evidence.md`.
+- [x] `scripts/d59-bootstrap-production.ps1`, `scripts/d59-smoke-production.ps1` (paths fixed, tested locally).
+- [x] Render Blueprint applied; backend deploy + seed completed.
+- [x] Vercel deploy; `/api/v1/health` → 200 with `https://c2-app-056.vercel.app`.
 
-## Important Boundaries
+- [x] Production bootstrap (ETL + ML score) via Render URL (`etl_run_id=1`, `rows_upserted=1157`).
 
-- Do not generate ML pass/fail/dropout probabilities in the LLM; use schema `ml` only.
-- CTĐT RAG answers must include citation file/page/section and only cover indexed MVP programs.
-- Non-MVP CTĐT questions should refuse softly until the corpus is expanded.
-- Retrieval-specific observability events are not done; H51 currently appears through generic tool-call events.
+## In progress
 
-## Verification Commands
+- [ ] **Redeploy Vercel** after proxy fix (`route.ts` buffers response body — prod currently returns empty JSON).
+- [ ] Render `CORS_ORIGINS=https://c2-app-056.vercel.app` + redeploy if needed.
+- [ ] UptimeRobot 2 monitors + fill `d59-deployment-evidence.md`.
+- [ ] Sprint4 D59 checkbox; handoff URLs to D56.
 
-```powershell
-cd backend
-python -m ruff check --no-cache app/agent app/rag tests/test_ctdt_tool_h51.py tests/test_ctdt_retrieval_smoke.py
-pytest -q --no-cov -p no:cacheprovider tests/test_ctdt_tool_h51.py
-pytest -q --no-cov -p no:cacheprovider tests/test_ctdt_tool_h51.py tests/test_chat_scope_h49.py tests/test_prompt_versioning_h59.py tests/test_ctdt_cache_h64.py tests/test_ctdt_inventory.py tests/test_ingest_ctdt_rag_dry_run.py
-pytest -q --no-cov -p no:cacheprovider -m integration tests/test_ctdt_retrieval_smoke.py
-```
+## Next steps (ordered)
 
-Latest local results:
+1. Vercel → Project → Settings → Environment Variables → `BACKEND_URL=https://eduinsight-backend-jxmm.onrender.com` (no trailing slash); redeploy.
+2. Render → `eduinsight-backend` → `CORS_ORIGINS=https://c2-app-056.vercel.app` if not set; Save/redeploy.
+3. ~~Bootstrap~~ done via Render URL. Re-run smoke with `-ExecutionPolicy Bypass`.
+4. Browser: login → dashboard → chat; optional CTĐT ingest via `-IngestCtdt` + External `AGENT_DB_URL`.
+5. UptimeRobot: FE `https://c2-app-056.vercel.app/api/v1/health`, BE `https://eduinsight-backend-jxmm.onrender.com/health` (5 min).
+6. Fill `docs/21-Release-Readiness/d59-deployment-evidence.md`; tick Sprint4 D59.
 
-- Ruff: pass.
-- H51 unit/regression: 41 passed.
-- H51/H49/H59/H64/corpus/ingest dry-run bundle: 85 passed.
-- Integration smoke: 3 skipped locally without DB/embedding key.
-
-## Key Files
+## Key files
 
 | Path | Role |
 |------|------|
-| `backend/app/agent/tools.py` | H49 tools plus H51 CTĐT RAG tool |
-| `backend/app/agent/nodes.py` | Universal Chat tool registration |
-| `backend/app/agent/prompts.py` | Router/core prompt policy and prompt versions |
-| `backend/app/rag/ctdt_retrieval.py` | pgvector retrieval + H64 cache |
-| `backend/tests/test_ctdt_tool_h51.py` | H51 regression coverage |
-| `docs/07-Sprint-Planning/stories/H51.md` | H51 story packet and DoD |
-| `walkthrough.md` | H51 implementation walkthrough |
+| `render.yaml` | Render Blueprint (PG + Docker backend) |
+| `scripts/d59-bootstrap-production.ps1` | Login → DWH → ML train/score (+ optional RAG) |
+| `scripts/d59-smoke-production.ps1` | Health + login smoke |
+| `docs/21-Release-Readiness/d59-deployment-evidence.md` | Live URLs + operator checklist |
+| `docs/21-Release-Readiness/README.md` | §6 D59 runbook |
+| `.cursor/plans/d59_render_vercel_deploy_cbc57607.plan.md` | Full plan (do not edit unless asked) |
+
+## Commands
+
+```powershell
+# Health (always https://)
+Invoke-WebRequest "https://c2-app-056.vercel.app/api/v1/health" -UseBasicParsing
+Invoke-WebRequest "https://eduinsight-backend-jxmm.onrender.com/health" -UseBasicParsing
+
+cd "C:\Users\Admin\Work\AI In Action\C2-App-056"
+
+# Windows blocks .ps1 by default — use Bypass (or once: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned)
+powershell -ExecutionPolicy Bypass -File .\scripts\d59-bootstrap-production.ps1 `
+  -BaseUrl "https://eduinsight-backend-jxmm.onrender.com"
+powershell -ExecutionPolicy Bypass -File .\scripts\d59-smoke-production.ps1 `
+  -VercelUrl "https://c2-app-056.vercel.app" `
+  -RenderUrl "https://eduinsight-backend-jxmm.onrender.com"
+```
+
+## Constraints
+
+- Do not edit `.cursor/plans/d59_render_vercel_deploy_cbc57607.plan.md` unless user asks.
+- Do not commit secrets (DB password was pasted in chat — **rotate Render PG password** after D59 stable).
+- After first successful prod seed, set `SEED_ON_EMPTY=false` on Render to shorten redeploys (optional).
+- Render port-scan timeout on deploy: entrypoint runs seed/CLO before bind; service still comes up — expect slow first boot.
+
+## Blockers / open questions
+
+- **Optional:** Add `frontend/.npmrc` with `legacy-peer-deps=true` if Vercel install fails on fresh clone.
+- **Optional:** CTĐT RAG ingest on prod needs External DB URL + `OPENAI_API_KEY` locally.
+- None blocking Live URL if bootstrap + smoke pass.
+
+## Context links
+
+- Sprint: `docs/07-Sprint-Planning/Sprint4.md` (D59 deadline 02/07 EOD)
+- Plan: `.cursor/plans/d59_render_vercel_deploy_cbc57607.plan.md`
+- V58 URL skeleton: `docs/09-Materials/Hieu/V58/V58-README-demo-day-skeleton.md`

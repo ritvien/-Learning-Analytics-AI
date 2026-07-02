@@ -3,7 +3,10 @@ import { type NextRequest, NextResponse } from "next/server"
 const BACKEND = process.env.BACKEND_URL || "http://127.0.0.1:8000"
 
 const SKIP_REQ = new Set(["host", "connection", "expect", "transfer-encoding"])
-const SKIP_RES = new Set(["transfer-encoding", "connection"])
+// Upstream encoding/length are invalid after we buffer/decompress the body.
+const SKIP_RES = new Set(["transfer-encoding", "connection", "content-encoding", "content-length"])
+
+export const dynamic = "force-dynamic"
 
 async function proxy(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const { path } = await params
@@ -30,12 +33,14 @@ async function proxy(req: NextRequest, { params }: { params: Promise<{ path: str
     )
   }
 
+  const resBody = await res.arrayBuffer()
+
   const resHeaders = new Headers()
   res.headers.forEach((v, k) => {
     if (!SKIP_RES.has(k)) resHeaders.set(k, v)
   })
 
-  return new NextResponse(res.body, { status: res.status, headers: resHeaders })
+  return new NextResponse(resBody, { status: res.status, headers: resHeaders })
 }
 
 export const GET = proxy

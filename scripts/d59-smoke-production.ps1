@@ -1,4 +1,6 @@
 # D59 — Production smoke (health + login). Extends T45 runbook for Live URL.
+# Windows may block scripts (execution policy). Use:
+#   powershell -ExecutionPolicy Bypass -File scripts\d59-smoke-production.ps1 -VercelUrl "..." -RenderUrl "..."
 # Usage:
 #   .\scripts\d59-smoke-production.ps1 `
 #     -VercelUrl "https://eduinsight-fe.vercel.app" `
@@ -41,7 +43,8 @@ $login = Invoke-RestMethod -Method POST `
     -Body $loginBody `
     -ContentType "application/x-www-form-urlencoded"
 if (-not $login.access_token) {
-    throw "Login failed - no access_token (check SEED_PASSWORD=123456 on Render)"
+    $preview = if ($login) { ($login | ConvertTo-Json -Compress) } else { "(empty response)" }
+    throw "Login failed - no access_token from Vercel proxy (response: $preview). Check Vercel BACKEND_URL and Render SEED_PASSWORD=123456."
 }
 Write-Host "[OK] Login $AdminEmail"
 
