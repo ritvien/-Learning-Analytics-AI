@@ -177,6 +177,59 @@ def test_task_completion_valid_empty_data():
     assert scored["verdict"] == "Pass"
 
 
+def test_task_completion_has_citation_passes_with_ctdt_tool_metadata():
+    tc = {
+        "tc": "TC51",
+        "category": "ctdt_rag",
+        "expected_intent": "core_agent",
+        "completion_criteria": ["intent_match", "tool_success", "has_response", "has_citation"],
+    }
+    result = {
+        "status": "OK",
+        "response": "Theo CTĐT, mục tiêu đào tạo gồm... Nguồn: ctdt_cntt.pdf, trang 12, section Mục tiêu.",
+        "intent": "core_agent",
+        "tool_calls": [
+            {
+                "tool_name": "search_ctdt_program_info",
+                "tool_input": {"query": "mục tiêu đào tạo CNTT"},
+                "tool_output": (
+                    '{"status":"ok","hits":[{"source_file":"ctdt_cntt.pdf",'
+                    '"page_start":12,"page_end":12,"section_title":"Mục tiêu đào tạo"}]}'
+                ),
+            }
+        ],
+    }
+
+    scored = score_task_completion(tc, result)
+    assert scored["checks"]["has_citation"] is True
+    assert scored["verdict"] == "Pass"
+
+
+def test_task_completion_has_citation_fails_without_tool_citation_fields():
+    tc = {
+        "tc": "TC51",
+        "category": "ctdt_rag",
+        "expected_intent": "core_agent",
+        "completion_criteria": ["intent_match", "tool_success", "has_response", "has_citation"],
+    }
+    result = {
+        "status": "OK",
+        "response": "Nguồn: tài liệu CTĐT.",
+        "intent": "core_agent",
+        "tool_calls": [
+            {
+                "tool_name": "search_ctdt_program_info",
+                "tool_input": {"query": "mục tiêu đào tạo CNTT"},
+                "tool_output": '{"status":"ok","hits":[{"content":"Không có metadata citation"}]}',
+            }
+        ],
+    }
+
+    scored = score_task_completion(tc, result)
+    assert scored["checks"]["has_citation"] is False
+    assert scored["verdict"] == "Partial"
+
+
 def test_tool_accuracy_selection():
     tc = {
         "tc": "TC02",
@@ -195,6 +248,90 @@ def test_tool_accuracy_selection():
     scored = score_tool_accuracy(tc, result)
     assert scored["score"] == 1.0
     assert scored["selection_score"] == 1.0
+
+
+def test_tool_accuracy_optional_policy_allows_no_tool_or_allowlisted_business_error():
+    tc = {
+        "tc": "TC39",
+        "expected_tools": ["search_ctdt_program_info"],
+        "tool_policy": "optional",
+        "allowed_tool_error_prefixes": ["ERROR: unsupported program"],
+    }
+
+    no_tool = score_tool_accuracy(tc, {"status": "OK", "tool_calls": []})
+    assert no_tool["skipped"] is True
+    assert no_tool["tool_policy"] == "optional"
+
+    error_tool = score_tool_accuracy(
+        tc,
+        {
+            "status": "OK",
+            "tool_calls": [
+                {
+                    "tool_name": "search_ctdt_program_info",
+                    "tool_input": {"query": "Quản trị kinh doanh"},
+                    "tool_output": "ERROR: unsupported program",
+                }
+            ],
+        },
+    )
+    assert error_tool["score"] == 1.0
+    assert error_tool["success_rate"] == 1.0
+
+
+def test_tool_accuracy_optional_policy_penalizes_unexpected_error():
+    tc = {
+        "tc": "TC43",
+        "expected_tools": ["lookup_student_by_code"],
+        "tool_policy": "optional",
+    }
+
+    scored = score_tool_accuracy(
+        tc,
+        {
+            "status": "OK",
+            "tool_calls": [
+                {
+                    "tool_name": "lookup_student_by_code",
+                    "tool_input": {"student_code": "25810460057"},
+                    "tool_output": "ERROR: database unavailable",
+                }
+            ],
+        },
+    )
+    assert scored["success_rate"] == 0.0
+    assert scored["score"] < 1.0
+
+
+def test_tool_accuracy_forbidden_policy_scores_side_effect_guardrails():
+    tc = {"tc": "TC50", "expected_tools": [], "tool_policy": "forbidden"}
+
+    no_tool = score_tool_accuracy(tc, {"status": "OK", "tool_calls": []})
+    assert no_tool["score"] == 1.0
+
+    with_tool = score_tool_accuracy(
+        tc,
+        {
+            "status": "OK",
+            "tool_calls": [
+                {
+                    "tool_name": "execute_sql_query",
+                    "tool_input": {"query": "SELECT 1"},
+                    "tool_output": '[{"ok": 1}]',
+                }
+            ],
+        },
+    )
+    assert with_tool["score"] == 0.0
+
+
+def test_tool_accuracy_legacy_empty_expected_tools_still_skips():
+    tc = {"tc": "TC14", "expected_tools": []}
+
+    scored = score_tool_accuracy(tc, {"status": "OK", "tool_calls": []})
+
+    assert scored["score"] is None
+    assert scored["skipped"] is True
 
 
 def test_tool_accuracy_rejects_drop_sql():
