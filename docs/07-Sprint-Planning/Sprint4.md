@@ -1,6 +1,6 @@
 # Sprint 4 — Demo Day final & chất lượng sản phẩm
 
-> **29/06 – 05/07/2026** · Cập nhật **01/07/2026** (H51 CTĐT RAG Q&A MVP done)  
+> **29/06 – 05/07/2026** · Cập nhật **02/07/2026** (đối soát T54/T55/T56/T57)
 > **Goal:** Hoàn thiện 10/10 deliverables BTC · mở rộng eval · dữ liệu đủ cho UI demo · cảnh báo SV + luồng liên hệ GV.  
 > **Deadline cuối Demo Day:** **05/07/2026 23:59**.  
 > **Checklist:** [Checklist.md](../10-References/Checklist.md) · **Sprint trước:** [Sprint3.md](./Sprint3.md)
@@ -85,26 +85,26 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 
 | Task | Mô tả | Deadline | P | Depends | Status |
 |:-----|:------|:---------|:-:|:--------|:------:|
-| **T54** | **Data gap audit cho UI** | 29/06 18:00 | P0 | V57 draft | [ ] |
-| | Liệt kê page/route trống dữ liệu; đối chiếu manifest + smoke manual; map gap → task T55a–e; output `docs/17-Data-Pipeline/ui-data-gap-audit.md`. Feed Hiếu V59 + Hoàng H49. | | | | |
-| **T55a** | **ML dropout batch predict + MSSV golden** | 30/06 12:00 | P0 | T54 | [ ] |
-| | Chạy `/admin/ml/train` nếu cần; batch predict toàn bộ SV active; verify MSSV `21810310019` có score; smoke T52d API + badge V20. Unblock TC28–30 và H61 dropout TC. | | | | |
-| **T55c** | **Import SV ngành thưa** | 30/06 18:00 | P0 | V59, T54 | [ ] |
-| | Nhận artifact V59; dedupe với 1.277 SV; re-import; chạy ETL; verify heatmap/list ngành demo (vd TTNT ≥10 SV hoặc ngưỡng audit). | | | | |
-| **T55b** | **Synthetic GV + phân công lớp** | 30/06 EOD | P0 | T54 | [ ] |
-| | Mock catalog GV (tên, email nội bộ, khoa/ngành/môn); gán `sections.teacher_id`; tạo ≥3 lecturer demo account; ghi count/naming/mapping/rollback trong manifest. Ref [24-Teacher-Section-Assignment](../24-Teacher-Section-Assignment/README.md). | | | | |
-| **T55d** | **Synthetic CLO achievements từ điểm** | 01/07 12:00 | P1 | T55c | [ ] |
-| | Map grade components/final → CLO theo trọng số; seed cố định; clamp 0–1; `source=synthetic_from_grade`; badge unofficial nếu thiếu CLO chính thức. Unblock TC5 + report CLO/PLO. | | | | |
-| **T56a** | **At-risk rule API + danh sách lớp lecturer** | 01/07 12:00 | P0 | T55a, T55b | [ ] |
-| | Rule SV at-risk: GPA thấp, fail count, dropout ML score; endpoint list theo section; RBAC lecturer scope (`can_access_section`); response shape cho V56. **MVP:** không cần notification queue. | | | | |
-| **T55e** | **Golden refresh + manifest lineage** | 01/07 18:00 | P0 | T55a–d | [ ] |
-| | Re-import/ETL final; cập nhật `gate3_test_cases.json` expected_values; ghi lineage synthetic/crawl trong manifest; handoff Hoàng H61. | | | | |
-| **T56b** | **Action “Liên hệ” + audit log** | 01/07 EOD | P0 | T56a | [ ] |
-| | `POST` intervention/contact: ghi actor, student, section, channel, timestamp; trạng thái `logged` / `emailed`; list history per section. Unblock V56 CTA. | | | | |
-| **T57a** | **Generate login GV demo** | 02/07 12:00 | P1 | T55b, T56a | [ ] |
-| | Script/tool: Gmail-style address nội bộ + password; map Teacher → User lecturer; output CSV credentials demo; không đăng ký Google thật. | | | | |
-| **T57b** | **Gửi mail cảnh báo (SMTP fallback log)** | 02/07 18:00 | P1 | T56b, T57a | [ ] |
-| | Gửi qua SMTP/Gmail App Password nếu có secret; fallback log-only + API trả `status=logged`; Hiếu V56 hiển thị trạng thái. | | | | |
+| **T54** | **Data gap audit cho UI** | 29/06 18:00 | P0 | V57 draft | [x] |
+| | Done: `docs/17-Data-Pipeline/ui-data-gap-audit.md` có route/page gap và mapping T55a–e; đã feed V59/H49. | | | | |
+| **T55a** | **ML dropout batch predict + MSSV golden** | 30/06 12:00 | P0 | T54 | [x] |
+| | Done: dropout model run 3 (`xgboost`, `v20260702.004955`) completed; batch score đủ 1.628/1.628 SV active; MSSV `21810310019` được persist prediction `high` (`0.9999108`). | | | | |
+| **T55c** | **Import SV ngành thưa** | 30/06 18:00 | P0 | V59, T54 | [x] |
+| | Done: artifact V59 đã được dedupe/import; tổng 1.824 SV, 1.628 active; không còn ngành 0 SV, còn 4 ngành dưới 10 SV. | | | | |
+| **T55b** | **Synthetic GV + phân công lớp** | 30/06 EOD | P0 | T54 | [x] |
+| | Done backend/data: 57 teachers (49 demo), 56 lecturer users, 324 sections có GV, 46 phân công GVCN; evidence `docs/17-Data-Pipeline/t55b-t55d-synthetic-data.md`. | | | | |
+| **T55d** | **Synthetic CLO achievements từ điểm** | 01/07 12:00 | P1 | T55c | [x] |
+| | Done: 108.789 achievement rows, toàn bộ có `source=synthetic_from_grade`; có `audit_clo_achievement_lineage.py` để audit lineage. | | | | |
+| **T56a** | **At-risk rule API + danh sách lớp lecturer** | 01/07 12:00 | P0 | T55a, T55b | [x] |
+| | Done: rule kết hợp GPA/fail count/dropout ML; section + homeroom at-risk endpoints và lecturer RBAC đã có; ML signal được bổ sung bằng prediction từ T55a. Targeted dropout/intervention/RBAC tests: 18 passed. | | | | |
+| **T55e** | **Golden refresh + manifest lineage** | 01/07 18:00 | P0 | T55a–d | [x] |
+| | Done: ETL final run 5 reconciliation pass; `backend/db/sprint4-final.manifest.json` chốt count/checksum/lineage; `gate3_test_cases.json` refresh numeric golden và thay TC30 MSSV không tồn tại. Eval scorer tests: 19 passed. | | | | |
+| **T56b** | **Action “Liên hệ” + audit log** | 01/07 EOD | P0 | T56a | [x] |
+| | Done: `POST /interventions/contact` + history endpoints; audit DB có 20 `student_intervention_contacts`. | | | | |
+| **T57a** | **Generate login GV demo** | 02/07 12:00 | P1 | T55b, T56a | [x] |
+| | Done: demo lecturer accounts đã map Teacher → User role lecturer và đăng nhập được bằng password seed; không đăng ký Google thật. | | | | |
+| **T57b** | **Gửi mail cảnh báo (SMTP fallback log)** | 02/07 18:00 | P1 | T56b, T57a | [x] |
+| | Done backend-side: SMTP/campaign + fallback log; DB messages `sent=8`, `queued=11`, `drafted=56`, `failed=63`; contacts `emailed=8`, `logged=12`. | | | | |
 | **T58a** | **Slide draft + script thuyết trình** | 03/07 EOD | P0 | D56 draft, D58 | [ ] |
 | | 10 slides Checklist §9.6; metric/cost từ eval; demo flow 3 phút; video backup link V35; rehearsal nội bộ lần 1. | | | | |
 | **T58b** | **Rehearsal final + nộp pitch** | **05/07 18:00** | P0 | D56, D59, D60, T58a | [ ] |

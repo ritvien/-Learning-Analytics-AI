@@ -60,10 +60,13 @@
     "expected_intent": "core_agent",
     "category": "data_query",
     "source": "G2",
-    "expected_outcome": "valid_empty_data",
+    "expected_outcome": "numeric_answer",
     "expected_tools": ["execute_sql_query"],
-    "expected_values": [{"field": "completion_count", "value": 688, "tolerance": 0.02}],
-    "completion_criteria": ["intent_match", "tool_success", "acknowledges_missing_data"]
+    "expected_values": [
+      {"field": "lowest_clo_avg_score", "value": 6.66, "tolerance": 0.01},
+      {"field": "lowest_clo_completion_count", "value": 1119, "tolerance": 0.0}
+    ],
+    "completion_criteria": ["has_numeric_answer", "intent_match", "tool_success"]
   },
   {
     "tc": "TC06",
@@ -86,7 +89,7 @@
     "source": "G2",
     "expected_outcome": "numeric_answer",
     "expected_tools": ["execute_sql_query"],
-    "expected_values": [{"field": "top_gpa", "value": 2.68, "tolerance": 0.01}],
+    "expected_values": [{"field": "top_gpa", "value": 3.70, "tolerance": 0.01}],
     "completion_criteria": ["has_numeric_answer", "intent_match", "tool_success"]
   },
   {
@@ -137,7 +140,7 @@
     "source": "G3_new",
     "expected_outcome": "numeric_answer",
     "expected_tools": ["execute_sql_query"],
-    "expected_values": [],
+    "expected_values": [{"field": "active_students", "value": 1628, "tolerance": 0.0}],
     "completion_criteria": ["has_numeric_answer", "intent_match", "tool_success"]
   },
   {
@@ -149,7 +152,7 @@
     "source": "G3_aggregation",
     "expected_outcome": "numeric_answer",
     "expected_tools": ["execute_sql_query"],
-    "expected_values": [],
+    "expected_values": [{"field": "fail_rate", "value": 13.20, "tolerance": 0.02}],
     "completion_criteria": ["has_numeric_answer", "intent_match", "tool_success"]
   },
   {
@@ -161,7 +164,7 @@
     "source": "G3_3tier",
     "expected_outcome": "numeric_answer",
     "expected_tools": ["execute_sql_query"],
-    "expected_values": [],
+    "expected_values": [{"field": "specialization_count", "value": 3, "tolerance": 0.0}],
     "completion_criteria": ["has_numeric_answer", "intent_match", "tool_success"]
   },
   {
@@ -210,7 +213,7 @@
     "source": "G3_new",
     "expected_outcome": "numeric_answer",
     "expected_tools": ["execute_sql_query"],
-    "expected_values": [],
+    "expected_values": [{"field": "top_avg_gpa", "value": 7.473, "tolerance": 0.01}],
     "completion_criteria": ["has_numeric_answer", "intent_match", "tool_success"]
   },
   {
@@ -222,7 +225,7 @@
     "source": "G3_abbreviation",
     "expected_outcome": "numeric_answer",
     "expected_tools": ["execute_sql_query"],
-    "expected_values": [],
+    "expected_values": [{"field": "section_count", "value": 38, "tolerance": 0.0}],
     "completion_criteria": ["has_numeric_answer", "intent_match", "tool_success"]
   },
   {
@@ -342,7 +345,7 @@
     "source": "G4_tool_dropout",
     "expected_outcome": "ml_prediction",
     "expected_tools": ["get_student_dropout_risk"],
-    "expected_values": [],
+    "expected_values": [{"field": "dropout_probability", "value": 0.99991, "tolerance": 0.001}],
     "completion_criteria": ["intent_match", "tool_success", "has_response"]
   },
   {
@@ -359,14 +362,14 @@
   },
   {
     "tc": "TC30",
-    "input": "Mức độ rủi ro dropout ML của sinh viên 21000000001 là bao nhiêu?",
-    "expected_keywords": ["21000000001", "dropout", "rủi ro"],
+    "input": "Mức độ rủi ro dropout ML của sinh viên 24810310117 là bao nhiêu?",
+    "expected_keywords": ["24810310117", "dropout", "rủi ro"],
     "expected_intent": "core_agent",
     "category": "data_query",
     "source": "G4_tool_dropout",
     "expected_outcome": "ml_prediction",
     "expected_tools": ["get_student_dropout_risk"],
-    "expected_values": [],
+    "expected_values": [{"field": "dropout_probability", "value": 0.99992, "tolerance": 0.001}],
     "completion_criteria": ["intent_match", "tool_success", "has_numeric_answer"]
   },
   {
@@ -390,7 +393,7 @@
     "source": "G4_aggregation",
     "expected_outcome": "numeric_answer",
     "expected_tools": ["execute_sql_query"],
-    "expected_values": [],
+    "expected_values": [{"field": "program_count", "value": 40, "tolerance": 0.0}],
     "completion_criteria": ["has_numeric_answer", "intent_match", "tool_success"]
   },
   {
@@ -426,7 +429,10 @@
     "source": "G4_comparison",
     "expected_outcome": "numeric_answer",
     "expected_tools": ["execute_sql_query"],
-    "expected_values": [],
+    "expected_values": [
+      {"field": "k21_student_count", "value": 100, "tolerance": 0.0},
+      {"field": "k22_student_count", "value": 120, "tolerance": 0.0}
+    ],
     "completion_criteria": ["has_numeric_answer", "intent_match", "tool_success"]
   }
 ]

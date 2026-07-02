@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "snapshot": "sprint4-final-2026-07-02",
+  "generated_at": "2026-07-02T00:55:07Z",
+  "etl": {
+    "run_id": 5,
+    "status": "completed",
+    "rows_processed": 56301,
+    "quality_checks": {
+      "enrollment_count_reconciliation": {
+        "expected": 56301,
+        "actual": 56301,
+        "passed": true
+      },
+      "grade_component_count_reconciliation": {
+        "expected": 147286,
+        "actual": 147286,
+        "passed": true
+      }
+    }
+  },
+  "sources": [
+    {
+      "path": "backend/db/seed-academic-v2.json.gz",
+      "sha256": "487757b174fdcc50083073c1d379681f3dbe87bc98857da54639b53aa754c013",
+      "lineage": "seed_academic_v2",
+      "synthetic": false
+    },
+    {
+      "path": "crawl/v59_synthetic_students (1).json",
+      "sha256": "19072e59e128148cfc65a5bdbe47507249d3fcff1787b55d5e92c91ba26e1aa2",
+      "lineage": "v59_profile_only_import",
+      "synthetic": true,
+      "notes": "Only student/profile rows were imported; no enrollment or grade rows were added."
+    },
+    {
+      "path": "crawl/v59_generated_empty_program_students.json",
+      "sha256": "34a53298df3dafd4d248496e75fbc10d95f997b76d0a7e6566e04ea97c367c66",
+      "lineage": "v59_empty_program_fill",
+      "synthetic": true
+    }
+  ],
+  "counts": {
+    "departments": 14,
+    "programs": 40,
+    "specializations": 89,
+    "cohorts": 7,
+    "students": 1824,
+    "active_students": 1628,
+    "courses": 549,
+    "sections": 5891,
+    "sections_with_teacher": 324,
+    "enrollments": 56301,
+    "grade_components": 147286,
+    "teachers": 57,
+    "lecturer_users": 56,
+    "homeroom_assignments": 47,
+    "student_clo_achievements": 108789
+  },
+  "lineage": {
+    "student_profiles": "seed_academic_v2 plus synthetic V59 profile-only imports",
+    "teacher_assignments": "deterministic synthetic demo catalog and section assignment",
+    "clo_achievements": {
+      "source": "synthetic_from_grade",
+      "rows": 108789,
+      "derivation": "Deterministic materialization from enrollments, grade components, component weights, and CLO mappings.",
+      "courses_missing_evidence": 4,
+      "official": false
+    },
+    "dropout_predictions": {
+      "model_run_id": 3,
+      "model_name": "dropout_classifier",
+      "selected_model": "xgboost",
+      "model_version": "v20260702.004955",
+      "rows": 1629,
+      "active_student_coverage": "1628/1628",
+      "golden_student_code": "21810310019"
+    }
+  }
+}
