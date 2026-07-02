@@ -32,3 +32,13 @@ Format:
 - **Actual:** Only `frontend/AGENTS.md` existed; no root entry point or decisions folder
 - **Root cause:** Agent guidance scattered across docs without orchestration layer
 - **Harness fix:** Added root `AGENTS.md`, `.cursor/rules/`, `docs/decisions/`, `scripts/verify.ps1`
+
+---
+
+## 2026-07-02 — UptimeRobot 405 on health monitors
+
+- **Task:** D59
+- **Expected:** UptimeRobot HTTP monitors return 200 for production health URLs
+- **Actual:** `405 Method Not Allowed` — UptimeRobot sends HEAD; `/health` only allowed GET; Vercel proxy had no `HEAD` export
+- **Root cause:** [UptimeRobot default HEAD requests](https://uptimerobot.com/help/monitor-status-is-wrong/); health routes not HEAD-aware
+- **Harness fix:** HEAD on backend `/health` + `/api/v1/health`; proxy `export const HEAD`; evidence + runbook updated in `d59-deployment-evidence.md` and Release README §6

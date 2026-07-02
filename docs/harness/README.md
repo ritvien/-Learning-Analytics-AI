@@ -25,13 +25,13 @@ Ask before, during, and after every agent run:
 
 ## Workflow
 
-1. Pick task from [Sprint3.md](../07-Sprint-Planning/Sprint3.md)
+1. Pick task from [Sprint4.md](../07-Sprint-Planning/Sprint4.md)
 2. Open story packet in `docs/07-Sprint-Planning/stories/` if it exists
 3. Fill [agent-run-worksheet](./templates/agent-run-worksheet.md) (optional, for complex tasks)
 4. Run agent
 5. Run verify command from story packet or `.\scripts\verify.ps1`
 6. On surprise/failure → append [friction-log.md](./friction-log.md)
-7. When closing or re-scoping tasks → update [Sprint3.md](../07-Sprint-Planning/Sprint3.md) + [.cursor/session-handoff.md](../../.cursor/session-handoff.md) in the same change set
+7. When closing or re-scoping tasks → update [Sprint4.md](../07-Sprint-Planning/Sprint4.md) + [.cursor/session-handoff.md](../../.cursor/session-handoff.md) in the same change set
 
 ## Templates
 
