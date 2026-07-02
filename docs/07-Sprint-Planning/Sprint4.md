@@ -1,6 +1,6 @@
 # Sprint 4 — Demo Day final & chất lượng sản phẩm
 
-> **29/06 – 05/07/2026** · Cập nhật **02/07/2026** (đối soát T54/T55/T56/T57)
+> **29/06 – 05/07/2026** · Cập nhật **02/07/2026** (D59 production live)
 > **Goal:** Hoàn thiện 10/10 deliverables BTC · mở rộng eval · dữ liệu đủ cho UI demo · cảnh báo SV + luồng liên hệ GV.  
 > **Deadline cuối Demo Day:** **05/07/2026 23:59**.  
 > **Checklist:** [Checklist.md](../10-References/Checklist.md) · **Sprint trước:** [Sprint3.md](./Sprint3.md)
@@ -66,7 +66,8 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | | Done: LangGraph tool `search_ctdt_program_info`, CTĐT prompt/router policy, alias/query program detection, unsupported non-MVP guard, citation JSON file/trang/section, no use for điểm/CLO cá nhân/dropout. Evidence: `walkthrough.md`, `backend/tests/test_ctdt_tool_h51.py`. | | | | |
 | **H61** | **Mở rộng test case evaluation** | 02/07 12:00 | P0 | H59, T55e, H51 | [ ] |
 | | Chốt 71 TC runnable (lookup, aggregation, dropout, guardrail, report, CTĐT RAG). Map TC → feature + owner + expected source; Phase B 100 TC defer sau H60. | | | | |
-| **D59** | Production deploy Render + Vercel (+ UptimeRobot) | 02/07 EOD | P1 | T45 | [ ] |
+| **D59** | Production deploy Render + Vercel (+ UptimeRobot) | 02/07 EOD | P1 | T45 | [x] |
+| | Live: Vercel `c2-app-056.vercel.app` · Render `eduinsight-backend-jxmm.onrender.com` · bootstrap ETL+ML · smoke pass · UptimeRobot monitors [FE](https://dashboard.uptimerobot.com/monitors/803424323) [BE](https://dashboard.uptimerobot.com/monitors/803424335). Evidence: [d59-deployment-evidence.md](../21-Release-Readiness/d59-deployment-evidence.md). | | | | |
 | **H60** | **Review/re-run evaluation sau H61 + V47** | 03/07 12:00 | P0 | H61, V47 | [ ] |
 | | Re-run TC mở rộng, cost **measured**; rubric 6 metrics; fix golden drift; cập nhật `docs/evaluation.md`; commit evidence. | | | | |
 | **D60** | `docs/evaluation.md` tổng hợp nộp BTC | 03/07 EOD | P0 | H60 | [ ] |
@@ -160,7 +161,7 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | ID | Deliverable | Task | Deadline | Status |
 |:--:|:------------|:-----|:---------|:------:|
 | D58 | AI Logs traces | H59 | 30/06 EOD | [x] |
-| D59 | Live URL production | Hoàng | 02/07 EOD | [ ] |
+| D59 | Live URL production | Hoàng | 02/07 EOD | [x] |
 | D60 | Evaluation evidence | H60, H61, V47 | 03/07 EOD | [ ] |
 | D61 | Test coverage ≥60% | Hoàng | 03/07 EOD | [ ] |
 | D56 | README.md đầy đủ | V58 → D56 + team | 04/07 12:00 | [ ] |

@@ -33,17 +33,22 @@ async function proxy(req: NextRequest, { params }: { params: Promise<{ path: str
     )
   }
 
-  const resBody = await res.arrayBuffer()
-
   const resHeaders = new Headers()
   res.headers.forEach((v, k) => {
     if (!SKIP_RES.has(k)) resHeaders.set(k, v)
   })
 
+  if (req.method === "HEAD") {
+    await res.arrayBuffer()
+    return new NextResponse(null, { status: res.status, headers: resHeaders })
+  }
+
+  const resBody = await res.arrayBuffer()
   return new NextResponse(resBody, { status: res.status, headers: resHeaders })
 }
 
 export const GET = proxy
+export const HEAD = proxy
 export const POST = proxy
 export const PUT = proxy
 export const PATCH = proxy

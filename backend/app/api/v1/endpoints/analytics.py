@@ -134,7 +134,7 @@ def _dashboard_cache_set(key: tuple, payload: dict) -> dict:
     return payload
 
 
-@router.get("/health", tags=["system"])
+@router.api_route("/health", methods=["GET", "HEAD"], tags=["system"])
 async def api_health_check() -> dict[str, str]:
     """Return service health (mirrors root /health, useful for load-balancer path-based checks)."""
     return {"status": "ok", "service": "eduinsight-backend", "version": settings.app_version}

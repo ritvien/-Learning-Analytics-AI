@@ -9,11 +9,13 @@ Read this file first before changing code or docs in this repository.
 3. Task spec for your story (e.g. [H45-Plan.md](docs/07-Sprint-Planning/H45-Plan.md), [docs/07-Sprint-Planning/stories/](docs/07-Sprint-Planning/stories/))
 4. [docs/decisions/](docs/decisions/) — architecture decisions before schema/API changes
 
-### Sprint 4 status (01/07/2026)
+### Sprint 4 status (02/07/2026)
 
 | Done | Open focus |
 |:-------|:----------------------------|
-| S3 carry closed · H59 · H49 · H62 · H63 · D58 · **H64** · **H51** | H61 · H60/D60/D61 · D56/D57/D59/D63 · T55/T56/T57/T58 · VUX/V56/V47 |
+| S3 carry closed · H59 · H49 · H62 · H63 · D58 · **H64** · **H51** · **D59** | H61 · H60/D60/D61 · D56/D57/D63 · T55/T56/T57/T58 · VUX/V56/V47 |
+
+**Production:** Live URL [c2-app-056.vercel.app](https://c2-app-056.vercel.app) · smoke pass · evidence [d59-deployment-evidence.md](docs/21-Release-Readiness/d59-deployment-evidence.md).
 
 **Eval / observability:** H59/D58 LangSmith tracing done; H64 memory/cache done; H51 CTĐT RAG Q&A MVP done; H61 expands eval after H51/T55e. Reference: [docs/07-Sprint-Planning/Sprint4.md](docs/07-Sprint-Planning/Sprint4.md).
 

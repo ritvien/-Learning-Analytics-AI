@@ -259,7 +259,9 @@ alembic downgrade -1
 
 ## 6. D59 Production Deploy (Render + Vercel)
 
-Updated: 2026-07-01 · Owner: Hoàng · Blueprint: [render.yaml](../../render.yaml)
+Updated: 2026-07-02 · Owner: Hoàng · Blueprint: [render.yaml](../../render.yaml) · Evidence: [d59-deployment-evidence.md](./d59-deployment-evidence.md)
+
+**Live:** [https://c2-app-056.vercel.app](https://c2-app-056.vercel.app) · Backend [https://eduinsight-backend-jxmm.onrender.com](https://eduinsight-backend-jxmm.onrender.com)
 
 ### Architecture
 
@@ -296,7 +298,7 @@ Dockerfile does `COPY pyproject.toml ./`; build context must be `backend/`.
 
 | Variable | Value |
 |:---------|:------|
-| `BACKEND_URL` | `https://<render-service>.onrender.com` |
+| `BACKEND_URL` | `https://eduinsight-backend-jxmm.onrender.com` |
 
 Chat stream proxy: `maxDuration = 120` in `frontend/src/app/api/v1/chat/stream/route.ts`.
 
@@ -364,8 +366,10 @@ Invoke-WebRequest https://<render>/health
 
 ### UptimeRobot
 
-| Monitor | URL |
-|:--------|:----|
-| FE e2e | `https://<vercel>/api/v1/health` |
-| BE | `https://<render>/health` |
+| Monitor | URL | Dashboard |
+|:--------|:----|:----------|
+| FE e2e | `https://c2-app-056.vercel.app/api/v1/health` | [803424323](https://dashboard.uptimerobot.com/monitors/803424323) |
+| BE | `https://eduinsight-backend-jxmm.onrender.com/health` | [803424335](https://dashboard.uptimerobot.com/monitors/803424335) |
+
+UptimeRobot HTTP(s) monitors use **HEAD** by default; health endpoints must support HEAD (or use **Keyword** monitor with `ok`). See [UptimeRobot help](https://uptimerobot.com/help/monitor-status-is-wrong/).
 
