@@ -1,4 +1,7 @@
 # D59 — Bootstrap production data from local machine (Render Free has no Shell).
+# Windows may block scripts (execution policy). Use:
+#   powershell -ExecutionPolicy Bypass -File scripts\d59-bootstrap-production.ps1 -BaseUrl "https://..."
+# Prefer Render backend URL for admin ETL/ML if Vercel proxy returns 401 on /admin/*.
 # Usage:
 #   .\scripts\d59-bootstrap-production.ps1 `
 #     -BaseUrl "https://eduinsight-fe.vercel.app" `
@@ -43,7 +46,9 @@ if (-not $SkipEtl) {
     Write-Host "==> DWH refresh..."
     $etl = Invoke-RestMethod -Method POST `
         -Uri "$BaseUrl/api/v1/admin/dwh/refresh" `
-        -Headers $headers
+        -Headers $headers `
+        -Body "" `
+        -ContentType "application/json"
     Write-Host "    ETL run id: $($etl.etl_run_id)"
 }
 
@@ -51,13 +56,17 @@ if (-not $SkipMl) {
     Write-Host "==> ML train (dropout)..."
     $train = Invoke-RestMethod -Method POST `
         -Uri "$BaseUrl/api/v1/admin/ml/train?model=dropout" `
-        -Headers $headers
+        -Headers $headers `
+        -Body "" `
+        -ContentType "application/json"
     Write-Host "    model_run_id: $($train.model_run_id)"
 
     Write-Host "==> ML score-dropout..."
     $score = Invoke-RestMethod -Method POST `
         -Uri "$BaseUrl/api/v1/admin/ml/score-dropout?model_run_id=$($train.model_run_id)" `
-        -Headers $headers
+        -Headers $headers `
+        -Body "" `
+        -ContentType "application/json"
     Write-Host "    rows_upserted: $($score.rows_upserted)"
 }
 
