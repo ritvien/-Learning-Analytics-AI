@@ -1,0 +1,59 @@
+# D59 — Render Blueprint (EduInsight backend + PostgreSQL)
+# Apply via Render Dashboard → New → Blueprint, or connect repo with Blueprint Path = render.yaml
+#
+# Docker build context MUST be backend/ — Dockerfile does COPY pyproject.toml ./
+# With rootDir: backend, dockerfilePath and dockerContext are relative to that folder.
+
+databases:
+  - name: eduinsight-db
+    plan: free
+    databaseName: eduinsight
+    user: eduinsight
+    # Free PG: 1 GB, expires after 30 days — renew before Demo Day
+
+services:
+  - type: web
+    name: eduinsight-backend
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: SEED_ON_EMPTY
+        value: "true"
+      - key: SEED_PASSWORD
+        value: "123456"
+      - key: ML_ARTIFACT_DIR
+        value: /tmp/ml_artifacts
+      - key: LANGSMITH_PROJECT
+        value: eduinsight-s4-demo
+      - key: SMTP_ENABLED
+        value: "false"
+      # Render injects PORT (default 10000). entrypoint.sh binds ${PORT:-8000} — do not set PORT=8000.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: eduinsight-db
+          property: connectionString
+        # After first deploy: change postgresql:// → postgresql+asyncpg:// in dashboard
+      - key: AGENT_DB_URL
+        fromDatabase:
+          name: eduinsight-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LANGSMITH_TRACING
+        value: "true"
+      - key: LANGSMITH_API_KEY
+        sync: false

@@ -65,7 +65,7 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | **H51** | CTĐT RAG Q&A MVP | 01/07 18:00 | P0 | H62, H63, H49 | [x] |
 | | Done: LangGraph tool `search_ctdt_program_info`, CTĐT prompt/router policy, alias/query program detection, unsupported non-MVP guard, citation JSON file/trang/section, no use for điểm/CLO cá nhân/dropout. Evidence: `walkthrough.md`, `backend/tests/test_ctdt_tool_h51.py`. | | | | |
 | **H61** | **Mở rộng test case evaluation** | 02/07 12:00 | P0 | H59, T55e, H51 | [ ] |
-| | Phase A: 35→50 TC (lookup, aggregation, dropout, guardrail, report, CTĐT RAG). Phase B stretch 100 TC chỉ khi H60 đã có draft. Map TC → feature + owner + expected source. | | | | |
+| | Chốt 71 TC runnable (lookup, aggregation, dropout, guardrail, report, CTĐT RAG). Map TC → feature + owner + expected source; Phase B 100 TC defer sau H60. | | | | |
 | **D59** | Production deploy Render + Vercel (+ UptimeRobot) | 02/07 EOD | P1 | T45 | [ ] |
 | **H60** | **Review/re-run evaluation sau H61 + V47** | 03/07 12:00 | P0 | H61, V47 | [ ] |
 | | Re-run TC mở rộng, cost **measured**; rubric 6 metrics; fix golden drift; cập nhật `docs/evaluation.md`; commit evidence. | | | | |
@@ -135,7 +135,7 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | **V56** | **UI cảnh báo SV + luồng liên hệ GV** | 02/07 EOD | P0 | T56b, T57b | [ ] |
 | | Lecturer thấy section/SV “Cần can thiệp”; badge at-risk; CTA liên hệ; hiển thị trạng thái email/log; đồng bộ T56/T57 API; Playwright smoke at-risk flow. | | | | |
 | **V47** | **Review test cases (QA dataset)** | 03/07 12:00 | P0 | H61 | [ ] |
-| | Review 50 TC: input realistic, golden khớp seed post-T55e, RBAC/intent/source tags; feedback block H60 nếu TC sai data. | | | | |
+| | Review 71 TC: input realistic, golden khớp seed post-T55e, RBAC/intent/source tags; feedback block H60 nếu TC sai data. | | | | |
 | **D62** | User feedback 3–5 người (form + tóm tắt) | 04/07 EOD | P2 | V56 | [ ] |
 | **V18–V23** | CRUD polish, charts, responsive, FE tests | 05/07 buffer | P2 | — | [ ] defer |
 

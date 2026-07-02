@@ -254,3 +254,118 @@ alembic downgrade -1
 - Enrollment prediction endpoint needs enrollment-to-scope enforcement before it should be exposed broadly.
 - Dashboard aggregate endpoints need final product decision for non-admin school-level visibility.
 - Full `npm.cmd run lint` currently fails on existing unrelated frontend files with React hooks/compiler and TypeScript lint errors. The two proxy route files changed for T45/T46 pass targeted ESLint.
+
+---
+
+## 6. D59 Production Deploy (Render + Vercel)
+
+Updated: 2026-07-01 · Owner: Hoàng · Blueprint: [render.yaml](../../render.yaml)
+
+### Architecture
+
+- **Frontend:** Vercel (`frontend/`), env `BACKEND_URL` → Next.js proxy `/api/v1/*`
+- **Backend:** Render Docker web service (`backend/`, `rootDir` + `dockerContext` = backend folder)
+- **Database:** Render PostgreSQL (pgvector via migration `CREATE EXTENSION vector`)
+- **Bootstrap:** Local machine (Render Free has no Shell) — External DB URL + admin API
+
+### Render `render.yaml` Docker context
+
+```yaml
+rootDir: backend
+dockerfilePath: ./Dockerfile
+dockerContext: .    # relative to rootDir — NOT repo root
+```
+
+Dockerfile does `COPY pyproject.toml ./`; build context must be `backend/`.
+
+### Production env (Render dashboard)
+
+| Variable | Notes |
+|:---------|:------|
+| `DATABASE_URL` | `postgresql+asyncpg://...` (convert from Render connection string) |
+| `AGENT_DB_URL` | `postgresql://...` (sync — scripts, LangGraph) |
+| `SECRET_KEY` | `openssl rand -hex 32` |
+| `SEED_PASSWORD` | **`123456`** for Demo Day (`admin@epu.edu.vn`); code default is `password123` if unset |
+| `SEED_ON_EMPTY` | `true` — keep for Demo Day; seed skips when students exist |
+| `CORS_ORIGINS` | `https://<vercel-app>.vercel.app` |
+| `PORT` | Injected by Render (often 10000); entrypoint uses `${PORT:-8000}` — do not set 8000 |
+| `OPENAI_API_KEY` / `LLM_API_KEY` | Required for chat + RAG embeddings |
+| `LANGSMITH_*` | Per H59/D58 |
+
+### Vercel env
+
+| Variable | Value |
+|:---------|:------|
+| `BACKEND_URL` | `https://<render-service>.onrender.com` |
+
+Chat stream proxy: `maxDuration = 120` in `frontend/src/app/api/v1/chat/stream/route.ts`.
+
+### Bootstrap (local, after first deploy)
+
+Script: [`scripts/d59-bootstrap-production.ps1`](../../scripts/d59-bootstrap-production.ps1)
+
+```powershell
+.\scripts\d59-bootstrap-production.ps1 -BaseUrl "https://<vercel-or-render>"
+# CTĐT: add -IngestCtdt -AgentDbUrl "postgresql://..." (Render External URL)
+```
+
+Manual equivalent:
+
+```powershell
+$base = "https://<vercel-or-render>"
+$loginBody = @{ username = "admin@epu.edu.vn"; password = "123456" }
+$token = (Invoke-RestMethod -Method POST -Uri "$base/api/v1/auth/login" -Body $loginBody -ContentType "application/x-www-form-urlencoded").access_token
+$headers = @{ Authorization = "Bearer $token" }
+Invoke-RestMethod -Method POST -Uri "$base/api/v1/admin/dwh/refresh" -Headers $headers
+$train = Invoke-RestMethod -Method POST -Uri "$base/api/v1/admin/ml/train?model=dropout" -Headers $headers
+Invoke-RestMethod -Method POST -Uri "$base/api/v1/admin/ml/score-dropout?model_run_id=$($train.model_run_id)" -Headers $headers
+```
+
+CTĐT RAG (local + External `AGENT_DB_URL`):
+
+```powershell
+cd backend
+$env:AGENT_DB_URL="postgresql://..."
+python scripts/ingest_ctdt_rag.py --input ../docs/20-RAG-Corpus-Preparation/ctdt/ctdt_chunks.jsonl
+```
+
+### Render Free tier reminders
+
+- Web spin-down ~15 min idle → UptimeRobot ping every 5 min
+- 750 instance-hours/month quota
+- Free PG: 1 GB, 30-day expiry
+
+### Pre-deploy repo checklist
+
+- [x] [backend/.dockerignore](../../backend/.dockerignore) — `db/` not ignored (D59)
+- [x] [render.yaml](../../render.yaml) — `rootDir` + `dockerContext` = backend
+- [x] `alembic heads` → single head `bc4d5e6f7a81` (verified)
+- [x] `alembic upgrade head` on clean PostgreSQL (verified)
+
+### Operator checklist (dashboard)
+
+See [d59-deployment-evidence.md](./d59-deployment-evidence.md) — fill Live URLs after Render + Vercel deploy.
+
+### Smoke (production)
+
+Script: [`scripts/d59-smoke-production.ps1`](../../scripts/d59-smoke-production.ps1)
+
+```powershell
+.\scripts\d59-smoke-production.ps1 -VercelUrl "https://<vercel>" -RenderUrl "https://<render>"
+```
+
+Manual:
+
+```powershell
+Invoke-WebRequest https://<vercel>/api/v1/health
+Invoke-WebRequest https://<render>/health
+# Login admin@epu.edu.vn / 123456 → dashboard → chat
+```
+
+### UptimeRobot
+
+| Monitor | URL |
+|:--------|:----|
+| FE e2e | `https://<vercel>/api/v1/health` |
+| BE | `https://<render>/health` |
+

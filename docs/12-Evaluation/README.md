@@ -46,16 +46,16 @@ Ranh giới quan trọng:
 - LLM chỉ giải thích prediction đã tồn tại, không tự tạo xác suất, theo [ADR-006](../decisions/0006-ml-agent-boundary.md).
 - Agent dùng router để chọn `fast_response` hoặc vòng lặp ReAct `core_agent -> tools -> core_agent`.
 - Lỗi được xử lý ở tool, node/graph và HTTP; request có structured event và correlation ID.
-- RAG/retrieval chưa phải năng lực hoàn chỉnh của Sprint 3; các retrieval event mới là contract chờ tích hợp.
+- Sprint 4 đã có CTĐT RAG MVP cho CNTT/KHDL/TTNT; câu trả lời CTĐT phải có citation file/trang/section.
 
 ### 2.2 Thành phần có thể đo
 
 | Thành phần | Hiện trạng có bằng chứng |
 |:--|:--|
-| Task set | `gate3_test_cases.json` có 26 case: analytics, chitchat, scope, injection, safety, privacy và uncertainty |
+| Task set | `gate3_test_cases.json` có 71 case: analytics, lookup, aggregation, dropout, guardrail, report và CTĐT RAG |
 | LLM routing | Router trả route, intent, complexity, `needs_tools` và quyết định inline/full chat |
 | Agent orchestration | LangGraph có router, core, fast response, ToolNode, retry và fallback |
-| Tools | Có SQL read-only, CLO, student lookup và dropout-risk tool |
+| Tools | Có SQL read-only, CLO, student lookup, dropout-risk tool và CTĐT RAG tool |
 | Guardrails | Input short-circuit, role/scope block, output masking, secret/schema protection |
 | ML dropout | Temporal split, threshold tuning, 10-fold CV, feature importance và model-run artifact |
 | Observability | `session_id`, `request_id`, `trace_id`, `conversation_id`, `agent_run_id`, `tool_call_id` |
@@ -222,7 +222,7 @@ Thang đánh giá:
 
 | Tầng | Mức hiện tại | Nhận định |
 |:--|:--:|:--|
-| Bài toán/eval set | **M2** | Có 26 case và category, nhưng phần lớn chỉ có keyword thay vì đáp án số/SQL chuẩn; chưa chia dev/test đóng băng |
+| Bài toán/eval set | **M2** | Có 71 case và category, nhiều case vẫn chỉ có keyword thay vì đáp án số/SQL chuẩn; chưa chia dev/test đóng băng |
 | LLM/model | **M1** | Chưa có benchmark model độc lập; artifact hard-code tên model và cost thay vì ghi runtime metadata/usage |
 | Agent | **M2** | Có script end-to-end, raw artifact, route/tool/guardrail tests; factual scoring và coverage còn yếu |
 | ML dropout | **M2** | Có temporal split, CV và artifact; thiếu dữ liệu thực, calibration và monitoring drift |
@@ -247,12 +247,12 @@ Thang đánh giá:
 | P0 | `core_agent_node` hiện chỉ `bind_tools([sql_query_tool])`, dù registry và prompt công bố thêm CLO, lookup và dropout tool | Core LLM không thể chọn trực tiếp ba tool còn lại; cần test end-to-end cho tool contract |
 | P0 | Answer quality chỉ kiểm tra từ khóa; câu trả lời sai số vẫn có thể pass | Điểm 100% không đại diện factual correctness |
 | P0 | Eval artifact ghi cứng `gpt-5.4-nano`, trong khi config mặc định hiện là `deepseek-chat` và runtime có thể override bằng môi trường | Không xác định chắc model/provider nào tạo kết quả; so sánh cost/model không audit được |
-| P1 | `gate3_test_cases.json` có 26 case nhưng artifact chỉ chạy 18 | Guardrail mới chưa có baseline end-to-end đồng bộ |
+| P1 | `gate3_test_cases.json` có 71 case nhưng artifact cũ chỉ chạy subset trước H61 | H60 cần chạy lại đủ 71 case và lưu artifact mới |
 | P1 | Cost report và eval report dùng giả định/công thức khác nhau: 0,00074 so với 0,001062 USD/query | Không có một nguồn cost chuẩn; báo cáo theo user/tháng có thể sai |
 | P1 | Latency p95 lấy từ 18 request tuần tự | Không phản ánh concurrency, cold start, rate limit hoặc tail latency production |
 | P1 | Chưa có eval model độc lập và chưa so sánh với baseline không-agent | Không biết cải thiện đến từ model, prompt, tool hay graph |
 | P1 | ML dùng seed tổng hợp và chưa báo cáo calibration/Brier score | Probability chưa đủ cơ sở cho quyết định can thiệp thực tế |
-| P2 | Retrieval/RAG trace contract có nhưng integration chưa hoàn tất | Chưa đo retrieval recall, citation correctness và groundedness |
+| P2 | CTĐT RAG MVP đã có citation contract nhưng chưa có retrieval-quality benchmark | Chưa đo retrieval recall, citation correctness và groundedness |
 | P2 | Chưa có SLO/alert, cleanup retention và outcome metric người dùng | Có log nhưng chưa khép kín vòng vận hành production |
 
 ### Trạng thái kiểm chứng local
@@ -350,6 +350,7 @@ Không lưu API key, token, cookie, raw prompt có PII hoặc raw retrieved chun
 
 - [Gate G3 evaluation metrics](./gate3_eval_metrics.md)
 - [Gate G3 test cases](./gate3_test_cases.json)
+- [H61 eval expansion](./h61_eval_expansion.md)
 - [Gate G3 cost report](./gate3_cost_report.md)
 - [ML dropout baseline](./ml-dropout-baseline.md)
 - [Guardrail cases](./h40_guardrail_test_cases.md)
