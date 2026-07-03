@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { AlertTriangle, Award, BookOpen, CheckCircle2, GraduationCap, MessageSquare, TrendingUp, Users } from "lucide-react"
 import {
   Bar,
@@ -24,6 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { api, getCachedCurrentUser, type ApiDashboardOverview } from "@/lib/api"
+import { analyticsHref, parseAnalyticsFilters, serializeAnalyticsFilters } from "@/lib/analytics-filters"
 import { requestDashboardAgent, setDashboardAgentContext } from "@/lib/dashboard-agent-context"
 
 const bucketColors: Record<string, string> = {
@@ -49,7 +51,17 @@ function dateEndIso(value: string) {
   return value ? new Date(`${value}T23:59:59.999`).toISOString() : undefined
 }
 
+function chartActiveLabel(state: unknown) {
+  if (!state || typeof state !== "object") return null
+  const label = (state as { activeLabel?: unknown }).activeLabel
+  return typeof label === "string" ? label : null
+}
+
 export default function OverviewPage() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const routeFilters = React.useMemo(() => parseAnalyticsFilters(searchParams), [searchParams])
   const currentUser = React.useMemo(() => getCachedCurrentUser(), [])
   const isScopedDepartmentManager = currentUser?.role === "manager" && currentUser.department_id !== null
   const scopedDepartmentId = isScopedDepartmentManager ? String(currentUser.department_id) : null
@@ -57,13 +69,13 @@ export default function OverviewPage() {
   const [trendRows, setTrendRows] = React.useState<ApiDashboardOverview["trend"]>([])
   const [semesterCode, setSemesterCode] = React.useState(() => {
     if (typeof window !== "undefined") {
-      return sessionStorage.getItem("vinuni_selected_semester") || "all"
+      return routeFilters.semester_code || sessionStorage.getItem("vinuni_selected_semester") || "all"
     }
     return "all"
   })
-  const [departmentId, setDepartmentId] = React.useState(() => scopedDepartmentId ?? "all")
-  const [dateFrom, setDateFrom] = React.useState("")
-  const [dateTo, setDateTo] = React.useState("")
+  const [departmentId, setDepartmentId] = React.useState(() => scopedDepartmentId ?? (routeFilters.department_id ? String(routeFilters.department_id) : "all"))
+  const [dateFrom, setDateFrom] = React.useState(routeFilters.date_from?.slice(0, 10) ?? "")
+  const [dateTo, setDateTo] = React.useState(routeFilters.date_to?.slice(0, 10) ?? "")
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
@@ -121,6 +133,15 @@ export default function OverviewPage() {
   }, [semesterCode, departmentId, dateFrom, dateTo])
 
   React.useEffect(() => {
+    const query = serializeAnalyticsFilters({
+      semester_code: semesterCode === "all" ? undefined : semesterCode,
+      department_id: departmentId === "all" ? undefined : Number(departmentId),
+      date_from: dateFrom || undefined, date_to: dateTo || undefined, source: routeFilters.source,
+    })
+    if (query !== searchParams.toString()) router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false })
+  }, [dateFrom, dateTo, departmentId, pathname, routeFilters.source, router, searchParams, semesterCode])
+
+  React.useEffect(() => {
     if (scopedDepartmentId && departmentId !== scopedDepartmentId) {
       setDepartmentId(scopedDepartmentId)
     }
@@ -157,6 +178,22 @@ export default function OverviewPage() {
   const riskyPrograms = [...(data?.program_rows ?? [])]
     .sort((a, b) => b.at_risk - a.at_risk || a.pass_rate - b.pass_rate)
     .slice(0, 8)
+  const hasCrossFilter = semesterCode !== "all" || departmentId !== "all"
+
+  const chooseSemester = React.useCallback((code: string) => {
+    setSemesterCode(code)
+    sessionStorage.setItem("vinuni_selected_semester", code)
+  }, [])
+
+  const chooseDepartment = React.useCallback((id: number) => {
+    if (!scopedDepartmentId) setDepartmentId(String(id))
+  }, [scopedDepartmentId])
+
+  const clearCrossFilter = React.useCallback(() => {
+    setSemesterCode("all")
+    sessionStorage.setItem("vinuni_selected_semester", "all")
+    if (!scopedDepartmentId) setDepartmentId("all")
+  }, [scopedDepartmentId])
 
   React.useEffect(() => {
     if (!data) return
@@ -269,11 +306,7 @@ export default function OverviewPage() {
           >
             <MessageSquare className="h-4 w-4" />Agent phân tích
           </button>
-          <Select value={semesterCode} onValueChange={(value) => {
-            const nextVal = value ?? "all"
-            setSemesterCode(nextVal)
-            sessionStorage.setItem("vinuni_selected_semester", nextVal)
-          }}>
+          <Select value={semesterCode} onValueChange={(value) => chooseSemester(value ?? "all")}>
             <SelectTrigger className="w-52"><span className="truncate">{semesterLabel}</span></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả học kỳ</SelectItem>
@@ -296,11 +329,33 @@ export default function OverviewPage() {
         </div>
       </div>
       <div className="flex flex-wrap gap-2 text-xs">
-        <Badge variant="outline">
-          Khoa: {departmentLabel}
-        </Badge>
-        <Badge variant="outline">Học kỳ: {semesterLabel}</Badge>
+        {[
+          { key: "department", active: departmentId !== "all" && !scopedDepartmentId, label: `Khoa: ${departmentLabel}` },
+          { key: "semester", active: semesterCode !== "all", label: `Học kỳ: ${semesterLabel}` },
+        ].map((chip) => (
+          <button
+            key={chip.key}
+            type="button"
+            onClick={() => {
+              if (!chip.active) return
+              if (chip.key === "department") setDepartmentId("all")
+              if (chip.key === "semester") chooseSemester("all")
+            }}
+            className={`inline-flex h-6 items-center rounded-full border px-2.5 text-xs ${chip.active ? "bg-primary/5 text-primary hover:bg-primary/10" : "text-muted-foreground"}`}
+          >
+            {chip.label}{chip.active ? <span className="ml-1">×</span> : null}
+          </button>
+        ))}
         <Badge variant="outline">Thời gian: {dateFrom || "đầu dữ liệu"} → {dateTo || "hiện tại"}</Badge>
+        {hasCrossFilter ? (
+          <button
+            type="button"
+            onClick={clearCrossFilter}
+            className="inline-flex h-6 items-center rounded-full border px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted"
+          >
+            Bỏ lọc từ biểu đồ
+          </button>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -322,7 +377,14 @@ export default function OverviewPage() {
           <CardHeader><CardTitle className="text-sm">Xu hướng pass rate toàn trường</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={trendRows}>
+              <LineChart
+                data={trendRows}
+                onClick={(state) => {
+                  const label = chartActiveLabel(state)
+                  if (label) chooseSemester(label)
+                }}
+                className="cursor-pointer"
+              >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="semester" tick={{ fontSize: 10 }} />
                 <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
@@ -336,7 +398,14 @@ export default function OverviewPage() {
           <CardHeader><CardTitle className="text-sm">Xu hướng điểm trung bình theo học kỳ</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={trendRows}>
+              <LineChart
+                data={trendRows}
+                onClick={(state) => {
+                  const label = chartActiveLabel(state)
+                  if (label) chooseSemester(label)
+                }}
+                className="cursor-pointer"
+              >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="semester" tick={{ fontSize: 10 }} />
                 <YAxis domain={[0, 10]} />
@@ -371,7 +440,12 @@ export default function OverviewPage() {
               <Tooltip formatter={(value) => [`${value}%`, "Pass rate"]} />
               <Bar dataKey="pass_rate" radius={[0, 4, 4, 0]}>
                 {data.department_rows.map((row) => (
-                  <Cell key={row.id} fill={row.pass_rate >= 75 ? "#22c55e" : row.pass_rate >= 60 ? "#f59e0b" : "#ef4444"} />
+                  <Cell
+                    key={row.id}
+                    fill={row.pass_rate >= 75 ? "#22c55e" : row.pass_rate >= 60 ? "#f59e0b" : "#ef4444"}
+                    onClick={() => chooseDepartment(row.id)}
+                    className={scopedDepartmentId ? undefined : "cursor-pointer"}
+                  />
                 ))}
               </Bar>
             </BarChart>
@@ -430,7 +504,13 @@ export default function OverviewPage() {
             <thead>
               <tr>
                 <th className="pb-2 text-left text-muted-foreground">Ngành</th>
-                {heatSemesters.map((semester) => <th key={semester.id} className="pb-2 text-center text-muted-foreground">{semester.code}</th>)}
+                {heatSemesters.map((semester) => (
+                  <th key={semester.id} className="pb-2 text-center text-muted-foreground">
+                    <button type="button" onClick={() => chooseSemester(semester.code)} className="hover:text-primary">
+                      {semester.code}
+                    </button>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -439,9 +519,13 @@ export default function OverviewPage() {
                   <td className="max-w-[260px] truncate py-2 font-medium">{row.name}</td>
                   {row.cells.map((value, index) => (
                     <td key={index} className="px-1 py-2 text-center">
-                      <span className={`inline-flex min-w-12 justify-center rounded px-2 py-1 font-medium ${heatColor(value)}`}>
+                      <button
+                        type="button"
+                        onClick={() => chooseSemester(heatSemesters[index]?.code ?? "all")}
+                        className={`inline-flex min-w-12 justify-center rounded px-2 py-1 font-medium ${heatColor(value)}`}
+                      >
                         {value === null ? "—" : `${value}%`}
-                      </span>
+                      </button>
                     </td>
                   ))}
                 </tr>
@@ -488,20 +572,27 @@ export default function OverviewPage() {
                         row.department ?? "Chưa rõ khoa"
                       )}
                     </td>
-                  <td className="px-4 py-3">{row.active_students}</td>
-                  <td className="px-4 py-3">{row.sections}</td>
-                  <td className="px-4 py-3"><Badge variant={row.pass_rate < 60 ? "destructive" : "secondary"}>{row.pass_rate}%</Badge></td>
-                  <td className="px-4 py-3">{row.avg_grade.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-red-600">{row.at_risk}</td>
-                  <td className="max-w-[220px] truncate px-4 py-3">{row.worst_course}</td>
+                    <td className="px-4 py-3">{row.active_students}</td>
+                    <td className="px-4 py-3">{row.sections}</td>
+                    <td className="px-4 py-3"><Badge variant={row.pass_rate < 60 ? "destructive" : "secondary"}>{row.pass_rate}%</Badge></td>
+                    <td className="px-4 py-3">{row.avg_grade.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-red-600">{row.at_risk}</td>
+                    <td className="max-w-[220px] truncate px-4 py-3">{row.worst_course}</td>
                     <td className="px-4 py-3">
-                      <Link className="inline-flex items-center gap-1 font-medium text-primary hover:underline" href={`/manager/analytics/programs?program=${row.id}`}>
+                      <Link className="inline-flex items-center gap-1 font-medium text-primary hover:underline" href={analyticsHref("/manager/analytics/programs", {
+                        program_id: row.id,
+                        semester_code: semesterCode === "all" ? undefined : semesterCode,
+                        department_id: departmentId === "all" ? undefined : Number(departmentId),
+                        date_from: dateFrom || undefined,
+                        date_to: dateTo || undefined,
+                        source: "overview",
+                      })}>
                         <BookOpen className="h-3 w-3" />
                         Xem ngành
                       </Link>
                     </td>
                   </tr>
-                );
+                )
               })}
             </tbody>
           </table>

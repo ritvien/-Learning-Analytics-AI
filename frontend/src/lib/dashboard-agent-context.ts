@@ -3,6 +3,7 @@
 export const DASHBOARD_AGENT_CONTEXT_KEY = "eduinsight_dashboard_agent_context_v1"
 export const DASHBOARD_AGENT_CONTEXT_EVENT = "dashboard-agent-context"
 export const DASHBOARD_AGENT_PROMPT_EVENT = "dashboard-agent-prompt"
+const DASHBOARD_AGENT_PENDING_PROMPT_KEY = "eduinsight_dashboard_agent_pending_prompt_v1"
 
 export type DashboardAgentContext = {
   source: string
@@ -43,4 +44,24 @@ export function getDashboardAgentContext(route?: string): DashboardAgentContext 
 export function requestDashboardAgent(prompt: string) {
   if (typeof window === "undefined") return
   window.dispatchEvent(new CustomEvent(DASHBOARD_AGENT_PROMPT_EVENT, { detail: { prompt } }))
+}
+
+export function queueDashboardAgentPrompt(prompt: string, route: string) {
+  if (typeof window === "undefined") return
+  sessionStorage.setItem(DASHBOARD_AGENT_PENDING_PROMPT_KEY, JSON.stringify({ prompt, route }))
+}
+
+export function consumeDashboardAgentPrompt(route: string): string | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = sessionStorage.getItem(DASHBOARD_AGENT_PENDING_PROMPT_KEY)
+    if (!raw) return null
+    const pending = JSON.parse(raw) as { prompt?: string; route?: string }
+    if (!pending.prompt || pending.route !== route) return null
+    sessionStorage.removeItem(DASHBOARD_AGENT_PENDING_PROMPT_KEY)
+    return pending.prompt
+  } catch {
+    sessionStorage.removeItem(DASHBOARD_AGENT_PENDING_PROMPT_KEY)
+    return null
+  }
 }

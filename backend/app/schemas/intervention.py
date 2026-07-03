@@ -12,6 +12,8 @@ InterventionStatus = Literal["drafted", "logged", "emailed", "failed"]
 InterventionScopeType = Literal["student", "section", "homeroom"]
 InterventionCaseStatus = Literal["new", "assigned", "contacting", "monitoring", "resolved", "closed"]
 InterventionPriority = Literal["low", "medium", "high", "critical"]
+ImprovementOutcome = Literal["improved", "unchanged", "worsened", "needs_follow_up"]
+AppointmentStatus = Literal["scheduled", "completed", "cancelled", "no_show"]
 CampaignStatus = Literal["draft", "reviewing", "approved", "sending", "completed", "cancelled"]
 CampaignObjective = Literal["early_support", "course_recovery", "advisor_checkin"]
 MessageStatus = Literal["drafted", "approved", "queued", "sent", "failed", "cancelled"]
@@ -22,6 +24,7 @@ class InterventionContactCreate(BaseModel):
 
     student_id: int
     case_id: int | None = None
+    task_id: int | None = None
     section_id: int | None = None
     class_code: str | None = Field(default=None, max_length=30)
     channel: InterventionChannel = "email"
@@ -37,6 +40,7 @@ class InterventionContactResponse(OrmBase):
 
     id: int
     case_id: int | None
+    task_id: int | None
     actor_user_id: str
     actor_name: str | None = None
     student_id: int
@@ -54,6 +58,7 @@ class InterventionContactResponse(OrmBase):
 
 class InterventionCaseCreate(BaseModel):
     student_id: int
+    task_id: int | None = None
     scope_type: Literal["section", "homeroom"]
     section_id: int | None = None
     class_code: str | None = Field(default=None, max_length=30)
@@ -78,6 +83,44 @@ class InterventionCaseAssign(BaseModel):
 class InterventionCaseEventCreate(BaseModel):
     event_type: Literal["note", "reply", "meeting", "escalation", "follow_up"]
     payload: dict = Field(default_factory=dict)
+
+
+class AdvisorAssessmentUpsert(BaseModel):
+    assessment: str = Field(min_length=1)
+    conclusion: Literal["support_needed", "monitor", "no_action"]
+    action_plan: str | None = None
+    confirm: bool = False
+
+
+class InterventionFollowUpCreate(BaseModel):
+    outcome: ImprovementOutcome
+    note: str | None = None
+
+
+class InterventionBulkNoticeCreate(BaseModel):
+    case_ids: list[int] = Field(min_length=1, max_length=100)
+    title: str = Field(min_length=1, max_length=255)
+    message: str = Field(min_length=1)
+
+
+class InterventionAppointmentCreate(BaseModel):
+    scheduled_at: datetime
+    duration_minutes: int = Field(default=30, ge=10, le=240)
+    meeting_mode: Literal["in_person", "online", "phone"] = "in_person"
+    location: str | None = Field(default=None, max_length=255)
+    purpose: str = Field(min_length=1)
+    note: str | None = None
+
+
+class InterventionAppointmentUpdate(BaseModel):
+    scheduled_at: datetime | None = None
+    duration_minutes: int | None = Field(default=None, ge=10, le=240)
+    meeting_mode: Literal["in_person", "online", "phone"] | None = None
+    location: str | None = Field(default=None, max_length=255)
+    purpose: str | None = Field(default=None, min_length=1)
+    note: str | None = None
+    status: AppointmentStatus | None = None
+    result: str | None = None
 
 
 class InterventionDraftRequest(BaseModel):
