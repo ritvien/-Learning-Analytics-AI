@@ -231,6 +231,26 @@ def _history_for_agent(messages: list[Any]) -> list[Any]:
     return safe_messages
 
 
+def _merge_persisted_history(
+    prior_history: list[Any],
+    user_message: HumanMessage,
+    input_messages: list[Any],
+    graph_output_messages: list[Any],
+) -> list[Any]:
+    """Merge full DB history with only the new turn additions from the graph.
+
+    The graph runs on a compacted subset (``input_messages`` = summary marker +
+    last N safe turns + current user turn). Its output is ``input_messages`` plus
+    any AI/tool messages the graph appended. Persisting the raw graph output
+    would silently drop older turns that were compacted away. Instead we take
+    only the tail the graph appended and concatenate onto the untouched prior
+    history plus the current user message.
+    """
+    delta_start = min(len(input_messages), len(graph_output_messages))
+    new_turn_additions = list(graph_output_messages[delta_start:])
+    return list(prior_history) + [user_message] + new_turn_additions
+
+
 # ── Endpoints ───────────────────────────────────────────────────────────
 
 @router.get("/sessions", response_model=list[SessionSummaryResponse])
@@ -393,10 +413,19 @@ async def chat(
         )
 
         # H64: compact history + load memory context
-        all_safe = _history_for_agent(history_msgs) + [HumanMessage(content=payload.message)]
+        user_turn = HumanMessage(content=payload.message)
+        all_safe = _history_for_agent(history_msgs) + [user_turn]
         input_messages = compact_history_for_agent(
             all_safe, db_session.short_summary,
         )
+
+        # Persist the user turn eagerly so an aborted/failed agent run still
+        # keeps a record of what the user asked (crucial for handoff flows and
+        # observability). The final commit below overwrites this with the full
+        # merged history once the agent completes.
+        db_session.messages = messages_to_dict(list(history_msgs) + [user_turn])
+        await db.commit()
+
         try:
             lt_memories = await load_long_term_memories(db, str(current_user.id))
         except Exception:
@@ -543,18 +572,22 @@ async def chat(
                         **obs_context,
                     )
 
-        # Lưu lại messages vào DB
-        db_session.messages = messages_to_dict(messages)
+        # Merge full DB history + new turn additions (avoid overwriting older
+        # turns compacted out of the agent input).
+        merged_history = _merge_persisted_history(
+            history_msgs, user_turn, input_messages, messages
+        )
+        db_session.messages = messages_to_dict(merged_history)
 
         # H64: update short_summary + save long-term memories
         try:
-            db_session.short_summary = build_deterministic_summary(messages)
-            for focus in extract_academic_focus(messages[-4:]):
+            db_session.short_summary = build_deterministic_summary(merged_history)
+            for focus in extract_academic_focus(merged_history[-4:]):
                 await save_long_term_memory(
                     db, str(current_user.id),
                     focus["type"], focus["key"], focus["value"],
                 )
-            for pref in extract_user_preferences(messages[-4:]):
+            for pref in extract_user_preferences(merged_history[-4:]):
                 await save_long_term_memory(
                     db, str(current_user.id),
                     pref["type"], pref["key"], pref["value"],
@@ -699,10 +732,19 @@ async def chat_stream(
             )
 
             # H64: compact history + load memory context
-            all_safe = _history_for_agent(history_msgs) + [HumanMessage(content=payload.message)]
+            user_turn = HumanMessage(content=payload.message)
+            all_safe = _history_for_agent(history_msgs) + [user_turn]
             input_messages = compact_history_for_agent(
                 all_safe, db_session.short_summary,
             )
+
+            # Persist the user turn eagerly so an aborted stream (e.g. router
+            # handoff to /chat) still leaves a durable record of the user
+            # message. The final commit below overwrites this once the graph
+            # completes.
+            db_session.messages = messages_to_dict(list(history_msgs) + [user_turn])
+            await db.commit()
+
             try:
                 lt_memories = await load_long_term_memories(db, str(current_user.id))
             except Exception:
@@ -846,18 +888,24 @@ async def chat_stream(
                 )
                 yield f"data: {json.dumps({'type': 'done', 'latency_ms': elapsed_ms, 'thread_id': str(db_session.id)})}\n\n"
                 
-                # Update DB after streaming finishes
+                # Update DB after streaming finishes.
+                # Merge prior DB history with only the messages the graph
+                # appended to its (compacted) input — this preserves older
+                # turns that were compacted out of the agent context.
                 if final_state_messages:
-                    db_session.messages = messages_to_dict(final_state_messages)
+                    merged_history = _merge_persisted_history(
+                        history_msgs, user_turn, input_messages, final_state_messages
+                    )
+                    db_session.messages = messages_to_dict(merged_history)
                     # H64: update short_summary + save long-term memories
                     try:
-                        db_session.short_summary = build_deterministic_summary(final_state_messages)
-                        for focus in extract_academic_focus(final_state_messages[-4:]):
+                        db_session.short_summary = build_deterministic_summary(merged_history)
+                        for focus in extract_academic_focus(merged_history[-4:]):
                             await save_long_term_memory(
                                 db, str(current_user.id),
                                 focus["type"], focus["key"], focus["value"],
                             )
-                        for pref in extract_user_preferences(final_state_messages[-4:]):
+                        for pref in extract_user_preferences(merged_history[-4:]):
                             await save_long_term_memory(
                                 db, str(current_user.id),
                                 pref["type"], pref["key"], pref["value"],

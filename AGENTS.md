@@ -13,11 +13,13 @@ Read this file first before changing code or docs in this repository.
 
 | Done | Open focus |
 |:-------|:----------------------------|
-| S3 carry closed · H59 · H49 · H62 · H63 · D58 · **H64** · **H51** · **D59** · **H61** · **H60/D60/D61** · **D63** · **V56** | D56/D57 · D62 · T58 · **H47** (ex-V47) · **H66** eval metrics · **V65** skeleton · **V66** UI QA/screenshots · V18–V23 buffer |
+| S3 carry closed · H59 · H49 · H62 · H63 · D58 · **H64** · **H51** · **D59** · **H61** · **H60/D60/D61** · **D63** · **V56** | D56/D57 · D62 · T58 · **H47** (ex-V47) · **H66** eval metrics · **H67** concurrency limiter · **V65** skeleton · **V66** UI QA/screenshots · V18–V23 buffer |
 
 **Production:** Live URL [c2-app-056.vercel.app](https://c2-app-056.vercel.app) · smoke pass · evidence [d59-deployment-evidence.md](docs/21-Release-Readiness/d59-deployment-evidence.md).
 
 **Eval / observability:** H59/D58 LangSmith tracing done; H64 memory/cache done; H51 CTĐT RAG Q&A MVP done; H60 71-case production evidence archived in [docs/evaluation.md](docs/evaluation.md); H61 dataset 100 TCs. **H47** (ex-V47) review + **H66** metrics optimize remain open before 100-case rerun.
+
+**Session fix:** Chat session persistence + memory merge fix deployed (early user-message persist, history merge instead of overwrite, frontend cache invalidation).
 
 Handoff snapshot: [.cursor/session-handoff.md](.cursor/session-handoff.md). UX polish backlog (non-blocking): [docs/22-UX-Simplification-Review/README.md](docs/22-UX-Simplification-Review/README.md).
 

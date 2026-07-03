@@ -1336,6 +1336,22 @@ function clearApiReadCache() {
   apiCache.clear()
 }
 
+/**
+ * Invalidate cached GET responses for a specific path prefix. Chat streaming
+ * bypasses the GET cache but still needs to force a refresh of related GETs
+ * (e.g. `/api/v1/chat/sessions`) so the sidebar reflects the newly created
+ * or updated session after `session_created` / `done` events.
+ */
+export function invalidateApiCacheByPrefix(pathPrefix: string) {
+  for (const key of apiCache.keys()) {
+    // Cache keys have the form `${METHOD}:${path}:${tokenSuffix?}` — match on
+    // the path segment so we invalidate regardless of token.
+    if (key.includes(`:${pathPrefix}`)) {
+      apiCache.delete(key)
+    }
+  }
+}
+
 export function saveAccessToken(token: string) {
   meInFlight = null
   clearApiReadCache()
