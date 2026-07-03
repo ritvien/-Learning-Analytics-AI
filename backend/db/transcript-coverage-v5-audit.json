@@ -1,0 +1,6042 @@
+{
+  "schema_version": 1,
+  "summary": {
+    "source": "synthetic_transcript_coverage_v5",
+    "programs": 12,
+    "semesters": 4,
+    "cohorts_per_program": 2,
+    "candidate_courses": 480
+  },
+  "semesters": [
+    {
+      "id": 8,
+      "code": "2024-1",
+      "name": "HK1 (2024-2025)",
+      "year": 2024,
+      "term": 1,
+      "enrollments": 8209
+    },
+    {
+      "id": 9,
+      "code": "2024-2",
+      "name": "HK2 (2024-2025)",
+      "year": 2024,
+      "term": 2,
+      "enrollments": 8160
+    },
+    {
+      "id": 10,
+      "code": "2025-1",
+      "name": "HK1 (2025-2026)",
+      "year": 2025,
+      "term": 1,
+      "enrollments": 8612
+    },
+    {
+      "id": 11,
+      "code": "2025-2",
+      "name": "HK2 (2025-2026)",
+      "year": 2025,
+      "term": 2,
+      "enrollments": 7767
+    }
+  ],
+  "programs": [
+    {
+      "program_id": 2,
+      "program_code": "7480201",
+      "program_name": "Công nghệ thông tin",
+      "department_id": 5,
+      "department_name": "Khoa Công nghệ Thông tin",
+      "students": 368,
+      "classes": 22,
+      "enrollments": 20355,
+      "courses": [
+        {
+          "course_id": 3,
+          "code": "CRS0003",
+          "name": "Triết học Mác - Lênin",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1277,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 32,
+          "code": "CRS0032",
+          "name": "Pháp luật đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1271,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 5,
+          "code": "CRS0005",
+          "name": "Giáo dục thể chất 1",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1251,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 2,
+          "code": "CRS0002",
+          "name": "Tiếng Anh 1",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1250,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 7,
+          "code": "CRS0007",
+          "name": "Giáo dục thể chất 2",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1249,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 6,
+          "code": "CRS0006",
+          "name": "Giáo dục quốc phòng 1",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 8,
+          "code": "CRS0008",
+          "name": "Giáo dục quốc phòng 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 10,
+          "code": "CRS0010",
+          "name": "Giáo dục quốc phòng 3",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 9,
+          "code": "CRS0009",
+          "name": "Giáo dục thể chất 3",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 12,
+          "code": "CRS0012",
+          "name": "Giáo dục quốc phòng 4",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 11,
+          "code": "CRS0011",
+          "name": "Giáo dục thể chất 4",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1241,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 14,
+          "code": "CRS0014",
+          "name": "Kinh tế chính trị Mác - Lênin",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1240,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 62,
+          "code": "CRS0062",
+          "name": "Năng lượng cho phát triển bền vững",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1092,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 13,
+          "code": "CRS0013",
+          "name": "Toán cao cấp 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1283,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 34,
+          "code": "CRS0034",
+          "name": "Xác suất thống kê",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1214,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 129,
+          "code": "CRS0129",
+          "name": "Ứng dụng Công nghệ thông tin cơ bản",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 808,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 20,
+          "code": "CRS0020",
+          "name": "Chủ nghĩa xã hội khoa học",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1040,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 27,
+          "code": "CRS0027",
+          "name": "Tư tưởng Hồ Chí Minh",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1030,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 15,
+          "code": "CRS0015",
+          "name": "Tiếng Anh 2",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 992,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 37,
+          "code": "CRS0037",
+          "name": "Lịch sử Đảng Cộng sản Việt Nam",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 702,
+          "clo_count": 3,
+          "course_plo_count": 65,
+          "clo_plo_count": 65
+        },
+        {
+          "course_id": 1,
+          "code": "CRS0001",
+          "name": "Toán cao cấp 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1118,
+          "clo_count": 3,
+          "course_plo_count": 60,
+          "clo_plo_count": 60
+        },
+        {
+          "course_id": 60,
+          "code": "CRS0060",
+          "name": "Vật lý đại cương",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 944,
+          "clo_count": 3,
+          "course_plo_count": 55,
+          "clo_plo_count": 55
+        },
+        {
+          "course_id": 64,
+          "code": "CRS0064",
+          "name": "Đại cương về quản lý điều hành và khởi nghiệp",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 889,
+          "clo_count": 3,
+          "course_plo_count": 55,
+          "clo_plo_count": 55
+        },
+        {
+          "course_id": 33,
+          "code": "CRS0033",
+          "name": "Kinh tế học đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 217,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 4,
+          "code": "CRS0004",
+          "name": "Nhập môn tin học",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 184,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 72,
+          "code": "CRS0072",
+          "name": "Thống kê ứng dụng trong kinh doanh",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 213,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 16,
+          "code": "CRS0016",
+          "name": "Vật lý",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 169,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 57,
+          "code": "CRS0057",
+          "name": "Thực tập tốt nghiệp",
+          "credits": 5,
+          "is_elective": false,
+          "enrollments": 131,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 24,
+          "code": "CRS0024",
+          "name": "Toán cao cấp 3",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 64,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 17,
+          "code": "CRS0017",
+          "name": "Vẽ kỹ thuật 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 69,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 124,
+          "code": "CRS0124",
+          "name": "Đồ án/Khóa luận tốt nghiệp",
+          "credits": 14,
+          "is_elective": false,
+          "enrollments": 109,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 307,
+          "code": "CRS0307",
+          "name": "Kỹ thuật điện tử",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 20,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 21,
+          "code": "CRS0021",
+          "name": "Kỹ thuật điện đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 19,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 282,
+          "code": "CRS0282",
+          "name": "Tiếng Nhật 1",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 6,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 283,
+          "code": "CRS0283",
+          "name": "Tiếng Nhật 2",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 5,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 61,
+          "code": "CRS0061",
+          "name": "Lập trình cơ bản",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 418,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 68,
+          "code": "CRS0068",
+          "name": "Lập trình C nâng cao",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 418,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 75,
+          "code": "CRS0075",
+          "name": "Nhập môn cấu trúc dữ liệu và giải thuật",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 402,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 76,
+          "code": "CRS0076",
+          "name": "Cơ sở lập trình Web",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 390,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 66,
+          "code": "CRS0066",
+          "name": "Mạng máy tính",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 383,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        }
+      ],
+      "cohorts": [
+        {
+          "id": 2,
+          "code": "K22",
+          "year_start": 2022,
+          "students": 120
+        },
+        {
+          "id": 5,
+          "code": "K23",
+          "year_start": 2023,
+          "students": 100
+        }
+      ],
+      "specializations": [
+        {
+          "id": 52,
+          "code": "SPEC-741C5F709C33",
+          "name": "Công nghệ phần mềm"
+        },
+        {
+          "id": 58,
+          "code": "SPEC-C5AE857C9FF6",
+          "name": "Hệ thống thương mại điện tử"
+        },
+        {
+          "id": 67,
+          "code": "SP1A040EFA86281DF4EB",
+          "name": "Quản trị và an ninh mạng"
+        }
+      ],
+      "teachers": [
+        {
+          "id": 22,
+          "full_name": "trần đức bo"
+        },
+        {
+          "id": 23,
+          "full_name": "trần dức"
+        },
+        {
+          "id": 24,
+          "full_name": "tran van duc"
+        },
+        {
+          "id": 25,
+          "full_name": "trần đức huy"
+        },
+        {
+          "id": 37,
+          "full_name": "Demo Lecturer DEPT05-01"
+        },
+        {
+          "id": 38,
+          "full_name": "Demo Lecturer DEPT05-02"
+        },
+        {
+          "id": 58,
+          "full_name": "Demo Lecturer DEPT05-03"
+        },
+        {
+          "id": 76,
+          "full_name": "nam"
+        }
+      ]
+    },
+    {
+      "program_id": 4,
+      "program_code": "7510303",
+      "program_name": "Công nghệ kỹ thuật điều khiển và tự động hoá",
+      "department_id": 8,
+      "department_name": "Khoa Điều khiển và Tự động hóa",
+      "students": 216,
+      "classes": 13,
+      "enrollments": 11408,
+      "courses": [
+        {
+          "course_id": 3,
+          "code": "CRS0003",
+          "name": "Triết học Mác - Lênin",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1277,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 32,
+          "code": "CRS0032",
+          "name": "Pháp luật đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1271,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 5,
+          "code": "CRS0005",
+          "name": "Giáo dục thể chất 1",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1251,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 2,
+          "code": "CRS0002",
+          "name": "Tiếng Anh 1",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1250,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 7,
+          "code": "CRS0007",
+          "name": "Giáo dục thể chất 2",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1249,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 6,
+          "code": "CRS0006",
+          "name": "Giáo dục quốc phòng 1",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 8,
+          "code": "CRS0008",
+          "name": "Giáo dục quốc phòng 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 10,
+          "code": "CRS0010",
+          "name": "Giáo dục quốc phòng 3",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 9,
+          "code": "CRS0009",
+          "name": "Giáo dục thể chất 3",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 12,
+          "code": "CRS0012",
+          "name": "Giáo dục quốc phòng 4",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 11,
+          "code": "CRS0011",
+          "name": "Giáo dục thể chất 4",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1241,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 14,
+          "code": "CRS0014",
+          "name": "Kinh tế chính trị Mác - Lênin",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1240,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 62,
+          "code": "CRS0062",
+          "name": "Năng lượng cho phát triển bền vững",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1092,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 13,
+          "code": "CRS0013",
+          "name": "Toán cao cấp 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1283,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 34,
+          "code": "CRS0034",
+          "name": "Xác suất thống kê",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1214,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 129,
+          "code": "CRS0129",
+          "name": "Ứng dụng Công nghệ thông tin cơ bản",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 808,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 20,
+          "code": "CRS0020",
+          "name": "Chủ nghĩa xã hội khoa học",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1040,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 27,
+          "code": "CRS0027",
+          "name": "Tư tưởng Hồ Chí Minh",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1030,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 15,
+          "code": "CRS0015",
+          "name": "Tiếng Anh 2",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 992,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 37,
+          "code": "CRS0037",
+          "name": "Lịch sử Đảng Cộng sản Việt Nam",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 702,
+          "clo_count": 3,
+          "course_plo_count": 65,
+          "clo_plo_count": 65
+        },
+        {
+          "course_id": 1,
+          "code": "CRS0001",
+          "name": "Toán cao cấp 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1118,
+          "clo_count": 3,
+          "course_plo_count": 60,
+          "clo_plo_count": 60
+        },
+        {
+          "course_id": 60,
+          "code": "CRS0060",
+          "name": "Vật lý đại cương",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 944,
+          "clo_count": 3,
+          "course_plo_count": 55,
+          "clo_plo_count": 55
+        },
+        {
+          "course_id": 64,
+          "code": "CRS0064",
+          "name": "Đại cương về quản lý điều hành và khởi nghiệp",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 889,
+          "clo_count": 3,
+          "course_plo_count": 55,
+          "clo_plo_count": 55
+        },
+        {
+          "course_id": 130,
+          "code": "CRS0130",
+          "name": "Đại cương về Hóa học trong khoa học vật liệu",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 616,
+          "clo_count": 3,
+          "course_plo_count": 45,
+          "clo_plo_count": 45
+        },
+        {
+          "course_id": 58,
+          "code": "CRS0058",
+          "name": "Điện đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 488,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 132,
+          "code": "CRS0132",
+          "name": "Vẽ kỹ thuật",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 397,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 134,
+          "code": "CRS0134",
+          "name": "Thực hành Điện cơ bản",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 392,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 137,
+          "code": "CRS0137",
+          "name": "Thực hành Autocad",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 377,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 33,
+          "code": "CRS0033",
+          "name": "Kinh tế học đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 217,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 4,
+          "code": "CRS0004",
+          "name": "Nhập môn tin học",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 184,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 16,
+          "code": "CRS0016",
+          "name": "Vật lý",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 169,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 57,
+          "code": "CRS0057",
+          "name": "Thực tập tốt nghiệp",
+          "credits": 5,
+          "is_elective": false,
+          "enrollments": 131,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 24,
+          "code": "CRS0024",
+          "name": "Toán cao cấp 3",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 64,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 22,
+          "code": "CRS0022",
+          "name": "Kỹ thuật nhiệt 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 237,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 17,
+          "code": "CRS0017",
+          "name": "Vẽ kỹ thuật 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 69,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 164,
+          "code": "CRS0164",
+          "name": "Lý thuyết mạch 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 315,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 30,
+          "code": "CRS0030",
+          "name": "Lý thuyết điều khiển tự động 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 243,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 44,
+          "code": "CRS0044",
+          "name": "Kỹ thuật an toàn",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 197,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 179,
+          "code": "CRS0179",
+          "name": "Tiếng Anh chuyên ngành",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 179,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 50,
+          "code": "CRS0050",
+          "name": "Điện tử công suất",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 144,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        }
+      ],
+      "cohorts": [
+        {
+          "id": 4,
+          "code": "K24",
+          "year_start": 2024,
+          "students": 80
+        },
+        {
+          "id": 5,
+          "code": "K23",
+          "year_start": 2023,
+          "students": 60
+        }
+      ],
+      "specializations": [
+        {
+          "id": 44,
+          "code": "SPEC-3B20B4ADB81F",
+          "name": "Tin học cho điều khiển và tự động hóa"
+        },
+        {
+          "id": 54,
+          "code": "SPEC-85CAB02C05E5",
+          "name": "Công nghệ kỹ thuật điều khiển"
+        },
+        {
+          "id": 63,
+          "code": "SPEC-F65BA0C174AB",
+          "name": "Tự động hóa và điều khiển thiết bị điện công nghiệp"
+        }
+      ],
+      "teachers": [
+        {
+          "id": 43,
+          "full_name": "Demo Lecturer DEPT08-01"
+        },
+        {
+          "id": 44,
+          "full_name": "Demo Lecturer DEPT08-02"
+        },
+        {
+          "id": 59,
+          "full_name": "Demo Lecturer DEPT08-03"
+        }
+      ]
+    },
+    {
+      "program_id": 3,
+      "program_code": "7510201",
+      "program_name": "Công nghệ kỹ thuật cơ khí",
+      "department_id": 1,
+      "department_name": "Khoa Cơ khí - ô tô và Xây dựng",
+      "students": 140,
+      "classes": 8,
+      "enrollments": 7136,
+      "courses": [
+        {
+          "course_id": 3,
+          "code": "CRS0003",
+          "name": "Triết học Mác - Lênin",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1277,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 32,
+          "code": "CRS0032",
+          "name": "Pháp luật đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1271,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 5,
+          "code": "CRS0005",
+          "name": "Giáo dục thể chất 1",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1251,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 2,
+          "code": "CRS0002",
+          "name": "Tiếng Anh 1",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1250,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 7,
+          "code": "CRS0007",
+          "name": "Giáo dục thể chất 2",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1249,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 6,
+          "code": "CRS0006",
+          "name": "Giáo dục quốc phòng 1",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 8,
+          "code": "CRS0008",
+          "name": "Giáo dục quốc phòng 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 10,
+          "code": "CRS0010",
+          "name": "Giáo dục quốc phòng 3",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 9,
+          "code": "CRS0009",
+          "name": "Giáo dục thể chất 3",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 12,
+          "code": "CRS0012",
+          "name": "Giáo dục quốc phòng 4",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 11,
+          "code": "CRS0011",
+          "name": "Giáo dục thể chất 4",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1241,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 14,
+          "code": "CRS0014",
+          "name": "Kinh tế chính trị Mác - Lênin",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1240,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 62,
+          "code": "CRS0062",
+          "name": "Năng lượng cho phát triển bền vững",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1092,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 13,
+          "code": "CRS0013",
+          "name": "Toán cao cấp 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1283,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 34,
+          "code": "CRS0034",
+          "name": "Xác suất thống kê",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1214,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 129,
+          "code": "CRS0129",
+          "name": "Ứng dụng Công nghệ thông tin cơ bản",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 808,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 20,
+          "code": "CRS0020",
+          "name": "Chủ nghĩa xã hội khoa học",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1040,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 27,
+          "code": "CRS0027",
+          "name": "Tư tưởng Hồ Chí Minh",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1030,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 15,
+          "code": "CRS0015",
+          "name": "Tiếng Anh 2",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 992,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 37,
+          "code": "CRS0037",
+          "name": "Lịch sử Đảng Cộng sản Việt Nam",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 702,
+          "clo_count": 3,
+          "course_plo_count": 65,
+          "clo_plo_count": 65
+        },
+        {
+          "course_id": 1,
+          "code": "CRS0001",
+          "name": "Toán cao cấp 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1118,
+          "clo_count": 3,
+          "course_plo_count": 60,
+          "clo_plo_count": 60
+        },
+        {
+          "course_id": 60,
+          "code": "CRS0060",
+          "name": "Vật lý đại cương",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 944,
+          "clo_count": 3,
+          "course_plo_count": 55,
+          "clo_plo_count": 55
+        },
+        {
+          "course_id": 64,
+          "code": "CRS0064",
+          "name": "Đại cương về quản lý điều hành và khởi nghiệp",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 889,
+          "clo_count": 3,
+          "course_plo_count": 55,
+          "clo_plo_count": 55
+        },
+        {
+          "course_id": 130,
+          "code": "CRS0130",
+          "name": "Đại cương về Hóa học trong khoa học vật liệu",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 616,
+          "clo_count": 3,
+          "course_plo_count": 45,
+          "clo_plo_count": 45
+        },
+        {
+          "course_id": 58,
+          "code": "CRS0058",
+          "name": "Điện đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 488,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 132,
+          "code": "CRS0132",
+          "name": "Vẽ kỹ thuật",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 397,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 134,
+          "code": "CRS0134",
+          "name": "Thực hành Điện cơ bản",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 392,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 137,
+          "code": "CRS0137",
+          "name": "Thực hành Autocad",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 377,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 33,
+          "code": "CRS0033",
+          "name": "Kinh tế học đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 217,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 4,
+          "code": "CRS0004",
+          "name": "Nhập môn tin học",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 184,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 16,
+          "code": "CRS0016",
+          "name": "Vật lý",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 169,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 57,
+          "code": "CRS0057",
+          "name": "Thực tập tốt nghiệp",
+          "credits": 5,
+          "is_elective": false,
+          "enrollments": 131,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 24,
+          "code": "CRS0024",
+          "name": "Toán cao cấp 3",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 64,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 22,
+          "code": "CRS0022",
+          "name": "Kỹ thuật nhiệt 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 237,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 17,
+          "code": "CRS0017",
+          "name": "Vẽ kỹ thuật 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 69,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 30,
+          "code": "CRS0030",
+          "name": "Lý thuyết điều khiển tự động 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 243,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 44,
+          "code": "CRS0044",
+          "name": "Kỹ thuật an toàn",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 197,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 131,
+          "code": "CRS0131",
+          "name": "Cơ học kỹ thuật",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 125,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 124,
+          "code": "CRS0124",
+          "name": "Đồ án/Khóa luận tốt nghiệp",
+          "credits": 14,
+          "is_elective": false,
+          "enrollments": 109,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 18,
+          "code": "CRS0018",
+          "name": "Hóa học",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 67,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        }
+      ],
+      "cohorts": [
+        {
+          "id": 4,
+          "code": "K24",
+          "year_start": 2024,
+          "students": 40
+        },
+        {
+          "id": 5,
+          "code": "K23",
+          "year_start": 2023,
+          "students": 40
+        }
+      ],
+      "specializations": [
+        {
+          "id": 43,
+          "code": "SPEC-1E470AFF6210",
+          "name": "Cơ khí ô tô"
+        },
+        {
+          "id": 48,
+          "code": "SPEC-63D868FB0E70",
+          "name": "Cơ khí chế tạo máy"
+        }
+      ],
+      "teachers": [
+        {
+          "id": 1,
+          "full_name": "Demo Lecturer"
+        },
+        {
+          "id": 18,
+          "full_name": "trần văn đức"
+        },
+        {
+          "id": 21,
+          "full_name": "tran van duc"
+        },
+        {
+          "id": 26,
+          "full_name": "Demo Lecturer 01"
+        },
+        {
+          "id": 29,
+          "full_name": "Demo Lecturer DEPT01-01"
+        },
+        {
+          "id": 30,
+          "full_name": "Demo Lecturer DEPT01-02"
+        },
+        {
+          "id": 57,
+          "full_name": "Demo Lecturer DEPT01-03"
+        }
+      ]
+    },
+    {
+      "program_id": 5,
+      "program_code": "7510302",
+      "program_name": "Công nghệ kỹ thuật điện tử - viễn thông",
+      "department_id": 7,
+      "department_name": "Khoa Điện tử Viễn thông",
+      "students": 94,
+      "classes": 7,
+      "enrollments": 4003,
+      "courses": [
+        {
+          "course_id": 3,
+          "code": "CRS0003",
+          "name": "Triết học Mác - Lênin",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1277,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 32,
+          "code": "CRS0032",
+          "name": "Pháp luật đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1271,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 5,
+          "code": "CRS0005",
+          "name": "Giáo dục thể chất 1",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1251,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 2,
+          "code": "CRS0002",
+          "name": "Tiếng Anh 1",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1250,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 7,
+          "code": "CRS0007",
+          "name": "Giáo dục thể chất 2",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1249,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 6,
+          "code": "CRS0006",
+          "name": "Giáo dục quốc phòng 1",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 8,
+          "code": "CRS0008",
+          "name": "Giáo dục quốc phòng 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 10,
+          "code": "CRS0010",
+          "name": "Giáo dục quốc phòng 3",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 9,
+          "code": "CRS0009",
+          "name": "Giáo dục thể chất 3",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 12,
+          "code": "CRS0012",
+          "name": "Giáo dục quốc phòng 4",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 11,
+          "code": "CRS0011",
+          "name": "Giáo dục thể chất 4",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1241,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 14,
+          "code": "CRS0014",
+          "name": "Kinh tế chính trị Mác - Lênin",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1240,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 62,
+          "code": "CRS0062",
+          "name": "Năng lượng cho phát triển bền vững",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1092,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 13,
+          "code": "CRS0013",
+          "name": "Toán cao cấp 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1283,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 34,
+          "code": "CRS0034",
+          "name": "Xác suất thống kê",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1214,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 129,
+          "code": "CRS0129",
+          "name": "Ứng dụng Công nghệ thông tin cơ bản",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 808,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 20,
+          "code": "CRS0020",
+          "name": "Chủ nghĩa xã hội khoa học",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1040,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 27,
+          "code": "CRS0027",
+          "name": "Tư tưởng Hồ Chí Minh",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1030,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 15,
+          "code": "CRS0015",
+          "name": "Tiếng Anh 2",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 992,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 37,
+          "code": "CRS0037",
+          "name": "Lịch sử Đảng Cộng sản Việt Nam",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 702,
+          "clo_count": 3,
+          "course_plo_count": 65,
+          "clo_plo_count": 65
+        },
+        {
+          "course_id": 1,
+          "code": "CRS0001",
+          "name": "Toán cao cấp 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1118,
+          "clo_count": 3,
+          "course_plo_count": 60,
+          "clo_plo_count": 60
+        },
+        {
+          "course_id": 60,
+          "code": "CRS0060",
+          "name": "Vật lý đại cương",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 944,
+          "clo_count": 3,
+          "course_plo_count": 55,
+          "clo_plo_count": 55
+        },
+        {
+          "course_id": 64,
+          "code": "CRS0064",
+          "name": "Đại cương về quản lý điều hành và khởi nghiệp",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 889,
+          "clo_count": 3,
+          "course_plo_count": 55,
+          "clo_plo_count": 55
+        },
+        {
+          "course_id": 130,
+          "code": "CRS0130",
+          "name": "Đại cương về Hóa học trong khoa học vật liệu",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 616,
+          "clo_count": 3,
+          "course_plo_count": 45,
+          "clo_plo_count": 45
+        },
+        {
+          "course_id": 58,
+          "code": "CRS0058",
+          "name": "Điện đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 488,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 134,
+          "code": "CRS0134",
+          "name": "Thực hành Điện cơ bản",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 392,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 4,
+          "code": "CRS0004",
+          "name": "Nhập môn tin học",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 184,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 16,
+          "code": "CRS0016",
+          "name": "Vật lý",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 169,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 24,
+          "code": "CRS0024",
+          "name": "Toán cao cấp 3",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 64,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 164,
+          "code": "CRS0164",
+          "name": "Lý thuyết mạch 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 315,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 179,
+          "code": "CRS0179",
+          "name": "Tiếng Anh chuyên ngành",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 179,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 50,
+          "code": "CRS0050",
+          "name": "Điện tử công suất",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 144,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 161,
+          "code": "CRS0161",
+          "name": "Hàm phức và phép biến đổi Laplace",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 140,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 61,
+          "code": "CRS0061",
+          "name": "Lập trình cơ bản",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 418,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 68,
+          "code": "CRS0068",
+          "name": "Lập trình C nâng cao",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 418,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 66,
+          "code": "CRS0066",
+          "name": "Mạng máy tính",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 383,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 127,
+          "code": "CRS0127",
+          "name": "Hệ thống IoT và ứng dụng",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 89,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 317,
+          "code": "CRS0317",
+          "name": "Điện tử tương tự 1",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 82,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 232,
+          "code": "CRS0232",
+          "name": "Thực hành điện tử 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 38,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 231,
+          "code": "CRS0231",
+          "name": "Lý thuyết mạch 2",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 8,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        }
+      ],
+      "cohorts": [
+        {
+          "id": 4,
+          "code": "K24",
+          "year_start": 2024,
+          "students": 40
+        },
+        {
+          "id": 6,
+          "code": "K25",
+          "year_start": 2025,
+          "students": 20
+        }
+      ],
+      "specializations": [
+        {
+          "id": 41,
+          "code": "SPEC-0BFAA60E69B5",
+          "name": "Thiết bị điện tử y tế"
+        },
+        {
+          "id": 46,
+          "code": "SPEC-4F6869C4EF3B",
+          "name": "Điện tử viễn thông"
+        },
+        {
+          "id": 51,
+          "code": "SPEC-7401C76D29BC",
+          "name": "Điện tử và kỹ thuật máy tính"
+        },
+        {
+          "id": 61,
+          "code": "SPEC-D9D39623972B",
+          "name": "Mạng viễn thông và máy tính"
+        }
+      ],
+      "teachers": [
+        {
+          "id": 41,
+          "full_name": "Demo Lecturer DEPT07-01"
+        },
+        {
+          "id": 42,
+          "full_name": "Demo Lecturer DEPT07-02"
+        }
+      ]
+    },
+    {
+      "program_id": 14,
+      "program_code": "7810103",
+      "program_name": "Quản trị dịch vụ du lịch và lữ hành",
+      "department_id": 10,
+      "department_name": "Khoa Quản trị Kinh doanh và Du lịch",
+      "students": 867,
+      "classes": 3,
+      "enrollments": 2297,
+      "courses": [
+        {
+          "course_id": 3,
+          "code": "CRS0003",
+          "name": "Triết học Mác - Lênin",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1277,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 32,
+          "code": "CRS0032",
+          "name": "Pháp luật đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1271,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 5,
+          "code": "CRS0005",
+          "name": "Giáo dục thể chất 1",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1251,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 2,
+          "code": "CRS0002",
+          "name": "Tiếng Anh 1",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1250,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 7,
+          "code": "CRS0007",
+          "name": "Giáo dục thể chất 2",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1249,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 6,
+          "code": "CRS0006",
+          "name": "Giáo dục quốc phòng 1",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 8,
+          "code": "CRS0008",
+          "name": "Giáo dục quốc phòng 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 10,
+          "code": "CRS0010",
+          "name": "Giáo dục quốc phòng 3",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 9,
+          "code": "CRS0009",
+          "name": "Giáo dục thể chất 3",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 12,
+          "code": "CRS0012",
+          "name": "Giáo dục quốc phòng 4",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 11,
+          "code": "CRS0011",
+          "name": "Giáo dục thể chất 4",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1241,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 14,
+          "code": "CRS0014",
+          "name": "Kinh tế chính trị Mác - Lênin",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1240,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 62,
+          "code": "CRS0062",
+          "name": "Năng lượng cho phát triển bền vững",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1092,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 34,
+          "code": "CRS0034",
+          "name": "Xác suất thống kê",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1214,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 129,
+          "code": "CRS0129",
+          "name": "Ứng dụng Công nghệ thông tin cơ bản",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 808,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 20,
+          "code": "CRS0020",
+          "name": "Chủ nghĩa xã hội khoa học",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1040,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 27,
+          "code": "CRS0027",
+          "name": "Tư tưởng Hồ Chí Minh",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1030,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 15,
+          "code": "CRS0015",
+          "name": "Tiếng Anh 2",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 992,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 37,
+          "code": "CRS0037",
+          "name": "Lịch sử Đảng Cộng sản Việt Nam",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 702,
+          "clo_count": 3,
+          "course_plo_count": 65,
+          "clo_plo_count": 65
+        },
+        {
+          "course_id": 72,
+          "code": "CRS0072",
+          "name": "Thống kê ứng dụng trong kinh doanh",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 213,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 335,
+          "code": "CRS0335",
+          "name": "Kinh tế vi mô",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 200,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 336,
+          "code": "CRS0336",
+          "name": "Quản trị học",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 196,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 179,
+          "code": "CRS0179",
+          "name": "Tiếng Anh chuyên ngành",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 179,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 456,
+          "code": "CRS0456",
+          "name": "Marketing căn bản",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 100,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 352,
+          "code": "CRS0352",
+          "name": "Quản lý nguồn nhân lực",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 92,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 462,
+          "code": "CRS0462",
+          "name": "Tiếng Anh chuyên ngành KSDL",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 868,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 458,
+          "code": "CRS0458",
+          "name": "Luật du lịch",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 42,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 463,
+          "code": "CRS0463",
+          "name": "Quản trị kinh doanh nhà hàng",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 20,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 472,
+          "code": "CRS0472",
+          "name": "Quản trị kinh doanh lữ hành",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 20,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 473,
+          "code": "CRS0473",
+          "name": "Quản trị kinh doanh dịch vụ giải trí và hội nghị (*)",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 20,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 474,
+          "code": "CRS0474",
+          "name": "Tâm lý và nghệ thuật giao tiếp ứng xử trong KD du lịch",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 20,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 475,
+          "code": "CRS0475",
+          "name": "Marketing du lịch",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 20,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 493,
+          "code": "CRS0493",
+          "name": "Cơ sở văn hoá Việt Nam",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 40,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 494,
+          "code": "CRS0494",
+          "name": "Tổng quan du lịch",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 40,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 495,
+          "code": "CRS0495",
+          "name": "Tài nguyên du lịch",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 40,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 496,
+          "code": "CRS0496",
+          "name": "Văn hóa du lịch",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 40,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 497,
+          "code": "CRS0497",
+          "name": "Kinh tế du lịch",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 40,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 498,
+          "code": "CRS0498",
+          "name": "Quản lý điểm đến du lịch",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 40,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 499,
+          "code": "CRS0499",
+          "name": "Thực tập nhận thức Lữ hành - Khách sạn",
+          "credits": 5,
+          "is_elective": false,
+          "enrollments": 40,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 500,
+          "code": "CRS0500",
+          "name": "Hướng dẫn du lịch",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 19,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        }
+      ],
+      "cohorts": [
+        {
+          "id": 6,
+          "code": "K25",
+          "year_start": 2025,
+          "students": 827
+        },
+        {
+          "id": 4,
+          "code": "K24",
+          "year_start": 2024,
+          "students": 20
+        }
+      ],
+      "specializations": [
+        {
+          "id": 62,
+          "code": "SPEC-DA1654E41C9C",
+          "name": "Quản trị dịch vụ du lịch và lữ hành"
+        }
+      ],
+      "teachers": [
+        {
+          "id": 47,
+          "full_name": "Demo Lecturer DEPT10-01"
+        },
+        {
+          "id": 48,
+          "full_name": "Demo Lecturer DEPT10-02"
+        },
+        {
+          "id": 62,
+          "full_name": "Demo Lecturer DEPT10-03"
+        },
+        {
+          "id": 63,
+          "full_name": "Demo Lecturer DEPT10-04"
+        },
+        {
+          "id": 64,
+          "full_name": "Demo Lecturer DEPT10-05"
+        },
+        {
+          "id": 65,
+          "full_name": "Demo Lecturer DEPT10-06"
+        },
+        {
+          "id": 66,
+          "full_name": "Demo Lecturer DEPT10-07"
+        }
+      ]
+    },
+    {
+      "program_id": 8,
+      "program_code": "7510605",
+      "program_name": "Logistics và quản lý chuỗi cung ứng",
+      "department_id": 11,
+      "department_name": "Khoa Quản lý Công nghiệp và Năng lượng",
+      "students": 38,
+      "classes": 3,
+      "enrollments": 2237,
+      "courses": [
+        {
+          "course_id": 3,
+          "code": "CRS0003",
+          "name": "Triết học Mác - Lênin",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1277,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 32,
+          "code": "CRS0032",
+          "name": "Pháp luật đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1271,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 5,
+          "code": "CRS0005",
+          "name": "Giáo dục thể chất 1",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1251,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 2,
+          "code": "CRS0002",
+          "name": "Tiếng Anh 1",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1250,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 7,
+          "code": "CRS0007",
+          "name": "Giáo dục thể chất 2",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1249,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 6,
+          "code": "CRS0006",
+          "name": "Giáo dục quốc phòng 1",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 8,
+          "code": "CRS0008",
+          "name": "Giáo dục quốc phòng 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 10,
+          "code": "CRS0010",
+          "name": "Giáo dục quốc phòng 3",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 9,
+          "code": "CRS0009",
+          "name": "Giáo dục thể chất 3",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 12,
+          "code": "CRS0012",
+          "name": "Giáo dục quốc phòng 4",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 11,
+          "code": "CRS0011",
+          "name": "Giáo dục thể chất 4",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1241,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 14,
+          "code": "CRS0014",
+          "name": "Kinh tế chính trị Mác - Lênin",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1240,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 62,
+          "code": "CRS0062",
+          "name": "Năng lượng cho phát triển bền vững",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1092,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 13,
+          "code": "CRS0013",
+          "name": "Toán cao cấp 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1283,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 34,
+          "code": "CRS0034",
+          "name": "Xác suất thống kê",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1214,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 129,
+          "code": "CRS0129",
+          "name": "Ứng dụng Công nghệ thông tin cơ bản",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 808,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 20,
+          "code": "CRS0020",
+          "name": "Chủ nghĩa xã hội khoa học",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1040,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 27,
+          "code": "CRS0027",
+          "name": "Tư tưởng Hồ Chí Minh",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1030,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 15,
+          "code": "CRS0015",
+          "name": "Tiếng Anh 2",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 992,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 37,
+          "code": "CRS0037",
+          "name": "Lịch sử Đảng Cộng sản Việt Nam",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 702,
+          "clo_count": 3,
+          "course_plo_count": 65,
+          "clo_plo_count": 65
+        },
+        {
+          "course_id": 1,
+          "code": "CRS0001",
+          "name": "Toán cao cấp 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1118,
+          "clo_count": 3,
+          "course_plo_count": 60,
+          "clo_plo_count": 60
+        },
+        {
+          "course_id": 60,
+          "code": "CRS0060",
+          "name": "Vật lý đại cương",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 944,
+          "clo_count": 3,
+          "course_plo_count": 55,
+          "clo_plo_count": 55
+        },
+        {
+          "course_id": 64,
+          "code": "CRS0064",
+          "name": "Đại cương về quản lý điều hành và khởi nghiệp",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 889,
+          "clo_count": 3,
+          "course_plo_count": 55,
+          "clo_plo_count": 55
+        },
+        {
+          "course_id": 130,
+          "code": "CRS0130",
+          "name": "Đại cương về Hóa học trong khoa học vật liệu",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 616,
+          "clo_count": 3,
+          "course_plo_count": 45,
+          "clo_plo_count": 45
+        },
+        {
+          "course_id": 132,
+          "code": "CRS0132",
+          "name": "Vẽ kỹ thuật",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 397,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 137,
+          "code": "CRS0137",
+          "name": "Thực hành Autocad",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 377,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 33,
+          "code": "CRS0033",
+          "name": "Kinh tế học đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 217,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 342,
+          "code": "CRS0342",
+          "name": "Quản lý tài chính",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 188,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 348,
+          "code": "CRS0348",
+          "name": "Kế toán quản trị và chi phí",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 135,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 351,
+          "code": "CRS0351",
+          "name": "Quản lý logistics",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 93,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 352,
+          "code": "CRS0352",
+          "name": "Quản lý nguồn nhân lực",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 92,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 353,
+          "code": "CRS0353",
+          "name": "Kinh tế lượng",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 72,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 361,
+          "code": "CRS0361",
+          "name": "Quản lý tác nghiệp",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 61,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 350,
+          "code": "CRS0350",
+          "name": "Toán kinh tế",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 81,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 93,
+          "code": "CRS0093",
+          "name": "E - Logistics",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 74,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 356,
+          "code": "CRS0356",
+          "name": "Kiểm soát chất lượng công nghiệp",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 55,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 359,
+          "code": "CRS0359",
+          "name": "Định mức kinh tế - kỹ thuật",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 54,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 364,
+          "code": "CRS0364",
+          "name": "Phân tích và quản lý dự án",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 53,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 365,
+          "code": "CRS0365",
+          "name": "Quản lý và thiết kế kho hàng",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 53,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 366,
+          "code": "CRS0366",
+          "name": "Phương pháp dự báo",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 53,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        }
+      ],
+      "cohorts": [
+        {
+          "id": 2,
+          "code": "K22",
+          "year_start": 2022,
+          "students": 21
+        },
+        {
+          "id": 5,
+          "code": "K23",
+          "year_start": 2023,
+          "students": 20
+        }
+      ],
+      "specializations": [
+        {
+          "id": 39,
+          "code": "SPEC-00CF87FDCCB5",
+          "name": "Logistics và quản lý chuỗi cung ứng"
+        }
+      ],
+      "teachers": [
+        {
+          "id": 49,
+          "full_name": "Demo Lecturer DEPT11-01"
+        },
+        {
+          "id": 50,
+          "full_name": "Demo Lecturer DEPT11-02"
+        },
+        {
+          "id": 67,
+          "full_name": "Demo Lecturer DEPT11-03"
+        },
+        {
+          "id": 68,
+          "full_name": "Demo Lecturer DEPT11-04"
+        }
+      ]
+    },
+    {
+      "program_id": 16,
+      "program_code": "7510601",
+      "program_name": "Quản lý công nghiệp",
+      "department_id": 11,
+      "department_name": "Khoa Quản lý Công nghiệp và Năng lượng",
+      "students": 35,
+      "classes": 2,
+      "enrollments": 1838,
+      "courses": [
+        {
+          "course_id": 3,
+          "code": "CRS0003",
+          "name": "Triết học Mác - Lênin",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1277,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 32,
+          "code": "CRS0032",
+          "name": "Pháp luật đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1271,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 5,
+          "code": "CRS0005",
+          "name": "Giáo dục thể chất 1",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1251,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 2,
+          "code": "CRS0002",
+          "name": "Tiếng Anh 1",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1250,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 7,
+          "code": "CRS0007",
+          "name": "Giáo dục thể chất 2",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1249,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 6,
+          "code": "CRS0006",
+          "name": "Giáo dục quốc phòng 1",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 8,
+          "code": "CRS0008",
+          "name": "Giáo dục quốc phòng 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 10,
+          "code": "CRS0010",
+          "name": "Giáo dục quốc phòng 3",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 9,
+          "code": "CRS0009",
+          "name": "Giáo dục thể chất 3",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 12,
+          "code": "CRS0012",
+          "name": "Giáo dục quốc phòng 4",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 11,
+          "code": "CRS0011",
+          "name": "Giáo dục thể chất 4",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1241,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 14,
+          "code": "CRS0014",
+          "name": "Kinh tế chính trị Mác - Lênin",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1240,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 62,
+          "code": "CRS0062",
+          "name": "Năng lượng cho phát triển bền vững",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1092,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 13,
+          "code": "CRS0013",
+          "name": "Toán cao cấp 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1283,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 34,
+          "code": "CRS0034",
+          "name": "Xác suất thống kê",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1214,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 129,
+          "code": "CRS0129",
+          "name": "Ứng dụng Công nghệ thông tin cơ bản",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 808,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 20,
+          "code": "CRS0020",
+          "name": "Chủ nghĩa xã hội khoa học",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1040,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 27,
+          "code": "CRS0027",
+          "name": "Tư tưởng Hồ Chí Minh",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1030,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 15,
+          "code": "CRS0015",
+          "name": "Tiếng Anh 2",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 992,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 37,
+          "code": "CRS0037",
+          "name": "Lịch sử Đảng Cộng sản Việt Nam",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 702,
+          "clo_count": 3,
+          "course_plo_count": 65,
+          "clo_plo_count": 65
+        },
+        {
+          "course_id": 1,
+          "code": "CRS0001",
+          "name": "Toán cao cấp 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1118,
+          "clo_count": 3,
+          "course_plo_count": 60,
+          "clo_plo_count": 60
+        },
+        {
+          "course_id": 60,
+          "code": "CRS0060",
+          "name": "Vật lý đại cương",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 944,
+          "clo_count": 3,
+          "course_plo_count": 55,
+          "clo_plo_count": 55
+        },
+        {
+          "course_id": 64,
+          "code": "CRS0064",
+          "name": "Đại cương về quản lý điều hành và khởi nghiệp",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 889,
+          "clo_count": 3,
+          "course_plo_count": 55,
+          "clo_plo_count": 55
+        },
+        {
+          "course_id": 130,
+          "code": "CRS0130",
+          "name": "Đại cương về Hóa học trong khoa học vật liệu",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 616,
+          "clo_count": 3,
+          "course_plo_count": 45,
+          "clo_plo_count": 45
+        },
+        {
+          "course_id": 58,
+          "code": "CRS0058",
+          "name": "Điện đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 488,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 132,
+          "code": "CRS0132",
+          "name": "Vẽ kỹ thuật",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 397,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 134,
+          "code": "CRS0134",
+          "name": "Thực hành Điện cơ bản",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 392,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 137,
+          "code": "CRS0137",
+          "name": "Thực hành Autocad",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 377,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 33,
+          "code": "CRS0033",
+          "name": "Kinh tế học đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 217,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 342,
+          "code": "CRS0342",
+          "name": "Quản lý tài chính",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 188,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 22,
+          "code": "CRS0022",
+          "name": "Kỹ thuật nhiệt 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 237,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 348,
+          "code": "CRS0348",
+          "name": "Kế toán quản trị và chi phí",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 135,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 351,
+          "code": "CRS0351",
+          "name": "Quản lý logistics",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 93,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 352,
+          "code": "CRS0352",
+          "name": "Quản lý nguồn nhân lực",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 92,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 353,
+          "code": "CRS0353",
+          "name": "Kinh tế lượng",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 72,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 361,
+          "code": "CRS0361",
+          "name": "Quản lý tác nghiệp",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 61,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 350,
+          "code": "CRS0350",
+          "name": "Toán kinh tế",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 81,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 168,
+          "code": "CRS0168",
+          "name": "Hệ thống cung cấp điện",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 64,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 356,
+          "code": "CRS0356",
+          "name": "Kiểm soát chất lượng công nghiệp",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 55,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 359,
+          "code": "CRS0359",
+          "name": "Định mức kinh tế - kỹ thuật",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 54,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        }
+      ],
+      "cohorts": [
+        {
+          "id": 4,
+          "code": "K24",
+          "year_start": 2024,
+          "students": 20
+        },
+        {
+          "id": 2,
+          "code": "K22",
+          "year_start": 2022,
+          "students": 20
+        }
+      ],
+      "specializations": [
+        {
+          "id": 56,
+          "code": "SPEC-9CE6414EBABB",
+          "name": "Quản lý công nghiệp"
+        }
+      ],
+      "teachers": [
+        {
+          "id": 49,
+          "full_name": "Demo Lecturer DEPT11-01"
+        },
+        {
+          "id": 50,
+          "full_name": "Demo Lecturer DEPT11-02"
+        },
+        {
+          "id": 67,
+          "full_name": "Demo Lecturer DEPT11-03"
+        },
+        {
+          "id": 68,
+          "full_name": "Demo Lecturer DEPT11-04"
+        }
+      ]
+    },
+    {
+      "program_id": 12,
+      "program_code": "7340101",
+      "program_name": "Quản trị kinh doanh",
+      "department_id": 10,
+      "department_name": "Khoa Quản trị Kinh doanh và Du lịch",
+      "students": 50,
+      "classes": 4,
+      "enrollments": 1776,
+      "courses": [
+        {
+          "course_id": 3,
+          "code": "CRS0003",
+          "name": "Triết học Mác - Lênin",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1277,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 32,
+          "code": "CRS0032",
+          "name": "Pháp luật đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1271,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 5,
+          "code": "CRS0005",
+          "name": "Giáo dục thể chất 1",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1251,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 2,
+          "code": "CRS0002",
+          "name": "Tiếng Anh 1",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1250,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 7,
+          "code": "CRS0007",
+          "name": "Giáo dục thể chất 2",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1249,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 6,
+          "code": "CRS0006",
+          "name": "Giáo dục quốc phòng 1",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 8,
+          "code": "CRS0008",
+          "name": "Giáo dục quốc phòng 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 10,
+          "code": "CRS0010",
+          "name": "Giáo dục quốc phòng 3",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 9,
+          "code": "CRS0009",
+          "name": "Giáo dục thể chất 3",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 12,
+          "code": "CRS0012",
+          "name": "Giáo dục quốc phòng 4",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 11,
+          "code": "CRS0011",
+          "name": "Giáo dục thể chất 4",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1241,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 14,
+          "code": "CRS0014",
+          "name": "Kinh tế chính trị Mác - Lênin",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1240,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 62,
+          "code": "CRS0062",
+          "name": "Năng lượng cho phát triển bền vững",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1092,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 13,
+          "code": "CRS0013",
+          "name": "Toán cao cấp 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1283,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 34,
+          "code": "CRS0034",
+          "name": "Xác suất thống kê",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1214,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 129,
+          "code": "CRS0129",
+          "name": "Ứng dụng Công nghệ thông tin cơ bản",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 808,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 20,
+          "code": "CRS0020",
+          "name": "Chủ nghĩa xã hội khoa học",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1040,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 27,
+          "code": "CRS0027",
+          "name": "Tư tưởng Hồ Chí Minh",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1030,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 15,
+          "code": "CRS0015",
+          "name": "Tiếng Anh 2",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 992,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 37,
+          "code": "CRS0037",
+          "name": "Lịch sử Đảng Cộng sản Việt Nam",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 702,
+          "clo_count": 3,
+          "course_plo_count": 65,
+          "clo_plo_count": 65
+        },
+        {
+          "course_id": 1,
+          "code": "CRS0001",
+          "name": "Toán cao cấp 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1118,
+          "clo_count": 3,
+          "course_plo_count": 60,
+          "clo_plo_count": 60
+        },
+        {
+          "course_id": 4,
+          "code": "CRS0004",
+          "name": "Nhập môn tin học",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 184,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 72,
+          "code": "CRS0072",
+          "name": "Thống kê ứng dụng trong kinh doanh",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 213,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 342,
+          "code": "CRS0342",
+          "name": "Quản lý tài chính",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 188,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 57,
+          "code": "CRS0057",
+          "name": "Thực tập tốt nghiệp",
+          "credits": 5,
+          "is_elective": false,
+          "enrollments": 131,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 335,
+          "code": "CRS0335",
+          "name": "Kinh tế vi mô",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 200,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 336,
+          "code": "CRS0336",
+          "name": "Quản trị học",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 196,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 348,
+          "code": "CRS0348",
+          "name": "Kế toán quản trị và chi phí",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 135,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 179,
+          "code": "CRS0179",
+          "name": "Tiếng Anh chuyên ngành",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 179,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 338,
+          "code": "CRS0338",
+          "name": "Kinh tế vĩ mô",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 122,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 339,
+          "code": "CRS0339",
+          "name": "Nguyên lý kế toán",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 120,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 393,
+          "code": "CRS0393",
+          "name": "Phân tích kinh doanh",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 96,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 456,
+          "code": "CRS0456",
+          "name": "Marketing căn bản",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 100,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 351,
+          "code": "CRS0351",
+          "name": "Quản lý logistics",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 93,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 385,
+          "code": "CRS0385",
+          "name": "Phương pháp tối ưu trong kinh tế",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 85,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 353,
+          "code": "CRS0353",
+          "name": "Kinh tế lượng",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 72,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 361,
+          "code": "CRS0361",
+          "name": "Quản lý tác nghiệp",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 61,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 391,
+          "code": "CRS0391",
+          "name": "Tài chính doanh nghiệp",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 57,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 390,
+          "code": "CRS0390",
+          "name": "Luật kinh tế",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 41,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 462,
+          "code": "CRS0462",
+          "name": "Tiếng Anh chuyên ngành KSDL",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 868,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        }
+      ],
+      "cohorts": [
+        {
+          "id": 2,
+          "code": "K22",
+          "year_start": 2022,
+          "students": 40
+        },
+        {
+          "id": 5,
+          "code": "K23",
+          "year_start": 2023,
+          "students": 20
+        }
+      ],
+      "specializations": [
+        {
+          "id": 53,
+          "code": "SPEC-7F5E4B90A5E3",
+          "name": "Quản trị doanh nghiệp"
+        },
+        {
+          "id": 60,
+          "code": "SPEC-D2BEF141804C",
+          "name": "Quản trị du lịch, khách sạn"
+        }
+      ],
+      "teachers": [
+        {
+          "id": 47,
+          "full_name": "Demo Lecturer DEPT10-01"
+        },
+        {
+          "id": 48,
+          "full_name": "Demo Lecturer DEPT10-02"
+        },
+        {
+          "id": 62,
+          "full_name": "Demo Lecturer DEPT10-03"
+        },
+        {
+          "id": 63,
+          "full_name": "Demo Lecturer DEPT10-04"
+        },
+        {
+          "id": 64,
+          "full_name": "Demo Lecturer DEPT10-05"
+        },
+        {
+          "id": 65,
+          "full_name": "Demo Lecturer DEPT10-06"
+        },
+        {
+          "id": 66,
+          "full_name": "Demo Lecturer DEPT10-07"
+        }
+      ]
+    },
+    {
+      "program_id": 7,
+      "program_code": "7340302",
+      "program_name": "Kiểm toán",
+      "department_id": 9,
+      "department_name": "Khoa Kế toán - Tài chính",
+      "students": 40,
+      "classes": 2,
+      "enrollments": 1489,
+      "courses": [
+        {
+          "course_id": 3,
+          "code": "CRS0003",
+          "name": "Triết học Mác - Lênin",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1277,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 32,
+          "code": "CRS0032",
+          "name": "Pháp luật đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1271,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 5,
+          "code": "CRS0005",
+          "name": "Giáo dục thể chất 1",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1251,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 2,
+          "code": "CRS0002",
+          "name": "Tiếng Anh 1",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1250,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 7,
+          "code": "CRS0007",
+          "name": "Giáo dục thể chất 2",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1249,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 6,
+          "code": "CRS0006",
+          "name": "Giáo dục quốc phòng 1",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 8,
+          "code": "CRS0008",
+          "name": "Giáo dục quốc phòng 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 10,
+          "code": "CRS0010",
+          "name": "Giáo dục quốc phòng 3",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 9,
+          "code": "CRS0009",
+          "name": "Giáo dục thể chất 3",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 12,
+          "code": "CRS0012",
+          "name": "Giáo dục quốc phòng 4",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 11,
+          "code": "CRS0011",
+          "name": "Giáo dục thể chất 4",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1241,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 14,
+          "code": "CRS0014",
+          "name": "Kinh tế chính trị Mác - Lênin",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1240,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 62,
+          "code": "CRS0062",
+          "name": "Năng lượng cho phát triển bền vững",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1092,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 13,
+          "code": "CRS0013",
+          "name": "Toán cao cấp 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1283,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 34,
+          "code": "CRS0034",
+          "name": "Xác suất thống kê",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1214,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 129,
+          "code": "CRS0129",
+          "name": "Ứng dụng Công nghệ thông tin cơ bản",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 808,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 20,
+          "code": "CRS0020",
+          "name": "Chủ nghĩa xã hội khoa học",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1040,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 27,
+          "code": "CRS0027",
+          "name": "Tư tưởng Hồ Chí Minh",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1030,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 15,
+          "code": "CRS0015",
+          "name": "Tiếng Anh 2",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 992,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 37,
+          "code": "CRS0037",
+          "name": "Lịch sử Đảng Cộng sản Việt Nam",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 702,
+          "clo_count": 3,
+          "course_plo_count": 65,
+          "clo_plo_count": 65
+        },
+        {
+          "course_id": 72,
+          "code": "CRS0072",
+          "name": "Thống kê ứng dụng trong kinh doanh",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 213,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 342,
+          "code": "CRS0342",
+          "name": "Quản lý tài chính",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 188,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 335,
+          "code": "CRS0335",
+          "name": "Kinh tế vi mô",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 200,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 336,
+          "code": "CRS0336",
+          "name": "Quản trị học",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 196,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 348,
+          "code": "CRS0348",
+          "name": "Kế toán quản trị và chi phí",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 135,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 338,
+          "code": "CRS0338",
+          "name": "Kinh tế vĩ mô",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 122,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 339,
+          "code": "CRS0339",
+          "name": "Nguyên lý kế toán",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 120,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 393,
+          "code": "CRS0393",
+          "name": "Phân tích kinh doanh",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 96,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 391,
+          "code": "CRS0391",
+          "name": "Tài chính doanh nghiệp",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 57,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 390,
+          "code": "CRS0390",
+          "name": "Luật kinh tế",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 41,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 81,
+          "code": "CRS0081",
+          "name": "Tài chính-tiền tệ",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 79,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 341,
+          "code": "CRS0341",
+          "name": "Kế toán doanh nghiệp",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 61,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 506,
+          "code": "CRS0506",
+          "name": "Thuế và thực hành",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 39,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 337,
+          "code": "CRS0337",
+          "name": "Kinh doanh và Công nghệ (BT-ACCA Diploma)",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 40,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 340,
+          "code": "CRS0340",
+          "name": "Tiếng Anh chuyên ngành Kiểm toán",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 40,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 343,
+          "code": "CRS0343",
+          "name": "Kiểm toán căn bản và đạo đức nghề nghiệp",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 40,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 344,
+          "code": "CRS0344",
+          "name": "Đề án môn học ngành Kế toán - Kiểm toán",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 40,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 544,
+          "code": "CRS0544",
+          "name": "Kiểm toán nội bộ",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 20,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 545,
+          "code": "CRS0545",
+          "name": "Kiểm toán Tài chính 1",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 20,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 546,
+          "code": "CRS0546",
+          "name": "Kiểm toán Tài chính 2",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 20,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        }
+      ],
+      "cohorts": [
+        {
+          "id": 4,
+          "code": "K24",
+          "year_start": 2024,
+          "students": 20
+        },
+        {
+          "id": 5,
+          "code": "K23",
+          "year_start": 2023,
+          "students": 20
+        }
+      ],
+      "specializations": [
+        {
+          "id": 57,
+          "code": "SPEC-AB89058FF6D3",
+          "name": "Kiểm toán"
+        }
+      ],
+      "teachers": [
+        {
+          "id": 45,
+          "full_name": "Demo Lecturer DEPT09-01"
+        },
+        {
+          "id": 46,
+          "full_name": "Demo Lecturer DEPT09-02"
+        },
+        {
+          "id": 60,
+          "full_name": "Demo Lecturer DEPT09-03"
+        },
+        {
+          "id": 61,
+          "full_name": "Demo Lecturer DEPT09-04"
+        }
+      ]
+    },
+    {
+      "program_id": 9,
+      "program_code": "7340201",
+      "program_name": "Tài chính - Ngân hàng",
+      "department_id": 9,
+      "department_name": "Khoa Kế toán - Tài chính",
+      "students": 45,
+      "classes": 3,
+      "enrollments": 1238,
+      "courses": [
+        {
+          "course_id": 3,
+          "code": "CRS0003",
+          "name": "Triết học Mác - Lênin",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1277,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 32,
+          "code": "CRS0032",
+          "name": "Pháp luật đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1271,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 5,
+          "code": "CRS0005",
+          "name": "Giáo dục thể chất 1",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1251,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 2,
+          "code": "CRS0002",
+          "name": "Tiếng Anh 1",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1250,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 7,
+          "code": "CRS0007",
+          "name": "Giáo dục thể chất 2",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1249,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 6,
+          "code": "CRS0006",
+          "name": "Giáo dục quốc phòng 1",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 8,
+          "code": "CRS0008",
+          "name": "Giáo dục quốc phòng 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 10,
+          "code": "CRS0010",
+          "name": "Giáo dục quốc phòng 3",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 9,
+          "code": "CRS0009",
+          "name": "Giáo dục thể chất 3",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 12,
+          "code": "CRS0012",
+          "name": "Giáo dục quốc phòng 4",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 11,
+          "code": "CRS0011",
+          "name": "Giáo dục thể chất 4",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1241,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 14,
+          "code": "CRS0014",
+          "name": "Kinh tế chính trị Mác - Lênin",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1240,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 62,
+          "code": "CRS0062",
+          "name": "Năng lượng cho phát triển bền vững",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1092,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 13,
+          "code": "CRS0013",
+          "name": "Toán cao cấp 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1283,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 34,
+          "code": "CRS0034",
+          "name": "Xác suất thống kê",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1214,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 129,
+          "code": "CRS0129",
+          "name": "Ứng dụng Công nghệ thông tin cơ bản",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 808,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 20,
+          "code": "CRS0020",
+          "name": "Chủ nghĩa xã hội khoa học",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1040,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 27,
+          "code": "CRS0027",
+          "name": "Tư tưởng Hồ Chí Minh",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1030,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 15,
+          "code": "CRS0015",
+          "name": "Tiếng Anh 2",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 992,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 37,
+          "code": "CRS0037",
+          "name": "Lịch sử Đảng Cộng sản Việt Nam",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 702,
+          "clo_count": 3,
+          "course_plo_count": 65,
+          "clo_plo_count": 65
+        },
+        {
+          "course_id": 72,
+          "code": "CRS0072",
+          "name": "Thống kê ứng dụng trong kinh doanh",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 213,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 342,
+          "code": "CRS0342",
+          "name": "Quản lý tài chính",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 188,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 335,
+          "code": "CRS0335",
+          "name": "Kinh tế vi mô",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 200,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 336,
+          "code": "CRS0336",
+          "name": "Quản trị học",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 196,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 348,
+          "code": "CRS0348",
+          "name": "Kế toán quản trị và chi phí",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 135,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 338,
+          "code": "CRS0338",
+          "name": "Kinh tế vĩ mô",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 122,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 339,
+          "code": "CRS0339",
+          "name": "Nguyên lý kế toán",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 120,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 393,
+          "code": "CRS0393",
+          "name": "Phân tích kinh doanh",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 96,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 385,
+          "code": "CRS0385",
+          "name": "Phương pháp tối ưu trong kinh tế",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 85,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 391,
+          "code": "CRS0391",
+          "name": "Tài chính doanh nghiệp",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 57,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 390,
+          "code": "CRS0390",
+          "name": "Luật kinh tế",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 41,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 341,
+          "code": "CRS0341",
+          "name": "Kế toán doanh nghiệp",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 61,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 388,
+          "code": "CRS0388",
+          "name": "Phân tích thẩm định dự án",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 55,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 386,
+          "code": "CRS0386",
+          "name": "Tài chính cá nhân ứng dụng",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 21,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 383,
+          "code": "CRS0383",
+          "name": "Lý thuyết tiền tệ ngân hàng",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 20,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 384,
+          "code": "CRS0384",
+          "name": "Tiếng Anh chuyên ngành Tài chính",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 20,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 387,
+          "code": "CRS0387",
+          "name": "Đề án môn học ngành Tài chính - Ngân hàng",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 20,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 389,
+          "code": "CRS0389",
+          "name": "Thuế và hệ thống thuế Việt Nam",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 20,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 392,
+          "code": "CRS0392",
+          "name": "Nghiệp vụ kinh doanh ngân hàng",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 20,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 394,
+          "code": "CRS0394",
+          "name": "Bảo hiểm",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 20,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        }
+      ],
+      "cohorts": [
+        {
+          "id": 6,
+          "code": "K25",
+          "year_start": 2025,
+          "students": 20
+        },
+        {
+          "id": 5,
+          "code": "K23",
+          "year_start": 2023,
+          "students": 20
+        }
+      ],
+      "specializations": [
+        {
+          "id": 50,
+          "code": "SPEC-64B35D8F3FF3",
+          "name": "Ngân hàng"
+        },
+        {
+          "id": 65,
+          "code": "SPCB19C2AD67D94F28F1",
+          "name": "Tài chính doanh nghiệp"
+        }
+      ],
+      "teachers": [
+        {
+          "id": 45,
+          "full_name": "Demo Lecturer DEPT09-01"
+        },
+        {
+          "id": 46,
+          "full_name": "Demo Lecturer DEPT09-02"
+        },
+        {
+          "id": 60,
+          "full_name": "Demo Lecturer DEPT09-03"
+        },
+        {
+          "id": 61,
+          "full_name": "Demo Lecturer DEPT09-04"
+        }
+      ]
+    },
+    {
+      "program_id": 6,
+      "program_code": "7510301",
+      "program_name": "Công nghệ kỹ thuật điện, điện tử",
+      "department_id": 12,
+      "department_name": "Khoa Kỹ thuật điện",
+      "students": 59,
+      "classes": 10,
+      "enrollments": 1229,
+      "courses": [
+        {
+          "course_id": 3,
+          "code": "CRS0003",
+          "name": "Triết học Mác - Lênin",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1277,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 32,
+          "code": "CRS0032",
+          "name": "Pháp luật đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1271,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 5,
+          "code": "CRS0005",
+          "name": "Giáo dục thể chất 1",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1251,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 2,
+          "code": "CRS0002",
+          "name": "Tiếng Anh 1",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1250,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 7,
+          "code": "CRS0007",
+          "name": "Giáo dục thể chất 2",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1249,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 6,
+          "code": "CRS0006",
+          "name": "Giáo dục quốc phòng 1",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 8,
+          "code": "CRS0008",
+          "name": "Giáo dục quốc phòng 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 10,
+          "code": "CRS0010",
+          "name": "Giáo dục quốc phòng 3",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 9,
+          "code": "CRS0009",
+          "name": "Giáo dục thể chất 3",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 12,
+          "code": "CRS0012",
+          "name": "Giáo dục quốc phòng 4",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 11,
+          "code": "CRS0011",
+          "name": "Giáo dục thể chất 4",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1241,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 14,
+          "code": "CRS0014",
+          "name": "Kinh tế chính trị Mác - Lênin",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1240,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 62,
+          "code": "CRS0062",
+          "name": "Năng lượng cho phát triển bền vững",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1092,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 13,
+          "code": "CRS0013",
+          "name": "Toán cao cấp 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1283,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 34,
+          "code": "CRS0034",
+          "name": "Xác suất thống kê",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1214,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 129,
+          "code": "CRS0129",
+          "name": "Ứng dụng Công nghệ thông tin cơ bản",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 808,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 20,
+          "code": "CRS0020",
+          "name": "Chủ nghĩa xã hội khoa học",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1040,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 27,
+          "code": "CRS0027",
+          "name": "Tư tưởng Hồ Chí Minh",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1030,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 15,
+          "code": "CRS0015",
+          "name": "Tiếng Anh 2",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 992,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 37,
+          "code": "CRS0037",
+          "name": "Lịch sử Đảng Cộng sản Việt Nam",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 702,
+          "clo_count": 3,
+          "course_plo_count": 65,
+          "clo_plo_count": 65
+        },
+        {
+          "course_id": 1,
+          "code": "CRS0001",
+          "name": "Toán cao cấp 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1118,
+          "clo_count": 3,
+          "course_plo_count": 60,
+          "clo_plo_count": 60
+        },
+        {
+          "course_id": 60,
+          "code": "CRS0060",
+          "name": "Vật lý đại cương",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 944,
+          "clo_count": 3,
+          "course_plo_count": 55,
+          "clo_plo_count": 55
+        },
+        {
+          "course_id": 64,
+          "code": "CRS0064",
+          "name": "Đại cương về quản lý điều hành và khởi nghiệp",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 889,
+          "clo_count": 3,
+          "course_plo_count": 55,
+          "clo_plo_count": 55
+        },
+        {
+          "course_id": 130,
+          "code": "CRS0130",
+          "name": "Đại cương về Hóa học trong khoa học vật liệu",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 616,
+          "clo_count": 3,
+          "course_plo_count": 45,
+          "clo_plo_count": 45
+        },
+        {
+          "course_id": 58,
+          "code": "CRS0058",
+          "name": "Điện đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 488,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 132,
+          "code": "CRS0132",
+          "name": "Vẽ kỹ thuật",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 397,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 134,
+          "code": "CRS0134",
+          "name": "Thực hành Điện cơ bản",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 392,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 137,
+          "code": "CRS0137",
+          "name": "Thực hành Autocad",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 377,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 33,
+          "code": "CRS0033",
+          "name": "Kinh tế học đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 217,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 4,
+          "code": "CRS0004",
+          "name": "Nhập môn tin học",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 184,
+          "clo_count": 3,
+          "course_plo_count": 35,
+          "clo_plo_count": 35
+        },
+        {
+          "course_id": 16,
+          "code": "CRS0016",
+          "name": "Vật lý",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 169,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 57,
+          "code": "CRS0057",
+          "name": "Thực tập tốt nghiệp",
+          "credits": 5,
+          "is_elective": false,
+          "enrollments": 131,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 24,
+          "code": "CRS0024",
+          "name": "Toán cao cấp 3",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 64,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 22,
+          "code": "CRS0022",
+          "name": "Kỹ thuật nhiệt 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 237,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 17,
+          "code": "CRS0017",
+          "name": "Vẽ kỹ thuật 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 69,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 164,
+          "code": "CRS0164",
+          "name": "Lý thuyết mạch 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 315,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 30,
+          "code": "CRS0030",
+          "name": "Lý thuyết điều khiển tự động 1",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 243,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 44,
+          "code": "CRS0044",
+          "name": "Kỹ thuật an toàn",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 197,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 50,
+          "code": "CRS0050",
+          "name": "Điện tử công suất",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 144,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 124,
+          "code": "CRS0124",
+          "name": "Đồ án/Khóa luận tốt nghiệp",
+          "credits": 14,
+          "is_elective": false,
+          "enrollments": 109,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        }
+      ],
+      "cohorts": [
+        {
+          "id": 6,
+          "code": "K25",
+          "year_start": 2025,
+          "students": 40
+        },
+        {
+          "id": 2,
+          "code": "K22",
+          "year_start": 2022,
+          "students": 21
+        }
+      ],
+      "specializations": [
+        {
+          "id": 40,
+          "code": "SPEC-04F46D2C0D17",
+          "name": "Điện công nghiệp và dân dụng"
+        },
+        {
+          "id": 42,
+          "code": "SPEC-1BD77A19BAEB",
+          "name": "Hệ thống điện"
+        },
+        {
+          "id": 64,
+          "code": "SPEC-F77C28715F4E",
+          "name": "Tự động hoá Hệ thống điện"
+        }
+      ],
+      "teachers": [
+        {
+          "id": 51,
+          "full_name": "Demo Lecturer DEPT12-01"
+        },
+        {
+          "id": 52,
+          "full_name": "Demo Lecturer DEPT12-02"
+        }
+      ]
+    },
+    {
+      "program_id": 15,
+      "program_code": "7340122",
+      "program_name": "Thương mại điện tử",
+      "department_id": 10,
+      "department_name": "Khoa Quản trị Kinh doanh và Du lịch",
+      "students": 38,
+      "classes": 2,
+      "enrollments": 1156,
+      "courses": [
+        {
+          "course_id": 3,
+          "code": "CRS0003",
+          "name": "Triết học Mác - Lênin",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1277,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 32,
+          "code": "CRS0032",
+          "name": "Pháp luật đại cương",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1271,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 5,
+          "code": "CRS0005",
+          "name": "Giáo dục thể chất 1",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1251,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 2,
+          "code": "CRS0002",
+          "name": "Tiếng Anh 1",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1250,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 7,
+          "code": "CRS0007",
+          "name": "Giáo dục thể chất 2",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1249,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 6,
+          "code": "CRS0006",
+          "name": "Giáo dục quốc phòng 1",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 8,
+          "code": "CRS0008",
+          "name": "Giáo dục quốc phòng 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 10,
+          "code": "CRS0010",
+          "name": "Giáo dục quốc phòng 3",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1245,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 9,
+          "code": "CRS0009",
+          "name": "Giáo dục thể chất 3",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 12,
+          "code": "CRS0012",
+          "name": "Giáo dục quốc phòng 4",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 1242,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 11,
+          "code": "CRS0011",
+          "name": "Giáo dục thể chất 4",
+          "credits": 1,
+          "is_elective": false,
+          "enrollments": 1241,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 14,
+          "code": "CRS0014",
+          "name": "Kinh tế chính trị Mác - Lênin",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1240,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 62,
+          "code": "CRS0062",
+          "name": "Năng lượng cho phát triển bền vững",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1092,
+          "clo_count": 3,
+          "course_plo_count": 80,
+          "clo_plo_count": 80
+        },
+        {
+          "course_id": 13,
+          "code": "CRS0013",
+          "name": "Toán cao cấp 2",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1283,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 34,
+          "code": "CRS0034",
+          "name": "Xác suất thống kê",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1214,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 129,
+          "code": "CRS0129",
+          "name": "Ứng dụng Công nghệ thông tin cơ bản",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 808,
+          "clo_count": 3,
+          "course_plo_count": 75,
+          "clo_plo_count": 75
+        },
+        {
+          "course_id": 20,
+          "code": "CRS0020",
+          "name": "Chủ nghĩa xã hội khoa học",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1040,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 27,
+          "code": "CRS0027",
+          "name": "Tư tưởng Hồ Chí Minh",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 1030,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 15,
+          "code": "CRS0015",
+          "name": "Tiếng Anh 2",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 992,
+          "clo_count": 3,
+          "course_plo_count": 70,
+          "clo_plo_count": 70
+        },
+        {
+          "course_id": 37,
+          "code": "CRS0037",
+          "name": "Lịch sử Đảng Cộng sản Việt Nam",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 702,
+          "clo_count": 3,
+          "course_plo_count": 65,
+          "clo_plo_count": 65
+        },
+        {
+          "course_id": 72,
+          "code": "CRS0072",
+          "name": "Thống kê ứng dụng trong kinh doanh",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 213,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 342,
+          "code": "CRS0342",
+          "name": "Quản lý tài chính",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 188,
+          "clo_count": 3,
+          "course_plo_count": 30,
+          "clo_plo_count": 30
+        },
+        {
+          "course_id": 335,
+          "code": "CRS0335",
+          "name": "Kinh tế vi mô",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 200,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 336,
+          "code": "CRS0336",
+          "name": "Quản trị học",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 196,
+          "clo_count": 3,
+          "course_plo_count": 25,
+          "clo_plo_count": 25
+        },
+        {
+          "course_id": 338,
+          "code": "CRS0338",
+          "name": "Kinh tế vĩ mô",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 122,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 339,
+          "code": "CRS0339",
+          "name": "Nguyên lý kế toán",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 120,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 393,
+          "code": "CRS0393",
+          "name": "Phân tích kinh doanh",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 96,
+          "clo_count": 3,
+          "course_plo_count": 20,
+          "clo_plo_count": 20
+        },
+        {
+          "course_id": 456,
+          "code": "CRS0456",
+          "name": "Marketing căn bản",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 100,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 385,
+          "code": "CRS0385",
+          "name": "Phương pháp tối ưu trong kinh tế",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 85,
+          "clo_count": 3,
+          "course_plo_count": 15,
+          "clo_plo_count": 15
+        },
+        {
+          "course_id": 75,
+          "code": "CRS0075",
+          "name": "Nhập môn cấu trúc dữ liệu và giải thuật",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 402,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 76,
+          "code": "CRS0076",
+          "name": "Cơ sở lập trình Web",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 390,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 478,
+          "code": "CRS0478",
+          "name": "Tin học ứng dụng trong quản lý",
+          "credits": 2,
+          "is_elective": false,
+          "enrollments": 58,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 481,
+          "code": "CRS0481",
+          "name": "Quản lý vận hành",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 58,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 468,
+          "code": "CRS0468",
+          "name": "Quản lý nhân lực",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 55,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 488,
+          "code": "CRS0488",
+          "name": "Hành vi người tiêu dùng",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 55,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 506,
+          "code": "CRS0506",
+          "name": "Thuế và thực hành",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 39,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 92,
+          "code": "CRS0092",
+          "name": "Pháp luật trong kinh doanh TMĐT",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 38,
+          "clo_count": 3,
+          "course_plo_count": 10,
+          "clo_plo_count": 10
+        },
+        {
+          "course_id": 507,
+          "code": "CRS0507",
+          "name": "Hệ thống thông tin và hoạch định nguồn lực doanh nghiệp",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 19,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 508,
+          "code": "CRS0508",
+          "name": "Đề án môn học ngành Thương mại điện tử",
+          "credits": 3,
+          "is_elective": false,
+          "enrollments": 19,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        },
+        {
+          "course_id": 509,
+          "code": "CRS0509",
+          "name": "Truyền thông đa phương tiện",
+          "credits": 4,
+          "is_elective": false,
+          "enrollments": 19,
+          "clo_count": 3,
+          "course_plo_count": 5,
+          "clo_plo_count": 5
+        }
+      ],
+      "cohorts": [
+        {
+          "id": 6,
+          "code": "K25",
+          "year_start": 2025,
+          "students": 20
+        },
+        {
+          "id": 5,
+          "code": "K23",
+          "year_start": 2023,
+          "students": 20
+        }
+      ],
+      "specializations": [
+        {
+          "id": 45,
+          "code": "SPEC-3F383A963D9C",
+          "name": "Kinh doanh thương mại trực tuyến"
+        }
+      ],
+      "teachers": [
+        {
+          "id": 47,
+          "full_name": "Demo Lecturer DEPT10-01"
+        },
+        {
+          "id": 48,
+          "full_name": "Demo Lecturer DEPT10-02"
+        },
+        {
+          "id": 62,
+          "full_name": "Demo Lecturer DEPT10-03"
+        },
+        {
+          "id": 63,
+          "full_name": "Demo Lecturer DEPT10-04"
+        },
+        {
+          "id": 64,
+          "full_name": "Demo Lecturer DEPT10-05"
+        },
+        {
+          "id": 65,
+          "full_name": "Demo Lecturer DEPT10-06"
+        },
+        {
+          "id": 66,
+          "full_name": "Demo Lecturer DEPT10-07"
+        }
+      ]
+    }
+  ]
+}

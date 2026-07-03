@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { AlertTriangle, BookOpen, CheckCircle2, GraduationCap, TrendingUp, Users } from "lucide-react"
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { api, type ApiDashboardProgram, type ApiDashboardProgramOption } from "@/lib/api"
+import { analyticsHref, parseAnalyticsFilters, serializeAnalyticsFilters } from "@/lib/analytics-filters"
 
 const bucketColors: Record<string, string> = {
   "Trượt nặng": "#ef4444",
@@ -35,15 +36,24 @@ function dateEndIso(value: string) {
   return value ? new Date(`${value}T23:59:59.999`).toISOString() : undefined
 }
 
+function chartActiveLabel(state: unknown) {
+  if (!state || typeof state !== "object") return null
+  const label = (state as { activeLabel?: unknown }).activeLabel
+  return typeof label === "string" ? label : null
+}
+
 export default function ProgramAnalyticsPage() {
+  const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
+  const routeFilters = React.useMemo(() => parseAnalyticsFilters(searchParams), [searchParams])
   const [programOptions, setProgramOptions] = React.useState<ApiDashboardProgramOption[]>([])
   const [data, setData] = React.useState<ApiDashboardProgram | null>(null)
   const [programId, setProgramId] = React.useState("")
-  const [semester, setSemester] = React.useState("all")
-  const [cohort, setCohort] = React.useState("all")
-  const [dateFrom, setDateFrom] = React.useState("")
-  const [dateTo, setDateTo] = React.useState("")
+  const [semester, setSemester] = React.useState(routeFilters.semester_code ?? "all")
+  const [cohort, setCohort] = React.useState(routeFilters.cohort_id ? String(routeFilters.cohort_id) : "all")
+  const [dateFrom, setDateFrom] = React.useState(routeFilters.date_from?.slice(0, 10) ?? "")
+  const [dateTo, setDateTo] = React.useState(routeFilters.date_to?.slice(0, 10) ?? "")
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -126,6 +136,16 @@ export default function ProgramAnalyticsPage() {
       })
       .finally(() => setLoading(false))
   }, [programId, semester, cohort, dateFrom, dateTo])
+
+  React.useEffect(() => {
+    if (!programId) return
+    const query = serializeAnalyticsFilters({
+      program_id: Number(programId), semester_code: semester === "all" ? undefined : semester,
+      cohort_id: cohort === "all" ? undefined : Number(cohort), date_from: dateFrom || undefined,
+      date_to: dateTo || undefined, source: routeFilters.source,
+    })
+    if (query !== searchParams.toString()) router.replace(`${pathname}?${query}`, { scroll: false })
+  }, [cohort, dateFrom, dateTo, pathname, programId, routeFilters.source, router, searchParams, semester])
 
   const heatSemesters = React.useMemo(() => {
     if (!data) return []
@@ -211,6 +231,11 @@ export default function ProgramAnalyticsPage() {
   const cohortLabel = cohort === "all" ? "Tất cả khóa" : data.cohorts.find((item) => String(item.id) === cohort)?.code ?? cohort
   const hasTrendSeries = data.trend.length >= 2
   const selectedTrendPoint = data.trend[0]
+  const chooseSemester = (code: string) => setSemester(code)
+  const chooseCohortSemester = (cohortId: number, semesterCode: string) => {
+    setCohort(String(cohortId))
+    setSemester(semesterCode)
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -286,7 +311,14 @@ export default function ProgramAnalyticsPage() {
             <CardHeader><CardTitle className="text-sm">Pass rate của ngành qua học kỳ</CardTitle></CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={data.trend}>
+                <LineChart
+                  data={data.trend}
+                  onClick={(state) => {
+                    const label = chartActiveLabel(state)
+                    if (label) chooseSemester(label)
+                  }}
+                  className="cursor-pointer"
+                >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="semester" tick={{ fontSize: 10 }} />
                   <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
@@ -300,7 +332,14 @@ export default function ProgramAnalyticsPage() {
             <CardHeader><CardTitle className="text-sm">Điểm trung bình của ngành qua học kỳ</CardTitle></CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={data.trend}>
+                <LineChart
+                  data={data.trend}
+                  onClick={(state) => {
+                    const label = chartActiveLabel(state)
+                    if (label) chooseSemester(label)
+                  }}
+                  className="cursor-pointer"
+                >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="semester" tick={{ fontSize: 10 }} />
                   <YAxis domain={[0, 10]} />
@@ -379,16 +418,32 @@ export default function ProgramAnalyticsPage() {
             <thead>
               <tr>
                 <th className="pb-2 text-left text-muted-foreground">Khóa</th>
-                {heatSemesters.map((item) => <th key={item.id} className="pb-2 text-center text-muted-foreground">{item.code}</th>)}
+                {heatSemesters.map((item) => (
+                  <th key={item.id} className="pb-2 text-center text-muted-foreground">
+                    <button type="button" onClick={() => chooseSemester(item.code)} className="hover:text-primary">
+                      {item.code}
+                    </button>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y">
               {cohortHeatmap.map((row) => (
                 <tr key={row.id}>
-                  <td className="py-2 font-medium">{row.cohort}</td>
+                  <td className="py-2 font-medium">
+                    <button type="button" onClick={() => setCohort(String(row.id))} className="hover:text-primary">
+                      {row.cohort}
+                    </button>
+                  </td>
                   {row.cells.map((value, index) => (
                     <td key={index} className="px-1 py-2 text-center">
-                      <span className={`inline-flex min-w-12 justify-center rounded px-2 py-1 font-medium ${heatColor(value)}`}>{value === null ? "—" : `${value}%`}</span>
+                      <button
+                        type="button"
+                        onClick={() => chooseCohortSemester(row.id, heatSemesters[index]?.code ?? "all")}
+                        className={`inline-flex min-w-12 justify-center rounded px-2 py-1 font-medium ${heatColor(value)}`}
+                      >
+                        {value === null ? "—" : `${value}%`}
+                      </button>
                     </td>
                   ))}
                 </tr>
@@ -423,7 +478,15 @@ export default function ProgramAnalyticsPage() {
                   <td className="px-4 py-3">{item.avg_grade.toFixed(2)}</td>
                   <td className="px-4 py-3 text-red-500">{item.failed}</td>
                   <td className="px-4 py-3 text-amber-600">{item.near_fail}</td>
-                  <td className="px-4 py-3"><Link href={`/manager/analytics/courses?course=${item.id}`} className="font-medium text-primary hover:underline">Xem môn</Link></td>
+                  <td className="px-4 py-3"><Link href={analyticsHref("/manager/analytics/courses", {
+                    course_id: item.id,
+                    program_id: Number(programId),
+                    semester_code: semester === "all" ? undefined : semester,
+                    cohort_id: cohort === "all" ? undefined : Number(cohort),
+                    date_from: dateFrom || undefined,
+                    date_to: dateTo || undefined,
+                    source: "programs",
+                  })} className="font-medium text-primary hover:underline">Xem môn</Link></td>
                 </tr>
               ))}
             </tbody>
