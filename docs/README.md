@@ -14,7 +14,7 @@ Trang này giúp team biết tài liệu nào là nguồn chuẩn hiện tại, 
 | Backend progress (Hưng) | [Hung/README.md](./09-Materials/Hung/README.md) |
 | Kiến trúc tổng thể | [SystemArchitecture.md](./10-References/SystemArchitecture.md) |
 | Setup, pull, reset và migration | [ProjectSetup.md](./10-References/ProjectSetup.md) |
-| Kế hoạch thực thi hiện tại | [Sprint4.md](./07-Sprint-Planning/Sprint4.md) — Demo Day final + chất lượng sản phẩm, cập nhật 02/07 (D59 live) |
+| Kế hoạch thực thi hiện tại | [Sprint4.md](./07-Sprint-Planning/Sprint4.md) — Demo Day final + chất lượng sản phẩm, cập nhật 03/07 (D59 live, H60 evidence, H61 100 TC) |
 | Production deploy evidence | [d59-deployment-evidence.md](./21-Release-Readiness/d59-deployment-evidence.md) — Live URL + UptimeRobot |
 | Agent handoff (session) | [.cursor/session-handoff.md](../.cursor/session-handoff.md) |
 | UX simplification review | [README.md](./22-UX-Simplification-Review/README.md) — P0 polish backlog |
@@ -56,7 +56,8 @@ DatabaseModernizationPlan / ML_DWH_Architecture
 
 - `05-Meeting-Notes/meeting-01.md`.
 - `07-Sprint-Planning/Sprint1.md`.
-- Journal/worklog bên ngoài thư mục docs.
+- Journal + Worklog (BTC D8/D9, Sprint 1–4): [journal.md](./journal.md), [worklog.md](./worklog.md).
+- Root `JOURNAL.md` / `WORKLOG.md` chỉ redirect về hai file trên (tương thích link cũ).
 
 Quyết định thay đổi hướng được ghi ở [meeting-02-dwh-ml-decision.md](./05-Meeting-Notes/meeting-02-dwh-ml-decision.md).
 

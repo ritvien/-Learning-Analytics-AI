@@ -130,32 +130,6 @@ export interface ApiSection {
   is_active: boolean
 }
 
-export interface ApiIntervention {
-  id: number
-  actor_id: string
-  student_id: number
-  section_id: number
-  channel: string
-  status: string
-  notes: string | null
-  created_at: string
-  updated_at: string
-}
-
-export interface ApiAtRiskStudent {
-  student_id: number
-  student_code: string
-  full_name: string
-  final_grade: number | null
-  is_passed: boolean | null
-  gpa_cumulative: number | null
-  fail_count: number
-  dropout_probability: number | null
-  dropout_risk_level: string | null
-  reasons: string[]
-  risk_level: "high" | "watch"
-}
-
 export interface ApiTeacher {
   id: number
   user_id: string | null
@@ -611,6 +585,100 @@ export interface ApiDashboardCourses {
   }
 }
 
+export interface ApiDashboardOutcomes {
+  departments: ApiDashboardDepartmentOption[]
+  programs: ApiDashboardProgramOption[]
+  semesters: ApiDashboardSemesterOption[]
+  cohorts: ApiDashboardCohortOption[]
+  kpis: {
+    programs_with_evidence: number
+    plos_with_evidence: number
+    clos_with_evidence: number
+    courses_with_evidence: number
+    evidence_count: number
+    student_count: number
+    attainment_pct: number
+    plos_at_target: number
+  }
+  plo_rows: {
+    department_id: number | null
+    department_name: string | null
+    program_id: number
+    program_code: string
+    program_name: string
+    plo_id: number
+    plo_code: string
+    plo_name: string
+    evidence_count: number
+    student_count: number
+    course_count: number
+    semester_count: number
+    avg_score: number | null
+    attainment_pct: number
+  }[]
+  plo_trend: {
+    program_id: number
+    program_code: string
+    program_name: string
+    plo_id: number
+    plo_code: string
+    plo_name: string
+    semester: string
+    year: number
+    term: number
+    evidence_count: number
+    attainment_pct: number
+  }[]
+  driver_courses: {
+    program_id: number
+    program_code: string
+    program_name: string
+    plo_id: number
+    plo_code: string
+    plo_name: string
+    course_id: number
+    course_code: string
+    course_name: string
+    evidence_count: number
+    student_count: number
+    attainment_pct: number
+  }[]
+  driver_clos: {
+    program_id: number
+    program_code: string
+    program_name: string
+    plo_id: number
+    plo_code: string
+    course_id: number
+    course_code: string
+    course_name: string
+    clo_id: number
+    clo_code: string
+    clo_name: string
+    evidence_count: number
+    attainment_pct: number
+  }[]
+  quality_rows: {
+    department_id: number | null
+    department_name: string | null
+    program_id: number
+    program_code: string
+    program_name: string
+    plo_count: number
+    program_courses: number
+    courses_with_clo: number
+    courses_with_component_clo_mapping: number
+    mapped_clo_count: number
+    evidence_count: number
+    courses_with_evidence: number
+    students_with_evidence: number
+    semesters_with_evidence: number
+    data_status: "ready" | "partial" | "missing"
+  }[]
+  data_status: "ready" | "partial"
+  warnings: string[]
+}
+
 // --- Report Agent ---
 export type ApiReportAgentMode = "explain" | "root_cause" | "narrative" | "action_planning" | "workflow" | "compare"
 
@@ -672,6 +740,134 @@ export interface ChatResponse {
   intent: string
   tool_calls: { tool_name: string; tool_input: Record<string, unknown>; tool_output: string }[]
   latency_ms: number
+}
+
+export type ApiOpsPriority = "urgent" | "critical" | "high" | "medium" | "low"
+export type ApiOpsTaskStatus = "open" | "assigned" | "in_progress" | "waiting_followup" | "resolved" | "closed" | "cancelled"
+export type ApiOpsScopeType = "student" | "section" | "homeroom" | "course" | "program" | "department" | "data_quality" | "system"
+
+export interface ApiOpsAlert {
+  id: number
+  alert_type: string
+  severity: "critical" | "high" | "medium" | "low"
+  scope_type: ApiOpsScopeType
+  scope_id: string | null
+  title: string
+  message: string
+  source: string
+  evidence_json: Record<string, unknown>
+  status: "new" | "acknowledged" | "converted" | "dismissed" | "resolved"
+  dedupe_key: string
+  created_at: string
+  expires_at: string | null
+}
+
+export interface ApiOpsTaskEvent {
+  id: number
+  task_id: number
+  actor_user_id: string
+  event_type: string
+  payload_json: Record<string, unknown>
+  created_at: string
+}
+
+export interface ApiOpsTaskComment {
+  id: number
+  task_id: number
+  actor_user_id: string
+  comment: string
+  created_at: string
+}
+
+export interface ApiOpsTask {
+  id: number
+  task_type: string
+  priority: ApiOpsPriority
+  status: ApiOpsTaskStatus
+  title: string
+  description: string | null
+  scope_type: ApiOpsScopeType
+  scope_id: string | null
+  source_alert_id: number | null
+  assignee_user_id: string | null
+  assignee_role: ApiUserRole | string | null
+  created_by_user_id: string
+  due_at: string | null
+  follow_up_at: string | null
+  resolution_note: string | null
+  outcome: string | null
+  metadata_json: Record<string, unknown>
+  closed_at: string | null
+  created_at: string
+  updated_at: string
+  events: ApiOpsTaskEvent[]
+  comments: ApiOpsTaskComment[]
+}
+
+export type ApiImprovementOutcome = "improved" | "unchanged" | "worsened" | "needs_follow_up"
+export type ApiAppointmentStatus = "scheduled" | "completed" | "cancelled" | "no_show"
+
+export interface ApiInterventionAppointment {
+  id: number
+  case_id: number
+  task_id: number | null
+  student_id: number
+  created_by_user_id: string
+  scheduled_at: string
+  duration_minutes: number
+  meeting_mode: "in_person" | "online" | "phone"
+  location: string | null
+  purpose: string
+  note: string | null
+  status: ApiAppointmentStatus
+  result: string | null
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ApiAdvisorCase {
+  id: number
+  task_id: number | null
+  student_id: number
+  student_code: string | null
+  student_name: string | null
+  scope_type: "section" | "homeroom"
+  section_id: number | null
+  class_code: string | null
+  priority: string
+  status: string
+  assignee_user_id: string | null
+  follow_up_at: string | null
+  is_overdue: boolean
+  signal_snapshot: Record<string, unknown>
+  follow_up_snapshot: Record<string, unknown>
+  advisor_assessment: string | null
+  advisor_conclusion: "support_needed" | "monitor" | "no_action" | null
+  advisor_action_plan: string | null
+  assessment_confirmed_by_user_id: string | null
+  assessment_confirmed_at: string | null
+  improvement_outcome: ApiImprovementOutcome | null
+  appointments?: ApiInterventionAppointment[]
+  events?: Array<{ id: number; event_type: string; actor_user_id: string; actor_name: string | null; payload: Record<string, unknown>; created_at: string }>
+  created_at: string
+  updated_at: string
+  permissions: Record<string, boolean>
+}
+
+export interface ApiOpsNotification {
+  id: number
+  recipient_user_id: string | null
+  recipient_role: ApiUserRole | string | null
+  task_id: number | null
+  alert_id: number | null
+  notification_type: string
+  title: string
+  message: string
+  link_url: string | null
+  priority: ApiOpsPriority | string
+  read_at: string | null
+  created_at: string
 }
 
 type ClientEvent = {
@@ -1072,6 +1268,112 @@ export interface ApiInterventionCaseRef {
   follow_up_at: string | null
 }
 
+export type ApiAnalyticsDataStatus = "ready" | "partial" | "empty" | "stale"
+
+export interface ApiPagination {
+  total: number
+  limit: number
+  offset: number
+  has_more: boolean
+}
+
+export interface ApiDashboardSectionRow {
+  id: number
+  section_code: string
+  course_id: number
+  course_code: string
+  course_name: string
+  semester_id: number
+  semester_code: string
+  semester_name: string
+  teacher_id: number | null
+  teacher_name: string | null
+  student_count: number
+  graded_count: number
+  missing_grade_count: number
+  failed_count: number
+  avg_grade: number
+  pass_rate: number
+  prediction_coverage: number
+  prediction_scored_at: string | null
+  risk_level: "high" | "watch" | "normal" | "pending"
+  priority_score?: number
+  primary_reason?: string
+  recommended_action?: string
+}
+
+export interface ApiDashboardSections {
+  filters: Record<string, string | number | null>
+  summary: {
+    total_sections: number
+    total_students: number
+    needs_action_sections: number
+    average_pass_rate: number
+    missing_grade_count: number
+    prediction_coverage: number
+  }
+  hierarchy: {
+    level: "department" | "program" | "course"
+    items: Array<{
+      id: number
+      code: string
+      name: string
+      section_count: number
+      student_count: number
+      pass_rate: number
+      high_sections: number
+      watch_sections: number
+      pending_sections: number
+      normal_sections: number
+      needs_action_rate?: number
+      priority_score?: number
+      primary_reason?: string
+    }>
+  }
+  risk_distribution: Array<{ risk_level: "high" | "watch" | "normal" | "pending"; value: number }>
+  section_matrix: Array<{
+    id: number
+    section_code: string
+    course_id: number
+    course_code: string
+    course_name: string
+    student_count: number
+    pass_rate: number
+    avg_grade: number
+    risk_level: "high" | "watch" | "normal" | "pending"
+    prediction_coverage: number
+    failed_count: number
+    missing_grade_count: number
+    priority_score?: number
+    primary_reason?: string
+    recommended_action?: string
+  }>
+  items: ApiDashboardSectionRow[]
+  pagination: ApiPagination
+  data_status: ApiAnalyticsDataStatus
+  warnings: string[]
+}
+
+export interface ApiDashboardSectionStudent {
+  student_id: number
+  student_code: string
+  full_name: string
+  final_grade: number | null
+  is_passed: boolean | null
+  dropout_probability: number | null
+  dropout_risk_level: string | null
+  top_factors: unknown
+  scored_at: string | null
+  risk_level: "high" | "watch" | "normal" | "pending"
+}
+
+export interface ApiDashboardSectionStudents {
+  items: ApiDashboardSectionStudent[]
+  pagination: ApiPagination
+  data_status: ApiAnalyticsDataStatus
+  warnings: string[]
+}
+
 export interface ApiSectionInterventionWorklistRow {
   id: number
   section_code: string
@@ -1459,7 +1761,7 @@ export function getCurrentUserFresh() {
   return meInFlight
 }
 
-function qs(params: Record<string, string | number | undefined>): string {
+function qs(params: Record<string, string | number | boolean | undefined>): string {
   const q = Object.entries(params)
     .filter(([, v]) => v !== undefined)
     .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
@@ -1480,6 +1782,150 @@ export const api = {
         payload: event.payload ?? {},
       }),
     }),
+
+  // --- Operational alerts / tasks / notifications ---
+  getAlerts: (params?: { status?: string; severity?: string; scope_type?: string; limit?: number }) =>
+    fetcher<ApiOpsAlert[]>(`/api/v1/alerts${qs(params ?? {})}`),
+  acknowledgeAlert: (id: number) =>
+    fetcher<ApiOpsAlert>(`/api/v1/alerts/${id}/acknowledge`, { method: "POST" }),
+  dismissAlert: (id: number) =>
+    fetcher<ApiOpsAlert>(`/api/v1/alerts/${id}/dismiss`, { method: "POST" }),
+  convertAlertToTask: (id: number) =>
+    fetcher<ApiOpsTask>(`/api/v1/alerts/${id}/convert-to-task`, { method: "POST" }),
+  generateAlerts: (kind?: "student-risk" | "section-risk" | "course-risk" | "outcome-risk" | "data-quality" | "system") =>
+    fetcher<{ status: string; kind: string; created: number }>(
+      `/api/v1/admin/alerts/generate${kind ? `/${kind}` : ""}`,
+      { method: "POST" },
+    ),
+  getTasks: (params?: { status?: string; priority?: string; scope_type?: string; assignee?: string; overdue?: boolean; limit?: number }) =>
+    fetcher<ApiOpsTask[]>(`/api/v1/tasks${qs(params ?? {})}`),
+  getMyTasks: () =>
+    fetcher<ApiOpsTask[]>("/api/v1/tasks/my"),
+  getTask: (id: number) =>
+    fetcher<ApiOpsTask>(`/api/v1/tasks/${id}`),
+  createTask: (body: {
+    task_type: string
+    priority?: ApiOpsPriority
+    title: string
+    description?: string | null
+    scope_type: ApiOpsScopeType
+    scope_id?: string | null
+    source_alert_id?: number | null
+    assignee_user_id?: string | null
+    assignee_role?: string | null
+    due_at?: string | null
+    follow_up_at?: string | null
+    metadata_json?: Record<string, unknown>
+  }) =>
+    fetcher<ApiOpsTask>("/api/v1/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  updateTask: (id: number, body: Partial<{
+    priority: ApiOpsPriority
+    status: ApiOpsTaskStatus
+    title: string
+    description: string | null
+    due_at: string | null
+    follow_up_at: string | null
+    assignee_user_id: string | null
+    assignee_role: string | null
+    metadata_json: Record<string, unknown>
+  }>) =>
+    fetcher<ApiOpsTask>(`/api/v1/tasks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  assignTask: (id: number, body: { assignee_user_id: string; due_at?: string | null }) =>
+    fetcher<ApiOpsTask>(`/api/v1/tasks/${id}/assign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  addTaskComment: (id: number, comment: string) =>
+    fetcher<ApiOpsTask>(`/api/v1/tasks/${id}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ comment }),
+    }),
+  setTaskFollowUp: (id: number, body: { follow_up_at: string; note?: string | null }) =>
+    fetcher<ApiOpsTask>(`/api/v1/tasks/${id}/follow-up`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  getAdvisorCases: (params?: { status?: string; priority?: string; scope_type?: "section" | "homeroom"; student_id?: number; overdue?: boolean }) =>
+    fetcher<ApiAdvisorCase[]>(`/api/v1/interventions/cases${qs(params ?? {})}`),
+  syncAdvisorCases: (maxCases = 100) =>
+    fetcher<{ created: number; skipped_existing: number; message: string }>(`/api/v1/interventions/cases/sync-risk-signals?max_cases=${maxCases}`, { method: "POST" }),
+  getAdvisorCase: (id: number) =>
+    fetcher<ApiAdvisorCase>(`/api/v1/interventions/cases/${id}`),
+  saveAdvisorAssessment: (id: number, body: {
+    assessment: string
+    conclusion: "support_needed" | "monitor" | "no_action"
+    action_plan?: string | null
+    confirm?: boolean
+  }) => fetcher<ApiAdvisorCase>(`/api/v1/interventions/cases/${id}/assessment`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }),
+  recordAdvisorFollowUp: (id: number, body: { outcome: ApiImprovementOutcome; note?: string | null }) =>
+    fetcher<ApiAdvisorCase>(`/api/v1/interventions/cases/${id}/follow-up`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  createBulkStudentNotice: (body: { case_ids: number[]; title: string; message: string }) =>
+    fetcher<{ created_count: number; message: string }>("/api/v1/interventions/bulk-notice", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  getInterventionAppointments: (params?: { case_id?: number; student_id?: number; upcoming?: boolean }) =>
+    fetcher<ApiInterventionAppointment[]>(`/api/v1/interventions/appointments${qs(params ?? {})}`),
+  createInterventionAppointment: (caseId: number, body: {
+    scheduled_at: string
+    duration_minutes?: number
+    meeting_mode?: "in_person" | "online" | "phone"
+    location?: string | null
+    purpose: string
+    note?: string | null
+  }) => fetcher<ApiInterventionAppointment>(`/api/v1/interventions/cases/${caseId}/appointments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }),
+  updateInterventionAppointment: (id: number, body: Partial<{
+    scheduled_at: string
+    duration_minutes: number
+    meeting_mode: "in_person" | "online" | "phone"
+    location: string | null
+    purpose: string
+    note: string | null
+    status: ApiAppointmentStatus
+    result: string | null
+  }>) => fetcher<ApiInterventionAppointment>(`/api/v1/interventions/appointments/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }),
+  closeTask: (id: number, body: { resolution_note: string; outcome?: string | null; status?: "resolved" | "closed" }) =>
+    fetcher<ApiOpsTask>(`/api/v1/tasks/${id}/close`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  getNotifications: (params?: { unread_only?: boolean; limit?: number }) =>
+    fetcher<ApiOpsNotification[]>(`/api/v1/notifications${qs(params ?? {})}`),
+  getUnreadNotificationCount: () =>
+    fetcher<{ unread: number }>("/api/v1/notifications/unread-count"),
+  markNotificationRead: (id: number) =>
+    fetcher<ApiOpsNotification>(`/api/v1/notifications/${id}/read`, { method: "POST" }),
+  markAllNotificationsRead: () =>
+    fetcher<{ read: number }>("/api/v1/notifications/read-all", { method: "POST" }),
 
   // --- Auth ---
   login: async (body: { email: string; password: string }) => {
@@ -1672,6 +2118,17 @@ export const api = {
   // --- Sections ---
   getSections: (params?: { limit?: number; course_id?: number; semester_id?: number; teacher_id?: number }) =>
     fetcher<ApiSection[]>(`/api/v1/sections${qs(params ?? {})}`),
+  getDashboardSections: (params?: {
+    semester_code?: string; department_id?: number; program_id?: number; course_id?: number; section_id?: number
+    teacher_id?: number; q?: string; date_from?: string; date_to?: string; risk_level?: string; sort?: string
+    limit?: number; offset?: number
+  }) => fetcher<ApiDashboardSections>(`/api/v1/analytics/dashboard/sections${qs(params ?? {})}`),
+  getDashboardSection: (sectionId: number) =>
+    fetcher<{ item: ApiDashboardSectionRow; data_status: ApiAnalyticsDataStatus; warnings: string[] }>(
+      `/api/v1/analytics/dashboard/sections/${sectionId}`,
+    ),
+  getDashboardSectionStudents: (sectionId: number, params?: { risk_level?: string; limit?: number; offset?: number }) =>
+    fetcher<ApiDashboardSectionStudents>(`/api/v1/analytics/dashboard/sections/${sectionId}/students${qs(params ?? {})}`),
 
   // --- Homeroom / academic-advisor classes ---
   getHomeroomClasses: () => fetcher<ApiHomeroomClassSummary[]>("/api/v1/homeroom/classes"),
@@ -1721,119 +2178,11 @@ export const api = {
   },
   getInterventionHistory: (studentId: number, params?: { section_id?: number; class_code?: string }) =>
     fetcher<ApiInterventionContact[]>(`/api/v1/interventions/students/${studentId}/history${qs(params ?? {})}`),
-  createInterventionContact: (body: {
-    student_id: number
-    section_id?: number | null
-    class_code?: string | null
-    case_id?: number | null
-    channel: "email" | "phone" | "meeting" | "in_person" | "other"
-    status: "drafted" | "logged" | "emailed" | "failed"
-    subject?: string | null
-    message?: string | null
-    note?: string | null
-    metadata?: Record<string, unknown>
-  }) =>
-    fetcher<ApiInterventionContact>("/api/v1/interventions/contact", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }),
-  draftInterventionMessage: (body: {
-    student_id: number
-    section_id?: number | null
-    class_code?: string | null
-    channel?: "email" | "phone" | "meeting" | "in_person" | "other"
-    tone?: "supportive" | "formal" | "brief"
-  }) =>
-    fetcher<ApiInterventionDraft>("/api/v1/interventions/ai/draft-message", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }),
   summarizeInterventionScope: (body: { scope_type: "section" | "homeroom"; scope_id?: number | null; class_code?: string | null }) =>
     fetcher<ApiInterventionScopeSummary>("/api/v1/interventions/ai/summarize-scope", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    }),
-  bulkNotifyInterventions: (body: {
-    scope_type: "section" | "homeroom"
-    scope_id?: number | null
-    class_code?: string | null
-    student_ids?: number[] | null
-    channel?: "email" | "phone" | "meeting" | "in_person" | "other"
-    status?: "drafted" | "logged" | "emailed" | "failed"
-    subject?: string
-    message_template?: string | null
-    max_students?: number
-  }) =>
-    fetcher<ApiBulkInterventionNotifyResult>("/api/v1/interventions/ai/bulk-notify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }),
-  bulkDraftInterventionEmails: (body: {
-    scope_type: "section" | "homeroom"
-    scope_id?: number | null
-    class_code?: string | null
-    student_ids?: number[] | null
-    subject?: string
-    message_template?: string | null
-    max_students?: number
-  }) =>
-    fetcher<ApiBulkInterventionDraftResult>("/api/v1/interventions/ai/bulk-draft", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...body, channel: "email", status: "drafted" }),
-    }),
-  createInterventionCampaign: (body: {
-    scope_type: "section" | "homeroom"
-    scope_id?: number | null
-    class_code?: string | null
-    title?: string | null
-    objective?: "early_support" | "course_recovery" | "advisor_checkin"
-    student_ids?: number[] | null
-    max_students?: number
-  }) =>
-    fetcher<ApiInterventionCampaign>("/api/v1/intervention-campaigns", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }),
-  generateInterventionCampaignDrafts: (campaignId: number, body: {
-    student_ids?: number[] | null
-    channel?: "email" | "phone" | "meeting" | "in_person" | "other"
-    subject?: string
-    message_template?: string | null
-    max_students?: number
-    replace_existing?: boolean
-  }) =>
-    fetcher<ApiInterventionCampaign>(`/api/v1/intervention-campaigns/${campaignId}/generate-drafts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }),
-  getInterventionCampaignDeliveryStatus: () =>
-    fetcher<ApiCampaignDeliveryStatus>("/api/v1/intervention-campaigns/delivery-status"),
-  updateInterventionCampaignMessage: (messageId: number, body: {
-    channel?: "email" | "phone" | "meeting" | "in_person" | "other"
-    recipient_email?: string | null
-    subject?: string | null
-    body?: string | null
-    status?: "drafted" | "approved" | "queued" | "sent" | "failed" | "cancelled"
-  }) =>
-    fetcher<ApiInterventionMessage>(`/api/v1/intervention-campaigns/messages/${messageId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }),
-  approveInterventionCampaign: (campaignId: number) =>
-    fetcher<ApiInterventionCampaign>(`/api/v1/intervention-campaigns/${campaignId}/approve`, {
-      method: "POST",
-    }),
-  finalizeInterventionCampaign: (campaignId: number) =>
-    fetcher<ApiInterventionCampaign>(`/api/v1/intervention-campaigns/${campaignId}/send`, {
-      method: "POST",
     }),
   createSection: (body: {
     course_id: number
@@ -1864,16 +2213,6 @@ export const api = {
     }),
   deleteSection: (id: number) =>
     fetcher<void>(`/api/v1/sections/${id}`, { method: "DELETE" }),
-  getSectionAtRiskStudents: (sectionId: number) =>
-    fetcher<ApiAtRiskStudent[]>(`/api/v1/sections/${sectionId}/at-risk`),
-  getSectionInterventionHistory: (sectionId: number) =>
-    fetcher<ApiIntervention[]>(`/api/v1/interventions/sections/${sectionId}`),
-  createInterventionContact: (body: { student_id: number; section_id: number; channel: string; notes?: string }) =>
-    fetcher<ApiIntervention>("/api/v1/interventions/contact", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }),
 
   // --- Teachers ---
   getTeachers: (params?: { limit?: number; department_id?: number }) =>
@@ -1936,6 +2275,8 @@ export const api = {
     fetcher<ApiDashboardOverview>(`/api/v1/analytics/dashboard/overview${qs(params ?? {})}`),
   getDashboardDepartments: (params?: { semester_code?: string; department_id?: number; program_id?: number; date_from?: string; date_to?: string }) =>
     fetcher<ApiDashboardDepartments>(`/api/v1/analytics/dashboard/departments${qs(params ?? {})}`),
+  getDashboardOutcomes: (params?: { semester_code?: string; department_id?: number; program_id?: number; plo_id?: number; min_evidence?: number; date_from?: string; date_to?: string }) =>
+    fetcher<ApiDashboardOutcomes>(`/api/v1/analytics/dashboard/outcomes${qs(params ?? {})}`),
   getDashboardProgram: (id: number, params?: { semester_code?: string; cohort_id?: number; date_from?: string; date_to?: string }) =>
     fetcher<ApiDashboardProgram>(`/api/v1/analytics/dashboard/programs/${id}${qs(params ?? {})}`),
   getDashboardCourses: (params?: { semester_code?: string; department_id?: number; program_id?: number; date_from?: string; date_to?: string }) =>

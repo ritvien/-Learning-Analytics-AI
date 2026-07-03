@@ -12,7 +12,7 @@
 | Metric | Scorer | Primary signal | Suggested threshold |
 |:-------|:-------|:---------------|:--------------------|
 | Task completion | `task_completion.py` | HTTP OK + intent + category outcome | ≥85% Pass (weighted) |
-| Tool-call accuracy | `tool_accuracy.py` | Selection + args + sequence vs `expected_tools` | ≥80% composite |
+| Tool-call accuracy | `tool_accuracy.py` | Selection + args + ordered sequence/counts vs expected tool fields | ≥80% composite |
 | Semantic accuracy | `semantic.py` + optional `semantic_judge.py` | Numeric/entity match + LLM judge | ≥0.75 normalized |
 | Grounding | `grounding.py` + optional `grounding_judge.py` | Response numbers ⊆ tool outputs | ≥0.70 faithfulness |
 | Latency / task | `latency.py` | E2E + breakdown (router, LLM, tools) | p95 ≤15s |
@@ -26,7 +26,9 @@
 
 Each test case may include:
 
-- `expected_tools` — tool names expected for `data_query` TCs
+- `expected_tools` — unique tool names expected for selection scoring
+- `expected_tool_sequence` — optional ordered tool list for multi-tool cases
+- `expected_tool_counts` — optional per-tool call counts, used when a case needs repeated calls
 - `expected_values` — `{field, value, tolerance}` for numeric golden checks (from G2 `results.json`)
 - `completion_criteria` — e.g. `has_numeric_answer`, `intent_match`, `tool_success`
 - `expected_outcome` — `numeric_answer`, `refusal`, `chit_chat`, etc.

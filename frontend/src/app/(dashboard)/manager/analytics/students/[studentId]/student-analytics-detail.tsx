@@ -10,10 +10,10 @@ import {
   CheckCircle2,
   Clock3,
   GraduationCap,
+  ListTodo,
+  MessageSquareText,
   Phone,
   Search,
-  Send,
-  Sparkles,
   Target,
 } from "lucide-react"
 import {
@@ -34,10 +34,8 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { api, type ApiHomeroomStudentAnalytics, type ApiInterventionContact, type ApiStudentSupportProfile } from "@/lib/api"
 
 function riskPresentation(level: ApiHomeroomStudentAnalytics["risk"]["level"]) {
@@ -85,6 +83,12 @@ function statusLabel(value: string) {
   return labels[value] ?? value
 }
 
+function contactScopeLabel(item: ApiInterventionContact) {
+  if (item.section_id) return `Lớp học phần #${item.section_id}`
+  if (item.class_code) return `Lớp cố vấn ${item.class_code}`
+  return "Hồ sơ sinh viên"
+}
+
 function toNumber(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null
   const numeric = Number(value)
@@ -105,13 +109,6 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
   const [query, setQuery] = React.useState("")
   const [history, setHistory] = React.useState<ApiInterventionContact[]>([])
   const [historyLoading, setHistoryLoading] = React.useState(false)
-  const [supportOpen, setSupportOpen] = React.useState(false)
-  const [supportChannel, setSupportChannel] = React.useState<"email" | "phone" | "meeting" | "in_person" | "other">("email")
-  const [supportStatus, setSupportStatus] = React.useState<"logged" | "emailed" | "drafted">("logged")
-  const [supportSubject, setSupportSubject] = React.useState("Trao đổi về kế hoạch hỗ trợ học tập")
-  const [supportMessage, setSupportMessage] = React.useState("")
-  const [supportNote, setSupportNote] = React.useState("")
-  const [supportBusy, setSupportBusy] = React.useState(false)
   const [supportProfile, setSupportProfile] = React.useState<ApiStudentSupportProfile | null>(null)
 
   React.useEffect(() => {
@@ -133,10 +130,10 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
   }, [studentId])
 
   React.useEffect(() => {
-    if (!data?.profile.class_code) return
+    if (!data) return
     let active = true
     setHistoryLoading(true)
-    api.getInterventionHistory(studentId, { class_code: data.profile.class_code })
+    api.getInterventionHistory(studentId)
       .then((items) => {
         if (active) setHistory(items)
       })
@@ -149,7 +146,7 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
     return () => {
       active = false
     }
-  }, [data?.profile.class_code, studentId])
+  }, [data, studentId])
 
   React.useEffect(() => {
     if (!data?.profile.class_code) return
@@ -170,52 +167,6 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
     if (!data) return []
     return [...new Set(data.course_results.map((row) => row.semester))]
   }, [data])
-
-  const refreshHistory = React.useCallback(async () => {
-    if (!data?.profile.class_code) return
-    const items = await api.getInterventionHistory(studentId, { class_code: data.profile.class_code })
-    setHistory(items)
-  }, [data?.profile.class_code, studentId])
-
-  const draftSupportMessage = React.useCallback(async () => {
-    if (!data?.profile.class_code) return
-    setSupportBusy(true)
-    try {
-      const draft = await api.draftInterventionMessage({
-        student_id: studentId,
-        class_code: data.profile.class_code,
-        channel: supportChannel,
-        tone: "supportive",
-      })
-      setSupportSubject(draft.subject)
-      setSupportMessage(draft.message)
-      setSupportNote(`AI gợi ý dựa trên: ${draft.reasons.join("; ") || "theo dõi định kỳ"}`)
-    } finally {
-      setSupportBusy(false)
-    }
-  }, [data?.profile.class_code, studentId, supportChannel])
-
-  const saveSupportContact = React.useCallback(async () => {
-    if (!data?.profile.class_code) return
-    setSupportBusy(true)
-    try {
-      await api.createInterventionContact({
-        student_id: studentId,
-        class_code: data.profile.class_code,
-        channel: supportChannel,
-        status: supportStatus,
-        subject: supportSubject || null,
-        message: supportMessage || null,
-        note: supportNote || null,
-        metadata: { source: "student_profile_support_panel" },
-      })
-      await refreshHistory()
-      setSupportOpen(false)
-      setSupportStatus("logged")
-    } finally {
-      setSupportBusy(false)
-    }
-  }, [data?.profile.class_code, refreshHistory, studentId, supportChannel, supportMessage, supportNote, supportStatus, supportSubject])
 
   const filteredResults = React.useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("vi")
@@ -459,23 +410,11 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2 text-base"><Sparkles className="h-4 w-4 text-primary" />Hỗ trợ học tập</CardTitle>
-              <CardDescription>Agent hỗ trợ soạn nội dung trao đổi; giảng viên xác nhận và lưu lịch sử can thiệp.</CardDescription>
+              <CardTitle className="flex items-center gap-2 text-base"><ListTodo className="h-4 w-4 text-primary" />Hỗ trợ học tập</CardTitle>
+              <CardDescription>Nhận định, lịch hẹn và follow-up được quản lý tại Việc cần xử lý; các biểu đồ analytics vẫn giữ nguyên.</CardDescription>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setSupportOpen(true)
-                  void draftSupportMessage()
-                }}
-              >
-                <Sparkles className="mr-2 h-4 w-4" />AI soạn
-              </Button>
-              <Button size="sm" onClick={() => setSupportOpen(true)}>
-                <Send className="mr-2 h-4 w-4" />Ghi nhận liên hệ
-              </Button>
+              <Link href={`/manager/tasks?scope_type=homeroom&scope_id=${encodeURIComponent(profile.class_code)}&student_id=${studentId}`} className={buttonVariants({ size: "sm" })}><ListTodo className="mr-2 h-4 w-4" />Mở hồ sơ cố vấn</Link>
             </div>
           </div>
         </CardHeader>
@@ -521,66 +460,6 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
           </div>
         </CardContent>
       </Card>
-
-      <Dialog open={supportOpen} onOpenChange={setSupportOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Hỗ trợ học tập cho {profile.full_name}</DialogTitle>
-            <DialogDescription>Chỉnh nội dung trước khi lưu lịch sử hoặc ghi nhận email đã gửi.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <p className="mb-1.5 text-xs font-medium text-muted-foreground">Kênh liên hệ</p>
-                <Select value={supportChannel} onValueChange={(value) => setSupportChannel(value as typeof supportChannel)}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="email">Email</SelectItem>
-                    <SelectItem value="phone">Điện thoại</SelectItem>
-                    <SelectItem value="meeting">Hẹn gặp</SelectItem>
-                    <SelectItem value="in_person">Trao đổi trực tiếp</SelectItem>
-                    <SelectItem value="other">Khác</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <p className="mb-1.5 text-xs font-medium text-muted-foreground">Trạng thái lưu</p>
-                <Select value={supportStatus} onValueChange={(value) => setSupportStatus(value as typeof supportStatus)}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="logged">Đã ghi nhận</SelectItem>
-                    <SelectItem value="emailed">Đã gửi email</SelectItem>
-                    <SelectItem value="drafted">Lưu bản nháp</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <p className="mb-1.5 text-xs font-medium text-muted-foreground">Tiêu đề</p>
-              <Input value={supportSubject} onChange={(event) => setSupportSubject(event.target.value)} />
-            </div>
-            <div>
-              <div className="mb-1.5 flex items-center justify-between gap-2">
-                <p className="text-xs font-medium text-muted-foreground">Nội dung / email draft</p>
-                <Button type="button" variant="ghost" size="sm" onClick={draftSupportMessage} disabled={supportBusy}>
-                  <Sparkles className="mr-2 h-4 w-4" />Soạn lại
-                </Button>
-              </div>
-              <Textarea value={supportMessage} onChange={(event) => setSupportMessage(event.target.value)} rows={9} />
-            </div>
-            <div>
-              <p className="mb-1.5 text-xs font-medium text-muted-foreground">Ghi chú nội bộ</p>
-              <Textarea value={supportNote} onChange={(event) => setSupportNote(event.target.value)} rows={3} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSupportOpen(false)} disabled={supportBusy}>Hủy</Button>
-            <Button onClick={saveSupportContact} disabled={supportBusy}>
-              <Send className="mr-2 h-4 w-4" />{supportBusy ? "Đang lưu..." : "Lưu lịch sử"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
@@ -659,6 +538,58 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
               })}
             </div>
           ) : <p className="py-10 text-center text-sm text-muted-foreground">Chưa có ánh xạ CLO/PLO đủ để tạo hồ sơ năng lực.</p>}
+        </CardContent>
+      </Card>
+
+      <Card className="border-sky-200/70">
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <MessageSquareText className="h-4 w-4 text-sky-600" />
+                Thông báo và nhận xét cá nhân
+              </CardTitle>
+              <CardDescription>
+                Mẫu có thể được soạn theo nhóm lớp, nhưng khi lưu sẽ tách thành từng bản ghi riêng trong hồ sơ năng lực của sinh viên này.
+              </CardDescription>
+            </div>
+            <Badge variant="secondary">{history.length} bản ghi</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {historyLoading ? (
+            <p className="py-8 text-sm text-muted-foreground">Đang tải thông báo đã lưu...</p>
+          ) : history.length ? (
+            <div className="space-y-3">
+              {history.map((item) => (
+                <div key={item.id} className="rounded-lg border bg-background p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{item.subject || "Nhận xét học tập"}</span>
+                        <Badge variant="outline">{channelLabel(item.channel)}</Badge>
+                        <Badge variant={item.status === "logged" ? "secondary" : "outline"}>{statusLabel(item.status)}</Badge>
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        <span>{contactScopeLabel(item)}</span>
+                        {item.actor_name ? <span>· Người ghi: {item.actor_name}</span> : null}
+                      </div>
+                    </div>
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock3 className="h-3 w-3" />
+                      {new Date(item.created_at).toLocaleString("vi-VN")}
+                    </span>
+                  </div>
+                  {item.message ? <p className="mt-3 whitespace-pre-line text-sm">{item.message}</p> : null}
+                  {item.note ? <p className="mt-3 rounded-md bg-muted/40 p-2 text-xs text-muted-foreground">{item.note}</p> : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+              Chưa có thông báo hoặc nhận xét nào được lưu cho sinh viên này.
+            </div>
+          )}
         </CardContent>
       </Card>
 

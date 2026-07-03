@@ -11,15 +11,27 @@ from sqlalchemy.orm import selectinload
 from app.access_control import can_access_section, get_teacher_for_user, is_admin, require_department_scope
 from app.dependencies import CurrentUser, DBSession
 from app.models.academic import Course, Program
-from app.models.intervention import InterventionCase, InterventionCaseEvent
+from app.models.intervention import (
+    InterventionAppointment,
+    InterventionCase,
+    InterventionCaseEvent,
+    StudentInterventionContact,
+)
+from app.models.ops import OpsNotification, OpsTask
 from app.models.people import HomeroomAssignment, Student, Teacher, User, UserRole
 from app.models.teaching import Enrollment, Section
 from app.schemas.intervention import (
+    AdvisorAssessmentUpsert,
+    InterventionAppointmentCreate,
+    InterventionAppointmentUpdate,
+    InterventionBulkNoticeCreate,
     InterventionCaseAssign,
     InterventionCaseCreate,
     InterventionCaseEventCreate,
     InterventionCaseUpdate,
+    InterventionFollowUpCreate,
 )
+from app.services.notification_service import add_task_event, notify_task_assignee
 
 router = APIRouter()
 OPEN_STATUSES = {"new", "assigned", "contacting", "monitoring"}
@@ -106,6 +118,7 @@ def _payload(item: InterventionCase, user: CurrentUser, *, include_events: bool 
     assignee = item.__dict__.get("assignee")
     data = {
         "id": item.id,
+        "task_id": item.task_id,
         "student_id": item.student_id,
         "student_code": student.student_code if student else None,
         "student_name": student.full_name if student else None,
@@ -121,6 +134,14 @@ def _payload(item: InterventionCase, user: CurrentUser, *, include_events: bool 
         "resolved_at": item.resolved_at,
         "resolution": item.resolution,
         "signal_snapshot": item.signal_snapshot or {},
+        "follow_up_snapshot": item.follow_up_snapshot or {},
+        "advisor_assessment": item.advisor_assessment,
+        "advisor_conclusion": item.advisor_conclusion,
+        "advisor_action_plan": item.advisor_action_plan,
+        "assessment_confirmed_by_user_id": item.assessment_confirmed_by_user_id,
+        "assessment_confirmed_at": item.assessment_confirmed_at,
+        "improvement_outcome": item.improvement_outcome,
+        "appointments": [_appointment_payload(row) for row in item.appointments],
         "is_overdue": bool(item.follow_up_at and item.follow_up_at < datetime.now(UTC) and item.status in OPEN_STATUSES),
         "created_at": item.created_at,
         "updated_at": item.updated_at,
@@ -150,6 +171,7 @@ async def _get_visible_case(db: DBSession, user: CurrentUser, case_id: int) -> I
                 selectinload(InterventionCase.student),
                 selectinload(InterventionCase.assignee),
                 selectinload(InterventionCase.events).selectinload(InterventionCaseEvent.actor),
+                selectinload(InterventionCase.appointments),
             )
             .where(InterventionCase.id == case_id, _visible_filter(user, department_ids))
         )
@@ -157,6 +179,46 @@ async def _get_visible_case(db: DBSession, user: CurrentUser, case_id: int) -> I
     if item is None:
         raise HTTPException(status_code=404, detail="Intervention case not found")
     return item
+
+
+def _appointment_payload(item: InterventionAppointment) -> dict:
+    return {
+        "id": item.id,
+        "case_id": item.case_id,
+        "task_id": item.task_id,
+        "student_id": item.student_id,
+        "created_by_user_id": item.created_by_user_id,
+        "scheduled_at": item.scheduled_at,
+        "duration_minutes": item.duration_minutes,
+        "meeting_mode": item.meeting_mode,
+        "location": item.location,
+        "purpose": item.purpose,
+        "note": item.note,
+        "status": item.status,
+        "result": item.result,
+        "completed_at": item.completed_at,
+        "created_at": item.created_at,
+        "updated_at": item.updated_at,
+    }
+
+
+def _require_case_owner(item: InterventionCase, user: CurrentUser) -> None:
+    if user.role != UserRole.lecturer or item.assignee_user_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the assigned lecturer can update student support")
+
+
+async def _current_signal_snapshot(db: DBSession, user: CurrentUser, item: InterventionCase) -> dict:
+    from app.api.v1.endpoints.interventions import _homeroom_at_risk_payload, _section_at_risk_payload
+
+    data = (
+        await _section_at_risk_payload(db, user, item.section_id)
+        if item.scope_type == "section" and item.section_id is not None
+        else await _homeroom_at_risk_payload(db, user, item.class_code or "")
+    )
+    student = next((row for row in data["students"] if row["student_id"] == item.student_id), None)
+    if student is None:
+        raise HTTPException(status_code=409, detail="Current student signals are unavailable in this scope")
+    return _signal_snapshot(student, data["scope"])
 
 
 def _signal_snapshot(student: dict, scope: dict) -> dict:
@@ -194,6 +256,85 @@ def _signal_snapshot(student: dict, scope: dict) -> dict:
     }
 
 
+async def _ensure_case_task(
+    db: DBSession,
+    user: CurrentUser,
+    item: InterventionCase,
+    student: dict,
+) -> None:
+    if item.task_id is not None:
+        existing_task = await db.get(OpsTask, item.task_id)
+        if existing_task is not None and existing_task.assignee_user_id is not None:
+            has_notification = await db.scalar(
+                select(exists().where(OpsNotification.task_id == existing_task.id))
+            )
+            if not has_notification:
+                await notify_task_assignee(db, existing_task, user)
+        return
+    assignee_id = item.assignee_user_id
+    task = OpsTask(
+        task_type="student_support",
+        priority=item.priority,
+        status="assigned" if assignee_id else "open",
+        title=f"Theo dõi học tập: {student.get('full_name') or student.get('student_code')}",
+        description="Sinh viên có tín hiệu học tập cần giảng viên/cố vấn xem xét và ghi nhận hướng xử lý.",
+        scope_type=item.scope_type,
+        scope_id=str(item.section_id) if item.section_id is not None else item.class_code,
+        assignee_user_id=assignee_id,
+        assignee_role=UserRole.lecturer.value if assignee_id else UserRole.manager.value,
+        created_by_user_id=user.id,
+        metadata_json={
+            "case_id": item.id,
+            "student_id": item.student_id,
+            "student_code": student.get("student_code"),
+            "student_name": student.get("full_name"),
+            "risk_level": student.get("risk_level"),
+            "risk_score": student.get("risk_score"),
+        },
+    )
+    db.add(task)
+    await db.flush()
+    item.task_id = task.id
+    await add_task_event(
+        db,
+        task_id=task.id,
+        actor_user_id=user.id,
+        event_type="created_from_intervention_case",
+        payload={"case_id": item.id, "student_id": item.student_id, "scope_type": item.scope_type},
+    )
+    await notify_task_assignee(db, task, user)
+
+
+def _prefill_advisor_review(item: InterventionCase, student: dict) -> bool:
+    """Create an editable system review from persisted academic/ML evidence."""
+    if item.advisor_assessment:
+        return False
+    reasons = [str(value) for value in (student.get("reasons") or []) if value]
+    actions = [str(value) for value in (student.get("recommended_actions") or []) if value]
+    academic = item.signal_snapshot.get("academic", {}) if item.signal_snapshot else {}
+    gpa = academic.get("gpa_cumulative")
+    fail_count = int(academic.get("fail_count") or 0)
+    near_fail_count = int(academic.get("near_fail_count") or 0)
+    evidence: list[str] = []
+    if gpa is not None:
+        evidence.append(f"GPA tích lũy {float(gpa):.2f}")
+    if fail_count:
+        evidence.append(f"{fail_count} học phần chưa đạt")
+    if near_fail_count:
+        evidence.append(f"{near_fail_count} học phần cận ngưỡng")
+    evidence.extend(reasons[:4])
+    item.advisor_assessment = (
+        "Hệ thống ghi nhận sinh viên cần được ưu tiên hỗ trợ dựa trên "
+        + ("; ".join(dict.fromkeys(evidence)) if evidence else "các tín hiệu học tập hiện có")
+        + ". Giảng viên/cố vấn cần đối chiếu với tình hình thực tế trước khi xác nhận."
+    )
+    item.advisor_conclusion = "support_needed" if student.get("risk_level") == "high" else "monitor"
+    item.advisor_action_plan = "; ".join(dict.fromkeys(actions[:4])) or (
+        "Trao đổi với sinh viên, xác định nguyên nhân và đặt mốc theo dõi kết quả học tập tiếp theo."
+    )
+    return True
+
+
 async def _sync_scope_candidates(
     db: DBSession,
     user: CurrentUser,
@@ -217,13 +358,24 @@ async def _sync_scope_candidates(
     scope_key = f"section:{section_id}" if section_id is not None else f"homeroom:{class_code}"
     for student in candidates[:remaining]:
         existing = await db.scalar(
-            select(InterventionCase.id).where(
+            select(InterventionCase).where(
                 InterventionCase.student_id == student["student_id"],
                 InterventionCase.scope_key == scope_key,
                 InterventionCase.active_key == "active",
             )
         )
         if existing:
+            review_created = _prefill_advisor_review(existing, student)
+            await _ensure_case_task(db, user, existing, student)
+            if review_created:
+                db.add(
+                    InterventionCaseEvent(
+                        case_id=existing.id,
+                        actor_user_id=user.id,
+                        event_type="system_review_generated",
+                        payload_json={"source": "academic_rules+predictions", "confirmed": False},
+                    )
+                )
             skipped += 1
             continue
         assignee_id = user.id if user.role == UserRole.lecturer else None
@@ -242,12 +394,18 @@ async def _sync_scope_candidates(
         )
         db.add(item)
         await db.flush()
+        _prefill_advisor_review(item, student)
+        await _ensure_case_task(db, user, item, student)
         db.add(
             InterventionCaseEvent(
                 case_id=item.id,
                 actor_user_id=user.id,
                 event_type="created_from_risk_signal",
-                payload_json={"source": "academic_rules+predictions", "risk_score": student["risk_score"]},
+                payload_json={
+                    "source": "academic_rules+predictions",
+                    "risk_score": student["risk_score"],
+                    "system_review_generated": True,
+                },
             )
         )
         created += 1
@@ -266,7 +424,11 @@ async def list_cases(
     overdue: bool | None = None,
 ) -> list[dict]:
     department_ids = await require_department_scope(db, current_user) if current_user.role == UserRole.manager else None
-    query = select(InterventionCase).options(selectinload(InterventionCase.student), selectinload(InterventionCase.assignee)).where(_visible_filter(current_user, department_ids))
+    query = select(InterventionCase).options(
+        selectinload(InterventionCase.student),
+        selectinload(InterventionCase.assignee),
+        selectinload(InterventionCase.appointments),
+    ).where(_visible_filter(current_user, department_ids))
     if case_status:
         query = query.where(InterventionCase.status == case_status)
     if priority:
@@ -376,6 +538,7 @@ async def create_case(payload: InterventionCaseCreate, db: DBSession, current_us
             raise HTTPException(status_code=403, detail="Lecturers can only assign a case to themselves")
         assignee = current_user.id
     item = InterventionCase(
+        task_id=payload.task_id,
         student_id=payload.student_id,
         scope_type=payload.scope_type,
         scope_key=scope_key,
@@ -461,3 +624,206 @@ async def add_case_event(case_id: int, payload: InterventionCaseEventCreate, db:
     db.add(event)
     await db.flush()
     return {"id": event.id, "case_id": case_id, "event_type": event.event_type, "payload": event.payload_json, "created_at": event.created_at}
+
+
+@router.put("/cases/{case_id}/assessment")
+async def upsert_advisor_assessment(
+    case_id: int,
+    payload: AdvisorAssessmentUpsert,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> dict:
+    item = await _get_visible_case(db, current_user, case_id)
+    _require_case_owner(item, current_user)
+    item.advisor_assessment = payload.assessment
+    item.advisor_conclusion = payload.conclusion
+    item.advisor_action_plan = payload.action_plan
+    if payload.confirm:
+        item.assessment_confirmed_by_user_id = current_user.id
+        item.assessment_confirmed_at = datetime.now(UTC)
+    else:
+        item.assessment_confirmed_by_user_id = None
+        item.assessment_confirmed_at = None
+    db.add(
+        InterventionCaseEvent(
+            case_id=item.id,
+            actor_user_id=current_user.id,
+            event_type="assessment_confirmed" if payload.confirm else "assessment_saved",
+            payload_json={"conclusion": payload.conclusion, "confirmed": payload.confirm},
+        )
+    )
+    await db.flush()
+    return _payload(await _get_visible_case(db, current_user, case_id), current_user, include_events=True)
+
+
+@router.post("/cases/{case_id}/follow-up")
+async def record_case_follow_up(
+    case_id: int,
+    payload: InterventionFollowUpCreate,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> dict:
+    item = await _get_visible_case(db, current_user, case_id)
+    _require_case_owner(item, current_user)
+    if item.assessment_confirmed_at is None:
+        raise HTTPException(status_code=409, detail="Confirm the advisor assessment before recording an outcome")
+    item.follow_up_snapshot = await _current_signal_snapshot(db, current_user, item)
+    item.improvement_outcome = payload.outcome
+    item.follow_up_at = datetime.now(UTC)
+    db.add(
+        InterventionCaseEvent(
+            case_id=item.id,
+            actor_user_id=current_user.id,
+            event_type="follow_up_recorded",
+            payload_json={"outcome": payload.outcome, "note": payload.note},
+        )
+    )
+    await db.flush()
+    return _payload(await _get_visible_case(db, current_user, case_id), current_user, include_events=True)
+
+
+@router.post("/bulk-notice", status_code=status.HTTP_201_CREATED)
+async def create_bulk_student_notice(
+    payload: InterventionBulkNoticeCreate,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> dict:
+    """Record one lecturer-reviewed notice for every selected student case."""
+    created: list[dict] = []
+    for case_id in list(dict.fromkeys(payload.case_ids)):
+        item = await _get_visible_case(db, current_user, case_id)
+        _require_case_owner(item, current_user)
+        contact = StudentInterventionContact(
+            case_id=item.id,
+            task_id=item.task_id,
+            actor_user_id=current_user.id,
+            student_id=item.student_id,
+            section_id=item.section_id,
+            class_code=item.class_code,
+            channel="other",
+            status="logged",
+            subject=payload.title,
+            message=payload.message,
+            note="Nhận xét/thông báo hàng loạt đã được giảng viên xác nhận.",
+            metadata_json={"source": "advisor_bulk_notice_v1", "delivery": "recorded_in_student_history"},
+        )
+        db.add(contact)
+        await db.flush()
+        db.add(
+            InterventionCaseEvent(
+                case_id=item.id,
+                actor_user_id=current_user.id,
+                event_type="bulk_notice_logged",
+                payload_json={"contact_id": contact.id, "title": payload.title},
+            )
+        )
+        if item.task_id is not None:
+            await add_task_event(
+                db,
+                task_id=item.task_id,
+                actor_user_id=current_user.id,
+                event_type="student_notice_logged",
+                payload={"contact_id": contact.id, "case_id": item.id, "title": payload.title},
+            )
+        created.append({"case_id": item.id, "student_id": item.student_id, "contact_id": contact.id})
+    await db.flush()
+    return {
+        "created_count": len(created),
+        "created": created,
+        "message": f"Đã lưu nhận xét/thông báo cho {len(created)} sinh viên để đối soát.",
+    }
+
+
+@router.get("/appointments")
+async def list_appointments(
+    db: DBSession,
+    current_user: CurrentUser,
+    case_id: int | None = None,
+    student_id: int | None = None,
+    upcoming: bool | None = None,
+) -> list[dict]:
+    department_ids = await require_department_scope(db, current_user) if current_user.role == UserRole.manager else None
+    query = select(InterventionAppointment).join(InterventionCase).where(_visible_filter(current_user, department_ids))
+    if case_id is not None:
+        query = query.where(InterventionAppointment.case_id == case_id)
+    if student_id is not None:
+        query = query.where(InterventionAppointment.student_id == student_id)
+    if upcoming:
+        query = query.where(
+            InterventionAppointment.status == "scheduled",
+            InterventionAppointment.scheduled_at >= func.now(),
+        )
+    rows = (await db.scalars(query.order_by(InterventionAppointment.scheduled_at.desc()).limit(500))).all()
+    return [_appointment_payload(row) for row in rows]
+
+
+@router.post("/cases/{case_id}/appointments", status_code=status.HTTP_201_CREATED)
+async def create_appointment(
+    case_id: int,
+    payload: InterventionAppointmentCreate,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> dict:
+    item = await _get_visible_case(db, current_user, case_id)
+    _require_case_owner(item, current_user)
+    appointment = InterventionAppointment(
+        case_id=item.id,
+        task_id=item.task_id,
+        student_id=item.student_id,
+        created_by_user_id=current_user.id,
+        **payload.model_dump(),
+    )
+    db.add(appointment)
+    await db.flush()
+    db.add(
+        InterventionCaseEvent(
+            case_id=item.id,
+            actor_user_id=current_user.id,
+            event_type="appointment_scheduled",
+            payload_json={"appointment_id": appointment.id, "scheduled_at": appointment.scheduled_at.isoformat()},
+        )
+    )
+    await db.flush()
+    await db.refresh(appointment)
+    return _appointment_payload(appointment)
+
+
+@router.patch("/appointments/{appointment_id}")
+async def update_appointment(
+    appointment_id: int,
+    payload: InterventionAppointmentUpdate,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> dict:
+    appointment = await db.get(InterventionAppointment, appointment_id)
+    if appointment is None:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    item = await _get_visible_case(db, current_user, appointment.case_id)
+    _require_case_owner(item, current_user)
+    changes = payload.model_dump(exclude_unset=True)
+    if changes.get("status") == "completed" and not changes.get("result") and not appointment.result:
+        raise HTTPException(status_code=422, detail="A completed appointment requires a result")
+    previous_status = appointment.status
+    for key, value in changes.items():
+        setattr(appointment, key, value)
+    if appointment.status in {"completed", "no_show"}:
+        appointment.completed_at = datetime.now(UTC)
+    elif appointment.status in {"scheduled", "cancelled"}:
+        appointment.completed_at = None
+    event_type = {
+        "completed": "appointment_completed",
+        "cancelled": "appointment_cancelled",
+        "no_show": "appointment_no_show",
+    }.get(changes.get("status"), "appointment_updated")
+    event_changes = payload.model_dump(exclude_unset=True, mode="json")
+    db.add(
+        InterventionCaseEvent(
+            case_id=item.id,
+            actor_user_id=current_user.id,
+            event_type=event_type,
+            payload_json={"appointment_id": appointment.id, "before_status": previous_status, **event_changes},
+        )
+    )
+    await db.flush()
+    await db.refresh(appointment)
+    return _appointment_payload(appointment)

@@ -52,7 +52,7 @@ Ranh giới quan trọng:
 
 | Thành phần | Hiện trạng có bằng chứng |
 |:--|:--|
-| Task set | `gate3_test_cases.json` có 71 case: analytics, lookup, aggregation, dropout, guardrail, report và CTĐT RAG |
+| Task set | `gate3_test_cases.json` có 100 case: analytics, lookup, aggregation, dropout, guardrail, report, CTĐT RAG, multi-tool và linguistic robustness |
 | LLM routing | Router trả route, intent, complexity, `needs_tools` và quyết định inline/full chat |
 | Agent orchestration | LangGraph có router, core, fast response, ToolNode, retry và fallback |
 | Tools | Có SQL read-only, CLO, student lookup, dropout-risk tool và CTĐT RAG tool |
@@ -222,7 +222,7 @@ Thang đánh giá:
 
 | Tầng | Mức hiện tại | Nhận định |
 |:--|:--:|:--|
-| Bài toán/eval set | **M2** | Có 71 case và category, nhiều case vẫn chỉ có keyword thay vì đáp án số/SQL chuẩn; chưa chia dev/test đóng băng |
+| Bài toán/eval set | **M2** | Có 100 case và category, nhiều case vẫn chỉ có keyword thay vì đáp án số/SQL chuẩn; chưa chia dev/test đóng băng |
 | LLM/model | **M1** | Chưa có benchmark model độc lập; artifact hard-code tên model và cost thay vì ghi runtime metadata/usage |
 | Agent | **M2** | Có script end-to-end, raw artifact, route/tool/guardrail tests; factual scoring và coverage còn yếu |
 | ML dropout | **M2** | Có temporal split, CV và artifact; thiếu dữ liệu thực, calibration và monitoring drift |
@@ -247,7 +247,7 @@ Thang đánh giá:
 | P0 | `core_agent_node` hiện chỉ `bind_tools([sql_query_tool])`, dù registry và prompt công bố thêm CLO, lookup và dropout tool | Core LLM không thể chọn trực tiếp ba tool còn lại; cần test end-to-end cho tool contract |
 | P0 | Answer quality chỉ kiểm tra từ khóa; câu trả lời sai số vẫn có thể pass | Điểm 100% không đại diện factual correctness |
 | P0 | Eval artifact ghi cứng `gpt-5.4-nano`, trong khi config mặc định hiện là `deepseek-chat` và runtime có thể override bằng môi trường | Không xác định chắc model/provider nào tạo kết quả; so sánh cost/model không audit được |
-| P1 | `gate3_test_cases.json` có 71 case nhưng artifact cũ chỉ chạy subset trước H61 | H60 cần chạy lại đủ 71 case và lưu artifact mới |
+| P1 | H60 artifact đã chạy bộ 71 case; `gate3_test_cases.json` hiện đã mở rộng 100 case sau review R2 | Cần rerun đủ 100 case để tạo artifact/golden mới trước khi dùng làm release gate |
 | P1 | Cost report và eval report dùng giả định/công thức khác nhau: 0,00074 so với 0,001062 USD/query | Không có một nguồn cost chuẩn; báo cáo theo user/tháng có thể sai |
 | P1 | Latency p95 lấy từ 18 request tuần tự | Không phản ánh concurrency, cold start, rate limit hoặc tail latency production |
 | P1 | Chưa có eval model độc lập và chưa so sánh với baseline không-agent | Không biết cải thiện đến từ model, prompt, tool hay graph |

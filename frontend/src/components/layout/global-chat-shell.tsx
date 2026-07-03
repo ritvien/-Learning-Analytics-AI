@@ -9,6 +9,7 @@ import { api, chatStreamV2, getReportBuildContext, resolveChatHandoffRoute, type
 import {
   DASHBOARD_AGENT_CONTEXT_EVENT,
   DASHBOARD_AGENT_PROMPT_EVENT,
+  consumeDashboardAgentPrompt,
   getDashboardAgentContext,
   type DashboardAgentContext,
 } from "@/lib/dashboard-agent-context"
@@ -220,7 +221,6 @@ function GlobalChatWindow({
   
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
-  const wrapperRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
     setDashboardContext(getDashboardAgentContext(pathname))
@@ -235,72 +235,6 @@ function GlobalChatWindow({
     window.addEventListener(DASHBOARD_AGENT_CONTEXT_EVENT, handleContext)
     return () => window.removeEventListener(DASHBOARD_AGENT_CONTEXT_EVENT, handleContext)
   }, [pathname])
-
-  // ── Drag state ────────────────────────────────────────────────────
-  const [pos, setPos] = React.useState<{ x: number; y: number } | null>(null)
-  const [isDragging, setIsDragging] = React.useState(false)
-  const dragRef = React.useRef<{
-    startX: number
-    startY: number
-    elemX: number
-    elemY: number
-    moved: boolean
-  } | null>(null)
-
-  // Initialize to bottom-right corner (client-side only)
-  React.useEffect(() => {
-    setPos({
-      x: window.innerWidth - 80,
-      y: window.innerHeight - 80,
-    })
-  }, [])
-
-  const handleFabPointerDown = React.useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
-    // Only primary button (left click / touch)
-    if (e.button !== 0 && e.pointerType === "mouse") return
-    e.currentTarget.setPointerCapture(e.pointerId)
-    const rect = wrapperRef.current?.getBoundingClientRect()
-    dragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      elemX: rect?.left ?? 0,
-      elemY: rect?.top ?? 0,
-      moved: false,
-    }
-  }, [])
-
-  const handleFabPointerMove = React.useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
-    if (!dragRef.current) return
-    const dx = e.clientX - dragRef.current.startX
-    const dy = e.clientY - dragRef.current.startY
-    // Threshold: 4px before we consider it a drag
-    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
-      if (!dragRef.current.moved) {
-        dragRef.current.moved = true
-        setIsDragging(true)
-      }
-    }
-    if (dragRef.current.moved) {
-      const FAB_SIZE = 56
-      const newX = dragRef.current.elemX + dx
-      const newY = dragRef.current.elemY + dy
-      setPos({
-        x: Math.max(0, Math.min(newX, window.innerWidth - FAB_SIZE)),
-        y: Math.max(0, Math.min(newY, window.innerHeight - FAB_SIZE)),
-      })
-    }
-  }, [])
-
-  const handleFabPointerUp = React.useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
-    e.currentTarget.releasePointerCapture(e.pointerId)
-    setIsDragging(false)
-    if (!dragRef.current?.moved) {
-      // Treat as a click — toggle chat
-      setIsOpen((prev) => !prev)
-    }
-    dragRef.current = null
-  }, [setIsOpen])
-  // ─────────────────────────────────────────────────────────────────
 
   React.useEffect(() => {
     const scrollEl = scrollRef.current
@@ -599,6 +533,15 @@ function GlobalChatWindow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, activeSessionId, pathname, dashboardContext])
 
+  React.useEffect(() => {
+    const prompt = consumeDashboardAgentPrompt(pathname)
+    if (!prompt) return
+    setIsOpen(true)
+    void sendMessage(prompt)
+    // sendMessage intentionally closes over the current destination context.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, dashboardContext])
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     sendMessage(input)
@@ -626,26 +569,11 @@ function GlobalChatWindow({
     }
   }
 
-  // Determine panel open direction based on FAB position
-  const panelAbove = !pos || pos.y > window.innerHeight * 0.45
-  const panelLeft  = !pos || pos.x > window.innerWidth  * 0.50
-
   return (
-    <div
-      ref={wrapperRef}
-      style={pos
-        ? { position: "fixed", left: pos.x, top: pos.y, zIndex: 50 }
-        : { position: "fixed", bottom: 24, right: 24, zIndex: 50 }
-      }
-    >
+    <>
       {isOpen && (
         <div
-          style={{
-            position: "absolute",
-            ...(panelAbove ? { bottom: 60 } : { top: 60 }),
-            ...(panelLeft  ? { right: 0   } : { left:  0   }),
-          }}
-          className="flex h-[500px] w-[380px] flex-col rounded-2xl border bg-card text-card-foreground shadow-2xl overflow-hidden animate-in slide-in-from-bottom-5 duration-250"
+          className="fixed inset-x-2 bottom-2 top-20 z-50 flex flex-col overflow-hidden rounded-2xl border bg-card text-card-foreground shadow-2xl animate-in slide-in-from-right-5 duration-250 sm:left-auto sm:right-4 sm:w-[380px] 2xl:sticky 2xl:inset-auto 2xl:top-0 2xl:z-auto 2xl:h-[calc(100vh-4rem)] 2xl:w-[380px] 2xl:shrink-0 2xl:rounded-none 2xl:border-y-0 2xl:border-r-0 2xl:shadow-none"
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b bg-primary px-4 py-3 text-primary-foreground">
@@ -823,17 +751,16 @@ function GlobalChatWindow({
       )}
 
       {/* Floating Action Button — draggable */}
-      <Button
-        onPointerDown={handleFabPointerDown}
-        onPointerMove={handleFabPointerMove}
-        onPointerUp={handleFabPointerUp}
-        size="icon"
-        title={isOpen ? "Đóng chat" : "Mở trợ lý AI"}
-        style={{ cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }}
-        className="h-12 w-12 rounded-full shadow-lg transition-transform duration-200 hover:scale-105 active:scale-95 bg-primary text-primary-foreground select-none"
-      >
-        {isOpen ? <X className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
-      </Button>
-    </div>
+      {!isOpen ? <div className="fixed bottom-6 right-6 z-[60]">
+        <Button
+          onClick={() => setIsOpen(true)}
+          size="icon"
+          title="Mở trợ lý AI"
+          className="h-12 w-12 rounded-full shadow-lg transition-transform duration-200 hover:scale-105 active:scale-95 bg-primary text-primary-foreground select-none"
+        >
+          <MessageSquare className="h-5 w-5" />
+        </Button>
+      </div> : null}
+    </>
   )
 }
