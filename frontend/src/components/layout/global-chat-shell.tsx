@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { MessageSquare, X, Send, Bot, User, Maximize2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { api, chatStreamV2, getReportBuildContext, resolveChatHandoffRoute, type ApiReportBuildPlan } from "@/lib/api"
+import { api, chatStreamV2, getReportBuildContext, invalidateApiCacheByPrefix, resolveChatHandoffRoute, type ApiReportBuildPlan } from "@/lib/api"
 import {
   DASHBOARD_AGENT_CONTEXT_EVENT,
   DASHBOARD_AGENT_PROMPT_EVENT,
@@ -517,6 +517,10 @@ function GlobalChatWindow({
           case "session_created":
             currentSessionId = event.thread_id
             setActiveSessionId(event.thread_id)
+            // The full chat page reads the sessions list from the cached GET
+            // endpoint. Invalidate here so a subsequent navigation to /chat
+            // (including the handoff redirect below) sees the new session.
+            invalidateApiCacheByPrefix("/api/v1/chat/sessions")
             break
             
           case "router": {
