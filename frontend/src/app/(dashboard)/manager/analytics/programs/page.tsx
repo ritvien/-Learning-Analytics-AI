@@ -177,6 +177,36 @@ export default function ProgramAnalyticsPage() {
   }
 
   const programLabel = `${data.program.code} - ${data.program.name}`
+
+  if (data.kpis.students === 0) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Ngành đào tạo</h1>
+          <p className="text-sm text-muted-foreground">Dashboard ngành dùng API aggregate theo ngành, không tải toàn bộ enrollment về frontend.</p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Select value={programId} onValueChange={(value) => { if (value) setProgramId(value); setCohort("all") }}>
+            <SelectTrigger className="w-72"><span className="truncate">{programLabel}</span></SelectTrigger>
+            <SelectContent>
+              {programOptions.map((item) => <SelectItem key={item.id} value={String(item.id)}>{item.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Card className="border-dashed">
+          <CardHeader className="text-center py-10">
+            <AlertTriangle className="mx-auto h-12 w-12 text-muted-foreground opacity-50 mb-2" />
+            <CardTitle className="text-lg font-semibold text-foreground">Chưa có dữ liệu sinh viên</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Chưa có dữ liệu sinh viên nào được ghi nhận cho ngành <strong>{data.program.name}</strong> trong học kỳ và khóa được chọn.
+            </p>
+          </CardHeader>
+        </Card>
+      </div>
+    )
+  }
   const semesterLabel = semester === "all" ? "Tất cả học kỳ" : data.semesters.find((item) => item.code === semester)?.name ?? semester
   const cohortLabel = cohort === "all" ? "Tất cả khóa" : data.cohorts.find((item) => String(item.id) === cohort)?.code ?? cohort
   const hasTrendSeries = data.trend.length >= 2

@@ -350,9 +350,21 @@ export default function OverviewPage() {
 
       <Card>
         <CardHeader><CardTitle className="text-sm">Pass rate theo khoa</CardTitle></CardHeader>
-        <CardContent>
           <ResponsiveContainer width="100%" height={Math.max(260, data.department_rows.length * 36)}>
-            <BarChart data={data.department_rows} layout="vertical" margin={{ left: 24, right: 36 }}>
+            <BarChart
+              data={data.department_rows}
+              layout="vertical"
+              margin={{ left: 24, right: 36 }}
+              onClick={(state) => {
+                if (state && state.activeLabel) {
+                  const dept = data.departments.find(d => d.name === state.activeLabel);
+                  if (dept) {
+                    setDepartmentId(String(dept.id));
+                  }
+                }
+              }}
+              className="cursor-pointer"
+            >
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
               <XAxis type="number" domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
               <YAxis type="category" dataKey="name" width={200} tick={{ fontSize: 11 }} />
@@ -364,7 +376,6 @@ export default function OverviewPage() {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-        </CardContent>
       </Card>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -452,27 +463,46 @@ export default function OverviewPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {data.program_rows.map((row) => (
-                <tr key={row.id} className="hover:bg-muted/20">
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{row.name}</div>
-                    <div className="font-mono text-[11px] text-muted-foreground">{row.code}</div>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{row.department ?? "Chưa rõ khoa"}</td>
+              {data.program_rows.map((row) => {
+                const matchingDept = data.departments.find(d => d.name === row.department);
+                return (
+                  <tr key={row.id} className="hover:bg-muted/20">
+                    <td className="px-4 py-3">
+                      <Link
+                        className="font-medium text-primary hover:underline"
+                        href={`/manager/analytics/programs?program=${row.id}`}
+                      >
+                        {row.name}
+                      </Link>
+                      <div className="font-mono text-[11px] text-muted-foreground">{row.code}</div>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {matchingDept ? (
+                        <button
+                          onClick={() => setDepartmentId(String(matchingDept.id))}
+                          className="text-primary hover:underline font-medium text-left cursor-pointer"
+                        >
+                          {row.department}
+                        </button>
+                      ) : (
+                        row.department ?? "Chưa rõ khoa"
+                      )}
+                    </td>
                   <td className="px-4 py-3">{row.active_students}</td>
                   <td className="px-4 py-3">{row.sections}</td>
                   <td className="px-4 py-3"><Badge variant={row.pass_rate < 60 ? "destructive" : "secondary"}>{row.pass_rate}%</Badge></td>
                   <td className="px-4 py-3">{row.avg_grade.toFixed(2)}</td>
                   <td className="px-4 py-3 text-red-600">{row.at_risk}</td>
                   <td className="max-w-[220px] truncate px-4 py-3">{row.worst_course}</td>
-                  <td className="px-4 py-3">
-                    <Link className="inline-flex items-center gap-1 font-medium text-primary hover:underline" href={`/manager/analytics/programs?program=${row.id}`}>
-                      <BookOpen className="h-3 w-3" />
-                      Xem ngành
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+                    <td className="px-4 py-3">
+                      <Link className="inline-flex items-center gap-1 font-medium text-primary hover:underline" href={`/manager/analytics/programs?program=${row.id}`}>
+                        <BookOpen className="h-3 w-3" />
+                        Xem ngành
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </CardContent>
