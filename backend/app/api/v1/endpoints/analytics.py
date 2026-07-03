@@ -39,6 +39,49 @@ router = APIRouter()
 settings = get_settings()
 _DASHBOARD_CACHE_TTL_SECONDS = 300
 _dashboard_cache: dict[tuple, tuple[float, dict]] = {}
+SAFE_DASHBOARD_SQL_FRAGMENTS = frozenset(
+    {
+        "",
+        "1 = 1",
+        "dsem.code = :semester_code",
+        "dp.department_id = :department_id",
+        "ds.program_id = :program_id",
+        "ds.cohort_id = :cohort_id",
+        "ca.updated_at >= CAST(:date_from AS timestamptz)",
+        "ca.updated_at <= CAST(:date_to AS timestamptz)",
+        "f.updated_at >= CAST(:date_from AS timestamptz)",
+        "f.updated_at <= CAST(:date_to AS timestamptz)",
+        "AND p.id = :plo_id",
+        "AND 1 = 0",
+        "AND dsec.teacher_id = :scope_teacher_id",
+        "AND pc.department_id = :scope_department_id",
+        "dst.program_id = :program_id",
+        "f.course_id = :course_id",
+        "f.section_id = :section_id",
+        "dsec.teacher_id = :teacher_id",
+        "(LOWER(dsec.section_code) LIKE :search OR LOWER(dc.code) LIKE :search OR LOWER(dc.name) LIKE :search)",
+        "WHERE risk_level = :risk_level",
+        "risk_rank DESC, failed_count DESC, section_code",
+        "pass_rate ASC, student_count DESC, section_code",
+        "student_count DESC, section_code",
+    }
+)
+
+
+def _safe_dashboard_sql_fragment(fragment: str) -> str:
+    """Allow only internal SQL fragments; user values must stay bound params."""
+    if fragment not in SAFE_DASHBOARD_SQL_FRAGMENTS:
+        raise RuntimeError(f"Unsafe dashboard SQL fragment: {fragment!r}")
+    return fragment
+
+
+def _dashboard_where_clause(clauses: list[str], *, prefix: str = "WHERE") -> str:
+    for clause in clauses:
+        _safe_dashboard_sql_fragment(clause)
+    if not clauses:
+        return ""
+    body = " AND ".join(clauses)
+    return f"{prefix} {body}" if prefix else body
 
 
 def _parse_dashboard_datetime(value: str, param_name: str) -> datetime:
@@ -247,7 +290,7 @@ def _dashboard_filter_sql(
     if date_to:
         clauses.append("f.updated_at <= CAST(:date_to AS timestamptz)")
         params["date_to"] = _parse_dashboard_datetime(date_to, "date_to")
-    return ("WHERE " + " AND ".join(clauses)) if clauses else "", params
+    return _dashboard_where_clause(clauses), params
 
 
 def _validate_dashboard_date_range(date_from: str | None, date_to: str | None) -> None:
@@ -936,9 +979,9 @@ async def analytics_dashboard_outcomes(
     if plo_id is not None:
         params["plo_id"] = plo_id
 
-    where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
-    trend_where_sql = ("WHERE " + " AND ".join(trend_clauses)) if trend_clauses else ""
-    plo_filter_sql = "AND p.id = :plo_id" if plo_id is not None else ""
+    where_sql = _dashboard_where_clause(clauses)
+    trend_where_sql = _dashboard_where_clause(trend_clauses)
+    plo_filter_sql = _safe_dashboard_sql_fragment("AND p.id = :plo_id") if plo_id is not None else ""
 
     base_cte = f"""
         WITH filtered_clo AS (
@@ -2156,6 +2199,7 @@ async def analytics_dashboard_sections(
     if section_id is not None and not await can_access_section(db, current_user, section_id):
         _deny_out_of_scope()
     scope_sql, scope_params = await _section_scope_clause(db, current_user, department_id)
+    scope_sql = _safe_dashboard_sql_fragment(scope_sql)
     clauses = ["1 = 1"]
     params: dict = {**scope_params, "limit": limit, "offset": offset}
     if semester_code:
@@ -2182,15 +2226,15 @@ async def analytics_dashboard_sections(
     if date_to:
         clauses.append("f.updated_at <= CAST(:date_to AS timestamptz)")
         params["date_to"] = _parse_dashboard_datetime(date_to, "date_to")
-    where_sql = " AND ".join(clauses)
-    order_sql = {
+    where_sql = _dashboard_where_clause(clauses, prefix="")
+    order_sql = _safe_dashboard_sql_fragment({
         "risk_desc": "risk_rank DESC, failed_count DESC, section_code",
         "pass_rate_asc": "pass_rate ASC, student_count DESC, section_code",
         "students_desc": "student_count DESC, section_code",
-    }[sort]
+    }[sort])
     risk_sql = ""
     if risk_level:
-        risk_sql = "WHERE risk_level = :risk_level"
+        risk_sql = _safe_dashboard_sql_fragment("WHERE risk_level = :risk_level")
         params["risk_level"] = risk_level
     cache_key = ("sections-v3", current_user.id, semester_code, department_id, program_id, course_id, section_id,
                  teacher_id, q, date_from, date_to, risk_level, sort, limit, offset)
