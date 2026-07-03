@@ -518,6 +518,7 @@ export default function TasksPage() {
   const [noticeTitle, setNoticeTitle] = React.useState("Nhận xét về tình trạng học tập")
   const [noticeMessage, setNoticeMessage] = React.useState("")
   const [sendingBulk, setSendingBulk] = React.useState(false)
+  const initialTabSelectedRef = React.useRef(false)
 
   const tabs = taskTabsForRole(user?.role)
   const advisorGroups = React.useMemo(() => buildAdvisorGroups(advisorCases), [advisorCases])
@@ -552,10 +553,9 @@ export default function TasksPage() {
       setTasks(visibleTasks)
       setAlerts(visibleAlerts)
       setAdvisorCases(caseRows)
-      if (selected) {
-        const updated = visibleTasks.find((row) => row.id === selected.id)
-        if (updated) setSelected(updated)
-      }
+      setSelected((current) => current
+        ? visibleTasks.find((row) => row.id === current.id) ?? current
+        : null)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Không tải được danh sách việc cần xử lý."
       setError(message)
@@ -565,7 +565,7 @@ export default function TasksPage() {
     } finally {
       setLoading(false)
     }
-  }, [scopeFilter, selected, statusFilter, tab])
+  }, [scopeFilter, statusFilter, tab])
 
   React.useEffect(() => {
     const cached = getCachedCurrentUser()
@@ -579,6 +579,12 @@ export default function TasksPage() {
   React.useEffect(() => {
     if (!tabs.includes(tab)) setTab(tabs[0] ?? "mine")
   }, [tab, tabs])
+
+  React.useEffect(() => {
+    if (!user || initialTabSelectedRef.current) return
+    initialTabSelectedRef.current = true
+    if (user.role === "superadmin" || user.role === "admin") setTab("all")
+  }, [user])
 
   React.useEffect(() => {
     if (user) void load()

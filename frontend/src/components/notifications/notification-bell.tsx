@@ -25,31 +25,36 @@ export function NotificationBell() {
   const [count, setCount] = React.useState(0)
   const [items, setItems] = React.useState<ApiOpsNotification[]>([])
 
-  const reload = React.useCallback(() => {
+  const reloadCount = React.useCallback(() => {
     void api.getUnreadNotificationCount().then((row) => setCount(row.unread)).catch(() => undefined)
+  }, [])
+
+  const reloadItems = React.useCallback(() => {
     void api.getNotifications({ limit: 5 }).then(setItems).catch(() => undefined)
   }, [])
 
   React.useEffect(() => {
-    reload()
-    const timer = window.setInterval(reload, 60000)
+    reloadCount()
+    const timer = window.setInterval(reloadCount, 60000)
     return () => window.clearInterval(timer)
-  }, [reload])
+  }, [reloadCount])
 
   async function markRead(item: ApiOpsNotification) {
     if (!item.read_at) {
       await api.markNotificationRead(item.id).catch(() => undefined)
-      reload()
+      reloadCount()
+      reloadItems()
     }
   }
 
   async function markAll() {
     await api.markAllNotificationsRead().catch(() => undefined)
-    reload()
+    reloadCount()
+    reloadItems()
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={(open) => { if (open) reloadItems() }}>
       <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="relative" />}>
         <Bell className="size-4" />
         {count > 0 ? (

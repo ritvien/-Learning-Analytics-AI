@@ -230,7 +230,6 @@ async def list_tasks(
     if scope_type:
         query = query.where(OpsTask.scope_type == scope_type)
     if assignee == "me":
-        await observe_user_work_queue(db, current_user)
         query = query.where(OpsTask.assignee_user_id == current_user.id)
     elif assignee:
         query = query.where(OpsTask.assignee_user_id == assignee)
@@ -420,7 +419,6 @@ async def list_notifications(
     unread_only: bool = False,
     limit: int = Query(default=50, ge=1, le=100),
 ) -> list[OpsNotification]:
-    await observe_user_work_queue(db, current_user)
     await _ensure_current_user_task_notifications(db, current_user)
     query = (
         select(OpsNotification)
@@ -438,7 +436,6 @@ async def list_notifications(
 
 @router.get("/notifications/unread-count")
 async def unread_count(db: DBSession, current_user: CurrentUser) -> dict[str, int]:
-    await observe_user_work_queue(db, current_user)
     await _ensure_current_user_task_notifications(db, current_user)
     count = await db.scalar(
         select(func.count(OpsNotification.id)).where(
