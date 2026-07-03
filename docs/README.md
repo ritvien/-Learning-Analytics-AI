@@ -56,7 +56,8 @@ DatabaseModernizationPlan / ML_DWH_Architecture
 
 - `05-Meeting-Notes/meeting-01.md`.
 - `07-Sprint-Planning/Sprint1.md`.
-- Journal/worklog bên ngoài thư mục docs.
+- Journal + Worklog (BTC D8/D9, Sprint 1–4): [journal.md](./journal.md), [worklog.md](./worklog.md).
+- Root `JOURNAL.md` / `WORKLOG.md` chỉ redirect về hai file trên (tương thích link cũ).
 
 Quyết định thay đổi hướng được ghi ở [meeting-02-dwh-ml-decision.md](./05-Meeting-Notes/meeting-02-dwh-ml-decision.md).
 

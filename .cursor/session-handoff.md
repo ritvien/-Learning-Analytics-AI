@@ -31,11 +31,14 @@ Hoàng-side Sprint 4 AI/eval/deploy tasks through **H61/H60/D60/D61** are closed
 
 ## Still Open / Follow-Up
 
-1. **100-case eval rerun:** current `docs/evaluation.md` remains the immutable 71-case H60 evidence. Rerun production eval for the 100-case dataset before replacing D60 numbers.
-2. **D56:** README Demo Day final polish: screenshots, team, Live URL, API summary.
-3. **D57:** `docs/architecture.md` export/copy from README once D56 is stable.
-4. **D63:** journal/worklog S3-S4 final consolidation.
-5. **D62/T58:** user feedback and slide/rehearsal remain team/demo-day follow-ups.
+1. **H47 (ex-V47):** Hoàng review 100 TC dataset — golden, RBAC, intent tags.
+2. **H66:** optimize eval metrics/scorer; 100-case production rerun; refresh D60 if gates improve.
+3. **V66:** QA toàn page + screenshots → `docs/21-Release-Readiness/ui-qa-evidence.md` (feed D56).
+4. **D56:** README Demo Day final polish: screenshots, team, Live URL, API summary.
+5. **D57:** `docs/architecture.md` export/copy from README once D56 is stable.
+6. **D62/T58:** user feedback and slide/rehearsal remain team/demo-day follow-ups.
+
+**Note:** `docs/evaluation.md` remains immutable 71-case H60 evidence until H47/H66 complete a 100-case rerun.
 
 ## Verify Commands
 

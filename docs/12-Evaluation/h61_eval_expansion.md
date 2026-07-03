@@ -8,7 +8,7 @@
 
 H61 keeps the T55e-refreshed TC01-TC35 golden values, adds TC36-TC71 Sprint 4 coverage, then adds TC72-TC100 from the R2 review plan. The final set covers analytics, lookup, dropout ML boundaries, RBAC/privacy/safety guardrails, CTĐT RAG citations, multi-tool chains, linguistic robustness, and hard data-query edge cases.
 
-`gate3_test_cases.json` now has 100 contiguous runnable cases. H61 cases include explicit `feature`, `owner`, `expected_source`, and `tool_policy` metadata so V47/H60 can review coverage without inferring intent from prompt text. Multi-tool cases additionally use `expected_tool_sequence` and `expected_tool_counts`.
+`gate3_test_cases.json` now has 100 contiguous runnable cases. H61 cases include explicit `feature`, `owner`, `expected_source`, and `tool_policy` metadata so H47/H60 can review coverage without inferring intent from prompt text. Multi-tool cases additionally use `expected_tool_sequence` and `expected_tool_counts`.
 
 ## Coverage Map
 
@@ -29,7 +29,7 @@ H61 keeps the T55e-refreshed TC01-TC35 golden values, adds TC36-TC71 Sprint 4 co
 | TC94-TC96 | Linguistic robustness: no-diacritics, mixed VI/EN, slang | H61 | CTĐT RAG, DWH analytics, ML predictions |
 | TC97-TC100 | Hard production-verified data queries and empty result handling | H61 | DWH analytics |
 
-## Review Notes For V47/H60
+## Review Notes For H47/H60
 
 - TC01-TC35 preserve the T55e refreshed golden values from `sprint4-final.manifest.json`.
 - TC28, TC30, TC42, and TC57 are intended dropout-success paths using persisted T55a predictions.

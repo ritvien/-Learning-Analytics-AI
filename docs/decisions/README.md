@@ -14,4 +14,4 @@ Numbered ADRs for EduInsight. Read relevant decisions before changing schema, AP
 | [0008](0008-academic-tree.md) | Academic Tree 3-tier hierarchy | accepted |
 | [0009](0009-homeroom-assignment-scope.md) | Explicit homeroom assignment scope | accepted |
 
-Human decisions not yet formalized as ADRs may appear in [WORKLOG.md](../../WORKLOG.md). New decisions: add the next numbered file here.
+Human decisions not yet formalized as ADRs may appear in [docs/worklog.md](../worklog.md). New decisions: add the next numbered file here.
