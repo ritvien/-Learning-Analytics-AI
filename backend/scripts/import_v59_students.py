@@ -55,6 +55,34 @@ GENDER_MAP = {
 }
 
 
+def load_sources(paths: list[Path]) -> list[dict[str, Any]]:
+    """Load and de-duplicate V59 rows from one or more artifacts."""
+    rows_by_code: dict[str, dict[str, Any]] = {}
+    for path in paths:
+        rows = json.loads(path.read_text(encoding="utf-8"))
+        for row in rows:
+            student_code = normalize_text((row.get("student_info") or {}).get(INFO_CODE))
+            if student_code:
+                rows_by_code[student_code] = row
+    return list(rows_by_code.values())
+
+
+async def sources_already_imported(conn: asyncpg.Connection, rows: list[dict[str, Any]]) -> bool:
+    """Return true when every student from the artifacts is already persisted."""
+    expected_codes = {
+        normalize_text((row.get("student_info") or {}).get(INFO_CODE))
+        for row in rows
+    }
+    expected_codes.discard("")
+    if not expected_codes:
+        return True
+    imported_count = await conn.fetchval(
+        "SELECT COUNT(*) FROM students WHERE student_code = ANY($1::text[])",
+        sorted(expected_codes),
+    )
+    return imported_count == len(expected_codes)
+
+
 def normalize_text(value: object) -> str:
     if value is None:
         return ""
@@ -106,16 +134,25 @@ def compute_gpa(grades: list[dict[str, Any]]) -> float | None:
 
 async def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source", required=True, type=Path)
+    parser.add_argument("--source", required=True, type=Path, action="append")
     parser.add_argument("--database-url", default=os.getenv("DATABASE_URL"))
+    parser.add_argument(
+        "--skip-if-complete",
+        action="store_true",
+        help="Exit without upserts when all source student codes already exist.",
+    )
     args = parser.parse_args()
 
     if not args.database_url:
         raise RuntimeError("DATABASE_URL is required")
-    rows = json.loads(args.source.read_text(encoding="utf-8"))
+    rows = load_sources(args.source)
     database_url = args.database_url.replace("postgresql+asyncpg://", "postgresql://", 1)
     conn = await asyncpg.connect(database_url)
     try:
+        if args.skip_if_complete and await sources_already_imported(conn, rows):
+            print(f"[v59] All {len(rows)} students already present; skipping")
+            return
+
         departments = await conn.fetch("SELECT id, name FROM departments WHERE is_active = true")
         programs = await conn.fetch("SELECT id, department_id, name FROM programs WHERE is_active = true")
         specializations = await conn.fetch(
