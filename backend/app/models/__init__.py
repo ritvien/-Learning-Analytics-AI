@@ -18,7 +18,9 @@ from app.models.assessment import (
     StudentCLOAchievement,
 )
 from app.models.chat import ChatSession
+from app.models.data_lineage import SyntheticDataLineage
 from app.models.intervention import (
+    InterventionAppointment,
     InterventionCampaign,
     InterventionCase,
     InterventionCaseEvent,
@@ -26,6 +28,7 @@ from app.models.intervention import (
     InterventionMessageEvent,
     StudentInterventionContact,
 )
+from app.models.ops import OpsAlert, OpsNotification, OpsTask, OpsTaskComment, OpsTaskEvent
 from app.models.people import Cohort, Student, Teacher, User, UserRole
 from app.models.report import Report, ReportFeedback, ReportSchedule, ReportScheduleRun
 from app.models.teaching import Enrollment, GradeComponent, GradeComponentType, Section
@@ -46,10 +49,16 @@ __all__ = [
     "GradeComponentCLOMapping",
     "GradeComponentType",
     "InterventionCampaign",
+    "InterventionAppointment",
     "InterventionCase",
     "InterventionCaseEvent",
     "InterventionMessage",
     "InterventionMessageEvent",
+    "OpsAlert",
+    "OpsNotification",
+    "OpsTask",
+    "OpsTaskComment",
+    "OpsTaskEvent",
     "Program",
     "Report",
     "ReportAgentMessage",
@@ -65,6 +74,7 @@ __all__ = [
     "Student",
     "StudentCLOAchievement",
     "StudentInterventionContact",
+    "SyntheticDataLineage",
     "Teacher",
     "University",
     "User",

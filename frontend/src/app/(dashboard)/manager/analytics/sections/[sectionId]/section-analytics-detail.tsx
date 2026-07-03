@@ -2,759 +2,292 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
+import { AlertTriangle, ArrowLeft, Bot, FileText, ListTodo, RefreshCw, Target } from "lucide-react"
 import {
-  AlertTriangle,
-  ArrowLeft,
-  CheckCircle2,
-  Mail,
-  MessageSquare,
-  Sparkles,
-  TrendingDown,
-  Users,
-} from "lucide-react"
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ReferenceLine,
-  ResponsiveContainer,
-  Scatter,
-  ScatterChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-  ZAxis,
+  Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ReferenceLine,
+  ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis,
 } from "recharts"
 
 import { Badge } from "@/components/ui/badge"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import {
   api,
-  type ApiInterventionCampaign,
-  type ApiInterventionScopeSummary,
+  type ApiReport,
+  type ApiDashboardSectionRow,
+  type ApiDashboardSectionStudent,
+  type ApiDashboardSectionStudents,
   type ApiInterventionWorkspace,
-  type ApiSection,
-  type ApiSemester,
 } from "@/lib/api"
-import { requestDashboardAgent, setDashboardAgentContext } from "@/lib/dashboard-agent-context"
+import { sectionActionLabel, sectionPriorityLabel } from "@/lib/section-analytics"
 
-type Raw = {
-  courses: Awaited<ReturnType<typeof api.getCourses>>
-  enrollments: Awaited<ReturnType<typeof api.getEnrollments>>
-  sections: ApiSection[]
-  semesters: ApiSemester[]
-  students: Awaited<ReturnType<typeof api.getStudents>>
+function levelLabel(level: string) {
+  return level === "high" ? "Ưu tiên" : level === "watch" ? "Theo dõi" : level === "pending" ? "Thiếu điểm" : "Ổn định"
 }
 
-type RiskLevel = "fail" | "nearFail" | "risk"
-type SectionRiskLevel = "high" | "medium" | "watch" | "normal" | "pending"
-
-const SECTION_RISK_LABEL: Record<SectionRiskLevel, string> = {
-  high: "Ưu tiên",
-  medium: "Cần xử lý",
-  watch: "Theo dõi",
-  normal: "Ổn định",
-  pending: "Thiếu điểm",
+function formatNumber(value: number | string | null | undefined, digits = 2) {
+  if (value === null || value === undefined || value === "") return "—"
+  const parsed = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed.toFixed(digits) : "—"
 }
 
-const LEVEL_LABEL: Record<RiskLevel, string> = {
-  fail: "Trượt",
-  nearFail: "Cận trượt",
-  risk: "Sát ngưỡng",
+function numberValue(value: unknown) {
+  const parsed = Number(value ?? 0)
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
-const DIST_RANGES = [
-  { label: "0-4", min: 0, max: 4, color: "#ef4444" },
-  { label: "4-5", min: 4, max: 5, color: "#f97316" },
-  { label: "5-6", min: 5, max: 6, color: "#f59e0b" },
-  { label: "6-7", min: 6, max: 7, color: "#84cc16" },
-  { label: "7-8", min: 7, max: 8, color: "#22c55e" },
-  { label: "8-10", min: 8, max: 10.1, color: "#10b981" },
-]
-
-const GPA_BANDS = [
-  { label: "Yếu", min: 0, max: 2, color: "#ef4444" },
-  { label: "TB", min: 2, max: 2.5, color: "#f97316" },
-  { label: "Khá", min: 2.5, max: 3.2, color: "#f59e0b" },
-  { label: "Giỏi", min: 3.2, max: 3.6, color: "#22c55e" },
-  { label: "Xuất sắc", min: 3.6, max: 4.1, color: "#10b981" },
-]
-
-function riskClass(level: SectionRiskLevel) {
-  if (level === "high") return "border-red-500/40 bg-red-500/10 text-red-600"
-  if (level === "medium") return "border-orange-500/40 bg-orange-500/10 text-orange-600"
-  if (level === "watch") return "border-yellow-500/40 bg-yellow-500/10 text-yellow-700"
-  if (level === "pending") return "border-slate-400/40 bg-slate-400/10 text-slate-600"
-  return "border-emerald-500/40 bg-emerald-500/10 text-emerald-600"
+function pct(value: number | null | undefined, digits = 1) {
+  if (value === null || value === undefined) return "—"
+  return `${formatNumber(value * 100, digits)}%`
 }
 
-function riskPointColor(level: RiskLevel) {
-  if (level === "fail") return "#dc2626"
-  if (level === "nearFail") return "#f97316"
-  return "#f59e0b"
+function chartPayloadId(value: unknown) {
+  const payload = value as { student_id?: unknown; payload?: { student_id?: unknown } }
+  const parsed = Number(payload.payload?.student_id ?? payload.student_id)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function studentIntervention(student: ApiDashboardSectionStudent) {
+  const grade = student.final_grade
+  const dropout = student.dropout_probability
+  if (grade === null) {
+    return { key: "wait_for_grades", label: "Chờ điểm", reason: "Chưa có điểm tổng kết", color: "#64748b" }
+  }
+  if (grade < 4 && numberValue(dropout) >= 0.7) {
+    return { key: "meet_now", label: "Gặp ngay", reason: "Điểm rất thấp + dropout cao", color: "#dc2626" }
+  }
+  if (grade < 5.5) {
+    return { key: "academic_support", label: "Phụ đạo học thuật", reason: "Điểm dưới ngưỡng đạt", color: "#f97316" }
+  }
+  if (numberValue(dropout) >= 0.7) {
+    return { key: "advisor_checkin", label: "Cố vấn liên hệ", reason: "Dropout ML cao dù đã đạt", color: "#8b5cf6" }
+  }
+  if (dropout === null) {
+    return { key: "missing_ml", label: "Bổ sung dữ liệu", reason: "Chưa có dự đoán ML", color: "#64748b" }
+  }
+  return { key: "monitor", label: "Theo dõi nhẹ", reason: "Chưa có tín hiệu rủi ro mạnh", color: "#16a34a" }
+}
+
+function gradeBucket(grade: number | null) {
+  if (grade === null) return "Thiếu điểm"
+  if (grade < 4) return "0–4"
+  if (grade < 5.5) return "4–5.5"
+  if (grade < 7) return "5.5–7"
+  if (grade < 8.5) return "7–8.5"
+  return "8.5–10"
+}
+
+function TooltipShell({ children }: { children: React.ReactNode }) {
+  return <div className="rounded-md border bg-background/95 p-3 text-xs shadow-lg">{children}</div>
+}
+
+function GradeTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload?: Record<string, unknown> }> }) {
+  if (!active || !payload?.length) return null
+  const row = payload[0]?.payload ?? {}
+  return <TooltipShell><div className="font-medium">Khoảng điểm {String(row.bucket ?? "")}</div><p className="mt-1 text-muted-foreground">{numberValue(row.count)} sinh viên</p></TooltipShell>
+}
+
+function SegmentTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload?: Record<string, unknown> }> }) {
+  if (!active || !payload?.length) return null
+  const row = payload[0]?.payload ?? {}
+  return <TooltipShell><div className="font-medium">{String(row.label ?? "")}</div><p className="mt-1 text-muted-foreground">{numberValue(row.value)} sinh viên · {String(row.reason ?? "")}</p></TooltipShell>
+}
+
+function StudentMatrixTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload?: Record<string, unknown> }> }) {
+  if (!active || !payload?.length) return null
+  const row = payload[0]?.payload ?? {}
+  return <TooltipShell>
+    <div className="font-medium">{String(row.student_code ?? "")} - {String(row.full_name ?? "")}</div>
+    <p className="mt-1 text-muted-foreground">{String(row.reason ?? "")}</p>
+    <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-muted-foreground">
+      <span>Điểm</span><span className="text-right">{formatNumber(row.final_grade as number | null)}</span>
+      <span>Dropout ML</span><span className="text-right">{row.dropout_probability === null ? "Chưa có" : pct(Number(row.dropout_probability))}</span>
+      <span>Nhóm</span><span className="text-right">{String(row.action_label ?? "")}</span>
+    </div>
+  </TooltipShell>
+}
+
+function KpiCard({ label, value, note, tone }: { label: string; value: string | number; note: string; tone?: "danger" | "warning" | "success" }) {
+  const toneClass = tone === "danger" ? "border-red-500/30" : tone === "warning" ? "border-amber-500/30" : tone === "success" ? "border-emerald-500/30" : ""
+  return <Card className={toneClass}>
+    <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle></CardHeader>
+    <CardContent><div className="text-2xl font-bold">{value}</div><p className="mt-1 text-xs text-muted-foreground">{note}</p></CardContent>
+  </Card>
 }
 
 export function SectionAnalyticsDetail({ sectionId }: { sectionId: number }) {
-  const [raw, setRaw] = React.useState<Raw | null>(null)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [section, setSection] = React.useState<ApiDashboardSectionRow | null>(null)
+  const [students, setStudents] = React.useState<ApiDashboardSectionStudents | null>(null)
+  const [workspace, setWorkspace] = React.useState<ApiInterventionWorkspace | null>(null)
+  const [risk, setRisk] = React.useState("all")
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState("")
-  const [agentLoading, setAgentLoading] = React.useState(false)
-  const [agentSummary, setAgentSummary] = React.useState<ApiInterventionScopeSummary | null>(null)
-  const [agentError, setAgentError] = React.useState("")
-  const [mailDraftLoading, setMailDraftLoading] = React.useState(false)
-  const [campaign, setCampaign] = React.useState<ApiInterventionCampaign | null>(null)
-  const [bulkLoading, setBulkLoading] = React.useState(false)
-  const [campaignResult, setCampaignResult] = React.useState<ApiInterventionCampaign | null>(null)
-  const [workspace, setWorkspace] = React.useState<ApiInterventionWorkspace | null>(null)
+  const [reloadKey, setReloadKey] = React.useState(0)
+  const [report, setReport] = React.useState<ApiReport | null>(null)
+  const [reportLoading, setReportLoading] = React.useState(false)
+  const [aiResponse, setAiResponse] = React.useState("")
+  const [aiLoading, setAiLoading] = React.useState(false)
+
+  const backHref = React.useMemo(() => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("section_id")
+    params.delete("source")
+    const query = params.toString()
+    return `/manager/analytics/sections${query ? `?${query}` : ""}`
+  }, [searchParams])
 
   React.useEffect(() => {
     let active = true
     setLoading(true)
     setError("")
     Promise.all([
-      api.getCourses({ limit: 500 }),
-      api.getEnrollments({ limit: 50000 }),
-      api.getSections({ limit: 5000 }),
-      api.getSemesters(),
-      api.getStudents({ limit: 5000 }),
-      api.getSectionInterventionWorkspace(sectionId).catch(() => null),
-    ])
-      .then(([courses, enrollments, sections, semesters, students, interventionWorkspace]) => {
-        if (active) setRaw({ courses, enrollments, sections, semesters, students })
-        if (active) setWorkspace(interventionWorkspace)
-      })
-      .catch((err: unknown) => {
-        if (active) setError(err instanceof Error ? err.message : "Không tải được phân tích lớp học phần.")
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
-    return () => {
-      active = false
-    }
-  }, [sectionId])
+      api.getDashboardSection(sectionId),
+      api.getDashboardSectionStudents(sectionId, { risk_level: risk === "all" ? undefined : risk, limit: 100 }),
+      api.getSectionInterventionWorkspace(sectionId),
+    ]).then(([detail, nextStudents, nextWorkspace]) => {
+      if (!active) return
+      setSection(detail.item)
+      setStudents(nextStudents)
+      setWorkspace(nextWorkspace)
+    }).catch((reason: unknown) => {
+      if (!active) return
+      setError(reason instanceof Error ? reason.message : "Không tải được dữ liệu lớp học phần.")
+    }).finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [reloadKey, risk, sectionId])
 
-  const maps = React.useMemo(() => {
-    if (!raw) return null
-    return {
-      secMap: new Map(raw.sections.map((section) => [section.id, section])),
-      semMap: new Map(raw.semesters.map((semester) => [semester.id, semester])),
-      studentMap: new Map(raw.students.map((student) => [student.id, student])),
-      courseMap: new Map(raw.courses.map((course) => [course.id, course])),
-    }
-  }, [raw])
-
-  const selectedSection = maps?.secMap.get(sectionId)
-  const selectedCourse = selectedSection ? maps?.courseMap.get(selectedSection.course_id) : undefined
-  const selectedSemester = selectedSection ? maps?.semMap.get(selectedSection.semester_id) : undefined
-
-  const sectionStats = React.useMemo(() => {
-    if (!raw || !maps || !selectedSection || !selectedSemester) return null
-    const secEnrolls = raw.enrollments.filter((enrollment) => enrollment.section_id === selectedSection.id)
-    const graded = secEnrolls.filter((enrollment) => enrollment.final_grade !== null)
-    const valid = secEnrolls.filter((enrollment) => enrollment.is_passed !== null)
-    const failed = valid.filter((enrollment) => enrollment.is_passed === false).length
-    const nearFail = graded.filter((enrollment) => enrollment.final_grade! >= 4 && enrollment.final_grade! < 5).length
-    const watch = graded.filter((enrollment) => enrollment.final_grade! >= 5 && enrollment.final_grade! < 5.5).length
-    const atRisk = failed + nearFail + watch
-    const passRate = valid.length ? +((valid.length - failed) / valid.length * 100).toFixed(1) : null
-    const avgGrade = graded.length ? +(graded.reduce((sum, enrollment) => sum + enrollment.final_grade!, 0) / graded.length).toFixed(2) : null
-
-    const peerSections = raw.sections.filter((section) => section.course_id === selectedSection.course_id && section.semester_id === selectedSection.semester_id)
-    const peerEnrollments = new Map<number, typeof raw.enrollments>()
-    for (const section of peerSections) {
-      peerEnrollments.set(section.id, [])
-    }
-    for (const enrollment of raw.enrollments) {
-      if (!peerEnrollments.has(enrollment.section_id)) continue
-      peerEnrollments.get(enrollment.section_id)?.push(enrollment)
-    }
-    const peerRows = peerSections.map((section) => {
-      const enrollments = peerEnrollments.get(section.id) ?? []
-      const peerValid = enrollments.filter((enrollment) => enrollment.is_passed !== null)
-      const peerGraded = enrollments.filter((enrollment) => enrollment.final_grade !== null)
-      const peerFailed = peerValid.filter((enrollment) => enrollment.is_passed === false).length
-      return {
-        id: section.id,
-        label: section.section_code,
-        passRate: peerValid.length ? +((peerValid.length - peerFailed) / peerValid.length * 100).toFixed(1) : 0,
-        avgGrade: peerGraded.length ? +(peerGraded.reduce((sum, enrollment) => sum + enrollment.final_grade!, 0) / peerGraded.length).toFixed(2) : 0,
-        atRisk: peerFailed + peerGraded.filter((enrollment) => enrollment.final_grade! >= 4 && enrollment.final_grade! < 5.5).length,
-        isSelected: section.id === selectedSection.id,
-      }
-    }).filter((row) => row.passRate > 0 || row.avgGrade > 0)
-
-    const benchmarkValid = peerRows.length ? peerRows.reduce((sum, row) => sum + row.passRate, 0) / peerRows.length : null
-    const diff = benchmarkValid === null || passRate === null ? null : +(passRate - benchmarkValid).toFixed(1)
-    const nearFailRate = graded.length ? nearFail / graded.length * 100 : 0
-    const watchRate = graded.length ? watch / graded.length * 100 : 0
-    let risk: SectionRiskLevel = "normal"
-    if (!valid.length) risk = "pending"
-    else if ((diff !== null && diff <= -15) || (passRate !== null && passRate <= 60)) risk = "high"
-    else if ((passRate !== null && passRate < 70) || nearFailRate > 15) risk = "medium"
-    else if (watchRate > 20) risk = "watch"
-
-    const riskReasons = [
-      !valid.length ? "Chưa đủ điểm" : null,
-      passRate !== null && passRate <= 60 ? "Tỷ lệ đạt <= 60%" : null,
-      diff !== null && diff <= -15 ? "Thấp hơn benchmark >= 15đ" : null,
-      passRate !== null && passRate > 60 && passRate < 70 ? "Tỷ lệ đạt dưới 70%" : null,
-      nearFailRate > 15 ? "Cận trượt > 15%" : null,
-      watchRate > 20 ? "Sát ngưỡng > 20%" : null,
-    ].filter((item): item is string => Boolean(item))
-
-    const workspaceStudents = new Map((workspace?.students ?? []).map((student) => [student.student_id, student]))
-    const riskStudents: {
-      id: number
-      code: string
-      name: string
-      grade: number | null
-      gpa: number | null
-      failed: number
-      level: RiskLevel
-      courseFailProbability: number | null
-      supportReasons: string[]
-      lastContactedAt: string | null
-      openCaseStatus: string | null
-    }[] = []
-    for (const enrollment of secEnrolls) {
-      const student = maps.studentMap.get(enrollment.student_id)
-      if (!student) continue
-      let level: RiskLevel | null = null
-      if (enrollment.is_passed === false) level = "fail"
-      else if (enrollment.final_grade !== null && enrollment.final_grade >= 4 && enrollment.final_grade < 5) level = "nearFail"
-      else if (enrollment.final_grade !== null && enrollment.final_grade >= 5 && enrollment.final_grade < 5.5) level = "risk"
-      if (level) {
-        const support = workspaceStudents.get(student.id)
-        riskStudents.push({
-          id: student.id,
-          code: student.student_code,
-          name: student.full_name,
-          grade: enrollment.final_grade,
-          gpa: student.gpa_cumulative,
-          failed: 0,
-          level,
-          courseFailProbability: support?.course_fail_probability ?? null,
-          supportReasons: support?.reasons?.slice(0, 2) ?? [],
-          lastContactedAt: support?.last_contacted_at ?? null,
-          openCaseStatus: support?.open_case?.status ?? null,
-        })
-      }
-    }
-    for (const support of workspace?.students ?? []) {
-      if (riskStudents.some((student) => student.id === support.student_id)) continue
-      if (!["high", "watch"].includes(support.risk_level)) continue
-      const student = maps.studentMap.get(support.student_id)
-      if (!student) continue
-      riskStudents.push({
-        id: student.id,
-        code: student.student_code,
-        name: student.full_name,
-        grade: null,
-        gpa: student.gpa_cumulative,
-        failed: 0,
-        level: support.risk_level === "high" ? "nearFail" : "risk",
-        courseFailProbability: support.course_fail_probability ?? null,
-        supportReasons: support.reasons?.slice(0, 2) ?? [],
-        lastContactedAt: support.last_contacted_at ?? null,
-        openCaseStatus: support.open_case?.status ?? null,
-      })
-    }
-    const order: Record<RiskLevel, number> = { fail: 0, nearFail: 1, risk: 2 }
-    riskStudents.sort((a, b) => order[a.level] - order[b.level] || (a.grade ?? 99) - (b.grade ?? 99))
-
-    const distribution = DIST_RANGES.map((range) => ({
-      ...range,
-      count: graded.filter((enrollment) => enrollment.final_grade! >= range.min && enrollment.final_grade! < range.max).length,
-    }))
-    const gpaDistribution = GPA_BANDS.map((band) => ({
-      ...band,
-      count: secEnrolls.filter((enrollment) => {
-        const gpa = maps.studentMap.get(enrollment.student_id)?.gpa_cumulative
-        return gpa !== null && gpa !== undefined && gpa >= band.min && gpa < band.max
-      }).length,
-    }))
-    const studentRiskMap = riskStudents.map((student) => ({
-      ...student,
-      x: student.grade ?? 0,
-      y: student.gpa ?? 0,
-      size: student.level === "fail" ? 260 : student.level === "nearFail" ? 180 : 120,
-    }))
-
-    return {
-      total: secEnrolls.length,
-      graded: graded.length,
-      pending: Math.max(0, secEnrolls.length - graded.length),
-      failed,
-      nearFail,
-      watch,
-      atRisk,
-      passRate,
-      avgGrade,
-      diff,
-      risk,
-      riskReasons,
-      distribution,
-      gpaDistribution,
-      peerRows,
-      riskStudents,
-      studentRiskMap,
-    }
-  }, [raw, maps, selectedSection, selectedSemester, workspace])
-
-  const campaignStudentIds = React.useMemo(() => {
-    const priorityIds = agentSummary?.priority_students.map((student) => student.student_id) ?? []
-    if (priorityIds.length) return priorityIds
-    return sectionStats?.riskStudents.map((student) => student.id).slice(0, 20) ?? []
-  }, [agentSummary, sectionStats])
-
-  React.useEffect(() => {
-    if (!selectedSection || !selectedCourse || !selectedSemester || !sectionStats) return
-    setDashboardAgentContext({
-      source: "section_analytics_detail",
-      route: `/manager/analytics/sections/${sectionId}`,
-      dashboard_type: "section_detail",
-      scope: {
+  async function createReport() {
+    setReportLoading(true)
+    setError("")
+    try {
+      const created = await api.generateReport({
+        report_type: "section_intervention",
         scope_type: "section",
-        scope_id: sectionId,
-        section_code: selectedSection.section_code,
-        course_id: selectedCourse.id,
-        course_code: selectedCourse.code,
-        semester_id: selectedSemester.id,
-        semester_code: selectedSemester.code,
-      },
-      filters: {
-        semester_code: selectedSemester.code,
-        course_id: selectedCourse.id,
-      },
-      selected_entities: {
-        section_code: selectedSection.section_code,
-        course_name: selectedCourse.name,
-        semester_name: selectedSemester.name,
-      },
-      visible_metrics: {
-        total_students: sectionStats.total,
-        graded_students: sectionStats.graded,
-        pending_grades: sectionStats.pending,
-        average_grade: sectionStats.avgGrade,
-        pass_rate: sectionStats.passRate,
-        at_risk_students: sectionStats.atRisk,
-        failed_students: sectionStats.failed,
-        near_fail_students: sectionStats.nearFail,
-        benchmark_diff_points: sectionStats.diff,
-        risk_level: sectionStats.risk,
-      },
-      alerts: sectionStats.riskReasons,
-      chart_summaries: {
-        grade_distribution: sectionStats.distribution.map((item) => ({ band: item.label, count: item.count })),
-        gpa_distribution: sectionStats.gpaDistribution.map((item) => ({ band: item.label, count: item.count })),
-        peer_comparison: [...sectionStats.peerRows]
-          .sort((a, b) => a.passRate - b.passRate)
-          .map((item) => ({
-            section_id: item.id,
-            section_code: item.label,
-            pass_rate: item.passRate,
-            average_grade: item.avgGrade,
-            at_risk_students: item.atRisk,
-            is_current_section: item.isSelected,
-          })),
-      },
-      rows_preview: sectionStats.riskStudents.slice(0, 12).map((student) => ({
-        student_id: student.id,
-        student_code: student.code,
-        full_name: student.name,
-        final_grade: student.grade,
-        gpa_cumulative: student.gpa,
-        risk_level: student.level,
-      })),
+        scope_id: String(sectionId),
+        semester_id: section?.semester_id,
+      })
+      setReport(created)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Không tạo được báo cáo can thiệp.")
+    } finally {
+      setReportLoading(false)
+    }
+  }
+
+  async function askAi() {
+    setAiLoading(true)
+    setError("")
+    try {
+      const answer = await api.askReportAgent({
+        mode: "action_planning",
+        message: `Hãy phân tích lớp ${section?.section_code ?? sectionId} và đề xuất kế hoạch can thiệp ưu tiên dựa trên aggregate, điểm, dropout ML và danh sách sinh viên cần hỗ trợ.`,
+        context: {
+          route: `/manager/analytics/sections/${sectionId}`,
+          scope_type: "section",
+          section_id: sectionId,
+          section,
+          student_evidence: students?.items.slice(0, 20),
+          intervention_summary: workspace?.summary,
+        },
+      })
+      setAiResponse(answer.response)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Không hỏi được AI cho lớp này.")
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const studentItems = students?.items ?? []
+  const failedRate = section?.student_count ? (section.failed_count / section.student_count) * 100 : 0
+  const primaryAction = section?.recommended_action ? sectionActionLabel(section.recommended_action) : "Xem bằng chứng sinh viên"
+  const diagnosis = section
+    ? section.failed_count > 0
+      ? `${section.failed_count}/${section.student_count} sinh viên chưa đạt; tỷ lệ đạt ${formatNumber(section.pass_rate, 1)}%, điểm TB ${formatNumber(section.avg_grade)}.`
+      : section.missing_grade_count > 0
+        ? `${section.missing_grade_count} sinh viên chưa có điểm; cần hoàn thiện dữ liệu trước khi chốt can thiệp.`
+        : "Lớp chưa có tín hiệu rủi ro học thuật mạnh trong aggregate hiện tại."
+    : ""
+  const gradeDistribution = React.useMemo(() => {
+    const order = ["0–4", "4–5.5", "5.5–7", "7–8.5", "8.5–10", "Thiếu điểm"]
+    const counts = new Map(order.map((bucket) => [bucket, 0]))
+    studentItems.forEach((student) => counts.set(gradeBucket(student.final_grade), (counts.get(gradeBucket(student.final_grade)) ?? 0) + 1))
+    return order.map((bucket) => ({ bucket, count: counts.get(bucket) ?? 0 }))
+  }, [studentItems])
+  const segments = React.useMemo(() => {
+    const map = new Map<string, { key: string; label: string; reason: string; value: number; color: string }>()
+    studentItems.forEach((student) => {
+      const segment = studentIntervention(student)
+      const current = map.get(segment.key) ?? { ...segment, value: 0 }
+      current.value += 1
+      map.set(segment.key, current)
     })
-  }, [sectionId, selectedCourse, selectedSection, selectedSemester, sectionStats])
+    return Array.from(map.values()).sort((a, b) => {
+      const order = ["meet_now", "academic_support", "advisor_checkin", "wait_for_grades", "missing_ml", "monitor"]
+      return order.indexOf(a.key) - order.indexOf(b.key)
+    })
+  }, [studentItems])
+  const matrixData = React.useMemo(() => studentItems
+    .filter((student) => student.final_grade !== null)
+    .map((student) => {
+      const segment = studentIntervention(student)
+      return {
+        ...student,
+        x: numberValue(student.final_grade),
+        y: student.dropout_probability === null ? 0 : numberValue(student.dropout_probability) * 100,
+        reason: segment.reason,
+        action_label: segment.label,
+        color: segment.color,
+      }
+    }), [studentItems])
+  const urgentStudents = React.useMemo(() => studentItems
+    .map((student) => ({ student, segment: studentIntervention(student) }))
+    .filter(({ segment }) => ["meet_now", "academic_support", "advisor_checkin", "wait_for_grades"].includes(segment.key))
+    .slice(0, 8), [studentItems])
 
-  async function runSectionAgent() {
-    setAgentLoading(true)
-    setAgentError("")
-    setAgentSummary(null)
-    setCampaign(null)
-    setCampaignResult(null)
-    try {
-      setAgentSummary(await api.summarizeInterventionScope({ scope_type: "section", scope_id: sectionId }))
-    } catch (err) {
-      setAgentError(err instanceof Error ? err.message : "Không chạy được Agent hỗ trợ lớp học phần.")
-    } finally {
-      setAgentLoading(false)
-    }
-  }
+  if (loading && !section) return <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">Đang tải aggregate lớp...</div>
 
-  async function buildBulkEmails() {
-    if (!selectedSection) return
-    setMailDraftLoading(true)
-    setAgentError("")
-    try {
-      const summary = agentSummary ?? await api.summarizeInterventionScope({ scope_type: "section", scope_id: sectionId })
-      setAgentSummary(summary)
-      const studentIds = campaignStudentIds.length ? campaignStudentIds : summary.priority_students.map((student) => student.student_id)
-      const created = await api.createInterventionCampaign({
-        scope_type: "section",
-        scope_id: sectionId,
-        student_ids: studentIds,
-        title: `Campaign hỗ trợ học tập - ${selectedSection.section_code}`,
-        objective: "course_recovery",
-        max_students: 20,
-      })
-      setCampaign(await api.generateInterventionCampaignDrafts(created.id, {
-        student_ids: studentIds,
-        channel: "email",
-        subject: `Hỗ trợ học tập lớp ${selectedSection.section_code}`,
-        max_students: 20,
-      }))
-    } catch (err) {
-      setAgentError(err instanceof Error ? err.message : "Không tạo được email nháp cho campaign.")
-    } finally {
-      setMailDraftLoading(false)
-    }
-  }
-
-  async function sendCampaign() {
-    if (!campaign) return
-    setBulkLoading(true)
-    setAgentError("")
-    try {
-      await api.approveInterventionCampaign(campaign.id)
-      const result = await api.finalizeInterventionCampaign(campaign.id)
-      setCampaign(result)
-      setCampaignResult(result)
-    } catch (err) {
-      setAgentError(err instanceof Error ? err.message : "Không gửi được campaign hỗ trợ học tập.")
-    } finally {
-      setBulkLoading(false)
-    }
-  }
-
-  if (loading) return <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">Đang tải phân tích lớp học phần...</div>
-
-  if (error || !raw || !selectedSection || !sectionStats) {
-    return (
-      <Card>
-        <CardContent className="py-16 text-center text-sm text-muted-foreground">
-          {error || "Không tìm thấy lớp học phần cần phân tích."}
-        </CardContent>
-      </Card>
-    )
-  }
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <Link href="/manager/analytics/sections" className={buttonVariants({ variant: "ghost", size: "sm", className: "-ml-3 mb-2" })}>
-            <ArrowLeft className="mr-2 h-4 w-4" />Lớp học phần
-          </Link>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight">{selectedSection.section_code}</h1>
-            <Badge variant="outline" className={riskClass(sectionStats.risk)}>{SECTION_RISK_LABEL[sectionStats.risk]}</Badge>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">{selectedCourse?.name ?? "Môn học"} · {selectedSemester?.name ?? selectedSemester?.code ?? "-"}</p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {(sectionStats.riskReasons.length ? sectionStats.riskReasons : ["Không có cảnh báo mạnh"]).map((reason) => (
-              <Badge key={reason} variant="outline" className="text-[10px]">{reason}</Badge>
-            ))}
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            onClick={() => requestDashboardAgent("Phân tích dashboard lớp học phần hiện tại: chỉ ra cảnh báo chính, nguyên nhân từ biểu đồ, so sánh benchmark và đề xuất hành động ưu tiên.")}
-          >
-            <MessageSquare className="mr-2 h-4 w-4" />Phân tích màn hình
-          </Button>
-          <Button variant="outline" onClick={runSectionAgent} disabled={agentLoading}>
-            <Sparkles className="mr-2 h-4 w-4" />{agentLoading ? "Đang phân tích..." : "Chạy Agent"}
-          </Button>
-          <Button onClick={buildBulkEmails} disabled={mailDraftLoading || campaignStudentIds.length === 0}>
-            <Mail className="mr-2 h-4 w-4" />{mailDraftLoading ? "Đang tạo..." : "Tạo nháp email"}
-          </Button>
-        </div>
-      </div>
-
-      {agentError ? <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{agentError}</div> : null}
-      {campaignResult ? <div className="rounded-lg border bg-muted/20 p-3 text-sm">{campaignResult.message ?? "Đã xử lý campaign hỗ trợ học tập."}</div> : null}
-
-      {agentSummary ? (
-        <Card className="border-primary/20">
-          <CardHeader className="pb-2">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Sparkles className="h-4 w-4 text-primary" />Kết quả Agent can thiệp
-                </CardTitle>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Agent đã gom tín hiệu học tập thành danh sách ưu tiên để giảng viên/admin duyệt trước khi tạo campaign.
-                </p>
-              </div>
-              <Button onClick={buildBulkEmails} disabled={mailDraftLoading || campaignStudentIds.length === 0}>
-                <Mail className="mr-2 h-4 w-4" />{mailDraftLoading ? "Đang tạo..." : "Tạo nháp email"}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="grid gap-4 xl:grid-cols-[260px_minmax(0,1fr)_minmax(280px,0.8fr)]">
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              {[
-                { label: "Tổng SV", value: agentSummary.summary.total },
-                { label: "Rủi ro cao", value: agentSummary.summary.high },
-                { label: "Theo dõi", value: agentSummary.summary.watch },
-                { label: "Đã liên hệ", value: agentSummary.summary.contacted },
-              ].map((item) => (
-                <div key={item.label} className="rounded-md border bg-muted/20 p-3">
-                  <p className="text-xs text-muted-foreground">{item.label}</p>
-                  <p className="mt-1 text-xl font-semibold tabular-nums">{item.value}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs font-medium uppercase text-muted-foreground">Khuyến nghị hành động</p>
-                <div className="mt-2 space-y-2">
-                  {agentSummary.recommendations.map((item, index) => (
-                    <div key={`${item}-${index}`} className="rounded-md border bg-background p-3 text-sm leading-relaxed">
-                      {item}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase text-muted-foreground">Nhóm nguyên nhân</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {Object.entries(agentSummary.reason_groups).length ? Object.entries(agentSummary.reason_groups).map(([reason, count]) => (
-                    <Badge key={reason} variant="outline" className="gap-1">
-                      {reason}<span className="font-mono text-[10px] text-muted-foreground">{count}</span>
-                    </Badge>
-                  )) : <span className="text-sm text-muted-foreground">Chưa có nhóm nguyên nhân nổi bật.</span>}
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-md border">
-              <div className="border-b bg-muted/30 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">Sinh viên ưu tiên</div>
-              <div className="max-h-[260px] overflow-auto divide-y">
-                {agentSummary.priority_students.map((student) => (
-                  <div key={student.student_id} className="p-3 text-sm">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-medium">{student.full_name}</p>
-                        <p className="font-mono text-[10px] text-muted-foreground">{student.student_code}</p>
-                      </div>
-                      <Badge variant={student.risk_level === "high" ? "destructive" : "outline"}>{student.risk_score}</Badge>
-                    </div>
-                    <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
-                      {(student.reasons.length ? student.reasons : ["Cần theo dõi học tập"]).join("; ")}
-                    </p>
-                  </div>
-                ))}
-                {!agentSummary.priority_students.length ? (
-                  <div className="p-6 text-center text-sm text-muted-foreground">Không có sinh viên ưu tiên trong lần phân tích này.</div>
-                ) : null}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        {[
-          { label: "Sinh viên", value: sectionStats.total, icon: Users },
-          { label: "Có điểm", value: `${sectionStats.graded}/${sectionStats.total}`, icon: CheckCircle2 },
-          { label: "Điểm TB", value: sectionStats.avgGrade?.toFixed(2) ?? "-", icon: CheckCircle2 },
-          { label: "Tỷ lệ đạt", value: sectionStats.passRate === null ? "-" : `${sectionStats.passRate}%`, icon: CheckCircle2 },
-          { label: "Cần hỗ trợ", value: sectionStats.atRisk, icon: AlertTriangle },
-          { label: "So benchmark", value: sectionStats.diff === null ? "-" : `${sectionStats.diff > 0 ? "+" : ""}${sectionStats.diff}%`, icon: TrendingDown },
-        ].map((item) => (
-          <Card key={item.label}>
-            <CardContent className="flex items-start justify-between pb-5 pt-5">
-              <div>
-                <p className="text-xs text-muted-foreground">{item.label}</p>
-                <p className="mt-1 text-2xl font-bold tabular-nums">{item.value}</p>
-              </div>
-              <item.icon className="h-5 w-5 text-muted-foreground" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Phân phối điểm</CardTitle></CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={sectionStats.distribution}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(value) => [value, "Sinh viên"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
-                <Bar dataKey="count" radius={[5, 5, 0, 0]}>
-                  {sectionStats.distribution.map((range) => <Cell key={range.label} fill={range.color} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Nền GPA của lớp</CardTitle></CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={sectionStats.gpaDistribution}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(value) => [value, "Sinh viên"]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
-                <Bar dataKey="count" radius={[5, 5, 0, 0]}>
-                  {sectionStats.gpaDistribution.map((band) => <Cell key={band.label} fill={band.color} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Sinh viên rủi ro</CardTitle>
-            <p className="text-xs text-muted-foreground">Trục X là điểm môn, trục Y là GPA tích lũy.</p>
-          </CardHeader>
-          <CardContent>
-            {sectionStats.studentRiskMap.length ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <ScatterChart margin={{ left: 0, right: 12, top: 8, bottom: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" dataKey="x" domain={[0, 10]} tick={{ fontSize: 10 }} />
-                  <YAxis type="number" dataKey="y" domain={[0, 4]} tick={{ fontSize: 10 }} width={32} />
-                  <ZAxis type="number" dataKey="size" range={[90, 320]} />
-                  <ReferenceLine x={5} stroke="#dc2626" strokeDasharray="5 4" />
-                  <Tooltip
-                    formatter={(value, name, item) => {
-                      const row = item.payload as (typeof sectionStats.studentRiskMap)[number]
-                      if (name === "x") return [Number(value).toFixed(1), `${row.name} · ${LEVEL_LABEL[row.level]}`]
-                      if (name === "y") return [Number(value).toFixed(2), "GPA tích lũy"]
-                      return [value, name]
-                    }}
-                    contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                  />
-                  <Scatter data={sectionStats.studentRiskMap}>
-                    {sectionStats.studentRiskMap.map((student) => <Cell key={student.id} fill={riskPointColor(student.level)} />)}
-                  </Scatter>
-                </ScatterChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">Không có sinh viên rủi ro trong lớp này.</div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">So với lớp cùng môn/kỳ</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {sectionStats.peerRows.length > 1 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={[...sectionStats.peerRows].sort((a, b) => a.passRate - b.passRate)} layout="vertical" margin={{ left: 4, right: 20, top: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" domain={[0, 100]} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 10 }} />
-                  <YAxis type="category" dataKey="label" width={110} tick={{ fontSize: 10 }} />
-                  <ReferenceLine x={70} stroke="#f59e0b" strokeDasharray="5 4" />
-                  <Tooltip formatter={(value, _name, item) => [`${Number(value).toFixed(1)}%`, `Điểm TB ${item.payload.avgGrade.toFixed(2)} · ${item.payload.atRisk} SV hỗ trợ`]} contentStyle={{ fontSize: 12, borderRadius: 6 }} />
-                  <Bar dataKey="passRate" radius={[0, 5, 5, 0]}>
-                    {[...sectionStats.peerRows].sort((a, b) => a.passRate - b.passRate).map((row) => <Cell key={row.id} fill={row.isSelected ? "#2563eb" : "#94a3b8"} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">Chưa có lớp cùng môn/kỳ đủ dữ liệu để so sánh.</div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Danh sách cần hỗ trợ</CardTitle></CardHeader>
-          <CardContent className="p-0">
-            <div className="max-h-[320px] overflow-auto">
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-background">
-                  <tr className="border-b bg-muted/40">
-                    <th className="px-4 py-2.5 text-left">Sinh viên</th>
-                    <th className="px-3 py-2.5 text-right">Điểm</th>
-                    <th className="px-4 py-2.5 text-right">Mức</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {sectionStats.riskStudents.map((student) => (
-                    <tr key={student.id}>
-                      <td className="px-4 py-2">
-                        <p className="font-medium">{student.name}</p>
-                        <p className="font-mono text-[10px] text-muted-foreground">{student.code}</p>
-                        {student.supportReasons.length ? (
-                          <div className="mt-1 flex max-w-[240px] flex-wrap gap-1">
-                            {student.supportReasons.slice(0, 2).map((reason) => (
-                              <Badge key={reason} variant="outline" className="text-[10px]">{reason}</Badge>
-                            ))}
-                          </div>
-                        ) : null}
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums">
-                        <p>{student.grade === null ? "-" : student.grade.toFixed(1)}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          risk {student.courseFailProbability === null ? "N/A" : `${Math.round(student.courseFailProbability * 100)}%`}
-                        </p>
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <Badge variant={student.level === "fail" ? "destructive" : "outline"} className="text-[10px]">{LEVEL_LABEL[student.level]}</Badge>
-                        <p className="mt-1 text-[10px] text-muted-foreground">{student.lastContactedAt ? new Date(student.lastContactedAt).toLocaleDateString("vi-VN") : "Chưa liên hệ"}</p>
-                        {student.openCaseStatus ? <p className="text-[10px] text-primary">case {student.openCaseStatus}</p> : null}
-                      </td>
-                    </tr>
-                  ))}
-                  {!sectionStats.riskStudents.length ? <tr><td colSpan={3} className="py-10 text-center text-muted-foreground">Không có sinh viên cần hỗ trợ.</td></tr> : null}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {campaign ? (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Email nháp campaign</CardTitle>
-            <p className="text-xs text-muted-foreground">{campaign.messages.length} email cá nhân hóa đang chờ duyệt gửi.</p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="max-h-[420px] overflow-auto rounded-md border">
-              {campaign.messages.map((message) => (
-                <div key={message.id} className="border-b p-3 text-sm last:border-b-0">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium">{message.full_name ?? "Sinh viên"} <span className="font-mono text-xs text-muted-foreground">{message.student_code}</span></p>
-                      <p className="text-xs text-muted-foreground">{message.recipient_email ?? "Thiếu email"}</p>
-                    </div>
-                    <Badge variant={message.status === "failed" ? "destructive" : "outline"}>{message.status}</Badge>
-                  </div>
-                  <p className="mt-2 font-medium">{message.subject}</p>
-                  <p className="mt-1 whitespace-pre-line text-xs leading-relaxed text-muted-foreground">{message.body}</p>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-end">
-              <Button onClick={sendCampaign} disabled={bulkLoading || campaign.messages.every((message) => message.status === "failed")}>
-                {bulkLoading ? "Đang gửi..." : "Gửi email"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
+  return <div className="space-y-6">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div><Link href={backHref} className="mb-2 inline-flex items-center text-sm text-primary"><ArrowLeft className="mr-1 h-4 w-4" />Danh sách lớp</Link><h1 className="text-2xl font-bold">{section?.section_code ?? `Lớp #${sectionId}`}</h1><p className="text-sm text-muted-foreground">{section ? `${section.course_code} - ${section.course_name} · ${section.semester_name}` : ""}</p></div>
+      <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setReloadKey((value) => value + 1)}><RefreshCw className="mr-2 h-4 w-4" />Thử lại</Button><Button variant="outline" onClick={createReport} disabled={reportLoading || !section}><FileText className="mr-2 h-4 w-4" />{reportLoading ? "Đang tạo..." : "Tạo báo cáo"}</Button><Button variant="outline" onClick={askAi} disabled={aiLoading || !section}><Bot className="mr-2 h-4 w-4" />{aiLoading ? "Đang hỏi..." : "Hỏi AI"}</Button><Button onClick={() => router.push(`/manager/tasks?scope_type=section&scope_id=${sectionId}`)} disabled={!workspace?.students.length}><ListTodo className="mr-2 h-4 w-4" />Mở việc cần xử lý</Button></div>
     </div>
-  )
+    {error ? <div className="flex items-center gap-2 rounded-md border border-destructive/40 p-3 text-sm text-destructive"><AlertTriangle className="h-4 w-4" />{error}</div> : null}
+    {section ? <Card className={section.risk_level === "high" ? "border-red-500/30 bg-red-500/5" : "border-primary/20"}>
+      <CardContent className="flex flex-col gap-4 py-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex gap-3">
+          <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-600"><Target className="h-5 w-5" /></div>
+          <div><div className="flex flex-wrap items-center gap-2"><Badge variant={section.risk_level === "high" ? "destructive" : "outline"}>{levelLabel(section.risk_level)}</Badge><span className="text-sm font-medium">{primaryAction}</span></div>
+            <h2 className="mt-2 text-lg font-semibold">Chẩn đoán can thiệp lớp</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{diagnosis} {section.primary_reason ? sectionPriorityLabel(section.primary_reason) : ""}</p>
+          </div>
+        </div>
+        <div className="grid min-w-64 grid-cols-2 gap-2 text-sm">
+          <div className="rounded-md border bg-background/70 p-3"><div className="text-xs text-muted-foreground">Chưa đạt</div><div className="text-xl font-bold text-red-600">{section.failed_count}</div><div className="text-xs text-muted-foreground">{formatNumber(failedRate, 1)}% sĩ số</div></div>
+          <div className="rounded-md border bg-background/70 p-3"><div className="text-xs text-muted-foreground">Điểm TB</div><div className="text-xl font-bold">{formatNumber(section.avg_grade)}</div><div className="text-xs text-muted-foreground">Ngưỡng cảnh báo 5.5</div></div>
+        </div>
+      </CardContent>
+    </Card> : null}
+    {section ? <div className="grid gap-3 md:grid-cols-5">
+      <KpiCard label="Sĩ số" value={section.student_count} note="Sinh viên trong lớp" />
+      <KpiCard label="Chưa đạt" value={section.failed_count} note={`${formatNumber(failedRate, 1)}% cần hỗ trợ`} tone={section.failed_count ? "danger" : "success"} />
+      <KpiCard label="Tỷ lệ đạt" value={`${formatNumber(section.pass_rate, 1)}%`} note="Theo điểm tổng kết" tone={section.pass_rate < 70 ? "warning" : "success"} />
+      <KpiCard label="Điểm TB" value={formatNumber(section.avg_grade)} note="Trục X phân tích học lực" tone={section.avg_grade < 5.5 ? "warning" : "success"} />
+      <KpiCard label="ML coverage" value={`${Math.round(section.prediction_coverage * 100)}%`} note={section.prediction_scored_at ? `Scored ${new Date(section.prediction_scored_at).toLocaleDateString("vi-VN")}` : "Chưa có scoring"} />
+    </div> : null}
+    {report ? <Card className="border-primary/30"><CardHeader><CardTitle className="text-base">Báo cáo đã tạo</CardTitle></CardHeader><CardContent className="flex flex-wrap items-center justify-between gap-3 text-sm"><span>{report.title}</span><Button size="sm" variant="outline" onClick={() => router.push(`/manager/reports?report_id=${encodeURIComponent(report.id)}`)}>Mở báo cáo</Button></CardContent></Card> : null}
+    {aiResponse ? <Card className="border-primary/30"><CardHeader><CardTitle className="text-base">Gợi ý AI</CardTitle></CardHeader><CardContent className="whitespace-pre-wrap text-sm leading-6">{aiResponse}</CardContent></Card> : null}
+    <div className="grid gap-4 xl:grid-cols-3">
+      <Card className="xl:col-span-2"><CardHeader><CardTitle className="text-base">Phân bố điểm lớp</CardTitle><p className="text-xs text-muted-foreground">Nhìn nhanh lớp đang rơi ở vùng rớt nặng, sát ngưỡng hay đã đạt.</p></CardHeader><CardContent className="h-[320px]">{gradeDistribution.some((row) => row.count > 0) ? <ResponsiveContainer width="100%" height="100%"><BarChart data={gradeDistribution}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="bucket" /><YAxis allowDecimals={false} /><Tooltip content={<GradeTooltip />} /><Bar dataKey="count" name="Sinh viên" radius={[6, 6, 0, 0]}>{gradeDistribution.map((row) => <Cell key={row.bucket} fill={row.bucket === "0–4" ? "#dc2626" : row.bucket === "4–5.5" ? "#f97316" : row.bucket === "Thiếu điểm" ? "#64748b" : "#16a34a"} />)}</Bar></BarChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Chưa có điểm để vẽ phân bố.</div>}</CardContent></Card>
+      <Card><CardHeader><CardTitle className="text-base">Nhóm can thiệp</CardTitle><p className="text-xs text-muted-foreground">Chia sinh viên thành nhóm hành động từ điểm và dropout ML.</p></CardHeader><CardContent className="h-[320px]">{segments.length ? <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={segments} dataKey="value" nameKey="label" innerRadius={62} outerRadius={96} paddingAngle={3}>{segments.map((row) => <Cell key={row.key} fill={row.color} />)}</Pie><Tooltip content={<SegmentTooltip />} /><Legend /></PieChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Chưa có dữ liệu sinh viên.</div>}</CardContent></Card>
+      <Card className="xl:col-span-2"><CardHeader><CardTitle className="text-base">Ma trận sinh viên: điểm × dropout ML</CardTitle><p className="text-xs text-muted-foreground">Bên trái đường 5.5 là nhóm học lực yếu; phía trên 70% là dropout ML cao.</p></CardHeader><CardContent className="h-[360px]">{matrixData.length ? <ResponsiveContainer width="100%" height="100%"><ScatterChart margin={{ top: 12, right: 24, bottom: 12, left: 8 }}><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" dataKey="x" name="Điểm" domain={[0, 10]} /><YAxis type="number" dataKey="y" name="Dropout ML" unit="%" domain={[0, 100]} /><ReferenceLine x={5.5} stroke="#ef4444" strokeDasharray="4 4" label="5.5 điểm" /><ReferenceLine y={70} stroke="#8b5cf6" strokeDasharray="4 4" label="70% ML" /><Tooltip cursor={{ strokeDasharray: "3 3" }} content={<StudentMatrixTooltip />} /><Scatter data={matrixData} onClick={(row) => { const id = chartPayloadId(row); if (id) router.push(`/manager/analytics/students/${id}`) }} cursor="pointer">{matrixData.map((row) => <Cell key={row.student_id} fill={row.color} fillOpacity={row.risk_level === "high" ? 0.92 : 0.68} stroke={row.risk_level === "high" ? "#7f1d1d" : "transparent"} strokeWidth={row.risk_level === "high" ? 1.5 : 0} />)}</Scatter></ScatterChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Chưa có đủ điểm để vẽ ma trận.</div>}</CardContent></Card>
+      <Card><CardHeader><CardTitle className="text-base">Kế hoạch ưu tiên</CardTitle><p className="text-xs text-muted-foreground">Danh sách ngắn để bắt đầu can thiệp, trước khi mở bảng đầy đủ.</p></CardHeader><CardContent className="space-y-3">{urgentStudents.length ? urgentStudents.map(({ student, segment }) => <Link key={student.student_id} href={`/manager/analytics/students/${student.student_id}`} className="block rounded-lg border p-3 transition hover:bg-muted/40"><div className="flex items-start justify-between gap-2"><div><div className="font-medium">{student.student_code}</div><div className="text-xs text-muted-foreground">{student.full_name}</div></div><Badge variant={segment.key === "meet_now" ? "destructive" : "outline"}>{segment.label}</Badge></div><div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground"><span>Điểm {formatNumber(student.final_grade)}</span><span className="text-right">ML {student.dropout_probability === null ? "—" : pct(student.dropout_probability)}</span></div><p className="mt-2 text-xs text-muted-foreground">{segment.reason}</p></Link>) : <div className="py-12 text-center text-sm text-muted-foreground">Không có nhóm ưu tiên trong bộ lọc hiện tại.</div>}</CardContent></Card>
+    </div>
+    <Card><CardHeader className="flex-row items-center justify-between"><div><CardTitle className="text-base">Bằng chứng sinh viên</CardTitle><p className="mt-1 text-xs text-muted-foreground">Bảng này là worklist hành động; click sinh viên để xem hồ sơ chi tiết.</p></div><Select value={risk} onValueChange={(value) => setRisk(value ?? "all")}><SelectTrigger className="w-40"><span>{risk === "all" ? "Mọi mức" : levelLabel(risk)}</span></SelectTrigger><SelectContent><SelectItem value="all">Mọi mức</SelectItem><SelectItem value="high">Ưu tiên</SelectItem><SelectItem value="watch">Theo dõi</SelectItem><SelectItem value="normal">Ổn định</SelectItem><SelectItem value="pending">Thiếu điểm</SelectItem></SelectContent></Select></CardHeader><CardContent>{students?.items.length ? <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-muted-foreground"><th className="p-3">Sinh viên</th><th className="p-3 text-right">Điểm</th><th className="p-3 text-right">Dropout ML</th><th className="p-3">Lý do chính</th><th className="p-3">Hành động gợi ý</th><th className="p-3">Trạng thái</th></tr></thead><tbody>{students.items.map((student) => { const segment = studentIntervention(student); return <tr key={student.student_id} className="border-b"><td className="p-3"><Link className="font-medium text-primary" href={`/manager/analytics/students/${student.student_id}`}>{student.student_code} - {student.full_name}</Link></td><td className="p-3 text-right">{formatNumber(student.final_grade)}</td><td className="p-3 text-right">{student.dropout_probability === null ? "Chưa có" : pct(student.dropout_probability)}</td><td className="p-3">{segment.reason}</td><td className="p-3"><Badge variant={segment.key === "meet_now" ? "destructive" : "outline"}>{segment.label}</Badge></td><td className="p-3"><Badge variant={student.risk_level === "high" ? "destructive" : "outline"}>{levelLabel(student.risk_level)}</Badge></td></tr> })}</tbody></table></div> : <div className="py-12 text-center text-sm text-muted-foreground">Không có sinh viên phù hợp.</div>}</CardContent></Card>
+    {students?.warnings.length ? <details className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground"><summary className="cursor-pointer font-medium">Chất lượng dữ liệu</summary><ul className="mt-2 list-disc space-y-1 pl-5">{students.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></details> : null}
+  </div>
 }

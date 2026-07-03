@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -29,6 +30,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { api, type ApiDashboardDepartments, type ApiDashboardTrendRow, type ApiUser } from "@/lib/api"
+import { analyticsHref, parseAnalyticsFilters, serializeAnalyticsFilters } from "@/lib/analytics-filters"
 
 const PASS_TARGET = 75
 
@@ -66,6 +68,12 @@ function sufficientlyCoveredTrend(trend: ApiDashboardTrendRow[]) {
   return trend.filter((item) => (item.department_count ?? maximumCoverage) >= minimumCoverage)
 }
 
+function chartActiveLabel(state: unknown) {
+  if (!state || typeof state !== "object") return null
+  const label = (state as { activeLabel?: unknown }).activeLabel
+  return typeof label === "string" ? label : null
+}
+
 function Delta({ value, suffix = "" }: { value: number | null; suffix?: string }) {
   if (value === null) return <span>Chưa có kỳ đối chiếu</span>
   const positive = value >= 0
@@ -79,11 +87,15 @@ function Delta({ value, suffix = "" }: { value: number | null; suffix?: string }
 }
 
 export default function DepartmentsAnalyticsPage() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const routeFilters = React.useMemo(() => parseAnalyticsFilters(searchParams), [searchParams])
   const [currentUser, setCurrentUser] = React.useState<ApiUser | null>(null)
   const [data, setData] = React.useState<ApiDashboardDepartments | null>(null)
-  const [selSem, setSelSem] = React.useState("all")
-  const [selDept, setSelDept] = React.useState("all")
-  const [selProg, setSelProg] = React.useState("all")
+  const [selSem, setSelSem] = React.useState(routeFilters.semester_code ?? "all")
+  const [selDept, setSelDept] = React.useState(routeFilters.department_id ? String(routeFilters.department_id) : "all")
+  const [selProg, setSelProg] = React.useState(routeFilters.program_id ? String(routeFilters.program_id) : "all")
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState("")
   const defaultSemesterResolved = React.useRef(false)
@@ -146,6 +158,15 @@ export default function DepartmentsAnalyticsPage() {
       active = false
     }
   }, [currentUser, selSem, selDept, selProg])
+
+  React.useEffect(() => {
+    const query = serializeAnalyticsFilters({
+      semester_code: selSem === "all" ? undefined : selSem,
+      department_id: selDept === "all" ? undefined : Number(selDept),
+      program_id: selProg === "all" ? undefined : Number(selProg), source: routeFilters.source,
+    })
+    if (query !== searchParams.toString()) router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false })
+  }, [pathname, routeFilters.source, router, searchParams, selDept, selProg, selSem])
 
   const isScoped = currentUser?.role === "manager" || currentUser?.role === "lecturer"
   const filteredPrograms = React.useMemo(() => {
@@ -213,6 +234,13 @@ export default function DepartmentsAnalyticsPage() {
     setSelProg("all")
   }
 
+  const chooseSemester = (semesterCode: string) => setSelSem(semesterCode)
+
+  const chooseHeatCell = (departmentId: number, semesterCode: string) => {
+    chooseDepartment(departmentId)
+    chooseSemester(semesterCode)
+  }
+
   const courseAnalyticsHref = (courseId: number) => {
     const params = new URLSearchParams({ course_id: String(courseId), source: "departments" })
     if (selDept !== "all") params.set("department_id", selDept)
@@ -221,8 +249,13 @@ export default function DepartmentsAnalyticsPage() {
   }
 
   const sectionAnalyticsHref = (sectionId: number) => {
-    const params = new URLSearchParams({ section_id: String(sectionId), source: "departments" })
-    return `/manager/analytics/sections?${params.toString()}`
+    return analyticsHref("/manager/analytics/sections", {
+      section_id: sectionId,
+      semester_code: selSem === "all" ? undefined : selSem,
+      department_id: selDept === "all" ? undefined : Number(selDept),
+      program_id: selProg === "all" ? undefined : Number(selProg),
+      source: "departments",
+    })
   }
 
   return (
@@ -348,7 +381,15 @@ export default function DepartmentsAnalyticsPage() {
               <p className="py-20 text-center text-sm text-muted-foreground">Chưa có dữ liệu xu hướng.</p>
             ) : (
               <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={trendView} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
+                <LineChart
+                  data={trendView}
+                  margin={{ left: 0, right: 0, top: 8, bottom: 0 }}
+                  onClick={(state) => {
+                    const label = chartActiveLabel(state)
+                    if (label) chooseSemester(label)
+                  }}
+                  className="cursor-pointer"
+                >
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="semester" tick={{ fontSize: 11 }} />
                   <YAxis yAxisId="pass" domain={[0, 100]} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 10 }} />
@@ -487,7 +528,11 @@ export default function DepartmentsAnalyticsPage() {
                 <tr>
                   <th className="w-48 pb-2 pr-3 text-left font-medium text-muted-foreground">Khoa</th>
                   {heatSemesters.map((semester) => (
-                    <th key={semester.id} className="min-w-[68px] px-1 pb-2 text-center font-medium text-muted-foreground">{semester.code}</th>
+                    <th key={semester.id} className="min-w-[68px] px-1 pb-2 text-center font-medium text-muted-foreground">
+                      <button type="button" onClick={() => chooseSemester(semester.code)} className="hover:text-primary">
+                        {semester.code}
+                      </button>
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -502,7 +547,13 @@ export default function DepartmentsAnalyticsPage() {
                         {value === null ? (
                           <span className="text-muted-foreground">—</span>
                         ) : (
-                          <span className={`inline-flex min-w-[50px] items-center justify-center rounded px-1.5 py-1 font-semibold ${heatColor(value)}`}>{value.toFixed(0)}%</span>
+                          <button
+                            type="button"
+                            onClick={() => chooseHeatCell(row.id, heatSemesters[index]?.code ?? "all")}
+                            className={`inline-flex min-w-[50px] items-center justify-center rounded px-1.5 py-1 font-semibold ${heatColor(value)}`}
+                          >
+                            {value.toFixed(0)}%
+                          </button>
                         )}
                       </td>
                     ))}

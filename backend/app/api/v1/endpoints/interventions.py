@@ -22,10 +22,8 @@ from app.access_control import (
 from app.dependencies import CurrentUser, DBSession
 from app.models.academic import Course, Program, Semester, program_courses
 from app.models.intervention import (
-    InterventionCampaign,
     InterventionCase,
     InterventionCaseEvent,
-    InterventionMessage,
     StudentInterventionContact,
 )
 from app.models.people import Cohort, HomeroomAssignment, Student, Teacher, UserRole
@@ -36,6 +34,8 @@ from app.schemas.intervention import (
     InterventionDraftRequest,
     InterventionScopeSummaryRequest,
 )
+from app.services.notification_service import add_task_event
+from app.services.task_service import require_task
 
 router = APIRouter()
 
@@ -424,78 +424,18 @@ def _workflow_actions(scope_type: str) -> list[dict]:
             "endpoint": f"/api/v1/interventions/{'sections/{section_id}' if scope_type == 'section' else 'homeroom/{class_code}'}/at-risk-students",
         },
         {
-            "id": "draft_messages",
-            "label": "Soạn thông điệp hỗ trợ",
-            "description": "Tạo draft email/tin nhắn theo tín hiệu học vụ, giảng viên/cố vấn duyệt trước khi gửi.",
-            "endpoint": "/api/v1/intervention-campaigns",
+            "id": "sync_cases",
+            "label": "Tạo hồ sơ hỗ trợ",
+            "description": "Đồng bộ sinh viên cần hỗ trợ thành hồ sơ cố vấn để phân công, đánh giá và theo dõi.",
+            "endpoint": "/api/v1/interventions/cases/sync-risk-signals",
         },
         {
-            "id": "log_contact",
-            "label": "Ghi nhận trao đổi",
-            "description": "Lưu lịch sử liên hệ, cuộc hẹn, hoặc ghi chú cố vấn vào hồ sơ sinh viên.",
-            "endpoint": "/api/v1/interventions/contact",
+            "id": "advisor_follow_up",
+            "label": "Đánh giá và hẹn hỗ trợ",
+            "description": "Giảng viên/cố vấn xác nhận nhận định, đặt lịch hẹn và ghi nhận kết quả theo dõi.",
+            "endpoint": "/api/v1/interventions/cases/{case_id}/assessment",
         },
     ]
-
-
-async def _campaign_summary(
-    db: DBSession,
-    *,
-    section_id: int | None = None,
-    class_code: str | None = None,
-) -> dict:
-    query = select(
-        InterventionCampaign.status,
-        func.count(InterventionCampaign.id).label("campaign_count"),
-    ).group_by(InterventionCampaign.status)
-    if section_id is not None:
-        query = query.where(InterventionCampaign.section_id == section_id)
-    if class_code:
-        query = query.where(InterventionCampaign.class_code == class_code)
-    status_counts = {
-        status_value: int(count or 0)
-        for status_value, count in (await db.execute(query)).all()
-    }
-    message_query = select(
-        InterventionMessage.status,
-        func.count(InterventionMessage.id).label("message_count"),
-    ).join(InterventionCampaign, InterventionCampaign.id == InterventionMessage.campaign_id).group_by(
-        InterventionMessage.status
-    )
-    if section_id is not None:
-        message_query = message_query.where(InterventionCampaign.section_id == section_id)
-    if class_code:
-        message_query = message_query.where(InterventionCampaign.class_code == class_code)
-    message_counts = {
-        status_value: int(count or 0)
-        for status_value, count in (await db.execute(message_query)).all()
-    }
-    recent_rows = (
-        await db.execute(
-
-                select(InterventionCampaign)
-                .where(InterventionCampaign.section_id == section_id if section_id is not None else True)
-                .where(InterventionCampaign.class_code == class_code if class_code else True)
-                .order_by(desc(InterventionCampaign.created_at), desc(InterventionCampaign.id))
-                .limit(5)
-
-        )
-    ).scalars().all()
-    return {
-        "campaign_status_counts": status_counts,
-        "message_status_counts": message_counts,
-        "recent_campaigns": [
-            {
-                "id": campaign.id,
-                "title": campaign.title,
-                "status": campaign.status,
-                "objective": campaign.objective,
-                "created_at": campaign.created_at,
-                "updated_at": campaign.updated_at,
-            }
-            for campaign in recent_rows
-        ],
-    }
 
 
 async def _latest_semester_predictions(db: DBSession, student_ids: list[int]) -> dict[int, dict]:
@@ -1092,9 +1032,10 @@ async def get_section_intervention_workspace(section_id: int, db: DBSession, cur
             "scope_type": "section",
             "section_id": section_id,
             "history": [_contact_payload(row) for row in history_rows],
-            "campaigns": await _campaign_summary(db, section_id=section_id),
             "workflow_actions": _workflow_actions("section"),
-            "email_delivery_endpoint": "/api/v1/intervention-campaigns/delivery-status",
+            "case_sync_endpoint": "/api/v1/interventions/cases/sync-risk-signals",
+            "bulk_notice_endpoint": "/api/v1/interventions/bulk-notice",
+            "appointments_endpoint": "/api/v1/interventions/appointments",
         },
     }
 
@@ -1159,9 +1100,10 @@ async def get_homeroom_intervention_workspace(class_code: str, db: DBSession, cu
             "scope_type": "homeroom",
             "class_code": class_code,
             "history": [_contact_payload(row) for row in history_rows],
-            "campaigns": await _campaign_summary(db, class_code=class_code),
             "workflow_actions": _workflow_actions("homeroom"),
-            "email_delivery_endpoint": "/api/v1/intervention-campaigns/delivery-status",
+            "case_sync_endpoint": "/api/v1/interventions/cases/sync-risk-signals",
+            "bulk_notice_endpoint": "/api/v1/interventions/bulk-notice",
+            "appointments_endpoint": "/api/v1/interventions/appointments",
         },
     }
 
@@ -1317,7 +1259,9 @@ async def get_student_support_profile(
         },
         "next_actions": risk["recommended_actions"],
         "action_endpoints": {
-            "draft_message": "/api/v1/interventions/ai/draft-message",
+            "create_case": "/api/v1/interventions/cases",
+            "advisor_assessment": "/api/v1/interventions/cases/{case_id}/assessment",
+            "appointment": "/api/v1/interventions/cases/{case_id}/appointments",
             "log_contact": "/api/v1/interventions/contact",
             "student_history": f"/api/v1/interventions/students/{student_id}/history",
         },
@@ -1348,6 +1292,11 @@ async def create_intervention_contact(
 ) -> dict:
     """Log a support contact or saved draft after the lecturer/advisor confirms it."""
     require_intervention_actor(current_user)
+    if payload.channel == "email" or payload.status in {"emailed", "failed"}:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="Email outreach has been retired; use advisor assessments and appointments instead",
+        )
     await _require_contact_scope(
         db,
         current_user,
@@ -1368,6 +1317,7 @@ async def create_intervention_contact(
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Case is not assigned to this actor and scope")
     contact = StudentInterventionContact(
         case_id=payload.case_id,
+        task_id=payload.task_id,
         actor_user_id=current_user.id,
         student_id=payload.student_id,
         section_id=payload.section_id,
@@ -1381,6 +1331,15 @@ async def create_intervention_contact(
     )
     db.add(contact)
     await db.flush()
+    if payload.task_id is not None:
+        task = await require_task(db, current_user, payload.task_id, mutate=True)
+        await add_task_event(
+            db,
+            task_id=task.id,
+            actor_user_id=current_user.id,
+            event_type="contact_logged",
+            payload={"contact_id": contact.id, "channel": contact.channel, "status": contact.status},
+        )
     if case_item is not None:
         if case_item.status in {"new", "assigned"}:
             case_item.status = "contacting"
@@ -1436,7 +1395,6 @@ async def _student_signal_for_draft(
     }
 
 
-@router.post("/ai/draft-message")
 async def draft_intervention_message(
     payload: InterventionDraftRequest,
     db: DBSession,
@@ -1534,7 +1492,6 @@ async def summarize_intervention_scope(
     }
 
 
-@router.post("/ai/bulk-notify")
 async def bulk_notify_intervention_scope(
     payload: InterventionBulkNotifyRequest,
     db: DBSession,
@@ -1600,7 +1557,6 @@ async def bulk_notify_intervention_scope(
     }
 
 
-@router.post("/ai/bulk-draft")
 async def bulk_draft_intervention_emails(
     payload: InterventionBulkNotifyRequest,
     db: DBSession,
