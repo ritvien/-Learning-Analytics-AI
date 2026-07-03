@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { DashboardPreloader } from "@/components/layout/dashboard-preloader"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
+import { NotificationBell } from "@/components/notifications/notification-bell"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -30,12 +31,14 @@ function canAccessDashboardPath(pathname: string, role: ApiUser["role"]) {
   if (pathname.startsWith("/manager/users")) return role === "superadmin" || role === "admin"
   if (pathname.startsWith("/manager/observability")) return role === "superadmin"
   if (pathname.startsWith("/manager/programs")) return isManagementRole(role)
+  if (pathname.startsWith("/manager/analytics/outcomes")) return isManagementRole(role)
   if (pathname.startsWith("/manager/analytics/departments")) return isManagementRole(role) || role === "lecturer"
   if (pathname.startsWith("/manager/analytics/programs")) return isManagementRole(role) || role === "lecturer"
   if (pathname.startsWith("/manager/analytics/courses")) return isManagementRole(role) || role === "lecturer"
   if (pathname.startsWith("/manager/analytics/sections")) return isManagementRole(role) || role === "lecturer"
   if (pathname.startsWith("/manager/analytics/students")) return isManagementRole(role) || role === "lecturer"
   if (pathname.startsWith("/manager/analytics")) return isManagementRole(role)
+  if (pathname.startsWith("/manager/tasks")) return role !== "viewer"
   if (pathname.startsWith("/manager/students")) return isReadRole(role)
   if (pathname.startsWith("/manager/teachers")) return isManagementRole(role)
   if (pathname.startsWith("/manager/courses")) return isReadRole(role)
@@ -165,16 +168,19 @@ export default function DashboardLayout({
                 </div>
               </div>
             ) : null}
+            {user?.role !== "viewer" ? <NotificationBell /> : null}
             <ThemeToggle />
             <Button variant="outline" size="sm" onClick={logout}>
               Đăng xuất
             </Button>
           </div>
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4">
-          <OnboardingTour />
-          <DashboardPreloader userRole={user?.role ?? null} />
-          {children}
+        <div className="flex min-h-0 flex-1 2xl:flex-row">
+          <main className="min-w-0 flex-1 space-y-4 p-4">
+            <OnboardingTour />
+            <DashboardPreloader userRole={user?.role ?? null} />
+            {children}
+          </main>
           <GlobalChatShell />
         </div>
       </SidebarInset>

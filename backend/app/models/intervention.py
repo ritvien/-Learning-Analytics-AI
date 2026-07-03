@@ -23,6 +23,7 @@ class StudentInterventionContact(TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     case_id: Mapped[int | None] = mapped_column(ForeignKey("intervention_cases.id", ondelete="SET NULL"))
+    task_id: Mapped[int | None] = mapped_column(ForeignKey("ops_tasks.id", ondelete="SET NULL"))
     actor_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="RESTRICT"), nullable=False)
     section_id: Mapped[int | None] = mapped_column(ForeignKey("sections.id", ondelete="SET NULL"))
@@ -51,6 +52,7 @@ class InterventionCase(TimestampMixin, Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    task_id: Mapped[int | None] = mapped_column(ForeignKey("ops_tasks.id", ondelete="SET NULL"))
     student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="RESTRICT"), nullable=False)
     scope_type: Mapped[str] = mapped_column(String(20), nullable=False)
     scope_key: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -66,12 +68,26 @@ class InterventionCase(TimestampMixin, Base):
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     resolution: Mapped[str | None] = mapped_column(Text)
     signal_snapshot: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    follow_up_snapshot: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    advisor_assessment: Mapped[str | None] = mapped_column(Text)
+    advisor_conclusion: Mapped[str | None] = mapped_column(String(50))
+    advisor_action_plan: Mapped[str | None] = mapped_column(Text)
+    assessment_confirmed_by_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    assessment_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    improvement_outcome: Mapped[str | None] = mapped_column(String(30))
 
     student = relationship("Student")
     section = relationship("Section")
     assignee = relationship("User", foreign_keys=[assignee_user_id])
     created_by = relationship("User", foreign_keys=[created_by_user_id])
+    assessment_confirmed_by = relationship("User", foreign_keys=[assessment_confirmed_by_user_id])
     events = relationship("InterventionCaseEvent", back_populates="case", cascade="all, delete-orphan")
+    appointments = relationship(
+        "InterventionAppointment",
+        back_populates="case",
+        cascade="all, delete-orphan",
+        order_by="InterventionAppointment.scheduled_at",
+    )
 
 
 class InterventionCaseEvent(Base):
@@ -89,6 +105,37 @@ class InterventionCaseEvent(Base):
 
     case = relationship("InterventionCase", back_populates="events")
     actor = relationship("User")
+
+
+class InterventionAppointment(TimestampMixin, Base):
+    """A scheduled student-support conversation with an append-only case timeline."""
+
+    __tablename__ = "intervention_appointments"
+    __table_args__ = (
+        Index("idx_intervention_appointment_case", "case_id", "scheduled_at"),
+        Index("idx_intervention_appointment_task", "task_id", "scheduled_at"),
+        Index("idx_intervention_appointment_student", "student_id", "scheduled_at"),
+        Index("idx_intervention_appointment_status", "status", "scheduled_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("intervention_cases.id", ondelete="CASCADE"), nullable=False)
+    task_id: Mapped[int | None] = mapped_column(ForeignKey("ops_tasks.id", ondelete="SET NULL"))
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="RESTRICT"), nullable=False)
+    created_by_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    duration_minutes: Mapped[int] = mapped_column(Integer, default=30, nullable=False)
+    meeting_mode: Mapped[str] = mapped_column(String(20), default="in_person", nullable=False)
+    location: Mapped[str | None] = mapped_column(String(255))
+    purpose: Mapped[str] = mapped_column(Text, nullable=False)
+    note: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default="scheduled", nullable=False)
+    result: Mapped[str | None] = mapped_column(Text)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    case = relationship("InterventionCase", back_populates="appointments")
+    student = relationship("Student")
+    created_by = relationship("User")
 
 
 class InterventionCampaign(TimestampMixin, Base):

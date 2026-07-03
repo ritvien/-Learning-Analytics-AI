@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { api, type ApiCourse, type ApiDashboardCourses, type ApiUser } from "@/lib/api"
+import { analyticsHref } from "@/lib/analytics-filters"
 
 const GRADE_COLORS: Record<string, string> = {
   "Trượt nặng": "#ef4444",
@@ -32,19 +33,24 @@ const GRADE_COLORS: Record<string, string> = {
   "Khá": "#22c55e",
   "Tốt": "#10b981",
 }
+const SECTION_COMPARE_LIMIT = 18
+const SECTION_SMALL_SAMPLE_THRESHOLD = 15
+const PASS_TARGET = 70
 
 function routeValue(value: string) {
   return value === "all" ? undefined : Number(value)
 }
 
 function sectionHref(sectionId: number, courseId: number, semesterCode: string) {
-  const params = new URLSearchParams({
-    section_id: String(sectionId),
-    course_id: String(courseId),
-    semester_code: semesterCode,
-    source: "courses",
+  return analyticsHref("/manager/analytics/sections", {
+    section_id: sectionId, course_id: courseId, semester_code: semesterCode, source: "courses",
   })
-  return `/manager/analytics/sections?${params.toString()}`
+}
+
+function chartActiveLabel(state: unknown) {
+  if (!state || typeof state !== "object") return null
+  const label = (state as { activeLabel?: unknown }).activeLabel
+  return typeof label === "string" ? label : null
 }
 
 export default function CourseAnalyticsPage() {
@@ -54,7 +60,7 @@ export default function CourseAnalyticsPage() {
   const [courseOptions, setCourseOptions] = React.useState<ApiCourse[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [requestError, setRequestError] = React.useState("")
-  const [selSemester, setSelSemester] = React.useState(searchParams.get("semester_code") ?? "")
+  const [selSemester, setSelSemester] = React.useState(searchParams.get("semester_code") ?? (searchParams.get("source") === "tasks" ? "all" : ""))
   const [selDept, setSelDept] = React.useState(searchParams.get("department_id") ?? searchParams.get("department") ?? "all")
   const [selProg, setSelProg] = React.useState(searchParams.get("program_id") ?? searchParams.get("program") ?? "all")
   const [selCourse, setSelCourse] = React.useState(searchParams.get("course_id") ?? searchParams.get("course") ?? "all")
@@ -70,9 +76,6 @@ export default function CourseAnalyticsPage() {
         const isScoped = user.role === "manager" || user.role === "lecturer"
         if (isScoped) {
           setSelDept(user.department_id ? String(user.department_id) : "all")
-          setSelProg("all")
-          setSelCourse("all")
-          setCourseQuery("")
         }
         setCourseOptions(courses)
         setCurrentUser(user)
@@ -103,9 +106,26 @@ export default function CourseAnalyticsPage() {
       department_id: scopedDepartmentId ?? routeValue(selDept),
       program_id: routeValue(selProg),
     }
+    const trendParams = {
+      department_id: params.department_id,
+      program_id: params.program_id,
+    }
     const parsedCourseId = Number(selCourse)
     const request = selCourse !== "all" && Number.isFinite(parsedCourseId)
-      ? api.getDashboardCourse(parsedCourseId, params)
+      ? Promise.all([
+        api.getDashboardCourse(parsedCourseId, params),
+        params.semester_code ? api.getDashboardCourse(parsedCourseId, trendParams) : Promise.resolve(null),
+      ]).then(([response, trendResponse]) => {
+        if (!trendResponse?.selected_course || !response.selected_course) return response
+        return {
+          ...response,
+          selected_course: {
+            ...response.selected_course,
+            trend: trendResponse.selected_course.trend,
+            clo_trend: trendResponse.selected_course.clo_trend,
+          },
+        }
+      })
       : api.getDashboardCourses(params)
 
     let active = true
@@ -145,8 +165,9 @@ export default function CourseAnalyticsPage() {
   }, [data])
 
   React.useEffect(() => {
+    if (searchParams.get("source") === "tasks" && !searchParams.get("semester_code")) return
     if (!selSemester && latestSemester) setSelSemester(latestSemester.code)
-  }, [latestSemester, selSemester])
+  }, [latestSemester, searchParams, selSemester])
 
   React.useEffect(() => {
     if (!selSemester) return
@@ -221,7 +242,7 @@ export default function CourseAnalyticsPage() {
       readyCount: readyRows.length,
       totalEnrollments,
       weightedPassRate,
-      belowPassTarget: courseRows.filter((course) => course.completed_enrollments >= 20 && course.pass_rate < 70).length,
+      belowPassTarget: courseRows.filter((course) => course.completed_enrollments >= 20 && course.pass_rate < PASS_TARGET).length,
       belowCloTarget: readyRows.filter((course) => (course.clo_attainment_rate ?? 1) < 0.7).length,
       comparisonRows: [...courseRows]
         .filter((course) => course.completed_enrollments >= 20)
@@ -248,6 +269,7 @@ export default function CourseAnalyticsPage() {
     const trendLimit = trendRange === "all" ? trend.length : Number(trendRange)
     const visibleTrend = trend.slice(-trendLimit)
     const visibleSemesters = new Set(visibleTrend.map((row) => row.hk))
+    const selectedSemesterTrend = selSemester !== "all" ? trend.find((row) => row.hk === selSemester) : null
     const dist = selected.grade_distribution.map((row) => ({
       label: row.name,
       count: row.value,
@@ -266,14 +288,17 @@ export default function CourseAnalyticsPage() {
     const maxFailSemester = trend.find((row) => 100 - row.passRate === maxFailRate)?.hk ?? null
     const abnormalSections = [...selected.section_rows]
       .filter((section) => section.completed_enrollments > 0)
-      .sort((a, b) => a.pass_rate_diff - b.pass_rate_diff || a.pass_rate - b.pass_rate)
-      .slice(0, 10)
+      .sort((a, b) => a.pass_rate_diff - b.pass_rate_diff || b.completed_enrollments - a.completed_enrollments)
+      .slice(0, SECTION_COMPARE_LIMIT)
       .map((section) => ({
         ...section,
-        label: section.section_code,
+        label: `${section.section_code} · n=${section.completed_enrollments}`,
         passRateDiff: section.pass_rate_diff,
         passRate: section.pass_rate,
       }))
+    const smallSectionCount = selected.section_rows.filter(
+      (section) => section.completed_enrollments > 0 && section.completed_enrollments < SECTION_SMALL_SAMPLE_THRESHOLD,
+    ).length
     return {
       ...selected,
       trend,
@@ -286,13 +311,28 @@ export default function CourseAnalyticsPage() {
       maxFailSemester,
       passDelta: latest && previous ? +(latest.passRate - previous.passRate).toFixed(1) : null,
       gradeDelta: latest && previous ? +(latest.avgGrade - previous.avgGrade).toFixed(2) : null,
-      belowTargetSections: selected.section_rows.filter((section) => section.pass_rate < 70).length,
+      belowTargetSections: selected.section_rows.filter((section) => section.pass_rate < PASS_TARGET).length,
+      smallSectionCount,
+      selectedSemesterTrend,
+      evidenceSummary: {
+        trendSemesters: trend.length,
+        visibleSemesters: visibleTrend.length,
+        sections: selected.section_rows.length,
+        enrollments: selected.kpis.completed_enrollments,
+        cloRows: selected.clo_rows.length,
+        cloEvidence: selected.clo_trend.reduce((sum, row) => sum + row.evidence_count, 0),
+      },
     }
   }, [data, selSemester, trendRange])
 
   function selectCourse(course: { id: number; code: string; name: string }) {
     setSelCourse(String(course.id))
     setCourseQuery(`${course.code} - ${course.name}`)
+  }
+
+  function selectSemesterFromChart(state: unknown) {
+    const label = chartActiveLabel(state)
+    if (label) setSelSemester(label)
   }
 
   function resetFilters() {
@@ -303,6 +343,25 @@ export default function CourseAnalyticsPage() {
     setCourseQuery("")
     setTrendRange("6")
     setShowAdvanced(false)
+  }
+
+  function clearFilter(key: "semester" | "department" | "program" | "course") {
+    if (key === "semester") setSelSemester(latestSemester?.code ?? "all")
+    if (key === "department") {
+      setSelDept(isScoped && currentUser?.department_id ? String(currentUser.department_id) : "all")
+      setSelProg("all")
+      setSelCourse("all")
+      setCourseQuery("")
+    }
+    if (key === "program") {
+      setSelProg("all")
+      setSelCourse("all")
+      setCourseQuery("")
+    }
+    if (key === "course") {
+      setSelCourse("all")
+      setCourseQuery("")
+    }
   }
 
   return (
@@ -411,11 +470,26 @@ export default function CourseAnalyticsPage() {
           ) : null}
 
           <div className="mt-3 flex flex-wrap gap-2 text-xs">
-            <Badge variant="outline">Học kỳ: {selSemester === "all" ? "Tất cả" : data?.semesters.find((semester) => semester.code === selSemester)?.name ?? selSemester}</Badge>
-            <Badge variant="outline">Khoa: {selectedDeptName}</Badge>
-            <Badge variant="outline">Ngành: {selectedProgramName}</Badge>
-            <Badge variant="outline">Môn: {selectedCourseLabel}</Badge>
-            <Badge variant="outline">Theo dõi: {trendRange === "all" ? "Toàn bộ kỳ" : `${trendRange} kỳ gần nhất`}</Badge>
+            {[
+              {
+                key: "semester" as const,
+                active: selSemester !== "all",
+                label: `Học kỳ: ${selSemester === "all" ? "Tất cả" : data?.semesters.find((semester) => semester.code === selSemester)?.name ?? selSemester}`,
+              },
+              { key: "department" as const, active: selDept !== "all" && !isScoped, label: `Khoa: ${selectedDeptName}` },
+              { key: "program" as const, active: selProg !== "all", label: `Ngành: ${selectedProgramName}` },
+              { key: "course" as const, active: selCourse !== "all", label: `Môn: ${selectedCourseLabel}` },
+            ].map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => chip.active && clearFilter(chip.key)}
+                className={`inline-flex h-6 items-center rounded-full border px-2.5 text-xs ${chip.active ? "bg-primary/5 text-primary hover:bg-primary/10" : "text-muted-foreground"}`}
+              >
+                {chip.label}{chip.active ? <span className="ml-1">×</span> : null}
+              </button>
+            ))}
+            <Badge variant="outline">Trend: {trendRange === "all" ? "Toàn bộ kỳ" : `${trendRange} kỳ gần nhất`}</Badge>
           </div>
         </CardContent>
       </Card>
@@ -450,7 +524,7 @@ export default function CourseAnalyticsPage() {
               {[
                 ["Môn đủ dữ liệu", courseOverview.readyCount.toLocaleString("vi-VN")],
                 ["Pass rate có trọng số", `${courseOverview.weightedPassRate.toFixed(1)}%`],
-                ["Môn dưới chuẩn 70%", courseOverview.belowPassTarget.toLocaleString("vi-VN")],
+                [`Môn dưới chuẩn ${PASS_TARGET}%`, courseOverview.belowPassTarget.toLocaleString("vi-VN")],
                 ["Môn CLO dưới chuẩn", courseOverview.belowCloTarget.toLocaleString("vi-VN")],
                 ["Tổng lượt học", courseOverview.totalEnrollments.toLocaleString("vi-VN")],
               ].map(([label, value]) => (
@@ -475,14 +549,14 @@ export default function CourseAnalyticsPage() {
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                       <XAxis type="number" domain={[0, 100]} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 10 }} />
                       <YAxis type="category" dataKey="label" width={72} tick={{ fontSize: 10 }} />
-                      <ReferenceLine x={70} stroke="#f59e0b" strokeDasharray="5 4" />
+                      <ReferenceLine x={PASS_TARGET} stroke="#f59e0b" strokeDasharray="5 4" />
                       <Tooltip
                         formatter={(value, _name, item) => [`${Number(value).toFixed(1)}%`, `${item.payload.name} · ${item.payload.completed_enrollments} lượt`]}
                         contentStyle={{ fontSize: 12, borderRadius: 8 }}
                       />
                       <Bar dataKey="passRate" radius={[0, 5, 5, 0]} maxBarSize={18}>
                         {courseOverview.comparisonRows.map((entry) => (
-                          <Cell key={entry.id} fill={entry.pass_rate < 70 ? "#dc2626" : "#16a34a"} onClick={() => selectCourse(entry)} className="cursor-pointer" />
+                          <Cell key={entry.id} fill={entry.pass_rate < PASS_TARGET ? "#dc2626" : "#16a34a"} onClick={() => selectCourse(entry)} className="cursor-pointer" />
                         ))}
                       </Bar>
                     </BarChart>
@@ -514,13 +588,30 @@ export default function CourseAnalyticsPage() {
             </CardContent>
           </Card>
 
+          <div className="grid gap-3 md:grid-cols-4">
+            {[
+              ["Cỡ mẫu KPI", `${courseStats.evidenceSummary.enrollments.toLocaleString("vi-VN")} lượt`, `${courseStats.evidenceSummary.sections} lớp trong phạm vi lọc`],
+              ["Chuỗi xu hướng", `${courseStats.evidenceSummary.trendSemesters} học kỳ`, selSemester !== "all" ? `KPI đang neo tại ${selSemester}` : "KPI dùng toàn phạm vi"],
+              ["CLO evidence", courseStats.evidenceSummary.cloEvidence.toLocaleString("vi-VN"), `${courseStats.evidenceSummary.cloRows} CLO có tổng hợp`],
+              ["Ngưỡng đánh giá", `${PASS_TARGET}% đạt`, "Dùng để tô màu và ưu tiên drill-down"],
+            ].map(([label, value, note]) => (
+              <Card key={label}>
+                <CardContent className="py-4">
+                  <p className="text-xs text-muted-foreground">{label}</p>
+                  <p className="mt-1 text-xl font-semibold tabular-nums">{value}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">{note}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {[
               { label: "Lượt học trong kỳ", value: courseStats.kpis.completed_enrollments, icon: <Users className="h-5 w-5 text-muted-foreground" /> },
               {
                 label: "Tỷ lệ đạt",
                 value: `${courseStats.kpis.pass_rate.toFixed(1)}%`,
-                icon: <CheckCircle2 className={`h-5 w-5 ${courseStats.kpis.pass_rate >= 70 ? "text-emerald-500" : "text-destructive"}`} />,
+                icon: <CheckCircle2 className={`h-5 w-5 ${courseStats.kpis.pass_rate >= PASS_TARGET ? "text-emerald-500" : "text-destructive"}`} />,
                 note: courseStats.passDelta === null ? null : `${courseStats.passDelta > 0 ? "+" : ""}${courseStats.passDelta} điểm %`,
               },
               {
@@ -552,28 +643,37 @@ export default function CourseAnalyticsPage() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">Lớp học phần lệch chuẩn nhất</CardTitle>
-              <p className="text-xs text-muted-foreground">So sánh từng lớp với trung bình môn trong cùng kỳ; lớp lệch âm lớn cần mở sang can thiệp.</p>
+              <CardTitle className="text-sm font-semibold">Lớp lệch so với trung bình môn</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Mỗi thanh là chênh lệch tỷ lệ đạt của một lớp so với mức trung bình của môn trong phạm vi đang lọc.
+                Thanh âm nghĩa là lớp thấp hơn mặt bằng môn.
+              </p>
             </CardHeader>
             <CardContent>
               <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-                <Badge variant="outline">Lớp cần rà soát</Badge>
-                <Badge variant="outline">Pass-rate difference</Badge>
-                <Badge variant="outline">CLO/course health</Badge>
-                <span className="text-muted-foreground">Không kết luận lỗi cá nhân; dùng để drill-down tới section.</span>
+                <Badge variant="outline">Đơn vị: điểm %</Badge>
+                <Badge variant="outline">Hiển thị tối đa {SECTION_COMPARE_LIMIT} lớp</Badge>
+                <Badge variant="outline">Có kèm cỡ mẫu</Badge>
+                <span className="text-muted-foreground">Bấm mã lớp ở bảng dưới để mở trang can thiệp.</span>
               </div>
+              {courseStats.smallSectionCount > 0 ? (
+                <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  {courseStats.smallSectionCount} lớp có dưới {SECTION_SMALL_SAMPLE_THRESHOLD} lượt học; chênh lệch của các lớp này dễ dao động, nên dùng để rà soát chứ chưa kết luận.
+                </div>
+              ) : null}
               {courseStats.abnormalSections.length ? (
-                <ResponsiveContainer width="100%" height={Math.max(220, courseStats.abnormalSections.length * 34)}>
-                  <BarChart data={courseStats.abnormalSections} layout="vertical" margin={{ left: 8, right: 32, top: 8, bottom: 8 }}>
+                <ResponsiveContainer width="100%" height={Math.max(280, courseStats.abnormalSections.length * 32)}>
+                  <BarChart data={courseStats.abnormalSections} layout="vertical" margin={{ left: 8, right: 36, top: 8, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" tickFormatter={(value) => `${value}%`} tick={{ fontSize: 10 }} />
-                    <YAxis type="category" dataKey="label" width={96} tick={{ fontSize: 10 }} />
+                    <YAxis type="category" dataKey="label" width={132} tick={{ fontSize: 10 }} />
                     <ReferenceLine x={0} stroke="#64748b" strokeDasharray="4 4" />
                     <Tooltip
                       formatter={(value, name, item) => [
                         name === "passRateDiff" ? `${Number(value).toFixed(1)} điểm %` : value,
-                        `So TB môn · đạt ${item.payload.passRate}% · ${item.payload.completed_enrollments} lượt`,
+                        `So với TB môn · đạt ${item.payload.passRate}% · cỡ mẫu ${item.payload.completed_enrollments} lượt`,
                       ]}
+                      labelFormatter={(label) => `Lớp ${label}`}
                       contentStyle={{ fontSize: 12, borderRadius: 8 }}
                     />
                     <Bar dataKey="passRateDiff" radius={[0, 5, 5, 0]} maxBarSize={20}>
@@ -584,7 +684,7 @@ export default function CourseAnalyticsPage() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex h-[180px] items-center justify-center text-sm text-muted-foreground">Chưa có lớp đủ dữ liệu để so sánh lệch chuẩn.</div>
+                <div className="flex h-[180px] items-center justify-center text-sm text-muted-foreground">Chưa có lớp đủ dữ liệu để so sánh với trung bình môn.</div>
               )}
             </CardContent>
           </Card>
@@ -600,17 +700,29 @@ export default function CourseAnalyticsPage() {
                     </Badge>
                   ) : null}
                 </div>
-                <p className="text-xs text-muted-foreground">Đường chuẩn 70%; kỳ dùng cho KPI được đánh dấu bằng đường dọc.</p>
+                <p className="text-xs text-muted-foreground">
+                  Đường chuẩn {PASS_TARGET}%; biểu đồ luôn giữ chuỗi học kỳ đủ dài, còn kỳ KPI đang chọn được đánh dấu bằng đường dọc.
+                </p>
+                {courseStats.selectedSemesterTrend ? (
+                  <p className="mt-1 text-xs text-primary">
+                    Kỳ đang neo KPI: {courseStats.selectedSemesterTrend.hk} · n={courseStats.selectedSemesterTrend.count} · đạt {courseStats.selectedSemesterTrend.passRate.toFixed(1)}%.
+                  </p>
+                ) : null}
               </CardHeader>
               <CardContent>
                 {courseStats.visibleTrend.length ? (
                   <>
                     <ResponsiveContainer width="100%" height={220}>
-                      <LineChart data={courseStats.visibleTrend} margin={{ left: 0, right: 8, top: 12, bottom: 4 }}>
+                      <LineChart
+                        data={courseStats.visibleTrend}
+                        margin={{ left: 0, right: 8, top: 12, bottom: 4 }}
+                        onClick={selectSemesterFromChart}
+                        className="cursor-pointer"
+                      >
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
                         <XAxis dataKey="hk" tick={{ fontSize: 11 }} />
                         <YAxis domain={[0, 100]} ticks={[0, 25, 50, 70, 100]} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 10 }} width={38} />
-                        <ReferenceLine y={70} stroke="#f59e0b" strokeDasharray="5 4" />
+                        <ReferenceLine y={PASS_TARGET} stroke="#f59e0b" strokeDasharray="5 4" />
                         {selSemester !== "all" ? <ReferenceLine x={selSemester} stroke="#6366f1" strokeDasharray="3 3" /> : null}
                         <Tooltip
                           formatter={(value, name, item) => [
@@ -649,7 +761,12 @@ export default function CourseAnalyticsPage() {
                 {courseStats.visibleTrend.length ? (
                   <>
                     <ResponsiveContainer width="100%" height={220}>
-                      <LineChart data={courseStats.visibleTrend} margin={{ left: 0, right: 8, top: 12, bottom: 4 }}>
+                      <LineChart
+                        data={courseStats.visibleTrend}
+                        margin={{ left: 0, right: 8, top: 12, bottom: 4 }}
+                        onClick={selectSemesterFromChart}
+                        className="cursor-pointer"
+                      >
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
                         <XAxis dataKey="hk" tick={{ fontSize: 11 }} />
                         <YAxis domain={[0, 10]} ticks={[0, 2.5, 5, 7.5, 10]} tick={{ fontSize: 10 }} width={30} />
@@ -685,7 +802,12 @@ export default function CourseAnalyticsPage() {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={courseStats.visibleTrend} margin={{ left: 0, right: 8, top: 12, bottom: 4 }}>
+                  <BarChart
+                    data={courseStats.visibleTrend}
+                    margin={{ left: 0, right: 8, top: 12, bottom: 4 }}
+                    onClick={selectSemesterFromChart}
+                    className="cursor-pointer"
+                  >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="hk" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 10 }} width={36} allowDecimals={false} />
@@ -703,7 +825,12 @@ export default function CourseAnalyticsPage() {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={courseStats.visibleTrend} margin={{ left: 0, right: 8, top: 12, bottom: 4 }}>
+                  <BarChart
+                    data={courseStats.visibleTrend}
+                    margin={{ left: 0, right: 8, top: 12, bottom: 4 }}
+                    onClick={selectSemesterFromChart}
+                    className="cursor-pointer"
+                  >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="hk" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 10 }} width={36} allowDecimals={false} />
@@ -719,7 +846,7 @@ export default function CourseAnalyticsPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold">Mức đạt CLO theo học kỳ</CardTitle>
-              <p className="text-xs text-muted-foreground">Heatmap giúp phát hiện CLO yếu kéo dài hoặc giảm qua nhiều kỳ; ngưỡng đạt là 70%.</p>
+              <p className="text-xs text-muted-foreground">Heatmap giúp phát hiện CLO yếu kéo dài hoặc giảm qua nhiều kỳ; ngưỡng đạt là {PASS_TARGET}%.</p>
             </CardHeader>
             <CardContent>
               {courseStats.cloTrend.length ? (
@@ -786,7 +913,7 @@ export default function CourseAnalyticsPage() {
                           <td className="px-3 py-2 text-right tabular-nums">{section.avg_grade.toFixed(2)}</td>
                           <td className="px-3 py-2 text-right tabular-nums">{section.failed_count}</td>
                           <td className="px-3 py-2 text-right">
-                            <Badge variant={section.pass_rate >= 70 ? "secondary" : "destructive"} className="text-[10px]">{section.pass_rate}%</Badge>
+                            <Badge variant={section.pass_rate >= PASS_TARGET ? "secondary" : "destructive"} className="text-[10px]">{section.pass_rate}%</Badge>
                           </td>
                           <td className={`px-4 py-2 text-right tabular-nums font-medium ${section.pass_rate_diff < -15 ? "text-destructive" : section.pass_rate_diff > 0 ? "text-emerald-600" : "text-muted-foreground"}`}>
                             {section.pass_rate_diff > 0 ? "+" : ""}{section.pass_rate_diff}%

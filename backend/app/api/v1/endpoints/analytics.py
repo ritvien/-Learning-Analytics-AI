@@ -1,7 +1,7 @@
 """Analytics warehouse and prediction read/operation endpoints."""
 
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from time import monotonic
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -13,6 +13,7 @@ from app.access_control import (
     can_access_program,
     can_access_section,
     can_access_student,
+    get_teacher_for_user,
     user_department_ids,
 )
 from app.analytics.etl import refresh_dwh
@@ -29,8 +30,9 @@ from app.ml.dropout import predict_dropout_risk_for_student, score_dropout_predi
 from app.ml.dropout.score import DropoutModelNotFoundError, DropoutStudentNotFoundError
 from app.ml.dropout.types import DropoutRiskResult
 from app.ml.scoring import aggregate_student_semester_predictions
+from app.models.academic import Course, Program, Semester
 from app.models.people import Student
-from app.models.teaching import Enrollment
+from app.models.teaching import Enrollment, Section
 
 router = APIRouter()
 
@@ -224,6 +226,7 @@ def _dashboard_filter_sql(
     date_from: str | None = None,
     date_to: str | None = None,
 ) -> tuple[str, dict]:
+    _validate_dashboard_date_range(date_from, date_to)
     clauses: list[str] = []
     params: dict = {}
     if semester_code:
@@ -245,6 +248,19 @@ def _dashboard_filter_sql(
         clauses.append("f.updated_at <= CAST(:date_to AS timestamptz)")
         params["date_to"] = _parse_dashboard_datetime(date_to, "date_to")
     return ("WHERE " + " AND ".join(clauses)) if clauses else "", params
+
+
+def _validate_dashboard_date_range(date_from: str | None, date_to: str | None) -> None:
+    """Reject inverted dashboard ranges before issuing an expensive query."""
+    if not date_from or not date_to:
+        return
+    start = _parse_dashboard_datetime(date_from, "date_from")
+    end = _parse_dashboard_datetime(date_to, "date_to")
+    if start > end:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="date_from must be before or equal to date_to",
+        )
 
 
 async def _fetch_all(db: DBSession, sql: str, params: dict | None = None) -> list[dict]:
@@ -856,6 +872,389 @@ async def analytics_dashboard_departments(
         "drill_course_fail": drill_course_fail,
         "drill_section_abnormal": drill_section_abnormal,
     })
+
+
+
+@router.get("/analytics/dashboard/outcomes")
+async def analytics_dashboard_outcomes(
+    db: DBSession,
+    current_user: CurrentUser,
+    semester_code: str | None = None,
+    department_id: int | None = None,
+    program_id: int | None = None,
+    plo_id: int | None = None,
+    min_evidence: int = Query(default=30, ge=1, le=1000),
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> dict:
+    """Return CLO/PLO outcome assessment aggregates for managers and QA review."""
+    _require_dashboard_role(current_user)
+    if current_user.role.value == "manager":
+        department_id = await _scoped_department_filter(db, current_user, department_id)
+    if program_id is not None:
+        await _require_program_scope(db, current_user, program_id)
+
+    cache_key = (
+        "outcomes",
+        current_user.role.value,
+        current_user.id,
+        semester_code,
+        department_id,
+        program_id,
+        plo_id,
+        min_evidence,
+        date_from,
+        date_to,
+    )
+    cached = _dashboard_cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    _validate_dashboard_date_range(date_from, date_to)
+    clauses: list[str] = []
+    trend_clauses: list[str] = []
+    params: dict = {"min_evidence": min_evidence}
+    if semester_code:
+        clauses.append("dsem.code = :semester_code")
+        params["semester_code"] = semester_code
+    if department_id is not None:
+        clauses.append("dp.department_id = :department_id")
+        trend_clauses.append("dp.department_id = :department_id")
+        params["department_id"] = department_id
+    if program_id is not None:
+        clauses.append("ds.program_id = :program_id")
+        trend_clauses.append("ds.program_id = :program_id")
+        params["program_id"] = program_id
+    if date_from:
+        clauses.append("ca.updated_at >= CAST(:date_from AS timestamptz)")
+        trend_clauses.append("ca.updated_at >= CAST(:date_from AS timestamptz)")
+        params["date_from"] = _parse_dashboard_datetime(date_from, "date_from")
+    if date_to:
+        clauses.append("ca.updated_at <= CAST(:date_to AS timestamptz)")
+        trend_clauses.append("ca.updated_at <= CAST(:date_to AS timestamptz)")
+        params["date_to"] = _parse_dashboard_datetime(date_to, "date_to")
+    if plo_id is not None:
+        params["plo_id"] = plo_id
+
+    where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    trend_where_sql = ("WHERE " + " AND ".join(trend_clauses)) if trend_clauses else ""
+    plo_filter_sql = "AND p.id = :plo_id" if plo_id is not None else ""
+
+    base_cte = f"""
+        WITH filtered_clo AS (
+            SELECT
+                ca.*,
+                ds.program_id,
+                ds.cohort_id,
+                dp.department_id,
+                dsem.code AS semester,
+                dsem.year,
+                dsem.term
+            FROM dwh.fact_clo_achievement ca
+            JOIN dwh.dim_student ds ON ds.student_id = ca.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = ca.semester_id
+            {where_sql}
+        ),
+        mapped AS (
+            SELECT
+                fc.*,
+                p.id AS plo_id,
+                p.code AS plo_code,
+                p.name AS plo_name,
+                cl.id AS mapped_clo_id,
+                cl.code AS clo_code,
+                cl.name AS clo_name,
+                dc.code AS course_code,
+                dc.name AS course_name,
+                COALESCE(cpm.contribution, 1.0) AS contribution
+            FROM filtered_clo fc
+            JOIN clo_plo_mappings cpm ON cpm.clo_id = fc.clo_id
+            JOIN plos p ON p.id = cpm.plo_id AND p.program_id = fc.program_id
+            JOIN clos cl ON cl.id = fc.clo_id
+            JOIN dwh.dim_course dc ON dc.course_id = fc.course_id
+            WHERE cl.is_active IS TRUE
+            {plo_filter_sql}
+        )
+    """
+
+    trend_cte = f"""
+        WITH filtered_clo AS (
+            SELECT
+                ca.*,
+                ds.program_id,
+                dp.department_id,
+                dsem.code AS semester,
+                dsem.year,
+                dsem.term
+            FROM dwh.fact_clo_achievement ca
+            JOIN dwh.dim_student ds ON ds.student_id = ca.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = ca.semester_id
+            {trend_where_sql}
+        ),
+        mapped AS (
+            SELECT
+                fc.*,
+                p.id AS plo_id,
+                p.code AS plo_code,
+                p.name AS plo_name,
+                COALESCE(cpm.contribution, 1.0) AS contribution
+            FROM filtered_clo fc
+            JOIN clo_plo_mappings cpm ON cpm.clo_id = fc.clo_id
+            JOIN plos p ON p.id = cpm.plo_id AND p.program_id = fc.program_id
+            JOIN clos cl ON cl.id = fc.clo_id
+            WHERE cl.is_active IS TRUE
+            {plo_filter_sql}
+        )
+    """
+
+    kpis = await _fetch_one(
+        db,
+        f"""
+        {base_cte}
+        SELECT
+            COUNT(DISTINCT program_id)::INTEGER AS programs_with_evidence,
+            COUNT(DISTINCT plo_id)::INTEGER AS plos_with_evidence,
+            COUNT(DISTINCT mapped_clo_id)::INTEGER AS clos_with_evidence,
+            COUNT(DISTINCT course_id)::INTEGER AS courses_with_evidence,
+            COUNT(*)::INTEGER AS evidence_count,
+            COUNT(DISTINCT student_id)::INTEGER AS student_count,
+            COALESCE(
+                ROUND(SUM(CASE WHEN is_achieved IS TRUE THEN contribution ELSE 0 END)::DECIMAL
+                    / NULLIF(SUM(contribution), 0) * 100, 1),
+                0
+            )::FLOAT AS attainment_pct,
+            0::INTEGER AS plos_at_target
+        FROM mapped
+        """,
+        params,
+    )
+
+    plo_rows = await _fetch_all(
+        db,
+        f"""
+        {base_cte}
+        SELECT
+            d.id AS department_id,
+            d.name AS department_name,
+            dp.program_id,
+            dp.code AS program_code,
+            dp.name AS program_name,
+            plo_id,
+            plo_code,
+            plo_name,
+            COUNT(*)::INTEGER AS evidence_count,
+            COUNT(DISTINCT student_id)::INTEGER AS student_count,
+            COUNT(DISTINCT course_id)::INTEGER AS course_count,
+            COUNT(DISTINCT semester_id)::INTEGER AS semester_count,
+            ROUND(AVG(achievement_score), 2)::FLOAT AS avg_score,
+            COALESCE(
+                ROUND(SUM(CASE WHEN is_achieved IS TRUE THEN contribution ELSE 0 END)::DECIMAL
+                    / NULLIF(SUM(contribution), 0) * 100, 1),
+                0
+            )::FLOAT AS attainment_pct
+        FROM mapped m
+        JOIN dwh.dim_program dp ON dp.program_id = m.program_id
+        LEFT JOIN departments d ON d.id = dp.department_id
+        GROUP BY d.id, d.name, dp.program_id, dp.code, dp.name, plo_id, plo_code, plo_name
+        HAVING COUNT(*) >= :min_evidence
+        ORDER BY attainment_pct ASC, evidence_count DESC, program_name, plo_code
+        LIMIT 300
+        """,
+        params,
+    )
+
+    plo_trend = await _fetch_all(
+        db,
+        f"""
+        {trend_cte}
+        SELECT
+            dp.program_id,
+            dp.code AS program_code,
+            dp.name AS program_name,
+            plo_id,
+            plo_code,
+            plo_name,
+            semester,
+            year,
+            term,
+            COUNT(*)::INTEGER AS evidence_count,
+            COALESCE(
+                ROUND(SUM(CASE WHEN is_achieved IS TRUE THEN contribution ELSE 0 END)::DECIMAL
+                    / NULLIF(SUM(contribution), 0) * 100, 1),
+                0
+            )::FLOAT AS attainment_pct
+        FROM mapped m
+        JOIN dwh.dim_program dp ON dp.program_id = m.program_id
+        GROUP BY dp.program_id, dp.code, dp.name, plo_id, plo_code, plo_name, semester, year, term
+        HAVING COUNT(*) >= :min_evidence
+        ORDER BY year, term, program_name, plo_code
+        LIMIT 800
+        """,
+        params,
+    )
+
+    driver_courses = await _fetch_all(
+        db,
+        f"""
+        {base_cte}
+        SELECT
+            dp.program_id,
+            dp.code AS program_code,
+            dp.name AS program_name,
+            plo_id,
+            plo_code,
+            plo_name,
+            course_id,
+            course_code,
+            course_name,
+            COUNT(*)::INTEGER AS evidence_count,
+            COUNT(DISTINCT student_id)::INTEGER AS student_count,
+            COALESCE(
+                ROUND(SUM(CASE WHEN is_achieved IS TRUE THEN contribution ELSE 0 END)::DECIMAL
+                    / NULLIF(SUM(contribution), 0) * 100, 1),
+                0
+            )::FLOAT AS attainment_pct
+        FROM mapped m
+        JOIN dwh.dim_program dp ON dp.program_id = m.program_id
+        GROUP BY dp.program_id, dp.code, dp.name, plo_id, plo_code, plo_name, course_id, course_code, course_name
+        HAVING COUNT(*) >= :min_evidence
+        ORDER BY attainment_pct ASC, evidence_count DESC
+        LIMIT 120
+        """,
+        params,
+    )
+
+    driver_clos = await _fetch_all(
+        db,
+        f"""
+        {base_cte}
+        SELECT
+            dp.program_id,
+            dp.code AS program_code,
+            dp.name AS program_name,
+            plo_id,
+            plo_code,
+            course_id,
+            course_code,
+            course_name,
+            mapped_clo_id AS clo_id,
+            clo_code,
+            clo_name,
+            COUNT(*)::INTEGER AS evidence_count,
+            COALESCE(
+                ROUND(SUM(CASE WHEN is_achieved IS TRUE THEN contribution ELSE 0 END)::DECIMAL
+                    / NULLIF(SUM(contribution), 0) * 100, 1),
+                0
+            )::FLOAT AS attainment_pct
+        FROM mapped m
+        JOIN dwh.dim_program dp ON dp.program_id = m.program_id
+        GROUP BY dp.program_id, dp.code, dp.name, plo_id, plo_code, course_id, course_code, course_name, mapped_clo_id, clo_code, clo_name
+        HAVING COUNT(*) >= :min_evidence
+        ORDER BY attainment_pct ASC, evidence_count DESC
+        LIMIT 160
+        """,
+        params,
+    )
+
+    quality_rows = await _fetch_all(
+        db,
+        """
+        WITH program_scope AS (
+            SELECT dp.program_id, dp.code, dp.name, dp.department_id
+            FROM dwh.dim_program dp
+            WHERE (CAST(:department_id AS INTEGER) IS NULL OR dp.department_id = CAST(:department_id AS INTEGER))
+              AND (CAST(:program_id AS INTEGER) IS NULL OR dp.program_id = CAST(:program_id AS INTEGER))
+        ),
+        plo_counts AS (
+            SELECT ps.program_id, COUNT(DISTINCT p.id) AS plo_count, COUNT(DISTINCT cpm.clo_id) AS mapped_clo_count
+            FROM program_scope ps
+            LEFT JOIN plos p ON p.program_id = ps.program_id
+            LEFT JOIN clo_plo_mappings cpm ON cpm.plo_id = p.id
+            GROUP BY ps.program_id
+        ),
+        course_counts AS (
+            SELECT ps.program_id,
+                COUNT(DISTINCT pc.course_id) AS program_courses,
+                COUNT(DISTINCT pc.course_id) FILTER (WHERE cl.id IS NOT NULL) AS courses_with_clo,
+                COUNT(DISTINCT pc.course_id) FILTER (WHERE gccm.clo_id IS NOT NULL) AS courses_with_component_clo_mapping
+            FROM program_scope ps
+            LEFT JOIN program_courses pc ON pc.program_id = ps.program_id
+            LEFT JOIN clos cl ON cl.course_id = pc.course_id AND cl.is_active IS TRUE
+            LEFT JOIN grade_component_clo_mappings gccm ON gccm.clo_id = cl.id
+            GROUP BY ps.program_id
+        ),
+        evidence_counts AS (
+            SELECT ds.program_id,
+                COUNT(*) AS evidence_count,
+                COUNT(DISTINCT ca.course_id) AS courses_with_evidence,
+                COUNT(DISTINCT ca.student_id) AS students_with_evidence,
+                COUNT(DISTINCT ca.semester_id) AS semesters_with_evidence
+            FROM dwh.fact_clo_achievement ca
+            JOIN dwh.dim_student ds ON ds.student_id = ca.student_id
+            JOIN program_scope ps ON ps.program_id = ds.program_id
+            GROUP BY ds.program_id
+        )
+        SELECT
+            d.id AS department_id,
+            d.name AS department_name,
+            ps.program_id,
+            ps.code AS program_code,
+            ps.name AS program_name,
+            COALESCE(pc.plo_count, 0)::INTEGER AS plo_count,
+            COALESCE(cc.program_courses, 0)::INTEGER AS program_courses,
+            COALESCE(cc.courses_with_clo, 0)::INTEGER AS courses_with_clo,
+            COALESCE(cc.courses_with_component_clo_mapping, 0)::INTEGER AS courses_with_component_clo_mapping,
+            COALESCE(pc.mapped_clo_count, 0)::INTEGER AS mapped_clo_count,
+            COALESCE(ec.evidence_count, 0)::INTEGER AS evidence_count,
+            COALESCE(ec.courses_with_evidence, 0)::INTEGER AS courses_with_evidence,
+            COALESCE(ec.students_with_evidence, 0)::INTEGER AS students_with_evidence,
+            COALESCE(ec.semesters_with_evidence, 0)::INTEGER AS semesters_with_evidence,
+            CASE
+                WHEN COALESCE(pc.plo_count, 0) > 0
+                  AND COALESCE(pc.mapped_clo_count, 0) > 0
+                  AND COALESCE(ec.evidence_count, 0) >= :min_evidence THEN 'ready'
+                WHEN COALESCE(pc.plo_count, 0) > 0
+                  OR COALESCE(cc.courses_with_clo, 0) > 0
+                  OR COALESCE(ec.evidence_count, 0) > 0 THEN 'partial'
+                ELSE 'missing'
+            END AS data_status
+        FROM program_scope ps
+        LEFT JOIN departments d ON d.id = ps.department_id
+        LEFT JOIN plo_counts pc ON pc.program_id = ps.program_id
+        LEFT JOIN course_counts cc ON cc.program_id = ps.program_id
+        LEFT JOIN evidence_counts ec ON ec.program_id = ps.program_id
+        ORDER BY data_status, evidence_count DESC, program_name
+        """,
+        {"department_id": department_id, "program_id": program_id, "min_evidence": min_evidence},
+    )
+
+    kpis["plos_at_target"] = len({
+        (row["program_id"], row["plo_id"])
+        for row in plo_rows
+        if row["attainment_pct"] >= 70
+    })
+
+    meta = await _dashboard_meta(db)
+    if department_id is not None:
+        meta["departments"] = [item for item in meta["departments"] if item["id"] == department_id]
+        meta["programs"] = [item for item in meta["programs"] if item["department_id"] == department_id]
+    payload = {
+        **meta,
+        "kpis": kpis,
+        "plo_rows": plo_rows,
+        "plo_trend": plo_trend,
+        "driver_courses": driver_courses,
+        "driver_clos": driver_clos,
+        "quality_rows": quality_rows,
+        "data_status": "ready" if kpis["evidence_count"] else "partial",
+        "warnings": [
+            "CLO/PLO attainment is computed evidence from grade component mappings; use official review before academic conclusions.",
+            "Programs with partial/missing quality rows need mapping or evidence completion before accreditation use.",
+        ],
+    }
+    return _dashboard_cache_set(cache_key, payload)
 
 
 @router.get("/analytics/dashboard/programs/{program_id}")
@@ -1635,6 +2034,549 @@ async def analytics_dashboard_course_detail(
     return _dashboard_cache_set(cache_key, payload)
 
 
+def _section_data_status(stats: dict | None) -> tuple[str, list[str]]:
+    if not stats or int(stats.get("total_sections") or 0) == 0:
+        return "empty", []
+    warnings: list[str] = []
+    if int(stats.get("missing_grade_count") or 0) > 0:
+        warnings.append("Một số lớp còn thiếu điểm tổng kết.")
+    if int(stats.get("low_coverage_sections") or 0) > 0:
+        warnings.append("Độ phủ dự đoán ML chưa đạt 90%.")
+    if int(stats.get("small_sections") or 0) > 0:
+        warnings.append("Một số lớp có cỡ mẫu dưới 20 sinh viên.")
+    return ("partial" if warnings else "ready"), warnings
+
+
+async def _section_etl_warning(db: DBSession) -> tuple[bool, str | None]:
+    rows = await _fetch_all(
+        db,
+        """
+        SELECT completed_at
+        FROM dwh.etl_run
+        WHERE status = 'completed'
+        ORDER BY completed_at DESC NULLS LAST
+        LIMIT 1
+        """,
+    )
+    if not rows:
+        return True, "Chưa có lần ETL DWH hoàn tất."
+    row = rows[0]
+    completed_at = row.get("completed_at")
+    if completed_at is None:
+        return True, "Chưa có lần ETL DWH hoàn tất."
+    if completed_at.tzinfo is None:
+        completed_at = completed_at.replace(tzinfo=UTC)
+    if datetime.now(UTC) - completed_at > timedelta(hours=24):
+        return True, "Dữ liệu DWH đã quá 24 giờ; cần chạy refresh."
+    return False, None
+
+
+async def _section_scope_clause(
+    db: DBSession,
+    current_user: CurrentUser,
+    department_id: int | None,
+) -> tuple[str, dict]:
+    if _is_lecturer_role(current_user):
+        teacher = await get_teacher_for_user(db, current_user)
+        if teacher is None:
+            return "AND 1 = 0", {}
+        if department_id is not None and department_id != teacher.department_id:
+            _deny_out_of_scope()
+        return "AND dsec.teacher_id = :scope_teacher_id", {"scope_teacher_id": teacher.id}
+    if current_user.role.value == "manager":
+        scoped_department = await _scoped_department_filter(db, current_user, department_id)
+        return "AND pc.department_id = :scope_department_id", {"scope_department_id": scoped_department}
+    _require_dashboard_role(current_user)
+    if department_id is not None:
+        await _require_department_scope(db, current_user, department_id)
+        return "AND pc.department_id = :scope_department_id", {"scope_department_id": department_id}
+    return "", {}
+
+
+async def _require_section_filter_entities(
+    db: DBSession,
+    *,
+    semester_code: str | None,
+    program_id: int | None,
+    course_id: int | None,
+    section_id: int | None,
+) -> None:
+    checks = (
+        (Semester, Semester.code, semester_code, "Semester"),
+        (Program, Program.id, program_id, "Program"),
+        (Course, Course.id, course_id, "Course"),
+        (Section, Section.id, section_id, "Section"),
+    )
+    for model, column, value, label in checks:
+        if value is None:
+            continue
+        exists = (await db.execute(select(model).where(column == value).limit(1))).scalar_one_or_none()
+        if exists is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{label} not found")
+
+
+def _section_hierarchy_level(current_user: CurrentUser, department_id: int | None, program_id: int | None) -> str:
+    """Choose the next useful drill-down dimension for the actor and current scope."""
+    if _is_lecturer_role(current_user):
+        return "course"
+    if current_user.role.value == "manager":
+        return "course" if program_id is not None else "program"
+    if department_id is None:
+        return "department"
+    return "course" if program_id is not None else "program"
+
+
+@router.get("/analytics/dashboard/sections")
+async def analytics_dashboard_sections(
+    db: DBSession,
+    current_user: CurrentUser,
+    semester_code: str | None = None,
+    department_id: int | None = None,
+    program_id: int | None = None,
+    course_id: int | None = None,
+    section_id: int | None = None,
+    teacher_id: int | None = None,
+    q: str | None = Query(default=None, max_length=100),
+    date_from: str | None = None,
+    date_to: str | None = None,
+    risk_level: str | None = Query(default=None, pattern="^(high|watch|normal|pending)$"),
+    sort: str = Query(default="risk_desc", pattern="^(risk_desc|pass_rate_asc|students_desc)$"),
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> dict:
+    """Return paginated DWH-backed section aggregates with ML coverage metadata."""
+    _validate_dashboard_date_range(date_from, date_to)
+    await _require_section_filter_entities(
+        db, semester_code=semester_code, program_id=program_id, course_id=course_id, section_id=section_id
+    )
+    if program_id is not None:
+        await _require_program_scope(db, current_user, program_id)
+    if course_id is not None:
+        await _require_course_scope(db, current_user, course_id)
+    if section_id is not None and not await can_access_section(db, current_user, section_id):
+        _deny_out_of_scope()
+    scope_sql, scope_params = await _section_scope_clause(db, current_user, department_id)
+    clauses = ["1 = 1"]
+    params: dict = {**scope_params, "limit": limit, "offset": offset}
+    if semester_code:
+        clauses.append("dsem.code = :semester_code")
+        params["semester_code"] = semester_code
+    if program_id is not None:
+        clauses.append("dst.program_id = :program_id")
+        params["program_id"] = program_id
+    if course_id is not None:
+        clauses.append("f.course_id = :course_id")
+        params["course_id"] = course_id
+    if section_id is not None:
+        clauses.append("f.section_id = :section_id")
+        params["section_id"] = section_id
+    if teacher_id is not None:
+        clauses.append("dsec.teacher_id = :teacher_id")
+        params["teacher_id"] = teacher_id
+    if q and q.strip():
+        clauses.append("(LOWER(dsec.section_code) LIKE :search OR LOWER(dc.code) LIKE :search OR LOWER(dc.name) LIKE :search)")
+        params["search"] = f"%{q.strip().lower()}%"
+    if date_from:
+        clauses.append("f.updated_at >= CAST(:date_from AS timestamptz)")
+        params["date_from"] = _parse_dashboard_datetime(date_from, "date_from")
+    if date_to:
+        clauses.append("f.updated_at <= CAST(:date_to AS timestamptz)")
+        params["date_to"] = _parse_dashboard_datetime(date_to, "date_to")
+    where_sql = " AND ".join(clauses)
+    order_sql = {
+        "risk_desc": "risk_rank DESC, failed_count DESC, section_code",
+        "pass_rate_asc": "pass_rate ASC, student_count DESC, section_code",
+        "students_desc": "student_count DESC, section_code",
+    }[sort]
+    risk_sql = ""
+    if risk_level:
+        risk_sql = "WHERE risk_level = :risk_level"
+        params["risk_level"] = risk_level
+    cache_key = ("sections-v3", current_user.id, semester_code, department_id, program_id, course_id, section_id,
+                 teacher_id, q, date_from, date_to, risk_level, sort, limit, offset)
+    cached = _dashboard_cache_get(cache_key)
+    if cached is not None:
+        return cached
+    rows = await _fetch_all(
+        db,
+        f"""
+        WITH latest_dropout AS (
+            SELECT DISTINCT ON (student_id) student_id, dropout_probability, risk_level, scored_at
+            FROM ml.student_dropout_prediction
+            ORDER BY student_id, scored_at DESC
+        ), aggregated AS (
+            SELECT
+                f.section_id AS id,
+                dsec.section_code,
+                f.course_id,
+                dc.code AS course_code,
+                dc.name AS course_name,
+                f.semester_id,
+                dsem.code AS semester_code,
+                dsem.name AS semester_name,
+                dsec.teacher_id,
+                t.full_name AS teacher_name,
+                COUNT(DISTINCT f.student_id)::INTEGER AS student_count,
+                COUNT(*) FILTER (WHERE f.final_grade IS NOT NULL)::INTEGER AS graded_count,
+                COUNT(*) FILTER (WHERE f.final_grade IS NULL)::INTEGER AS missing_grade_count,
+                COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::INTEGER AS failed_count,
+                COALESCE(ROUND(AVG(f.final_grade), 2), 0)::FLOAT AS avg_grade,
+                COALESCE(ROUND(COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::DECIMAL /
+                    NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) * 100, 1), 0)::FLOAT AS pass_rate,
+                COALESCE(ROUND(COUNT(ld.student_id)::DECIMAL / NULLIF(COUNT(DISTINCT f.student_id), 0), 3), 0)::FLOAT AS prediction_coverage,
+                MAX(ld.scored_at) AS prediction_scored_at,
+                CASE
+                    WHEN COUNT(*) FILTER (WHERE f.final_grade IS NULL) = COUNT(*) THEN 'pending'
+                    WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.30
+                         OR COUNT(*) FILTER (WHERE ld.risk_level = 'high') > 0 THEN 'high'
+                    WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.15 THEN 'watch'
+                    ELSE 'normal'
+                END AS risk_level,
+                CASE WHEN COUNT(*) FILTER (WHERE f.final_grade IS NULL) = COUNT(*) THEN 1
+                     WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.30
+                          OR COUNT(*) FILTER (WHERE ld.risk_level = 'high') > 0 THEN 4
+                     WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.15 THEN 3
+                     ELSE 2 END AS risk_rank,
+                CASE
+                    WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.30 THEN 'high_fail_rate'
+                    WHEN COUNT(*) FILTER (WHERE f.final_grade IS NULL) > 0 THEN 'missing_grade'
+                    WHEN COUNT(*) FILTER (WHERE ld.risk_level = 'high') > 0 THEN 'ml_high_risk'
+                    WHEN COALESCE(ROUND(COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::DECIMAL /
+                        NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) * 100, 1), 0) < 70 THEN 'low_pass_rate'
+                    WHEN COUNT(DISTINCT f.student_id) < 20 THEN 'small_sample'
+                    ELSE 'normal'
+                END AS primary_reason,
+                CASE
+                    WHEN COUNT(*) FILTER (WHERE f.final_grade IS NULL) = COUNT(*) THEN 'wait_for_grades'
+                    WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.30
+                         OR COUNT(*) FILTER (WHERE ld.risk_level = 'high') > 0 THEN 'intervene_now'
+                    WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.15
+                         OR COUNT(DISTINCT f.student_id) < 20 THEN 'monitor'
+                    ELSE 'no_action'
+                END AS recommended_action,
+                (
+                    (CASE WHEN COUNT(*) FILTER (WHERE f.final_grade IS NULL) = COUNT(*) THEN 1
+                          WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.30
+                               OR COUNT(*) FILTER (WHERE ld.risk_level = 'high') > 0 THEN 4
+                          WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.15 THEN 3
+                          ELSE 2 END) * 100
+                    + COUNT(*) FILTER (WHERE f.is_passed IS FALSE) * 3
+                    + COUNT(*) FILTER (WHERE f.final_grade IS NULL) * 2
+                    + LEAST(COUNT(DISTINCT f.student_id), 60)
+                )::INTEGER AS priority_score
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_section dsec ON dsec.section_id = f.section_id
+            JOIN dwh.dim_course dc ON dc.course_id = f.course_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            JOIN dwh.dim_student dst ON dst.student_id = f.student_id
+            JOIN public.courses pc ON pc.id = f.course_id
+            LEFT JOIN public.teachers t ON t.id = dsec.teacher_id
+            LEFT JOIN latest_dropout ld ON ld.student_id = f.student_id
+            WHERE {where_sql} {scope_sql}
+            GROUP BY f.section_id, dsec.section_code, f.course_id, dc.code, dc.name,
+                     f.semester_id, dsem.code, dsem.name, dsec.teacher_id, t.full_name
+        ), filtered AS (
+            SELECT *, COUNT(*) OVER()::INTEGER AS total FROM aggregated {risk_sql}
+        )
+        SELECT * FROM filtered ORDER BY {order_sql} LIMIT :limit OFFSET :offset
+        """,
+        params,
+    )
+    total = int(rows[0]["total"]) if rows else 0
+    items = [{key: value for key, value in row.items() if key not in {"total", "risk_rank"}} for row in rows]
+    visual_cte = f"""
+        WITH latest_dropout AS (
+            SELECT DISTINCT ON (student_id) student_id, risk_level, scored_at
+            FROM ml.student_dropout_prediction
+            ORDER BY student_id, scored_at DESC
+        ), facts AS (
+            SELECT f.*, dsec.section_code, dsec.teacher_id, dc.code AS course_code, dc.name AS course_name,
+                   dsem.code AS semester_code, dsem.name AS semester_name, dst.program_id,
+                   dp.code AS program_code, dp.name AS program_name, pc.department_id,
+                   dep.code AS department_code, dep.name AS department_name,
+                   ld.student_id AS predicted_student_id, ld.risk_level AS dropout_risk_level, ld.scored_at
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_section dsec ON dsec.section_id = f.section_id
+            JOIN dwh.dim_course dc ON dc.course_id = f.course_id
+            JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
+            JOIN dwh.dim_student dst ON dst.student_id = f.student_id
+            JOIN dwh.dim_program dp ON dp.program_id = dst.program_id
+            JOIN public.courses pc ON pc.id = f.course_id
+            JOIN public.departments dep ON dep.id = pc.department_id
+            LEFT JOIN latest_dropout ld ON ld.student_id = f.student_id
+            WHERE {where_sql} {scope_sql}
+        ), aggregated AS (
+            SELECT section_id AS id, section_code, course_id, course_code, course_name,
+                   semester_id, semester_code, semester_name, teacher_id,
+                   COUNT(DISTINCT student_id)::INTEGER AS student_count,
+                   COUNT(*) FILTER (WHERE final_grade IS NOT NULL)::INTEGER AS graded_count,
+                   COUNT(*) FILTER (WHERE final_grade IS NULL)::INTEGER AS missing_grade_count,
+                   COUNT(*) FILTER (WHERE is_passed IS FALSE)::INTEGER AS failed_count,
+                   COALESCE(ROUND(AVG(final_grade), 2), 0)::FLOAT AS avg_grade,
+                   COALESCE(ROUND(COUNT(*) FILTER (WHERE is_passed IS TRUE)::DECIMAL /
+                       NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) * 100, 1), 0)::FLOAT AS pass_rate,
+                   COALESCE(ROUND(COUNT(predicted_student_id)::DECIMAL /
+                       NULLIF(COUNT(DISTINCT student_id), 0), 3), 0)::FLOAT AS prediction_coverage,
+                   MAX(scored_at) AS prediction_scored_at,
+                   CASE WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) = COUNT(*) THEN 'pending'
+                        WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30
+                             OR COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 'high'
+                        WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.15 THEN 'watch'
+                        ELSE 'normal' END AS risk_level,
+                   CASE WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) = COUNT(*) THEN 1
+                        WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30
+                             OR COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 4
+                        WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.15 THEN 3
+                        ELSE 2 END AS risk_rank,
+                   CASE WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30 THEN 'high_fail_rate'
+                        WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) > 0 THEN 'missing_grade'
+                        WHEN COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 'ml_high_risk'
+                        WHEN COALESCE(ROUND(COUNT(*) FILTER (WHERE is_passed IS TRUE)::DECIMAL /
+                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) * 100, 1), 0) < 70 THEN 'low_pass_rate'
+                        WHEN COUNT(DISTINCT student_id) < 20 THEN 'small_sample'
+                        ELSE 'normal' END AS primary_reason,
+                   CASE WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) = COUNT(*) THEN 'wait_for_grades'
+                        WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30
+                             OR COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 'intervene_now'
+                        WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.15
+                             OR COUNT(DISTINCT student_id) < 20 THEN 'monitor'
+                        ELSE 'no_action' END AS recommended_action,
+                   ((CASE WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) = COUNT(*) THEN 1
+                          WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                               NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30
+                               OR COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 4
+                          WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                               NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.15 THEN 3
+                          ELSE 2 END) * 100
+                    + COUNT(*) FILTER (WHERE is_passed IS FALSE) * 3
+                    + COUNT(*) FILTER (WHERE final_grade IS NULL) * 2
+                    + LEAST(COUNT(DISTINCT student_id), 60))::INTEGER AS priority_score
+            FROM facts
+            GROUP BY section_id, section_code, course_id, course_code, course_name,
+                     semester_id, semester_code, semester_name, teacher_id
+        )
+    """
+    summary = await _fetch_one(
+        db,
+        visual_cte + """
+        SELECT
+            (SELECT COUNT(*)::INTEGER FROM aggregated) AS total_sections,
+            (SELECT COUNT(DISTINCT student_id)::INTEGER FROM facts) AS total_students,
+            (SELECT COUNT(*)::INTEGER FROM aggregated WHERE risk_level IN ('high', 'watch', 'pending')) AS needs_action_sections,
+            (SELECT COALESCE(ROUND(COUNT(*) FILTER (WHERE is_passed IS TRUE)::DECIMAL /
+                NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) * 100, 1), 0)::FLOAT FROM facts) AS average_pass_rate,
+            (SELECT COUNT(*) FILTER (WHERE final_grade IS NULL)::INTEGER FROM facts) AS missing_grade_count,
+            (SELECT COALESCE(ROUND(COUNT(DISTINCT predicted_student_id)::DECIMAL /
+                NULLIF(COUNT(DISTINCT student_id), 0), 3), 0)::FLOAT FROM facts) AS prediction_coverage
+        """,
+        params,
+    )
+    risk_distribution = await _fetch_all(
+        db,
+        visual_cte + """
+        SELECT risk_level, COUNT(*)::INTEGER AS value
+        FROM aggregated
+        GROUP BY risk_level
+        ORDER BY CASE risk_level WHEN 'high' THEN 1 WHEN 'watch' THEN 2 WHEN 'pending' THEN 3 ELSE 4 END
+        """,
+        params,
+    )
+    section_matrix = await _fetch_all(
+        db,
+        visual_cte + """
+        SELECT id, section_code, course_id, course_code, course_name, student_count,
+               pass_rate, avg_grade, risk_level, prediction_coverage, failed_count, missing_grade_count,
+               priority_score, primary_reason, recommended_action
+        FROM aggregated
+        ORDER BY priority_score DESC, failed_count DESC, missing_grade_count DESC, section_code
+        LIMIT 40
+        """,
+        params,
+    )
+    hierarchy_level = _section_hierarchy_level(current_user, department_id, program_id)
+    hierarchy_fields = {
+        "department": ("department_id", "department_code", "department_name"),
+        "program": ("program_id", "program_code", "program_name"),
+        "course": ("course_id", "course_code", "course_name"),
+    }[hierarchy_level]
+    entity_id, entity_code, entity_name = hierarchy_fields
+    hierarchy_items = await _fetch_all(
+        db,
+        visual_cte + f"""
+        , entity_sections AS (
+            SELECT {entity_id} AS id, {entity_code} AS code, {entity_name} AS name, section_id,
+                   COUNT(DISTINCT student_id)::INTEGER AS student_count,
+                   COUNT(*) FILTER (WHERE is_passed IS FALSE)::INTEGER AS failed_count,
+                   COUNT(*) FILTER (WHERE final_grade IS NULL)::INTEGER AS missing_grade_count,
+                   COUNT(*) FILTER (WHERE is_passed IS NOT NULL)::INTEGER AS graded_count,
+                   COUNT(*) FILTER (WHERE is_passed IS TRUE)::INTEGER AS passed_count,
+                   CASE WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) = COUNT(*) THEN 'pending'
+                        WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30
+                             OR COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 'high'
+                        WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.15 THEN 'watch'
+                        ELSE 'normal' END AS risk_level,
+                   CASE WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30 THEN 'high_fail_rate'
+                        WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) > 0 THEN 'missing_grade'
+                        WHEN COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 'ml_high_risk'
+                        WHEN COUNT(DISTINCT student_id) < 20 THEN 'small_sample'
+                        ELSE 'normal' END AS primary_reason,
+                   ((CASE WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) = COUNT(*) THEN 1
+                          WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                               NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30
+                               OR COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 4
+                          WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                               NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.15 THEN 3
+                          ELSE 2 END) * 100
+                    + COUNT(*) FILTER (WHERE is_passed IS FALSE) * 3
+                    + COUNT(*) FILTER (WHERE final_grade IS NULL) * 2
+                    + LEAST(COUNT(DISTINCT student_id), 60))::INTEGER AS priority_score
+            FROM facts
+            GROUP BY {entity_id}, {entity_code}, {entity_name}, section_id
+        )
+        SELECT id, code, name, COUNT(DISTINCT section_id)::INTEGER AS section_count,
+               SUM(student_count)::INTEGER AS student_count,
+               COALESCE(ROUND(SUM(passed_count)::DECIMAL / NULLIF(SUM(graded_count), 0) * 100, 1), 0)::FLOAT AS pass_rate,
+               COUNT(*) FILTER (WHERE risk_level = 'high')::INTEGER AS high_sections,
+               COUNT(*) FILTER (WHERE risk_level = 'watch')::INTEGER AS watch_sections,
+               COUNT(*) FILTER (WHERE risk_level = 'pending')::INTEGER AS pending_sections,
+               COUNT(*) FILTER (WHERE risk_level = 'normal')::INTEGER AS normal_sections,
+               COALESCE(ROUND(COUNT(*) FILTER (WHERE risk_level IN ('high', 'watch', 'pending'))::DECIMAL /
+                   NULLIF(COUNT(DISTINCT section_id), 0) * 100, 1), 0)::FLOAT AS needs_action_rate,
+               COALESCE(MAX(priority_score), 0)::INTEGER AS priority_score,
+               (ARRAY_AGG(primary_reason ORDER BY priority_score DESC))[1] AS primary_reason
+        FROM entity_sections
+        GROUP BY id, code, name
+        ORDER BY priority_score DESC, high_sections DESC, watch_sections DESC, pass_rate ASC, name
+        LIMIT 16
+        """,
+        params,
+    )
+    status_stats = await _fetch_one(
+        db,
+        visual_cte + """
+        SELECT
+            COUNT(*)::INTEGER AS total_sections,
+            COALESCE(SUM(missing_grade_count), 0)::INTEGER AS missing_grade_count,
+            COUNT(*) FILTER (WHERE prediction_coverage < 0.9)::INTEGER AS low_coverage_sections,
+            COUNT(*) FILTER (WHERE student_count < 20)::INTEGER AS small_sections
+        FROM aggregated
+        """,
+        params,
+    )
+    data_status, warnings = _section_data_status(status_stats)
+    stale, stale_warning = await _section_etl_warning(db)
+    if stale and int((status_stats or {}).get("total_sections") or 0) > 0:
+        data_status = "stale"
+    if stale_warning:
+        warnings.append(stale_warning)
+    payload = {
+        "filters": {"semester_code": semester_code, "department_id": department_id, "program_id": program_id,
+                    "course_id": course_id, "section_id": section_id, "teacher_id": teacher_id, "q": q,
+                    "date_from": date_from, "date_to": date_to, "risk_level": risk_level},
+        "summary": summary,
+        "hierarchy": {"level": hierarchy_level, "items": hierarchy_items},
+        "risk_distribution": risk_distribution,
+        "section_matrix": section_matrix,
+        "items": items,
+        "pagination": {"total": total, "limit": limit, "offset": offset, "has_more": offset + len(items) < total},
+        "data_status": data_status,
+        "warnings": warnings,
+    }
+    return _dashboard_cache_set(cache_key, payload)
+
+
+@router.get("/analytics/dashboard/sections/{section_id}")
+async def analytics_dashboard_section_detail(
+    section_id: int,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> dict:
+    """Return one section aggregate using the same production contract."""
+    if not await can_access_section(db, current_user, section_id):
+        exists_row = await db.execute(select(Enrollment.id).where(Enrollment.section_id == section_id).limit(1))
+        if exists_row.scalar_one_or_none() is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Section not found")
+        _deny_out_of_scope()
+    listing = await analytics_dashboard_sections(
+        db=db,
+        current_user=current_user,
+        semester_code=None,
+        department_id=None,
+        program_id=None,
+        course_id=None,
+        section_id=section_id,
+        teacher_id=None,
+        q=None,
+        date_from=None,
+        date_to=None,
+        risk_level=None,
+        sort="risk_desc",
+        limit=1,
+        offset=0,
+    )
+    item = next((row for row in listing["items"] if row["id"] == section_id), None)
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Section has no analytics data")
+    return {"item": item, "data_status": listing["data_status"], "warnings": listing["warnings"]}
+
+
+@router.get("/analytics/dashboard/sections/{section_id}/students")
+async def analytics_dashboard_section_students(
+    section_id: int,
+    db: DBSession,
+    current_user: CurrentUser,
+    risk_level: str | None = Query(default=None, pattern="^(high|watch|normal|pending)$"),
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> dict:
+    """Return paginated student evidence for a section; probabilities only come from ML."""
+    if not await can_access_section(db, current_user, section_id):
+        _deny_out_of_scope()
+    params: dict = {"section_id": section_id, "limit": limit, "offset": offset}
+    risk_sql = ""
+    if risk_level:
+        risk_sql = "WHERE risk_level = :risk_level"
+        params["risk_level"] = risk_level
+    rows = await _fetch_all(db, f"""
+        WITH latest_dropout AS (
+            SELECT DISTINCT ON (student_id) student_id, dropout_probability, risk_level, top_factors, scored_at
+            FROM ml.student_dropout_prediction ORDER BY student_id, scored_at DESC
+        ), evidence AS (
+            SELECT f.student_id, ds.student_code, ds.full_name, f.final_grade::FLOAT AS final_grade, f.is_passed,
+                   ld.dropout_probability::FLOAT, ld.risk_level AS dropout_risk_level,
+                   ld.top_factors, ld.scored_at,
+                   CASE WHEN f.final_grade IS NULL THEN 'pending'
+                        WHEN f.is_passed IS FALSE OR ld.risk_level = 'high' THEN 'high'
+                        WHEN f.final_grade < 5.5 OR ld.risk_level = 'medium' THEN 'watch'
+                        ELSE 'normal' END AS risk_level
+            FROM dwh.fact_enrollment_outcome f
+            JOIN dwh.dim_student ds ON ds.student_id = f.student_id
+            LEFT JOIN latest_dropout ld ON ld.student_id = f.student_id
+            WHERE f.section_id = :section_id
+        ), filtered AS (SELECT *, COUNT(*) OVER()::INTEGER AS total FROM evidence {risk_sql})
+        SELECT * FROM filtered
+        ORDER BY CASE risk_level WHEN 'high' THEN 1 WHEN 'watch' THEN 2 WHEN 'pending' THEN 3 ELSE 4 END,
+                 final_grade NULLS LAST, student_code
+        LIMIT :limit OFFSET :offset
+    """, params)
+    total = int(rows[0]["total"]) if rows else 0
+    items = [{key: value for key, value in row.items() if key != "total"} for row in rows]
+    warnings = [] if all(item.get("dropout_probability") is not None for item in items) else ["Một số sinh viên chưa có dự đoán dropout ML."]
+    return {"items": items, "pagination": {"total": total, "limit": limit, "offset": offset,
+            "has_more": offset + len(items) < total}, "data_status": "empty" if not items else "partial" if warnings else "ready",
+            "warnings": warnings}
+
+
 @router.get("/analytics/refresh-status")
 async def analytics_refresh_status(db: DBSession) -> dict:
     """Return the most recent DWH ETL run status."""
@@ -1694,6 +2636,7 @@ async def trigger_dropout_score(model_run_id: int) -> dict[str, int | str]:
         rows = await asyncio.to_thread(score_dropout_predictions, model_run_id)
     except (RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    _dashboard_cache.clear()
     return {"status": "completed", "rows_upserted": rows}
 
 
@@ -1708,7 +2651,9 @@ async def trigger_ml_score(model_run_id: int) -> dict[str, int | str]:
 async def trigger_course_risk_score() -> dict[str, int | str]:
     """Score course-failure risk for enrollments and aggregate expected credits."""
     try:
-        return await score_course_failure_predictions(aggregate=True)
+        result = await score_course_failure_predictions(aggregate=True)
+        _dashboard_cache.clear()
+        return result
     except RuntimeError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
