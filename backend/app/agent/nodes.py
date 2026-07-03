@@ -33,12 +33,13 @@ from app.agent.tools import (
     execute_sql_query,
     get_student_dropout_risk,
     lookup_student_by_code,
+    search_ctdt_program_info,
+    set_agent_tool_context,
 )
 from app.config import get_settings
 from app.eval.token_accumulator import record_llm_from_ai_message
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 # Re-export for callers that import from nodes (e.g. chat endpoint).
 __all__ = ["TOOLS", "MissingLLMCredentialsError", "route_after_router"]
@@ -49,21 +50,68 @@ _BASE_TOOLS = [
     calculate_student_clo_scores,
     lookup_student_by_code,
     get_student_dropout_risk,
+    search_ctdt_program_info,
 ]
 TOOLS = wrap_tools_with_timing(_BASE_TOOLS)
 
 
+def _ai_message_text(content: object) -> str:
+    """Normalize AIMessage content to plain text for output guardrails."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        chunks: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                chunks.append(block)
+            elif isinstance(block, dict) and block.get("type") == "text":
+                chunks.append(str(block.get("text", "")))
+        return "\n".join(part for part in chunks if part)
+    return str(content) if content is not None else ""
+
+
+def _apply_guardrails_to_message(response: AIMessage) -> None:
+    text = _ai_message_text(response.content)
+    if text:
+        response.content = apply_output_guardrails(text)
+
+
+def _record_llm_metrics(step: str, response: AIMessage, duration_ms: int) -> None:
+    """Record token metrics without letting telemetry failures drop the LLM reply."""
+    try:
+        record_llm_from_ai_message(step, response, duration_ms)
+    except Exception:
+        logger.warning("Failed to record %s LLM metrics", step, exc_info=True)
+
+
+def _resolve_llm_api_key(provider: str) -> str:
+    """Return provider API key; never read host env in test mode (self-hosted CI)."""
+    settings = get_settings()
+    if settings.app_env.strip().lower() in {"test", "testing"}:
+        return settings.llm_api_key.strip()
+    if provider == "gemini":
+        return (
+            settings.llm_api_key.strip()
+            or settings.gemini_api_key.strip()
+            or os.environ.get("GEMINI_API_KEY", "")
+            or os.environ.get("GOOGLE_API_KEY", "")
+        )
+    return (
+        settings.llm_api_key.strip()
+        or settings.openai_api_key.strip()
+        or os.environ.get("OPENAI_API_KEY", "")
+        or os.environ.get("OPENAI_ADMIN_KEY", "")
+    )
+
+
 def _build_openai_model(model_name: str, temperature: float) -> ChatOpenAI:
     """Build an OpenAI-compatible model with explicit credential checks."""
+    settings = get_settings()
     if not model_name.strip():
         raise MissingLLMCredentialsError(
             "Missing LLM model. Set LLM_MODEL, AGENT_ROUTER_MODEL, AGENT_CORE_MODEL, or CHAT_TITLE_MODEL."
         )
-    api_key = (
-        settings.llm_api_key
-        or os.environ.get("OPENAI_API_KEY")
-        or os.environ.get("OPENAI_ADMIN_KEY")
-    )
+    api_key = _resolve_llm_api_key("openai")
     if not api_key:
         raise MissingLLMCredentialsError(
             "Missing OpenAI credentials. Set OPENAI_API_KEY or LLM_API_KEY for the backend service."
@@ -81,6 +129,7 @@ def _build_openai_model(model_name: str, temperature: float) -> ChatOpenAI:
 
 def get_model(model_name: str, temperature: float = 0) -> BaseChatModel:
     """Build a ChatOpenAI or ChatGoogleGenerativeAI model."""
+    settings = get_settings()
     provider = settings.llm_provider.lower().strip()
     selected_model = model_name.strip() or settings.llm_model.strip()
     if not selected_model:
@@ -91,7 +140,7 @@ def get_model(model_name: str, temperature: float = 0) -> BaseChatModel:
         from langchain_google_genai import ChatGoogleGenerativeAI
 
         kwargs = {"model": selected_model, "temperature": temperature}
-        api_key = settings.llm_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        api_key = _resolve_llm_api_key("gemini")
         if api_key:
             kwargs["google_api_key"] = api_key
         return ChatGoogleGenerativeAI(**kwargs)
@@ -132,7 +181,7 @@ async def router_node(state: AgentState) -> dict:
     page_context = dict(state.get("context", {}))
 
     try:
-        llm = get_model(settings.agent_router_model, temperature=0)
+        llm = get_model(get_settings().agent_router_model, temperature=0)
 
         last_user_msg = messages[-1].content if messages else ""
         context_hint = ""
@@ -145,7 +194,7 @@ async def router_node(state: AgentState) -> dict:
 
         router_start = time.perf_counter()
         response = await llm.ainvoke(eval_messages)
-        record_llm_from_ai_message(
+        _record_llm_metrics(
             "router",
             response,
             int((time.perf_counter() - router_start) * 1000),
@@ -183,27 +232,31 @@ async def core_agent_node(state: AgentState) -> dict:
     """Core Agent that reasons and may call tools."""
 
     try:
-        llm = get_model(settings.agent_core_model, temperature=0.2)
+        llm = get_model(get_settings().agent_core_model, temperature=0.2)
         llm_with_tools = llm.bind_tools(TOOLS)
 
         messages = list(state.get("messages", []))
         page_context = state.get("context", {})
+        set_agent_tool_context(page_context)
         has_system = any(isinstance(message, SystemMessage) for message in messages)
         if not has_system:
             context_note = ""
             if page_context:
                 context_note = f"\n\nPage context:\n{page_context}"
+            # H64: inject memory context if available
+            memory_summary = page_context.get("memory_summary", "") if page_context else ""
+            if memory_summary:
+                context_note += f"\n{memory_summary}"
             messages = [SystemMessage(content=_core_system_prompt(page_context) + context_note), *messages]
 
         core_start = time.perf_counter()
         response = await llm_with_tools.ainvoke(messages)
-        record_llm_from_ai_message(
+        _record_llm_metrics(
             "core_agent",
             response,
             int((time.perf_counter() - core_start) * 1000),
         )
-        if isinstance(response.content, str) and response.content:
-            response.content = apply_output_guardrails(response.content)
+        _apply_guardrails_to_message(response)
 
         return {"messages": [response]}
     except MissingLLMCredentialsError:
@@ -220,7 +273,7 @@ async def core_agent_node(state: AgentState) -> dict:
 async def fast_response_node(state: AgentState) -> dict:
     """Answer simple queries using page context when available."""
     try:
-        llm = get_model(settings.agent_router_model, temperature=0.7)
+        llm = get_model(get_settings().agent_router_model, temperature=0.7)
 
         messages = state.get("messages", [])
         last_user_msg = messages[-1].content if messages else ""
@@ -228,6 +281,10 @@ async def fast_response_node(state: AgentState) -> dict:
         context_block = ""
         if page_context:
             context_block = f"\n\nNgữ cảnh trang hiện tại:\n{page_context}"
+        # H64: inject memory context if available
+        memory_summary = page_context.get("memory_summary", "") if page_context else ""
+        if memory_summary:
+            context_block += f"\n{memory_summary}"
         role_block = build_role_guardrail_block(page_context) if page_context else ""
 
         eval_messages = [
@@ -237,14 +294,15 @@ async def fast_response_node(state: AgentState) -> dict:
 
         fast_start = time.perf_counter()
         response = await llm.ainvoke(eval_messages)
-        record_llm_from_ai_message(
+        _record_llm_metrics(
             "fast_response",
             response,
             int((time.perf_counter() - fast_start) * 1000),
         )
-        if isinstance(response.content, str) and response.content:
-            response.content = apply_output_guardrails(response.content)
+        _apply_guardrails_to_message(response)
         return {"messages": [response]}
+    except MissingLLMCredentialsError:
+        raise
     except Exception:
         logger.exception("fast_response_node LLM call failed, using static fallback")
         fallback = AIMessage(content="Xin chào! Tôi là EduInsight AI. Bạn có thể hỏi tôi về thống kê học vụ.")

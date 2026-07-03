@@ -13,7 +13,6 @@ from app.access_control import (
     can_access_program,
     can_access_section,
     can_access_student,
-    get_teacher_for_user,
     user_department_ids,
 )
 from app.analytics.etl import refresh_dwh
@@ -25,12 +24,13 @@ from app.analytics.health_score import (
 )
 from app.config import get_settings
 from app.dependencies import CurrentUser, DBSession, require_admin_access
+from app.ml.course_risk import score_course_failure_predictions
 from app.ml.dropout import predict_dropout_risk_for_student, score_dropout_predictions, train_dropout_model
 from app.ml.dropout.score import DropoutModelNotFoundError, DropoutStudentNotFoundError
 from app.ml.dropout.types import DropoutRiskResult
 from app.ml.scoring import aggregate_student_semester_predictions
 from app.models.people import Student
-from app.models.teaching import Enrollment, Section
+from app.models.teaching import Enrollment
 
 router = APIRouter()
 
@@ -134,7 +134,7 @@ def _dashboard_cache_set(key: tuple, payload: dict) -> dict:
     return payload
 
 
-@router.get("/health", tags=["system"])
+@router.api_route("/health", methods=["GET", "HEAD"], tags=["system"])
 async def api_health_check() -> dict[str, str]:
     """Return service health (mirrors root /health, useful for load-balancer path-based checks)."""
     return {"status": "ok", "service": "eduinsight-backend", "version": settings.app_version}
@@ -279,9 +279,17 @@ async def _dashboard_meta(db: DBSession) -> dict:
     semesters = await _fetch_all(
         db,
         """
-        SELECT id, code, name, year, term
-        FROM semesters
-        ORDER BY year, term
+        SELECT
+            s.id,
+            s.code,
+            s.name,
+            s.year,
+            s.term,
+            COUNT(f.enrollment_id) FILTER (WHERE f.is_passed IS NOT NULL)::INTEGER AS completed_enrollments
+        FROM semesters s
+        LEFT JOIN dwh.fact_enrollment_outcome f ON f.semester_id = s.id
+        GROUP BY s.id, s.code, s.name, s.year, s.term
+        ORDER BY s.year, s.term
         """,
     )
     cohorts = await _fetch_all(
@@ -306,7 +314,9 @@ async def analytics_dashboard_overview(
 ) -> dict:
     """Return pre-aggregated school dashboard metrics from the DWH."""
     _require_dashboard_role(current_user)
-    cache_key = ("overview", semester_code, department_id, date_from, date_to)
+    if current_user.role.value == "manager":
+        department_id = await _scoped_department_filter(db, current_user, department_id)
+    cache_key = ("overview", current_user.role.value, current_user.id, semester_code, department_id, date_from, date_to)
     cached = _dashboard_cache_get(cache_key)
     if cached is not None:
         return cached
@@ -544,6 +554,9 @@ async def analytics_dashboard_overview(
     )
 
     meta = await _dashboard_meta(db)
+    if department_id is not None:
+        meta["departments"] = [item for item in meta["departments"] if item["id"] == department_id]
+        meta["programs"] = [item for item in meta["programs"] if item["department_id"] == department_id]
     return _dashboard_cache_set(cache_key, {
         **meta,
         "kpis": kpis,
@@ -1137,6 +1150,7 @@ async def _analytics_dashboard_courses_payload(
     date_to: str | None = None,
     section_ids: set[int] | None = None,
 ) -> dict:
+    min_course_sample_size = 20
     where_sql, params = _dashboard_filter_sql(
         semester_code=semester_code,
         department_id=department_id,
@@ -1144,11 +1158,20 @@ async def _analytics_dashboard_courses_payload(
         date_from=date_from,
         date_to=date_to,
     )
+    trend_where_sql, trend_params = _dashboard_filter_sql(
+        department_id=department_id,
+        program_id=program_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
     if course_id is not None:
         params["course_id"] = course_id
+        trend_params["course_id"] = course_id
+    params["min_course_sample_size"] = min_course_sample_size
 
     course_filter = "WHERE cb.course_id = :course_id" if course_id is not None else ""
     clo_where_sql = where_sql.replace("f.updated_at", "ca.updated_at")
+    trend_clo_where_sql = trend_where_sql.replace("f.updated_at", "ca.updated_at")
     if section_ids is not None:
         if section_ids:
             placeholders = []
@@ -1156,6 +1179,7 @@ async def _analytics_dashboard_courses_payload(
                 key = f"scope_section_{index}"
                 placeholders.append(f":{key}")
                 params[key] = section_id
+                trend_params[key] = section_id
             values = ", ".join(placeholders)
             enrollment_scope = f"f.section_id IN ({values})"
             clo_scope = f"ca.section_id IN ({values})"
@@ -1164,6 +1188,12 @@ async def _analytics_dashboard_courses_payload(
             clo_scope = "1 = 0"
         where_sql = f"{where_sql} AND {enrollment_scope}" if where_sql else f"WHERE {enrollment_scope}"
         clo_where_sql = f"{clo_where_sql} AND {clo_scope}" if clo_where_sql else f"WHERE {clo_scope}"
+        trend_where_sql = (
+            f"{trend_where_sql} AND {enrollment_scope}" if trend_where_sql else f"WHERE {enrollment_scope}"
+        )
+        trend_clo_where_sql = (
+            f"{trend_clo_where_sql} AND {clo_scope}" if trend_clo_where_sql else f"WHERE {clo_scope}"
+        )
     filtered_cte = f"""
         WITH filtered AS (
             SELECT f.*, ds.program_id, dp.department_id, dsem.code AS semester_code
@@ -1200,17 +1230,16 @@ async def _analytics_dashboard_courses_payload(
                 )::FLOAT AS pass_rate
             FROM filtered f
             GROUP BY f.course_id
+            HAVING COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL) > 0
         ),
         clo_base AS (
             SELECT
                 course_id,
-                COALESCE(
-                    ROUND(
-                        COUNT(*) FILTER (WHERE is_achieved IS TRUE)::DECIMAL
-                        / NULLIF(COUNT(*) FILTER (WHERE is_achieved IS NOT NULL), 0),
-                        4
-                    ),
-                    0
+                COUNT(*) FILTER (WHERE is_achieved IS NOT NULL)::INTEGER AS clo_evidence_count,
+                ROUND(
+                    COUNT(*) FILTER (WHERE is_achieved IS TRUE)::DECIMAL
+                    / NULLIF(COUNT(*) FILTER (WHERE is_achieved IS NOT NULL), 0),
+                    4
                 )::FLOAT AS clo_attainment_rate
             FROM filtered_clo
             GROUP BY course_id
@@ -1232,21 +1261,32 @@ async def _analytics_dashboard_courses_payload(
             cb.failed_count,
             cb.near_fail_count,
             cb.section_count,
-            COALESCE(clo.clo_attainment_rate, 0)::FLOAT AS clo_attainment_rate,
-            ROUND(
-                (
-                    (cb.avg_grade / 10.0 * 40)
-                    + (cb.pass_rate / 100.0 * 40)
-                    + (COALESCE(clo.clo_attainment_rate, 0) * 20)
-                )::NUMERIC,
-                1
-            )::FLOAT AS health_score
+            clo.clo_attainment_rate,
+            COALESCE(clo.clo_evidence_count, 0)::INTEGER AS clo_evidence_count,
+            CASE
+                WHEN cb.completed_enrollments < :min_course_sample_size THEN 'insufficient_sample'
+                WHEN COALESCE(clo.clo_evidence_count, 0) = 0 THEN 'missing_clo'
+                ELSE 'ready'
+            END AS data_status,
+            CASE
+                WHEN cb.completed_enrollments >= :min_course_sample_size
+                    AND COALESCE(clo.clo_evidence_count, 0) > 0
+                THEN ROUND(
+                    (
+                        (cb.avg_grade / 10.0 * 40)
+                        + (cb.pass_rate / 100.0 * 30)
+                        + (clo.clo_attainment_rate * 30)
+                    )::NUMERIC,
+                    1
+                )::FLOAT
+                ELSE NULL
+            END AS health_score
         FROM course_base cb
         JOIN dwh.dim_course dc ON dc.course_id = cb.course_id
         LEFT JOIN clo_base clo ON clo.course_id = cb.course_id
         {course_filter}
         ORDER BY health_score ASC, cb.failed_count DESC, cb.pass_rate ASC, dc.name
-        LIMIT 200
+        LIMIT 1000
         """,
         params,
     )
@@ -1280,15 +1320,27 @@ async def _analytics_dashboard_courses_payload(
                 COALESCE(MAX(section_count), 0)::INTEGER AS section_count,
                 COALESCE(MAX(failed_count), 0)::INTEGER AS failed_count,
                 COALESCE(MAX(near_fail_count), 0)::INTEGER AS near_fail_count,
-                COALESCE(MAX(clo.clo_attainment_rate), 0)::FLOAT AS clo_attainment_rate,
-                ROUND(
-                    (
-                        (COALESCE(MAX(avg_grade), 0) / 10.0 * 40)
-                        + (COALESCE(MAX(pass_rate), 0) / 100.0 * 40)
-                        + (COALESCE(MAX(clo.clo_attainment_rate), 0) * 20)
-                    )::NUMERIC,
-                    1
-                )::FLOAT AS health_score
+                MAX(clo.clo_attainment_rate)::FLOAT AS clo_attainment_rate,
+                COALESCE(MAX(clo.clo_evidence_count), 0)::INTEGER AS clo_evidence_count,
+                CASE
+                    WHEN COALESCE(MAX(completed_enrollments), 0) < :min_course_sample_size
+                        THEN 'insufficient_sample'
+                    WHEN COALESCE(MAX(clo.clo_evidence_count), 0) = 0 THEN 'missing_clo'
+                    ELSE 'ready'
+                END AS data_status,
+                CASE
+                    WHEN COALESCE(MAX(completed_enrollments), 0) >= :min_course_sample_size
+                        AND COALESCE(MAX(clo.clo_evidence_count), 0) > 0
+                    THEN ROUND(
+                        (
+                            (COALESCE(MAX(avg_grade), 0) / 10.0 * 40)
+                            + (COALESCE(MAX(pass_rate), 0) / 100.0 * 30)
+                            + (MAX(clo.clo_attainment_rate) * 30)
+                        )::NUMERIC,
+                        1
+                    )::FLOAT
+                    ELSE NULL
+                END AS health_score
             FROM course_base cb
             LEFT JOIN clo_base clo ON clo.course_id = cb.course_id
             {selected_where}
@@ -1305,7 +1357,7 @@ async def _analytics_dashboard_courses_payload(
                 JOIN dwh.dim_student ds ON ds.student_id = f.student_id
                 JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
                 JOIN dwh.dim_semester dsem ON dsem.semester_id = f.semester_id
-                {where_sql}
+                {trend_where_sql}
             )
             SELECT
                 dim_semester_id AS id,
@@ -1313,6 +1365,8 @@ async def _analytics_dashboard_courses_payload(
                 year,
                 term,
                 COUNT(*) FILTER (WHERE is_passed IS NOT NULL)::INTEGER AS count,
+                COUNT(*) FILTER (WHERE is_passed IS FALSE)::INTEGER AS failed_count,
+                COUNT(*) FILTER (WHERE final_grade >= 4 AND final_grade < 5)::INTEGER AS near_fail_count,
                 COALESCE(
                     ROUND(
                         COUNT(*) FILTER (WHERE is_passed IS TRUE)::DECIMAL
@@ -1326,6 +1380,63 @@ async def _analytics_dashboard_courses_payload(
             WHERE course_id = :course_id AND is_passed IS NOT NULL
             GROUP BY dim_semester_id, code, year, term
             ORDER BY year, term
+            """,
+            trend_params,
+        )
+
+        clo_trend = await _fetch_all(
+            db,
+            f"""
+            WITH filtered AS (
+                SELECT ca.*, dsem.code AS semester, dsem.year, dsem.term
+                FROM dwh.fact_clo_achievement ca
+                JOIN dwh.dim_student ds ON ds.student_id = ca.student_id
+                JOIN dwh.dim_program dp ON dp.program_id = ds.program_id
+                JOIN dwh.dim_semester dsem ON dsem.semester_id = ca.semester_id
+                {trend_clo_where_sql}
+            )
+            SELECT
+                c.id AS clo_id,
+                c.code AS clo_code,
+                c.name AS clo_name,
+                f.semester,
+                f.year,
+                f.term,
+                COUNT(f.is_achieved)::INTEGER AS evidence_count,
+                ROUND(
+                    COUNT(*) FILTER (WHERE f.is_achieved IS TRUE)::DECIMAL
+                    / NULLIF(COUNT(f.is_achieved), 0) * 100,
+                    1
+                )::FLOAT AS attainment_rate
+            FROM filtered f
+            JOIN clos c ON c.id = f.clo_id
+            WHERE f.course_id = :course_id AND c.is_active IS TRUE
+            GROUP BY c.id, c.code, c.name, c.sort_order, f.semester, f.year, f.term
+            ORDER BY c.sort_order, c.code, f.year, f.term
+            """,
+            trend_params,
+        )
+
+        clo_rows = await _fetch_all(
+            db,
+            f"""
+            {filtered_cte}
+            SELECT
+                c.id,
+                c.code,
+                c.name,
+                COUNT(fc.is_achieved)::INTEGER AS evidence_count,
+                ROUND(AVG(fc.achievement_score), 2)::FLOAT AS avg_score,
+                ROUND(
+                    COUNT(*) FILTER (WHERE fc.is_achieved IS TRUE)::DECIMAL
+                    / NULLIF(COUNT(fc.is_achieved), 0) * 100,
+                    1
+                )::FLOAT AS attainment_rate
+            FROM clos c
+            LEFT JOIN filtered_clo fc ON fc.clo_id = c.id AND fc.course_id = c.course_id
+            WHERE c.course_id = :course_id AND c.is_active IS TRUE
+            GROUP BY c.id, c.code, c.name, c.sort_order
+            ORDER BY c.sort_order, c.code
             """,
             params,
         )
@@ -1422,6 +1533,8 @@ async def _analytics_dashboard_courses_payload(
             "course": dict(course),
             "kpis": kpis,
             "trend": trend,
+            "clo_trend": clo_trend,
+            "clo_rows": clo_rows,
             "grade_distribution": grade_distribution,
             "section_rows": section_rows,
         }
@@ -1453,15 +1566,8 @@ async def analytics_dashboard_courses(
     date_to: str | None = None,
 ) -> dict:
     """Return DWH-backed aggregate metrics for course analytics."""
-    section_ids = None
     if _is_lecturer_role(current_user):
         department_id = await _scoped_department_filter(db, current_user, department_id)
-        teacher = await get_teacher_for_user(db, current_user)
-        section_ids = (
-            set((await db.execute(select(Section.id).where(Section.teacher_id == teacher.id))).scalars().all())
-            if teacher is not None
-            else set()
-        )
     elif current_user.role.value == "manager":
         department_id = await _scoped_department_filter(db, current_user, department_id)
     elif not _is_dashboard_role(current_user):
@@ -1479,7 +1585,6 @@ async def analytics_dashboard_courses(
         program_id=program_id,
         date_from=date_from,
         date_to=date_to,
-        section_ids=section_ids,
     )
     return _dashboard_cache_set(cache_key, payload)
 
@@ -1499,21 +1604,8 @@ async def analytics_dashboard_course_detail(
     if not (_is_dashboard_role(current_user) or _is_lecturer_role(current_user)):
         _require_dashboard_role(current_user)
     await _require_course_scope(db, current_user, course_id)
-    section_ids = None
     if _is_lecturer_role(current_user):
         department_id = await _scoped_department_filter(db, current_user, department_id)
-        teacher = await get_teacher_for_user(db, current_user)
-        section_ids = (
-            set(
-                (
-                    await db.execute(
-                        select(Section.id).where(Section.teacher_id == teacher.id, Section.course_id == course_id)
-                    )
-                ).scalars().all()
-            )
-            if teacher is not None
-            else set()
-        )
     elif current_user.role.value == "manager":
         department_id = await _scoped_department_filter(db, current_user, department_id)
     if program_id is not None:
@@ -1539,7 +1631,6 @@ async def analytics_dashboard_course_detail(
         program_id=program_id,
         date_from=date_from,
         date_to=date_to,
-        section_ids=section_ids,
     )
     return _dashboard_cache_set(cache_key, payload)
 
@@ -1611,6 +1702,15 @@ async def trigger_ml_score(model_run_id: int) -> dict[str, int | str]:
     """Batch-score all enrollments for a completed model run and aggregate per student-semester."""
     rows = await aggregate_student_semester_predictions(model_run_id)
     return {"status": "completed", "rows_upserted": rows}
+
+
+@router.post("/admin/ml/score-course-risk", dependencies=[Depends(require_admin_access)])
+async def trigger_course_risk_score() -> dict[str, int | str]:
+    """Score course-failure risk for enrollments and aggregate expected credits."""
+    try:
+        return await score_course_failure_predictions(aggregate=True)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
 
 @router.post("/admin/ml/aggregate/{model_run_id}", dependencies=[Depends(require_admin_access)])

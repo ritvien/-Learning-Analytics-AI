@@ -1,5 +1,14 @@
 # Worklog
 
+## 2026-07-01: Close H51 CTĐT RAG Q&A MVP
+- **Decision**: Integrated CTĐT pgvector retrieval into Universal Chat as `search_ctdt_program_info`, limited to the 3 MVP programs (CNTT, KHDL, TTNT) with citation file/page/section.
+- **Why**: Sprint 4 H51 blocks H61 eval expansion; CTĐT/CDR/PLO answers must be grounded in indexed PDF chunks and must not be mixed with personal grade/CLO/dropout logic.
+- **Changes**:
+  - Added LangGraph tool registration and prompt/router policy for CTĐT questions.
+  - Added deterministic alias/query program detection and unsupported-program refusal before retrieval.
+  - Added H51 story packet, walkthrough, updated Sprint4/AGENTS/handoff/RAG docs.
+  - Verified backend H51/H49/H59/H64/corpus regression bundle: 85 tests passed; integration smoke is present but skipped locally without DB/embedding key.
+
 ## 2026-06-06: Redesign Survey and Interview Questions
 - **Decision**: Removed the student branch from the survey (`Form.js`) and interview questions (`interview_questions.html`), focusing entirely on Lecturers and Managers.
 - **Why**: "Scope down sớm tốt hơn scope creep". Based on actual pain points (lack of data for program evaluation and accreditation) and to ensure the solution directly addresses the willingness to pay from the school management.

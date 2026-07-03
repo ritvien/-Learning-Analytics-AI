@@ -40,7 +40,7 @@ function canPrefetchRoute(route: string, role?: ApiUserRole | null) {
   if (route === "/manager/analytics/programs") return isManagementRole(role) || role === "lecturer"
   if (route === "/manager/analytics/courses") return isManagementRole(role) || role === "lecturer"
   if (route === "/manager/analytics/sections") return isManagementRole(role) || role === "lecturer"
-  if (route === "/manager/analytics/students") return role === "lecturer"
+  if (route === "/manager/analytics/students") return isManagementRole(role) || role === "lecturer"
   if (route.startsWith("/manager/analytics")) return isManagementRole(role)
   if (route === "/manager") return isReadRole(role)
   if (["/manager/teachers", "/manager/departments"].includes(route)) {

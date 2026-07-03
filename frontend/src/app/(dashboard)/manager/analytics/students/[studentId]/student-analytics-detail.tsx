@@ -8,10 +8,12 @@ import {
   Award,
   BookOpen,
   CheckCircle2,
+  Clock3,
   GraduationCap,
-  Mail,
   Phone,
   Search,
+  Send,
+  Sparkles,
   Target,
 } from "lucide-react"
 import {
@@ -32,9 +34,11 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
-import { api, type ApiHomeroomStudentAnalytics } from "@/lib/api"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { api, type ApiHomeroomStudentAnalytics, type ApiInterventionContact, type ApiStudentSupportProfile } from "@/lib/api"
 
 function riskPresentation(level: ApiHomeroomStudentAnalytics["risk"]["level"]) {
   if (level === "high") return { label: "Cần ưu tiên", className: "border-red-200 bg-red-50 text-red-700", icon: AlertTriangle }
@@ -60,6 +64,38 @@ function studentStatusLabel(value: string) {
   return labels[value.toLowerCase()] ?? value
 }
 
+function channelLabel(value: string) {
+  const labels: Record<string, string> = {
+    email: "Email",
+    phone: "Điện thoại",
+    meeting: "Hẹn gặp",
+    in_person: "Trao đổi trực tiếp",
+    other: "Khác",
+  }
+  return labels[value] ?? value
+}
+
+function statusLabel(value: string) {
+  const labels: Record<string, string> = {
+    drafted: "Bản nháp",
+    logged: "Đã ghi nhận",
+    emailed: "Đã gửi email",
+    failed: "Gửi lỗi",
+  }
+  return labels[value] ?? value
+}
+
+function toNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+function formatFixed(value: unknown, digits = 1) {
+  const numeric = toNumber(value)
+  return numeric === null ? "—" : numeric.toFixed(digits)
+}
+
 export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
   const [data, setData] = React.useState<ApiHomeroomStudentAnalytics | null>(null)
   const [loading, setLoading] = React.useState(true)
@@ -67,6 +103,16 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
   const [semesterFilter, setSemesterFilter] = React.useState("all")
   const [resultFilter, setResultFilter] = React.useState<"all" | "failed" | "passed">("all")
   const [query, setQuery] = React.useState("")
+  const [history, setHistory] = React.useState<ApiInterventionContact[]>([])
+  const [historyLoading, setHistoryLoading] = React.useState(false)
+  const [supportOpen, setSupportOpen] = React.useState(false)
+  const [supportChannel, setSupportChannel] = React.useState<"email" | "phone" | "meeting" | "in_person" | "other">("email")
+  const [supportStatus, setSupportStatus] = React.useState<"logged" | "emailed" | "drafted">("logged")
+  const [supportSubject, setSupportSubject] = React.useState("Trao đổi về kế hoạch hỗ trợ học tập")
+  const [supportMessage, setSupportMessage] = React.useState("")
+  const [supportNote, setSupportNote] = React.useState("")
+  const [supportBusy, setSupportBusy] = React.useState(false)
+  const [supportProfile, setSupportProfile] = React.useState<ApiStudentSupportProfile | null>(null)
 
   React.useEffect(() => {
     let active = true
@@ -86,10 +132,90 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
     }
   }, [studentId])
 
+  React.useEffect(() => {
+    if (!data?.profile.class_code) return
+    let active = true
+    setHistoryLoading(true)
+    api.getInterventionHistory(studentId, { class_code: data.profile.class_code })
+      .then((items) => {
+        if (active) setHistory(items)
+      })
+      .catch(() => {
+        if (active) setHistory([])
+      })
+      .finally(() => {
+        if (active) setHistoryLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [data?.profile.class_code, studentId])
+
+  React.useEffect(() => {
+    if (!data?.profile.class_code) return
+    let active = true
+    api.getStudentSupportProfile(studentId, { class_code: data.profile.class_code })
+      .then((profile) => {
+        if (active) setSupportProfile(profile)
+      })
+      .catch(() => {
+        if (active) setSupportProfile(null)
+      })
+    return () => {
+      active = false
+    }
+  }, [data?.profile.class_code, studentId])
+
   const semesters = React.useMemo(() => {
     if (!data) return []
     return [...new Set(data.course_results.map((row) => row.semester))]
   }, [data])
+
+  const refreshHistory = React.useCallback(async () => {
+    if (!data?.profile.class_code) return
+    const items = await api.getInterventionHistory(studentId, { class_code: data.profile.class_code })
+    setHistory(items)
+  }, [data?.profile.class_code, studentId])
+
+  const draftSupportMessage = React.useCallback(async () => {
+    if (!data?.profile.class_code) return
+    setSupportBusy(true)
+    try {
+      const draft = await api.draftInterventionMessage({
+        student_id: studentId,
+        class_code: data.profile.class_code,
+        channel: supportChannel,
+        tone: "supportive",
+      })
+      setSupportSubject(draft.subject)
+      setSupportMessage(draft.message)
+      setSupportNote(`AI gợi ý dựa trên: ${draft.reasons.join("; ") || "theo dõi định kỳ"}`)
+    } finally {
+      setSupportBusy(false)
+    }
+  }, [data?.profile.class_code, studentId, supportChannel])
+
+  const saveSupportContact = React.useCallback(async () => {
+    if (!data?.profile.class_code) return
+    setSupportBusy(true)
+    try {
+      await api.createInterventionContact({
+        student_id: studentId,
+        class_code: data.profile.class_code,
+        channel: supportChannel,
+        status: supportStatus,
+        subject: supportSubject || null,
+        message: supportMessage || null,
+        note: supportNote || null,
+        metadata: { source: "student_profile_support_panel" },
+      })
+      await refreshHistory()
+      setSupportOpen(false)
+      setSupportStatus("logged")
+    } finally {
+      setSupportBusy(false)
+    }
+  }, [data?.profile.class_code, refreshHistory, studentId, supportChannel, supportMessage, supportNote, supportStatus, supportSubject])
 
   const filteredResults = React.useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("vi")
@@ -133,6 +259,15 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
     && previousTrend?.gpa_semester !== null && previousTrend?.gpa_semester !== undefined
     ? latestTrend.gpa_semester - previousTrend.gpa_semester
     : null
+  const creditPrediction = supportProfile?.signals.credit_progress_prediction ?? null
+  const courseRiskItems = (supportProfile?.signals.course_predictions ?? [])
+    .filter((item) => item.fail_probability !== null)
+    .sort((a, b) => (toNumber(b.fail_probability) ?? 0) - (toNumber(a.fail_probability) ?? 0))
+    .slice(0, 3)
+  const weakCompetencies = [...data.competencies]
+    .filter((competency) => (competency.score ?? 10) < 7)
+    .sort((a, b) => (a.score ?? 10) - (b.score ?? 10))
+    .slice(0, 3)
 
   return (
     <div className="flex flex-col gap-6">
@@ -154,7 +289,6 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {profile.email ? <a href={`mailto:${profile.email}`} className={buttonVariants({ size: "sm", variant: "outline" })}><Mail className="mr-2 h-4 w-4" />Gửi email</a> : null}
           {profile.phone ? <a href={`tel:${profile.phone}`} className={buttonVariants({ size: "sm", variant: "outline" })}><Phone className="mr-2 h-4 w-4" />Liên hệ</a> : null}
         </div>
       </div>
@@ -178,6 +312,85 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <Card className="border-amber-200/70">
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <CardTitle className="text-base">Tín chỉ có nguy cơ kỳ này</CardTitle>
+                <CardDescription>Ước tính từ các tín hiệu học tập hiện có; chưa kết luận chậm tốt nghiệp.</CardDescription>
+              </div>
+              <Badge variant="outline">{creditPrediction ? creditPrediction.risk_level : "Chưa đủ dữ liệu"}</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-2 text-center text-sm">
+              <div className="rounded-lg bg-muted/40 p-3">
+                <p className="text-xs text-muted-foreground">Đăng ký</p>
+                <p className="mt-1 text-xl font-bold tabular-nums">{creditPrediction ? formatFixed(creditPrediction.registered_credits) : "—"}</p>
+              </div>
+              <div className="rounded-lg bg-muted/40 p-3">
+                <p className="text-xs text-muted-foreground">Dự kiến đạt</p>
+                <p className="mt-1 text-xl font-bold tabular-nums text-emerald-600">{creditPrediction ? formatFixed(creditPrediction.expected_passed_credits) : "—"}</p>
+              </div>
+              <div className="rounded-lg bg-muted/40 p-3">
+                <p className="text-xs text-muted-foreground">Có nguy cơ</p>
+                <p className="mt-1 text-xl font-bold tabular-nums text-orange-600">{creditPrediction ? formatFixed(creditPrediction.expected_failed_credits) : "—"}</p>
+              </div>
+            </div>
+            {courseRiskItems.length ? (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Học phần kéo rủi ro lên</p>
+                {courseRiskItems.map((item) => (
+                  <div key={item.enrollment_id} className="flex items-start justify-between gap-3 rounded-md border p-2 text-sm">
+                    <div>
+                      <p className="font-medium">{item.course_code} · {item.course_name}</p>
+                      <p className="text-xs text-muted-foreground">{item.explanation?.reasons?.slice(0, 2).join("; ") || "Tín hiệu course-risk theo quy tắc"}</p>
+                    </div>
+                    <Badge variant={(toNumber(item.fail_probability) ?? 0) >= 0.6 ? "destructive" : "outline"}>
+                      {Math.round((toNumber(item.fail_probability) ?? 0) * 100)}%
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-md bg-muted/30 p-3 text-sm text-muted-foreground">Chưa có học phần đang học đủ điểm thành phần để ước tính course-risk.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <CardTitle className="text-base">Năng lực cần chú ý</CardTitle>
+                <CardDescription>CLO/PLO giúp giải thích yếu ở đâu, không chỉ mức rủi ro tổng.</CardDescription>
+              </div>
+              <Badge variant="outline">Dữ liệu mô phỏng từ điểm</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {weakCompetencies.length ? weakCompetencies.map((competency) => (
+              <div key={competency.id} className="rounded-md border p-3">
+                <div className="flex items-start justify-between gap-3 text-sm">
+                  <div>
+                    <p className="font-semibold">{competency.code}</p>
+                    <p className="text-xs text-muted-foreground">{competency.name}</p>
+                  </div>
+                  <span className="font-semibold tabular-nums">{(competency.score ?? 0).toFixed(1)}/10</span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                  <div className={(competency.score ?? 0) >= 5 ? "h-full rounded-full bg-amber-500" : "h-full rounded-full bg-red-500"} style={{ width: `${Math.min(100, (competency.score ?? 0) * 10)}%` }} />
+                </div>
+                <p className="mt-1 text-[11px] text-muted-foreground">{competency.evidence_count} bằng chứng CLO · TB lớp {(competency.class_score ?? 0).toFixed(1)}</p>
+              </div>
+            )) : (
+              <p className="rounded-md bg-muted/30 p-3 text-sm text-muted-foreground">Chưa có CLO/PLO dưới ngưỡng hoặc chưa đủ dữ liệu mapping.</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
@@ -241,6 +454,133 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-primary/20">
+        <CardHeader>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base"><Sparkles className="h-4 w-4 text-primary" />Hỗ trợ học tập</CardTitle>
+              <CardDescription>Agent hỗ trợ soạn nội dung trao đổi; giảng viên xác nhận và lưu lịch sử can thiệp.</CardDescription>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setSupportOpen(true)
+                  void draftSupportMessage()
+                }}
+              >
+                <Sparkles className="mr-2 h-4 w-4" />AI soạn
+              </Button>
+              <Button size="sm" onClick={() => setSupportOpen(true)}>
+                <Send className="mr-2 h-4 w-4" />Ghi nhận liên hệ
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
+          <div className="rounded-lg border bg-muted/20 p-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tín hiệu dùng cho hỗ trợ</p>
+            {risk.reasons.length ? (
+              <ul className="space-y-2 text-sm">
+                {risk.reasons.slice(0, 4).map((reason) => (
+                  <li key={reason} className="flex gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                    <span>{reason}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">Chưa có cảnh báo lớn; có thể ghi nhận trao đổi định kỳ.</p>
+            )}
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lịch sử gần nhất</p>
+              <Badge variant="secondary">{history.length} lượt</Badge>
+            </div>
+            {historyLoading ? (
+              <p className="py-5 text-sm text-muted-foreground">Đang tải lịch sử...</p>
+            ) : history.length ? (
+              <div className="space-y-3">
+                {history.slice(0, 3).map((item) => (
+                  <div key={item.id} className="border-l-2 border-primary/40 pl-3 text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{channelLabel(item.channel)}</span>
+                      <Badge variant={item.status === "emailed" ? "secondary" : "outline"} className="text-[10px]">{statusLabel(item.status)}</Badge>
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-muted-foreground">{item.note || item.subject || item.message || "Đã ghi nhận trao đổi"}</p>
+                    <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground"><Clock3 className="h-3 w-3" />{new Date(item.created_at).toLocaleString("vi-VN")}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="py-5 text-sm text-muted-foreground">Chưa có lượt trao đổi nào được lưu.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={supportOpen} onOpenChange={setSupportOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Hỗ trợ học tập cho {profile.full_name}</DialogTitle>
+            <DialogDescription>Chỉnh nội dung trước khi lưu lịch sử hoặc ghi nhận email đã gửi.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-muted-foreground">Kênh liên hệ</p>
+                <Select value={supportChannel} onValueChange={(value) => setSupportChannel(value as typeof supportChannel)}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="email">Email</SelectItem>
+                    <SelectItem value="phone">Điện thoại</SelectItem>
+                    <SelectItem value="meeting">Hẹn gặp</SelectItem>
+                    <SelectItem value="in_person">Trao đổi trực tiếp</SelectItem>
+                    <SelectItem value="other">Khác</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-muted-foreground">Trạng thái lưu</p>
+                <Select value={supportStatus} onValueChange={(value) => setSupportStatus(value as typeof supportStatus)}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="logged">Đã ghi nhận</SelectItem>
+                    <SelectItem value="emailed">Đã gửi email</SelectItem>
+                    <SelectItem value="drafted">Lưu bản nháp</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-muted-foreground">Tiêu đề</p>
+              <Input value={supportSubject} onChange={(event) => setSupportSubject(event.target.value)} />
+            </div>
+            <div>
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-muted-foreground">Nội dung / email draft</p>
+                <Button type="button" variant="ghost" size="sm" onClick={draftSupportMessage} disabled={supportBusy}>
+                  <Sparkles className="mr-2 h-4 w-4" />Soạn lại
+                </Button>
+              </div>
+              <Textarea value={supportMessage} onChange={(event) => setSupportMessage(event.target.value)} rows={9} />
+            </div>
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-muted-foreground">Ghi chú nội bộ</p>
+              <Textarea value={supportNote} onChange={(event) => setSupportNote(event.target.value)} rows={3} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSupportOpen(false)} disabled={supportBusy}>Hủy</Button>
+            <Button onClick={saveSupportContact} disabled={supportBusy}>
+              <Send className="mr-2 h-4 w-4" />{supportBusy ? "Đang lưu..." : "Lưu lịch sử"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>

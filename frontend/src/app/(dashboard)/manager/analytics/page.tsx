@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { AlertTriangle, Award, BookOpen, CheckCircle2, GraduationCap, TrendingUp, Users } from "lucide-react"
+import { AlertTriangle, Award, BookOpen, CheckCircle2, GraduationCap, MessageSquare, TrendingUp, Users } from "lucide-react"
 import {
   Bar,
   BarChart,
@@ -23,7 +23,8 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
-import { api, type ApiDashboardOverview } from "@/lib/api"
+import { api, getCachedCurrentUser, type ApiDashboardOverview } from "@/lib/api"
+import { requestDashboardAgent, setDashboardAgentContext } from "@/lib/dashboard-agent-context"
 
 const bucketColors: Record<string, string> = {
   "Trượt nặng": "#ef4444",
@@ -49,6 +50,9 @@ function dateEndIso(value: string) {
 }
 
 export default function OverviewPage() {
+  const currentUser = React.useMemo(() => getCachedCurrentUser(), [])
+  const isScopedDepartmentManager = currentUser?.role === "manager" && currentUser.department_id !== null
+  const scopedDepartmentId = isScopedDepartmentManager ? String(currentUser.department_id) : null
   const [data, setData] = React.useState<ApiDashboardOverview | null>(null)
   const [trendRows, setTrendRows] = React.useState<ApiDashboardOverview["trend"]>([])
   const [semesterCode, setSemesterCode] = React.useState(() => {
@@ -57,7 +61,7 @@ export default function OverviewPage() {
     }
     return "all"
   })
-  const [departmentId, setDepartmentId] = React.useState("all")
+  const [departmentId, setDepartmentId] = React.useState(() => scopedDepartmentId ?? "all")
   const [dateFrom, setDateFrom] = React.useState("")
   const [dateTo, setDateTo] = React.useState("")
   const [loading, setLoading] = React.useState(true)
@@ -116,6 +120,12 @@ export default function OverviewPage() {
     }
   }, [semesterCode, departmentId, dateFrom, dateTo])
 
+  React.useEffect(() => {
+    if (scopedDepartmentId && departmentId !== scopedDepartmentId) {
+      setDepartmentId(scopedDepartmentId)
+    }
+  }, [departmentId, scopedDepartmentId])
+
   const heatSemesters = React.useMemo(() => {
     if (!data) return []
     const semMap = new Map(data.heatmap.map((row) => [row.semester_id, { id: row.semester_id, code: row.semester, year: row.year, term: row.term }]))
@@ -135,6 +145,97 @@ export default function OverviewPage() {
     }))
   }, [data, heatSemesters])
 
+  const semesterLabel = semesterCode === "all" ? "Tất cả học kỳ" : data?.semesters.find((item) => item.code === semesterCode)?.name ?? semesterCode
+  const departmentLabel = departmentId === "all" ? "Toàn trường" : data?.departments.find((item) => String(item.id) === departmentId)?.name ?? departmentId
+  const trendFirst = trendRows[0]
+  const trendLast = trendRows[trendRows.length - 1]
+  const passRateTrendDelta = trendFirst && trendLast ? +(trendLast.pass_rate - trendFirst.pass_rate).toFixed(1) : null
+  const weakDepartments = (data?.department_rows ?? [])
+    .filter((row) => row.pass_rate < 70)
+    .sort((a, b) => a.pass_rate - b.pass_rate)
+    .slice(0, 5)
+  const riskyPrograms = [...(data?.program_rows ?? [])]
+    .sort((a, b) => b.at_risk - a.at_risk || a.pass_rate - b.pass_rate)
+    .slice(0, 8)
+
+  React.useEffect(() => {
+    if (!data) return
+    setDashboardAgentContext({
+      source: "school_overview_dashboard",
+      route: "/manager/analytics",
+      dashboard_type: scopedDepartmentId ? "department_head_overview" : "school_overview",
+      scope: {
+        scope_type: scopedDepartmentId ? "department" : "school",
+        semester_code: semesterCode === "all" ? null : semesterCode,
+        department_id: departmentId === "all" ? null : Number(departmentId),
+      },
+      filters: {
+        semester: semesterLabel,
+        department: departmentLabel,
+        date_from: dateFrom || null,
+        date_to: dateTo || null,
+      },
+      visible_metrics: {
+        active_students: data.kpis.total_active_students,
+        program_count: data.kpis.program_count,
+        pass_rate: data.kpis.pass_rate,
+        average_grade: data.kpis.avg_grade,
+        risk_student_count: data.kpis.risk_student_count,
+        pass_rate_trend_delta_points: passRateTrendDelta,
+      },
+      alerts: [
+        passRateTrendDelta !== null && passRateTrendDelta < 0 ? `Pass rate giảm ${Math.abs(passRateTrendDelta)} điểm % theo chuỗi học kỳ đang hiển thị` : null,
+        ...weakDepartments.map((row) => `${row.name} có pass rate thấp (${row.pass_rate}%)`),
+        riskyPrograms.length ? `${riskyPrograms[0].name} có số SV có lượt trượt cao nhất (${riskyPrograms[0].at_risk})` : null,
+      ].filter((item): item is string => Boolean(item)),
+      selected_entities: {
+        semester: semesterLabel,
+        department: departmentLabel,
+      },
+      chart_summaries: {
+        pass_rate_trend: trendRows.map((row) => ({
+          semester: row.semester,
+          pass_rate: row.pass_rate,
+          average_grade: row.avg_grade,
+        })),
+        department_pass_rate: data.department_rows.map((row) => ({
+          department_id: row.id,
+          department_name: row.name,
+          pass_rate: row.pass_rate,
+        })),
+        cohort_pass_fail: data.cohort_rows.map((row) => ({
+          cohort: row.cohort,
+          pass_rate: row.pass_rate,
+          fail_rate: row.fail_rate,
+        })),
+        grade_distribution: data.grade_distribution.map((row) => ({
+          bucket: row.name,
+          count: row.value,
+        })),
+        heatmap_recent_semesters: heatRows.slice(0, 12).map((row) => ({
+          program_id: row.id,
+          program_name: row.name,
+          pass_rates: heatSemesters.map((semester, index) => ({
+            semester: semester.code,
+            pass_rate: row.cells[index],
+          })),
+        })),
+      },
+      rows_preview: riskyPrograms.map((row) => ({
+        program_id: row.id,
+        program_code: row.code,
+        program_name: row.name,
+        department: row.department,
+        active_students: row.active_students,
+        sections: row.sections,
+        pass_rate: row.pass_rate,
+        average_grade: row.avg_grade,
+        at_risk_students: row.at_risk,
+        worst_course: row.worst_course,
+      })),
+    })
+  }, [data, dateFrom, dateTo, departmentId, departmentLabel, heatRows, heatSemesters, passRateTrendDelta, riskyPrograms, scopedDepartmentId, semesterCode, semesterLabel, trendRows, weakDepartments])
+
   if (loading) {
     return <div className="flex h-80 items-center justify-center text-sm text-muted-foreground">Đang tải tổng quan từ DWH...</div>
   }
@@ -150,17 +251,24 @@ export default function OverviewPage() {
     { label: "Điểm TB", value: data.kpis.avg_grade.toFixed(2), icon: TrendingUp, color: "text-primary" },
     { label: "SV có lượt trượt", value: data.kpis.risk_student_count, icon: AlertTriangle, color: "text-red-500" },
   ]
-  const semesterLabel = semesterCode === "all" ? "Tất cả học kỳ" : data.semesters.find((item) => item.code === semesterCode)?.name ?? semesterCode
-  const departmentLabel = departmentId === "all" ? "Toàn trường" : data.departments.find((item) => String(item.id) === departmentId)?.name ?? departmentId
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Tổng quan toàn trường</h1>
-          <p className="text-sm text-muted-foreground">Dashboard tổng hợp dùng dữ liệu đã aggregate từ DWH, không tải raw enrollment về trình duyệt.</p>
+          <h1 className="text-2xl font-bold tracking-tight">{scopedDepartmentId ? "Tổng quan khoa phụ trách" : "Tổng quan toàn trường"}</h1>
+          <p className="text-sm text-muted-foreground">
+            {scopedDepartmentId ? "Dashboard trưởng khoa/quản lý khoa, tự giới hạn theo khoa được phân quyền." : "Dashboard tổng hợp dùng dữ liệu đã aggregate từ DWH, không tải raw enrollment về trình duyệt."}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => requestDashboardAgent("Phân tích biểu đồ xu hướng pass rate trên dashboard tổng quan hiện tại: xu hướng tăng/giảm, học kỳ bất thường, khoa/ngành cần chú ý và hành động đề xuất.")}
+            className="inline-flex h-10 items-center gap-2 rounded-md border bg-background px-3 text-sm font-medium hover:bg-muted"
+          >
+            <MessageSquare className="h-4 w-4" />Agent phân tích
+          </button>
           <Select value={semesterCode} onValueChange={(value) => {
             const nextVal = value ?? "all"
             setSemesterCode(nextVal)
@@ -174,10 +282,10 @@ export default function OverviewPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={departmentId} onValueChange={(value) => setDepartmentId(value ?? "all")}>
+          <Select value={departmentId} onValueChange={(value) => setDepartmentId(value ?? "all")} disabled={Boolean(scopedDepartmentId)}>
             <SelectTrigger className="w-64"><span className="truncate">{departmentLabel}</span></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Toàn trường</SelectItem>
+              {!scopedDepartmentId ? <SelectItem value="all">Toàn trường</SelectItem> : null}
               {data.departments.map((department) => (
                 <SelectItem key={department.id} value={String(department.id)}>{department.name}</SelectItem>
               ))}

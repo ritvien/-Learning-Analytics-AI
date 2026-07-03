@@ -5,17 +5,19 @@ Read this file first before changing code or docs in this repository.
 ## Read first (in order)
 
 1. [docs/README.md](docs/README.md) — documentation index and authority order
-2. [docs/07-Sprint-Planning/Sprint3.md](docs/07-Sprint-Planning/Sprint3.md) — active sprint, open tasks, Gate G3
+2. [docs/07-Sprint-Planning/Sprint4.md](docs/07-Sprint-Planning/Sprint4.md) — active sprint, open tasks, Demo Day final scope
 3. Task spec for your story (e.g. [H45-Plan.md](docs/07-Sprint-Planning/H45-Plan.md), [docs/07-Sprint-Planning/stories/](docs/07-Sprint-Planning/stories/))
 4. [docs/decisions/](docs/decisions/) — architecture decisions before schema/API changes
 
-### Sprint 3 status (28/06/2026)
+### Sprint 4 status (02/07/2026)
 
-| Closed | Open (deadline 28/06 23:59) |
+| Done | Open focus |
 |:-------|:----------------------------|
-| G3-1, G3-2, G3-3, G3-5 · T52a–d · H40/H52 · T53 · V41/V42/V20 | **G3-4** (H44 + **V34/V35** — Hưng) · **V43** · H54/H55 · V45/V46 |
+| S3 carry closed · H59 · H49 · H62 · H63 · D58 · **H64** · **H51** · **D59** | H61 · H60/D60/D61 · D56/D57/D63 · T55/T56/T57/T58 · VUX/V56/V47 |
 
-**Eval (G3-2):** 6-metric framework + 35 TC docs on `hoang`. Cost measured in code (smoke OK); batch artifact pending re-run after backend restart — [docs/12-Evaluation/README.md](docs/12-Evaluation/README.md).
+**Production:** Live URL [c2-app-056.vercel.app](https://c2-app-056.vercel.app) · smoke pass · evidence [d59-deployment-evidence.md](docs/21-Release-Readiness/d59-deployment-evidence.md).
+
+**Eval / observability:** H59/D58 LangSmith tracing done; H64 memory/cache done; H51 CTĐT RAG Q&A MVP done; H61 expands eval after H51/T55e. Reference: [docs/07-Sprint-Planning/Sprint4.md](docs/07-Sprint-Planning/Sprint4.md).
 
 Handoff snapshot: [.cursor/session-handoff.md](.cursor/session-handoff.md). UX polish backlog (non-blocking): [docs/22-UX-Simplification-Review/README.md](docs/22-UX-Simplification-Review/README.md).
 
@@ -36,7 +38,7 @@ When documents conflict, prefer (highest first):
 DatabaseModernizationPlan / ML_DWH_Architecture
 → PRD
 → SystemArchitecture
-→ Active sprint (Sprint3.md)
+→ Active sprint (Sprint4.md)
 → Reference or historical docs
 ```
 

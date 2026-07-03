@@ -90,7 +90,7 @@ app.middleware("http")(observability_middleware)
 app.include_router(api_router, prefix="/api/v1")
 
 
-@app.get("/health", tags=["system"])
+@app.api_route("/health", methods=["GET", "HEAD"], tags=["system"])
 async def health_check() -> dict[str, str]:
     """Return basic service health status."""
     return {"status": "ok", "service": "eduinsight-backend", "version": settings.app_version}

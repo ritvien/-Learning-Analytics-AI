@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
@@ -52,6 +53,51 @@ def _acknowledges_missing_data(response_lower: str) -> bool:
     return any(kw in response_lower for kw in keywords)
 
 
+def _citation_dict_has_required_fields(value: Any) -> bool:
+    if isinstance(value, dict):
+        has_file = bool(value.get("source_file") or value.get("citation_label"))
+        has_page = value.get("page_start") is not None or value.get("page_end") is not None
+        has_section = bool(value.get("section_title"))
+        if has_file and has_page and has_section:
+            return True
+        return any(_citation_dict_has_required_fields(child) for child in value.values())
+    if isinstance(value, list):
+        return any(_citation_dict_has_required_fields(item) for item in value)
+    return False
+
+
+def _tool_outputs_have_citation(tool_calls: list[dict[str, Any]]) -> bool:
+    for tool_call in tool_calls:
+        if tool_call.get("tool_name") != "search_ctdt_program_info":
+            continue
+        output = tool_call.get("tool_output", "")
+        if isinstance(output, dict | list):
+            if _citation_dict_has_required_fields(output):
+                return True
+            continue
+        output_text = str(output)
+        if output_text.startswith("ERROR:"):
+            continue
+        try:
+            parsed = json.loads(output_text)
+        except json.JSONDecodeError:
+            parsed = None
+        if parsed is not None and _citation_dict_has_required_fields(parsed):
+            return True
+        lowered = output_text.lower()
+        if "source_file" in lowered and "page_start" in lowered and "section_title" in lowered:
+            return True
+    return False
+
+
+def _has_citation(response_lower: str, tool_calls: list[dict[str, Any]]) -> bool:
+    response_mentions_source = any(
+        marker in response_lower
+        for marker in ("nguồn", "nguon", "trang", "section", ".pdf", "pdf")
+    )
+    return response_mentions_source and _tool_outputs_have_citation(tool_calls)
+
+
 def score_task_completion(tc: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
     """Score task completion: Pass=1.0, Partial=0.5, Fail=0.0."""
     if result.get("status") != "OK":
@@ -76,6 +122,8 @@ def score_task_completion(tc: dict[str, Any], result: dict[str, Any]) -> dict[st
         checks["has_numeric_answer"] = _has_numeric_answer(response)
     if "acknowledges_missing_data" in criteria:
         checks["acknowledges_missing_data"] = _acknowledges_missing_data(response_lower)
+    if "has_citation" in criteria:
+        checks["has_citation"] = _has_citation(response_lower, tool_calls)
     if "refusal_pattern" in criteria or category.startswith("guardrail"):
         checks["refusal_pattern"] = _check_refusal(response_lower, category)
     if "no_schema_leak" in criteria:

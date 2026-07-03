@@ -50,6 +50,7 @@ const data: { navMain: { title: string; items: NavItem[] }[] } = {
         { title: "Cơ cấu đào tạo", url: "/manager", icon: LayoutDashboard, roles: STRUCTURE_ROLES },
         { title: "Môn học", url: "/manager/analytics/courses", icon: BookOpen, roles: STAFF_ROLES },
         { title: "Lớp học phần", url: "/manager/analytics/sections", icon: FileText, roles: STAFF_ROLES },
+        { title: "Lớp cố vấn", url: "/manager/analytics/students", icon: UserRound, roles: STAFF_ROLES },
       ],
     },
     {

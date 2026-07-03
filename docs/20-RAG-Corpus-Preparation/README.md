@@ -1,5 +1,7 @@
 # T49 - RAG Corpus Preparation TODO
 
+> **Sprint 4 pivot:** CTĐT PDF RAG is implemented via **H62 → H63 → H51** in [`ctdt/README.md`](ctdt/README.md). The T49 generic docs corpus below remains legacy backlog.
+
 > Scope: tong hop, lam sach, phan loai, gan access scope va tao manifest tai lieu de ban giao cho `H51 - RAG Retrieval Integration`.
 > Status: TODO / chua co corpus hoan chinh. Repo hien da co nhieu tai lieu nguon rai rac trong `docs/`, nhung chua co manifest, chua chuan hoa chunk, chua gan access scope.
 
@@ -256,4 +258,4 @@ Thu tu nen lam truoc:
 - [ ] Moi document co access scope va citation label.
 - [ ] Khong dua secret/PII/raw student data vao corpus.
 - [ ] Co 5 cau smoke test voi expected citation.
-- [ ] Hoang co the dung corpus de lam `H51` ma khong phai doan source nao dung/source nao bo.
+- [x] Sprint 4 pivot: Hoang da dung CTDT corpus rieng trong `ctdt/` de lam `H51`; T49 generic corpus van la backlog rieng.

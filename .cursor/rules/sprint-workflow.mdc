@@ -1,12 +1,12 @@
 ---
-description: Sprint 3 task workflow and branch conventions
+description: Sprint 4 task workflow and branch conventions
 globs: docs/07-Sprint-Planning/**
 alwaysApply: false
 ---
 
 # Sprint Workflow
 
-Active sprint: [Sprint3.md](../../docs/07-Sprint-Planning/Sprint3.md)
+Active sprint: [Sprint4.md](../../docs/07-Sprint-Planning/Sprint4.md)
 
 ## Task ownership
 
@@ -15,12 +15,11 @@ Active sprint: [Sprint3.md](../../docs/07-Sprint-Planning/Sprint3.md)
 | `H*` | Hoàng |
 | `T*` | Hưng |
 | `V*` | Hiếu |
-
-**Exception (Sprint 3):** `T52a–d` → **Hoàng** · `V34`, `V35` → **Hưng** — see [Sprint3.md](../../docs/07-Sprint-Planning/Sprint3.md).
+| `D*` | Deliverable BTC (owner per Sprint4 row) |
 
 ## Before starting a task
 
-1. Check task status and dependencies in Sprint3.md
+1. Check task status and dependencies in Sprint4.md
 2. Read story packet if exists: `docs/07-Sprint-Planning/stories/<TASK-ID>.md`
 3. Confirm "Do not touch" scope — avoid cross-owner conflicts
 
@@ -31,16 +30,13 @@ Active sprint: [Sprint3.md](../../docs/07-Sprint-Planning/Sprint3.md)
 
 ## Done criteria
 
-- Copy "Done when" from Sprint3.md or story packet
+- Copy "Done when" from Sprint4.md or story packet
 - Run verify command listed in story packet
-- Update task checkbox in Sprint3.md when complete
+- Update task checkbox in Sprint4.md when complete
 
-## Gate G3 priority (carry-over after 25/06)
+## Sprint 4 priority (Demo Day 05/07)
 
-G3-1, G3-2, G3-3, G3-5 are closed. Remaining sprint focus:
-
-- **G3-4:** H44 + V34 + V35 (+ V37 polish)
-- **V20:** dropout risk UI (T52d API ready)
-- **V43:** observability UI (T53 API ready)
-
-P2 carry to Sprint 4: `H49–H51`, `T49`, `H30`, `V18–V23`.
+- **D59:** done — Live URL [evidence](../../docs/21-Release-Readiness/d59-deployment-evidence.md)
+- **H61 → V47 → H60 → D60/D61:** eval evidence
+- **D56 → T58a → T58b:** README + slide + rehearsal
+- **V56, VUX-3:** frontend demo polish

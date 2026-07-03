@@ -4,5 +4,5 @@
 __pycache__/
 *.pyc
 *.db
-db/
+# db/ must ship in the image for production seed (init-data.sql, seed-academic-v2.json.gz)
 

@@ -9,10 +9,9 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.access_control import is_admin, user_department_ids
 from app.dependencies import CurrentUser, DBSession
-from app.models.academic import Course, Department, Program, Specialization, program_courses
-from app.models.people import Student, UserRole
+from app.models.academic import Course, Department, Program, Specialization
+from app.models.people import Student
 from app.models.teaching import Enrollment, Section
 
 router = APIRouter()
@@ -24,8 +23,7 @@ _TREE_CACHE: dict[str, tuple[float, TreeNode]] = {}
 
 
 def _tree_cache_key(current_user: CurrentUser) -> str:
-    role = getattr(current_user.role, "value", current_user.role)
-    return f"{current_user.id}:{role}"
+    return f"institution_overview:{current_user.id}"
 
 
 def _get_cached_tree(current_user: CurrentUser) -> TreeNode | None:
@@ -83,22 +81,7 @@ def _metrics(students: list[Student], enrollments: list[Enrollment], courses: li
 
 
 async def _load_visible_tree_data(db: DBSession, current_user: CurrentUser) -> dict[str, list[Any]]:
-    department_scope = set[int]()
-    # Academic structure and roll-up metrics are an institution-wide overview for lecturers.
-    # Student/course detail endpoints remain protected by their own row-level scope.
-    if not is_admin(current_user) and current_user.role != UserRole.lecturer:
-        department_scope = await user_department_ids(db, current_user)
-        if not department_scope:
-            return {
-                "departments": [],
-                "programs": [],
-                "specializations": [],
-                "courses": [],
-                "students": [],
-                "sections": [],
-                "enrollments": [],
-            }
-
+    _ = current_user
     department_query = select(Department).where(Department.is_active == True)  # noqa: E712
     program_query = select(Program).where(Program.is_active == True)  # noqa: E712
     specialization_query = (
@@ -107,20 +90,6 @@ async def _load_visible_tree_data(db: DBSession, current_user: CurrentUser) -> d
         .where(Specialization.is_active == True)  # noqa: E712
     )
     course_query = select(Course).options(selectinload(Course.programs)).where(Course.is_active == True)  # noqa: E712
-
-    if department_scope:
-        department_query = department_query.where(Department.id.in_(department_scope))
-        program_query = program_query.where(Program.department_id.in_(department_scope))
-        specialization_query = specialization_query.join(
-            Program,
-            Program.id == Specialization.program_id,
-        ).where(Program.department_id.in_(department_scope))
-        course_query = (
-            course_query.join(program_courses, program_courses.c.course_id == Course.id)
-            .join(Program, Program.id == program_courses.c.program_id)
-            .where(Program.department_id.in_(department_scope))
-            .distinct()
-        )
 
     departments = list((await db.execute(department_query.order_by(Department.name))).scalars().all())
     programs = list((await db.execute(program_query.order_by(Program.name))).scalars().all())

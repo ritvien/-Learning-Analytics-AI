@@ -14,12 +14,13 @@ Trang này giúp team biết tài liệu nào là nguồn chuẩn hiện tại, 
 | Backend progress (Hưng) | [Hung/README.md](./09-Materials/Hung/README.md) |
 | Kiến trúc tổng thể | [SystemArchitecture.md](./10-References/SystemArchitecture.md) |
 | Setup, pull, reset và migration | [ProjectSetup.md](./10-References/ProjectSetup.md) |
-| Kế hoạch thực thi hiện tại | [Sprint3.md](./07-Sprint-Planning/Sprint3.md) — snapshot trạng thái 26/06 |
+| Kế hoạch thực thi hiện tại | [Sprint4.md](./07-Sprint-Planning/Sprint4.md) — Demo Day final + chất lượng sản phẩm, cập nhật 02/07 (D59 live) |
+| Production deploy evidence | [d59-deployment-evidence.md](./21-Release-Readiness/d59-deployment-evidence.md) — Live URL + UptimeRobot |
 | Agent handoff (session) | [.cursor/session-handoff.md](../.cursor/session-handoff.md) |
 | UX simplification review | [README.md](./22-UX-Simplification-Review/README.md) — P0 polish backlog |
 | Contract Academic Tree 3-tier | [H45-Plan.md](./07-Sprint-Planning/H45-Plan.md) |
 | User Behavior Observability | [README.md](./19-User-Behavior-Observability/README.md) |
-| RAG Corpus Preparation TODO | [README.md](./20-RAG-Corpus-Preparation/README.md) |
+| CTĐT RAG corpus + H51 agent handoff | [ctdt/README.md](./20-RAG-Corpus-Preparation/ctdt/README.md), [H51.md](./07-Sprint-Planning/stories/H51.md) |
 | System Refinement Review | [README.md](./25-System-Refinement-Review/README.md) |
 
 Khi có mâu thuẫn giữa tài liệu, ưu tiên theo thứ tự:

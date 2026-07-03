@@ -6,6 +6,12 @@ import { MessageSquare, X, Send, Bot, User, Maximize2, Loader2 } from "lucide-re
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { api, chatStreamV2, getReportBuildContext, resolveChatHandoffRoute, type ApiReportBuildPlan } from "@/lib/api"
+import {
+  DASHBOARD_AGENT_CONTEXT_EVENT,
+  DASHBOARD_AGENT_PROMPT_EVENT,
+  getDashboardAgentContext,
+  type DashboardAgentContext,
+} from "@/lib/dashboard-agent-context"
 
 interface Message {
   id: string
@@ -17,6 +23,33 @@ interface Message {
   reportPlan?: ApiReportBuildPlan & { reportUrl?: string }
   reportUrl?: string
   reportChoices?: boolean
+}
+
+type ReportScopeSelection = {
+  id: string
+  label: string
+  scopeType: string
+}
+
+function reportScopeLabel(scopeType: string) {
+  return {
+    department: "khoa",
+    program: "ngành",
+    course: "môn học",
+    section: "lớp học phần",
+  }[scopeType] ?? "phạm vi"
+}
+
+function reportScopeOptions(value: unknown, fallbackScopeType: string): ReportScopeSelection[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return []
+    const option = item as Record<string, unknown>
+    const id = typeof option.id === "string" ? option.id : ""
+    const label = typeof option.label === "string" ? option.label : ""
+    const scopeType = typeof option.scope_type === "string" ? option.scope_type : fallbackScopeType
+    return id && label && scopeType ? [{ id, label, scopeType }] : []
+  })
 }
 
 function cleanAssistantText(value: string) {
@@ -88,6 +121,23 @@ function AssistantMessageContent({ content }: { content: string }) {
 function mentionsReport(message: string) {
   const normalized = message.toLowerCase()
   return normalized.includes("báo cáo") || normalized.includes("bao cao") || normalized.includes("report")
+}
+
+function normalizeText(value: string) {
+  return value.toLocaleLowerCase("vi-VN").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+}
+
+function isReportPermissionQuestion(value: string) {
+  const ascii = normalizeText(value)
+  return [
+    "toi co quyen gi",
+    "quyen cua toi",
+    "quyen bao cao",
+    "duoc tao bao cao nao",
+    "duoc xem bao cao nao",
+    "toi tao duoc bao cao nao",
+    "tai khoan nay co quyen gi",
+  ].some((term) => ascii.includes(term))
 }
 
 function isReportBuildRequest(message: string) {
@@ -165,11 +215,26 @@ function GlobalChatWindow({
   const [reportIntakeActive, setReportIntakeActive] = React.useState(false)
   const [reportIntakeMode, setReportIntakeMode] = React.useState<"template" | "custom">("template")
   const [reportRequest, setReportRequest] = React.useState("")
+  const [reportBuildSessionId, setReportBuildSessionId] = React.useState<string | undefined>()
+  const [dashboardContext, setDashboardContext] = React.useState<DashboardAgentContext | null>(null)
   
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
-  const abortControllerRef = React.useRef<AbortController | null>(null)
   const wrapperRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    setDashboardContext(getDashboardAgentContext(pathname))
+
+    const handleContext = (event: Event) => {
+      const detail = (event as CustomEvent<DashboardAgentContext>).detail
+      if (detail?.route === pathname || pathname.startsWith(`${detail?.route}/`) || detail?.route?.startsWith(`${pathname}/`)) {
+        setDashboardContext(detail)
+      }
+    }
+
+    window.addEventListener(DASHBOARD_AGENT_CONTEXT_EVENT, handleContext)
+    return () => window.removeEventListener(DASHBOARD_AGENT_CONTEXT_EVENT, handleContext)
+  }, [pathname])
 
   // ── Drag state ────────────────────────────────────────────────────
   const [pos, setPos] = React.useState<{ x: number; y: number } | null>(null)
@@ -238,12 +303,13 @@ function GlobalChatWindow({
   // ─────────────────────────────────────────────────────────────────
 
   React.useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    const scrollEl = scrollRef.current
+    if (scrollEl) {
+      scrollEl.scrollTop = scrollEl.scrollHeight
     }
   }, [messages, isOpen])
 
-  async function sendMessage(text: string) {
+  async function sendMessage(text: string, scopeSelection?: ReportScopeSelection) {
     if (!text.trim() || isLoading) return
 
     const userMsg: Message = {
@@ -256,6 +322,40 @@ function GlobalChatWindow({
     setMessages(prev => [...prev, userMsg])
     setInput("")
     setIsLoading(true)
+
+    if (isReportPermissionQuestion(text)) {
+      const assistantMsgId = `report-permission-${Date.now()}`
+      try {
+        const plan = await api.planReportBuild({
+          message: text.trim(),
+          context: {
+            ...reportBuildContext(pathname),
+            source: "global_chat",
+          },
+        })
+        setMessages(prev => [...prev, {
+          id: assistantMsgId,
+          role: "assistant",
+          content: plan.message,
+          timestamp: new Date(),
+        }])
+        setReportIntakeActive(false)
+        setReportIntakeMode("template")
+        setReportRequest("")
+        setReportBuildSessionId(undefined)
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Không kiểm tra được quyền báo cáo"
+        setMessages(prev => [...prev, {
+          id: assistantMsgId,
+          role: "assistant",
+          content: `Không kiểm tra được quyền báo cáo lúc này. Chi tiết: ${message}`,
+          timestamp: new Date(),
+        }])
+      } finally {
+        setIsLoading(false)
+      }
+      return
+    }
 
     if (isReportCustomizationRequest(text) && !reportIntakeActive) {
       setMessages(prev => [...prev, {
@@ -288,14 +388,26 @@ function GlobalChatWindow({
 
     if (isReportBuildRequest(text) || reportIntakeActive) {
       const assistantMsgId = `report-plan-${Date.now()}`
-      const planMessage = reportIntakeActive
+      const planMessage = reportBuildSessionId
+        ? text.trim()
+        : reportIntakeActive
         ? `${reportRequest}\nThông tin bổ sung: ${text.trim()}`
         : text.trim()
       try {
         const plan = await api.planReportBuild({
           message: planMessage,
+          session_id: reportBuildSessionId,
           context: {
             ...reportBuildContext(pathname),
+            ...(scopeSelection
+              ? {
+                  scope: {
+                    scope_type: scopeSelection.scopeType,
+                    scope_id: scopeSelection.id,
+                    scope_label: scopeSelection.label,
+                  },
+                }
+              : {}),
             ...(reportIntakeMode === "custom" ? { custom_request: planMessage } : {}),
           },
         })
@@ -306,9 +418,17 @@ function GlobalChatWindow({
           timestamp: new Date(),
           reportPlan: plan,
         }])
-        setReportIntakeActive(false)
-        setReportIntakeMode("template")
-        setReportRequest("")
+        setReportBuildSessionId(plan.session_id)
+        const status = String(plan.data_quality?.status ?? "")
+        if (plan.action_id || status === "blocked" || status === "permission_info") {
+          setReportIntakeActive(false)
+          setReportIntakeMode("template")
+          setReportRequest("")
+          if (plan.action_id) setReportBuildSessionId(undefined)
+        } else {
+          setReportIntakeActive(true)
+          setReportRequest(reportRequest || planMessage)
+        }
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : "Không thể chuẩn bị báo cáo"
         setMessages(prev => [...prev, {
@@ -334,7 +454,6 @@ function GlobalChatWindow({
     }])
 
     const controller = new AbortController()
-    abortControllerRef.current = controller
 
     try {
       let fullContent = ""
@@ -343,8 +462,21 @@ function GlobalChatWindow({
 
       let handoffHandled = false
 
+      const activeDashboardContext = getDashboardAgentContext(pathname) ?? dashboardContext
+
       for await (const event of chatStreamV2(
-        { message: text.trim(), thread_id: currentSessionId },
+        {
+          message: text.trim(),
+          thread_id: currentSessionId,
+          context: activeDashboardContext
+            ? {
+                source: "global_chat",
+                dashboard_context: activeDashboardContext,
+                scope: activeDashboardContext.scope,
+                filters: activeDashboardContext.filters,
+              }
+            : { source: "global_chat" },
+        },
         controller.signal,
       )) {
         switch (event.type) {
@@ -367,6 +499,15 @@ function GlobalChatWindow({
 
           case "route_decision":
             if (event.route_decision.mode === "full_chat") {
+              if (activeDashboardContext) {
+                setMessages(prev => prev.map(m =>
+                  m.id === assistantMsgId ? {
+                    ...m,
+                    statuses: [...(m.statuses || []), "Giữ phân tích tại dashboard hiện tại vì đã có ngữ cảnh màn hình"]
+                  } : m
+                ))
+                break
+              }
               handoffHandled = true
               setMessages(prev => prev.map(m =>
                 m.id === assistantMsgId ? { 
@@ -443,6 +584,20 @@ function GlobalChatWindow({
       setIsLoading(false)
     }
   }
+
+  React.useEffect(() => {
+    const handlePrompt = (event: Event) => {
+      const prompt = (event as CustomEvent<{ prompt?: string }>).detail?.prompt
+      if (!prompt) return
+      setIsOpen(true)
+      void sendMessage(prompt)
+    }
+
+    window.addEventListener(DASHBOARD_AGENT_PROMPT_EVENT, handlePrompt)
+    return () => window.removeEventListener(DASHBOARD_AGENT_PROMPT_EVENT, handlePrompt)
+    // sendMessage intentionally closes over the current chat state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, activeSessionId, pathname, dashboardContext])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -579,7 +734,37 @@ function GlobalChatWindow({
                           </div>
                         )}
                         <AssistantMessageContent content={msg.content || (msg.isStreaming ? "Đang trả lời..." : "")} />
-                        {msg.reportPlan ? (
+                        {msg.reportPlan && !["blocked", "permission_info"].includes(String(msg.reportPlan.data_quality?.status ?? "")) ? (() => {
+                          const scopeType = typeof msg.reportPlan.definition.scope_type === "string"
+                            ? msg.reportPlan.definition.scope_type
+                            : ""
+                          const scopeLabel = reportScopeLabel(scopeType)
+                          const scopeOptions = reportScopeOptions(msg.reportPlan.definition.scope_options, scopeType)
+                          if (scopeOptions.length > 0) {
+                            return (
+                              <div className="mt-3 space-y-2 rounded-md border bg-background/70 p-2 text-[11px] text-foreground">
+                                <p className="font-semibold">Chọn {scopeLabel}</p>
+                                <div className="grid gap-1.5">
+                                  {scopeOptions.map((option) => (
+                                    <Button
+                                      key={option.id}
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-auto min-h-8 justify-start whitespace-normal px-2 py-1.5 text-left text-[11px]"
+                                      disabled={isLoading}
+                                      onClick={() => void sendMessage(
+                                        `Chọn ${reportScopeLabel(option.scopeType)} ${option.label}`,
+                                        option,
+                                      )}
+                                    >
+                                      {option.label}
+                                    </Button>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          }
+                          return (
                           <div className="mt-3 space-y-2 rounded-md border bg-background/70 p-2 text-[11px] text-foreground">
                             <div className="font-semibold">Bản nháp báo cáo</div>
                             <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-muted-foreground">
@@ -597,7 +782,8 @@ function GlobalChatWindow({
                               <Button size="sm" className="w-full" onClick={() => void confirmReportPlan(msg.id, msg.reportPlan!)} disabled={isLoading}>Xác nhận tạo snapshot</Button>
                             ) : null}
                           </div>
-                        ) : null}
+                          )
+                        })() : null}
                         {msg.reportUrl ? <a href={msg.reportUrl} className="mt-2 block font-medium text-primary underline underline-offset-2">Mở báo cáo vừa tạo</a> : null}
                         {msg.reportChoices ? (
                           <div className="mt-3 grid gap-2">

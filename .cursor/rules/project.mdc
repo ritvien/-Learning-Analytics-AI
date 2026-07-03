@@ -11,7 +11,7 @@ Read [AGENTS.md](../../AGENTS.md) first, then [docs/README.md](../../docs/README
 
 - Product scope: `docs/02-PRD/PRD.md`
 - Architecture: `docs/10-References/SystemArchitecture.md` + `docs/decisions/`
-- Active work: `docs/07-Sprint-Planning/Sprint3.md`
+- Active work: `docs/07-Sprint-Planning/Sprint4.md`
 
 ## Code style
 

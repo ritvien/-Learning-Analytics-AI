@@ -36,6 +36,12 @@ type ReportBrief = {
   filters_confirmed?: boolean
 }
 
+type ReportScopeOption = {
+  id: string
+  label: string
+  scopeType: string
+}
+
 const SUGGESTED_PROMPTS = [
   { icon: BarChart2, text: "Môn nào có tỷ lệ trượt cao nhất học kỳ này?" },
   { icon: BookOpen, text: "Ngành Công nghệ thông tin có những môn nào bắt buộc?" },
@@ -110,6 +116,19 @@ function isVagueReportRequest(value: string) {
   return isReportRequest(value) && !hasSpecificScope
 }
 
+function isReportPermissionQuestion(value: string) {
+  const ascii = normalizeText(value)
+  return [
+    "toi co quyen gi",
+    "quyen cua toi",
+    "quyen bao cao",
+    "duoc tao bao cao nao",
+    "duoc xem bao cao nao",
+    "toi tao duoc bao cao nao",
+    "tai khoan nay co quyen gi",
+  ].some((term) => ascii.includes(term))
+}
+
 function emptyReportBrief(): ReportBrief {
   return {}
 }
@@ -133,14 +152,25 @@ function extractReportBrief(value: string): ReportBrief {
       scope_type: "program",
       scope_label: text.includes("cntt") || text.includes("cong nghe thong tin") ? "Công nghệ thông tin" : "Ngành cần xác định",
     }
+  } else if (
+    text.includes("lop hoc phan")
+    || text.includes("can thiep lop")
+    || text.includes("lop toi day")
+    || text.includes("lop minh day")
+    || text.includes("cac lop toi day")
+  ) {
+    next.report_type = "section_intervention"
+    next.report_label = "Can thiệp lớp học phần"
+    next.scope = {
+      scope_type: "section",
+      scope_label: text.includes("toi day") || text.includes("minh day")
+        ? "Các lớp tôi dạy"
+        : "Lớp học phần cần xác định",
+    }
   } else if (text.includes("suc khoe mon") || text.includes("mon hoc") || text.includes("hoc phan")) {
     next.report_type = "course_health"
     next.report_label = "Sức khỏe môn học"
     next.scope = { scope_type: "course", scope_label: "Môn học cần xác định" }
-  } else if (text.includes("lop hoc phan") || text.includes("can thiep lop")) {
-    next.report_type = "section_intervention"
-    next.report_label = "Can thiệp lớp học phần"
-    next.scope = { scope_type: "section", scope_label: "Lớp học phần cần xác định" }
   } else if (text.includes("sinh vien nguy co") || text.includes("canh bao hoc vu")) {
     next.report_type = "student_risk_custom"
     next.report_label = "Sinh viên nguy cơ"
@@ -173,6 +203,8 @@ function extractReportBrief(value: string): ReportBrief {
     next.purpose = "Minh chứng kiểm định/đảm bảo chất lượng"
   } else if (text.includes("cai thien") || text.includes("ty le truot") || text.includes("diem thap")) {
     next.purpose = "Cải thiện môn học và giảm rủi ro kết quả"
+  } else if (text.includes("theo doi")) {
+    next.purpose = "Theo dõi tiến độ và kết quả lớp học phần"
   }
 
   const filters: string[] = []
@@ -231,6 +263,27 @@ function textList(value: unknown) {
   return Array.isArray(value)
     ? value.map((item) => textValue(item, "")).filter(Boolean)
     : []
+}
+
+function reportScopeLabel(scopeType: string) {
+  return {
+    department: "khoa",
+    program: "ngành",
+    course: "môn học",
+    section: "lớp học phần",
+  }[scopeType] ?? "phạm vi"
+}
+
+function reportScopeOptions(value: unknown, fallbackScopeType: string): ReportScopeOption[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return []
+    const option = item as Record<string, unknown>
+    const id = textValue(option.id, "")
+    const label = textValue(option.label, "")
+    const scopeType = textValue(option.scope_type, fallbackScopeType)
+    return id && label && scopeType ? [{ id, label, scopeType }] : []
+  })
 }
 
 export default function ChatPage() {
@@ -379,7 +432,11 @@ export default function ChatPage() {
     }])
   }
 
-  async function sendMessage(text: string, threadIdOverride?: string) {
+  async function sendMessage(
+    text: string,
+    threadIdOverride?: string,
+    reportBriefUpdate?: ReportBrief,
+  ) {
     if (!text.trim() || isLoading) return
 
     const userMsg: Message = {
@@ -393,10 +450,64 @@ export default function ChatPage() {
     setInput("")
     setIsLoading(true)
 
+    if (isReportPermissionQuestion(text)) {
+      const assistantMsgId = `report-permission-${Date.now()}`
+      setMessages(prev => [...prev, {
+        id: assistantMsgId,
+        role: "assistant",
+        content: "Tôi đang kiểm tra quyền báo cáo của tài khoản hiện tại.",
+        timestamp: new Date(),
+        isStreaming: true,
+        statuses: ["Đang kiểm tra quyền báo cáo..."],
+      }])
+      try {
+        const plan = await api.planReportBuild({
+          message: text.trim(),
+          session_id: reportBuildSessionId,
+          context: {
+            source: "full_chat",
+            route: "/chat",
+          },
+        })
+        setMessages(prev => prev.map((message) => message.id === assistantMsgId
+          ? {
+              ...message,
+              content: plan.message,
+              isStreaming: false,
+              statuses: ["Đã kiểm tra quyền báo cáo"],
+            }
+          : message))
+        setReportIntakeActive(false)
+        setReportRequest("")
+        setReportBrief(emptyReportBrief())
+        setReportBuildSessionId(plan.session_id)
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Không kiểm tra được quyền báo cáo"
+        setMessages(prev => prev.map((item) => item.id === assistantMsgId
+          ? {
+              ...item,
+              content: `Không kiểm tra được quyền báo cáo lúc này. Chi tiết: ${message}`,
+              isStreaming: false,
+              statuses: ["Kiểm tra quyền thất bại"],
+            }
+          : item))
+      } finally {
+        setIsLoading(false)
+        inputRef.current?.focus()
+      }
+      return
+    }
+
     if (isReportRequest(text) || isVagueReportRequest(text) || reportIntakeActive) {
       const assistantMsgId = `report-plan-${Date.now()}`
-      const nextBrief = mergeReportBrief(reportIntakeActive ? reportBrief : emptyReportBrief(), extractReportBrief(text))
-      const planMessage = reportIntakeActive
+      const extractedBrief = extractReportBrief(text)
+      const nextBrief = mergeReportBrief(
+        reportIntakeActive ? reportBrief : emptyReportBrief(),
+        reportBriefUpdate ? mergeReportBrief(extractedBrief, reportBriefUpdate) : extractedBrief,
+      )
+      const planMessage = reportBuildSessionId
+        ? text.trim()
+        : reportIntakeActive
         ? `${reportRequest}\nThông tin bổ sung: ${text.trim()}`
         : text.trim()
       setMessages(prev => [...prev, {
@@ -430,7 +541,15 @@ export default function ChatPage() {
                 ? "Tôi đã dựng bản nháp báo cáo. Bạn kiểm tra nhanh phạm vi, cấu trúc và biểu đồ dự kiến bên dưới; nếu đúng thì bấm tạo báo cáo để nhận đường link."
                 : plan.message || "Tôi chưa tạo được bản nháp vì còn thiếu thông tin quan trọng. Bạn bổ sung thêm phạm vi hoặc thời gian cụ thể giúp tôi.",
               isStreaming: false,
-              statuses: [plan.action_id ? "Đã tạo bản nháp báo cáo" : "Cần bổ sung ngữ cảnh báo cáo"],
+              statuses: [
+                plan.action_id
+                  ? "Đã tạo bản nháp báo cáo"
+                  : String(plan.data_quality?.status ?? "") === "blocked"
+                    ? "Yêu cầu nằm ngoài quyền"
+                    : String(plan.data_quality?.status ?? "") === "permission_info"
+                      ? "Đã kiểm tra quyền báo cáo"
+                      : "Cần bổ sung ngữ cảnh báo cáo",
+              ],
               reportPlan: plan,
             }
           : message))
@@ -440,6 +559,10 @@ export default function ChatPage() {
           setReportRequest("")
           setReportBrief(emptyReportBrief())
           setReportBuildSessionId(undefined)
+        } else if (["blocked", "permission_info"].includes(String(plan.data_quality?.status ?? ""))) {
+          setReportIntakeActive(false)
+          setReportRequest("")
+          setReportBrief(emptyReportBrief())
         } else {
           setReportIntakeActive(true)
           setReportRequest(planMessage)
@@ -730,6 +853,45 @@ export default function ChatPage() {
                         const visuals = textList(definition.visuals)
                         const missingFields = msg.reportPlan.missing_fields
                         const isReady = Boolean(msg.reportPlan.action_id)
+                        const dataStatus = String(msg.reportPlan.data_quality?.status ?? "")
+                        const scopeType = textValue(definition.scope_type, "")
+                        const scopeLabel = reportScopeLabel(scopeType)
+                        const scopeOptions = reportScopeOptions(definition.scope_options, scopeType)
+                        if (dataStatus === "blocked" || dataStatus === "permission_info") return null
+                        if (!isReady && scopeOptions.length > 0) {
+                          return (
+                            <div className="mt-3 rounded-lg border border-border bg-background/70 p-3 text-sm">
+                              <p className="font-semibold">Chọn {scopeLabel}</p>
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                Chỉ hiển thị lựa chọn thuộc phạm vi được cấp cho tài khoản này.
+                              </p>
+                              <div className="mt-2 grid gap-2">
+                                {scopeOptions.map((option) => (
+                                  <Button
+                                    key={option.id}
+                                    type="button"
+                                    variant="outline"
+                                    className="h-auto min-h-9 justify-start whitespace-normal px-3 py-2 text-left"
+                                    disabled={isLoading}
+                                    onClick={() => void sendMessage(
+                                      `Chọn ${reportScopeLabel(option.scopeType)} ${option.label}`,
+                                      undefined,
+                                      {
+                                        scope: {
+                                          scope_type: option.scopeType,
+                                          scope_id: option.id,
+                                          scope_label: option.label,
+                                        },
+                                      },
+                                    )}
+                                  >
+                                    {option.label}
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        }
                         return (
                           <div className="mt-3 rounded-lg border border-border bg-background/70 p-3 text-sm">
                             <div className="mb-2 flex items-center justify-between gap-2">

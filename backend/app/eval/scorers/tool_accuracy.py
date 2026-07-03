@@ -42,11 +42,48 @@ def _validate_tool_args(tool_name: str, tool_input: dict[str, Any]) -> bool:
 def score_tool_accuracy(tc: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
     """Composite tool accuracy: selection + args + sequence + success rate."""
     expected = tc.get("expected_tools", [])
-    if not expected:
-        return {"score": None, "skipped": True, "reason": "no expected_tools"}
-
     actual_calls = result.get("tool_calls", [])
     actual_names = [tc_info.get("tool_name", "") for tc_info in actual_calls]
+    policy = tc.get("tool_policy", "required" if expected else "skip")
+
+    if policy == "forbidden":
+        if not actual_calls:
+            return {
+                "score": 1.0,
+                "selection_score": 1.0,
+                "arg_validity": 1.0,
+                "sequence_score": 1.0,
+                "success_rate": 1.0,
+                "actual_tools": actual_names,
+                "expected_tools": expected,
+                "tool_policy": policy,
+                "skipped": False,
+            }
+        return {
+            "score": 0.0,
+            "selection_score": 0.0,
+            "arg_validity": 0.0,
+            "sequence_score": 0.0,
+            "success_rate": 0.0,
+            "actual_tools": actual_names,
+            "expected_tools": expected,
+            "tool_policy": policy,
+            "skipped": False,
+            "reason": "tool calls are forbidden for this case",
+        }
+
+    if not expected:
+        return {"score": None, "skipped": True, "reason": "no expected_tools", "tool_policy": policy}
+
+    if policy == "optional" and not actual_calls:
+        return {
+            "score": None,
+            "skipped": True,
+            "reason": "optional tool not used",
+            "actual_tools": actual_names,
+            "expected_tools": expected,
+            "tool_policy": policy,
+        }
 
     expected_set = set(expected)
     actual_set = set(actual_names)
@@ -71,12 +108,15 @@ def score_tool_accuracy(tc: dict[str, Any], result: dict[str, Any]) -> dict[str,
     else:
         sequence_score = 1.0
 
-    success_rate = (
-        sum(1 for tc_info in actual_calls if not str(tc_info.get("tool_output", "")).startswith("ERROR:"))
-        / len(actual_calls)
-        if actual_calls
-        else 1.0
-    )
+    allowed_error_prefixes = tuple(tc.get("allowed_tool_error_prefixes", []))
+    success_count = 0
+    for tc_info in actual_calls:
+        output = str(tc_info.get("tool_output", ""))
+        if not output.startswith("ERROR:") or (
+            allowed_error_prefixes and output.startswith(allowed_error_prefixes)
+        ):
+            success_count += 1
+    success_rate = success_count / len(actual_calls) if actual_calls else 1.0
 
     composite = (
         0.35 * selection_score
@@ -93,5 +133,6 @@ def score_tool_accuracy(tc: dict[str, Any], result: dict[str, Any]) -> dict[str,
         "success_rate": round(success_rate, 4),
         "actual_tools": actual_names,
         "expected_tools": expected,
+        "tool_policy": policy,
         "skipped": False,
     }

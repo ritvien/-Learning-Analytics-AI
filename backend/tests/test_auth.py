@@ -23,6 +23,16 @@ async def test_login_returns_token_and_me(client: AsyncClient) -> None:
     assert me_response.json()["role"] == "admin"
 
 
+async def test_login_normalizes_email_case_and_whitespace(client: AsyncClient) -> None:
+    response = await client.post(
+        "/api/v1/auth/login",
+        data={"username": "  ADMIN@EXAMPLE.COM  ", "password": "password123"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["access_token"]
+
+
 async def test_lecturer_can_read_but_cannot_write(client: AsyncClient, db_session: AsyncSession) -> None:
     """Lecturer role is view-only for CRUD resources."""
     lecturer = User(
@@ -77,6 +87,38 @@ async def test_user_management_requires_admin_role(client: AsyncClient, db_sessi
 
     admin_list_response = await client.get("/api/v1/auth/users")
     assert admin_list_response.status_code == 200
+
+
+async def test_admin_can_create_user_with_eight_character_password(client: AsyncClient) -> None:
+    """Account creation accepts a password meeting the security requirement."""
+    response = await client.post(
+        "/api/v1/auth/users",
+        json={
+            "email": "viewer@example.com",
+            "password": "password123",
+            "full_name": "Test Viewer",
+            "role": "viewer",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["email"] == "viewer@example.com"
+
+
+async def test_create_user_rejects_password_shorter_than_eight_characters(client: AsyncClient) -> None:
+    """Password validation rejects the six-character demo password for new accounts."""
+    response = await client.post(
+        "/api/v1/auth/users",
+        json={
+            "email": "viewer@example.com",
+            "password": "123456",
+            "full_name": "Test Viewer",
+            "role": "viewer",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["ctx"]["min_length"] == 8
 
 
 async def test_admin_cannot_create_or_manage_superadmin(client: AsyncClient, db_session: AsyncSession) -> None:

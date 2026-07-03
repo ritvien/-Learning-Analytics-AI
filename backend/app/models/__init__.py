@@ -18,6 +18,14 @@ from app.models.assessment import (
     StudentCLOAchievement,
 )
 from app.models.chat import ChatSession
+from app.models.intervention import (
+    InterventionCampaign,
+    InterventionCase,
+    InterventionCaseEvent,
+    InterventionMessage,
+    InterventionMessageEvent,
+    StudentInterventionContact,
+)
 from app.models.people import Cohort, Student, Teacher, User, UserRole
 from app.models.report import Report, ReportFeedback, ReportSchedule, ReportScheduleRun
 from app.models.teaching import Enrollment, GradeComponent, GradeComponentType, Section
@@ -37,6 +45,11 @@ __all__ = [
     "GradeComponent",
     "GradeComponentCLOMapping",
     "GradeComponentType",
+    "InterventionCampaign",
+    "InterventionCase",
+    "InterventionCaseEvent",
+    "InterventionMessage",
+    "InterventionMessageEvent",
     "Program",
     "Report",
     "ReportAgentMessage",
@@ -51,6 +64,7 @@ __all__ = [
     "Specialization",
     "Student",
     "StudentCLOAchievement",
+    "StudentInterventionContact",
     "Teacher",
     "University",
     "User",
