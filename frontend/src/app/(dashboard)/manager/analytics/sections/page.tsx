@@ -18,17 +18,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
-  Activity,
-  AlertTriangle,
-  CheckCircle2,
-  Clock3,
-  Mail,
-  MessageSquare,
-  Sparkles,
-  TrendingDown,
-  Users,
-} from "lucide-react"
-import {
   Bar,
   BarChart,
   CartesianGrid,
@@ -44,19 +33,13 @@ import {
 } from "recharts"
 
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import {
-  api,
-  getCachedCurrentUser,
   type ApiDepartment,
   type ApiInterventionCampaign,
   type ApiInterventionScopeSummary,
-  type ApiSection,
   type ApiSectionInterventionWorklist,
-  type ApiSemester,
   type ApiProgram,
 } from "@/lib/api"
 import { requestDashboardAgent, setDashboardAgentContext } from "@/lib/dashboard-agent-context"
