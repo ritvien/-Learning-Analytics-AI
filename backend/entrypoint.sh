@@ -11,6 +11,14 @@ if [ "${SEED_ON_EMPTY:-true}" != "false" ]; then
     python scripts/seed_database.py
 fi
 
+if [ "${IMPORT_V59_STUDENTS:-true}" != "false" ]; then
+    echo "[entrypoint] Ensuring V59 student coverage is present..."
+    python scripts/import_v59_students.py \
+        --source "/app/db/v59-synthetic-students.json" \
+        --source "/app/db/v59-empty-program-students.json" \
+        --skip-if-complete
+fi
+
 echo "[entrypoint] Backfilling student emails..."
 python scripts/seed_student_emails.py
 
