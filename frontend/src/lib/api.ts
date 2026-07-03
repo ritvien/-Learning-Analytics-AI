@@ -1608,8 +1608,13 @@ async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   }
 
-  const request = fetch(input, customInit)
-    .then(async (response) => {
+  const runRequest = async () => {
+    let response = await fetch(input, customInit)
+    if (method === "GET" && [502, 503, 504].includes(response.status)) {
+      await new Promise((resolve) => window.setTimeout(resolve, 750))
+      response = await fetch(input, customInit)
+    }
+
   if (response.status === 204) {
     return null as T
   }
@@ -1625,7 +1630,9 @@ async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
 
       if (method === "GET") setApiCache(cacheKey, data as T)
       return data as T
-    })
+  }
+
+  const request = runRequest()
     .finally(() => {
       if (method === "GET") apiInFlight.delete(cacheKey)
     })

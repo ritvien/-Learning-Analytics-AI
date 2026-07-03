@@ -7,6 +7,7 @@ const SKIP_REQ = new Set(["host", "connection", "expect", "transfer-encoding"])
 const SKIP_RES = new Set(["transfer-encoding", "connection", "content-encoding", "content-length"])
 
 export const dynamic = "force-dynamic"
+export const maxDuration = 120
 
 async function proxy(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const { path } = await params
