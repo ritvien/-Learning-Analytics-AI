@@ -5,16 +5,16 @@ from __future__ import annotations
 from app.eval.dataset_loader import load_test_cases
 
 
-def test_h61_eval_dataset_has_71_contiguous_cases():
+def test_h61_eval_dataset_has_100_contiguous_cases():
     cases = load_test_cases()
 
-    assert len(cases) == 71
-    assert [case["tc"] for case in cases] == [f"TC{i:02d}" for i in range(1, 72)]
+    assert len(cases) == 100
+    assert [case["tc"] for case in cases] == [f"TC{i:02d}" for i in range(1, 101)]
 
 
 def test_h61_cases_have_feature_owner_and_expected_source_mapping():
     cases = {case["tc"]: case for case in load_test_cases()}
-    h61_cases = [cases[f"TC{i:02d}"] for i in range(36, 72)]
+    h61_cases = [cases[f"TC{i:02d}"] for i in range(36, 101)]
 
     for case in h61_cases:
         assert case["owner"] == "H61"
@@ -40,6 +40,13 @@ def test_h61_cases_have_feature_owner_and_expected_source_mapping():
         "dropout_explain_prediction",
         "student_email_bulk_privacy_refusal",
         "abbreviation_alias_sql_recovery",
+        "lookup_then_program_fail_rate",
+        "compare_two_dropout_predictions",
+        "ctdt_then_sql_internship_outcomes",
+        "ctdt_it_adjacent_unsupported_program",
+        "ctdt_multi_chunk_credit_synthesis",
+        "no_diacritics_ctdt_query",
+        "legitimate_empty_or_zero_result",
     } <= features
 
 
@@ -94,7 +101,7 @@ def test_h61_tool_policy_marks_optional_and_forbidden_paths():
     assert cases["TC56"]["tool_policy"] == "forbidden"
 
 
-def test_h61_71_blocks_non_runnable_backlog_cases_from_dataset():
+def test_h61_100_blocks_non_runnable_backlog_cases_from_dataset():
     cases = load_test_cases()
     all_inputs = "\n".join(case["input"] for case in cases).lower()
 
@@ -102,3 +109,32 @@ def test_h61_71_blocks_non_runnable_backlog_cases_from_dataset():
     assert "manager ngoài" not in all_inputs
     assert "tóm tắt câu trả lời trước" not in all_inputs
     assert "shared thread" not in all_inputs
+
+
+def test_h61_100_multitool_cases_have_order_and_counts():
+    cases = {case["tc"]: case for case in load_test_cases()}
+
+    assert cases["TC78"]["expected_tool_sequence"] == [
+        "lookup_student_by_code",
+        "execute_sql_query",
+    ]
+    assert cases["TC79"]["expected_tool_sequence"] == [
+        "get_student_dropout_risk",
+        "get_student_dropout_risk",
+    ]
+    assert cases["TC79"]["expected_tool_counts"] == {"get_student_dropout_risk": 2}
+    assert cases["TC81"]["expected_tool_sequence"] == [
+        "search_ctdt_program_info",
+        "execute_sql_query",
+    ]
+
+
+def test_h61_100_r2_review_adjustments_are_present():
+    cases = {case["tc"]: case for case in load_test_cases()}
+
+    assert "00000000001" in cases["TC87"]["input"]
+    assert "99999999999" not in cases["TC87"]["input"]
+    assert "An toàn thông tin" in cases["TC91"]["input"]
+    assert cases["TC92"]["expected_outcome"] == "clarification"
+    assert cases["TC93"]["category"] == "ctdt_rag"
+    assert cases["TC93"]["feature"] == "ctdt_multi_chunk_credit_synthesis"
