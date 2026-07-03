@@ -1,5 +1,14 @@
 # Worklog
 
+## 2026-07-03: Sync Hoàng Sprint 4 AI/Eval/Deploy Progress
+- **Decision**: Closed Hoàng-side Sprint 4 AI/eval/deploy status through H61/H60/D60/D61 and separated immutable 71-case H60 evidence from the current 100-case eval dataset.
+- **Why**: Sprint4 and handoff still showed H61/H60/D60/D61 as open while production deploy, eval evidence, and coverage artifacts already existed; H61 R2 also adds harder 100-case coverage that needs scorer support and future rerun.
+- **Changes**:
+  - Expanded `gate3_test_cases.json` to 100 contiguous cases with multi-tool, linguistic, CTĐT, dropout, lookup, and hard data-query coverage.
+  - Added ordered tool sequence/count scoring and regression tests for TC78-TC82 style cases.
+  - Synced `Sprint4.md`, `.cursor/session-handoff.md`, `docs/12-Evaluation/*`, and `docs/evaluation.md` to current Hoàng progress.
+  - Kept 71-case H60 report as the archived D60 evidence until the 100-case production rerun is executed.
+
 ## 2026-07-01: Close H51 CTĐT RAG Q&A MVP
 - **Decision**: Integrated CTĐT pgvector retrieval into Universal Chat as `search_ctdt_program_info`, limited to the 3 MVP programs (CNTT, KHDL, TTNT) with citation file/page/section.
 - **Why**: Sprint 4 H51 blocks H61 eval expansion; CTĐT/CDR/PLO answers must be grounded in indexed PDF chunks and must not be mixed with personal grade/CLO/dropout logic.

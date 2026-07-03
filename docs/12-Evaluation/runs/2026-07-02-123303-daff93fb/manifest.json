@@ -1,0 +1,52 @@
+{
+  "task": "H60",
+  "started_at": "2026-07-02T12:33:03.432964+00:00",
+  "commit_sha": "daff93fbcbbd7ef7239ee3134411b3ca140b92b1",
+  "commit_short_sha": "daff93fb",
+  "git_dirty": true,
+  "dataset_version": "gate3-h61-71-5b0c13a5c2f6",
+  "eval_set_version": "h61-expanded-71",
+  "test_cases_path": "docs\\12-Evaluation\\gate3_test_cases.json",
+  "test_cases_sha256": "5b0c13a5c2f6aaed883277ce699af72f305539d04af61ceb681252dec081a32a",
+  "test_case_count": 71,
+  "prompt_versions": [
+    {
+      "name": "router",
+      "version": "2026-07-01.2",
+      "checksum": "3b067817117440c258064f4323d263ef172ad98a1ff4b9ec3fd8aa60baf73e7c",
+      "is_active": true
+    },
+    {
+      "name": "core_agent",
+      "version": "2026-07-01.2",
+      "checksum": "1656af050c450feced85f4e416494c38ea8f538ccb1ed84a35a13e181ed7d15b",
+      "is_active": true
+    },
+    {
+      "name": "fast_response",
+      "version": "2026-07-01.1",
+      "checksum": "e3ab4d024b9dc70d07d0f163b3189ac31b1260f52e3e400070c53086b5539208",
+      "is_active": true
+    }
+  ],
+  "runtime": {
+    "llm_provider": "openai",
+    "llm_model": "gpt-5.4-nano",
+    "agent_router_model": "gpt-5.4-nano",
+    "agent_core_model": "gpt-5.4-nano",
+    "rag_embedding_model": "text-embedding-3-small",
+    "base_url": "https://eduinsight-backend-jxmm.onrender.com",
+    "eval_email": "lecturer@epu.edu.vn",
+    "evaluator_pricing_model": "gpt-5.4-nano",
+    "langsmith_tracing": "true",
+    "langsmith_project": "EduInsight",
+    "runtime_config_hash": "006bb24c38f0d1fa7df0e2a1d72e782d05810bb949713afb365152c69a081125"
+  },
+  "with_judge": false,
+  "results_source": "api",
+  "notes": [
+    "Cost scorer prefers measured usage from the chat API and falls back to the static token estimate.",
+    "Dropout probabilities are valid only when returned by persisted ML predictions, per ADR-006."
+  ],
+  "coverage_artifact": "docs\\12-Evaluation\\runs\\2026-07-02-123303-daff93fb\\coverage-out.txt"
+}

@@ -172,14 +172,16 @@ Một PostgreSQL instance được tách schema theo workload để giữ hạ t
 
 ## 8. Trạng thái hiện tại
 
-Đã triển khai nền tảng chính gồm CRUD học vụ, Academic Tree 5 cấp, dashboard nhiều cấp, DWH/ETL, CLO/PLO, train/score dropout ML, Chat Agent, Report Center, RBAC và observability.
+Đã triển khai nền tảng chính gồm CRUD học vụ, Academic Tree 5 cấp, dashboard nhiều cấp, DWH/ETL, CLO/PLO, train/score dropout ML, Chat Agent, Report Center, RBAC, observability, production deploy và CTĐT RAG Q&A MVP.
+
+Sprint 4 hiện đã có production live, H60 evaluation evidence 71-case, coverage artifact >=60%, và bộ H61 eval hiện hành 100 TC. Bộ 100 TC cần một lượt production rerun/golden refresh trước khi thay thế số liệu H60 đã lưu.
 
 Các hướng đang tiếp tục hoàn thiện:
 
 - workflow giao việc/can thiệp/follow-up từ insight thành đối tượng nghiệp vụ đầy đủ;
 - mở rộng aggregate API và loại bỏ hoàn toàn việc aggregate raw data ở frontend;
 - siết thêm write scope ở một số luồng quản trị;
-- RAG corpus và retrieval production;
+- rerun 100-case agent evaluation và xử lý các partial hiện còn trong H60 evidence;
 - data-quality center, model calibration/drift và export báo cáo hoàn chỉnh.
 
 Tài liệu sprint và code là nguồn để xác định trạng thái chi tiết; không nên xem toàn bộ backlog trong PRD là tính năng đã phát hành.
@@ -305,7 +307,7 @@ npm run test:e2e
 3. [Kiến trúc hệ thống](docs/10-References/SystemArchitecture.md)
 4. [Kiến trúc ML và Data Warehouse](docs/10-References/ML_DWH_Architecture.md)
 5. [Kế hoạch hiện đại hóa database](docs/10-References/DatabaseModernizationPlan.md)
-6. [Sprint đang hoạt động](docs/07-Sprint-Planning/Sprint3.md)
+6. [Sprint đang hoạt động](docs/07-Sprint-Planning/Sprint4.md)
 7. [Architecture Decision Records](docs/decisions/README.md)
 8. [Hướng dẫn setup chi tiết](docs/10-References/ProjectSetup.md)
 

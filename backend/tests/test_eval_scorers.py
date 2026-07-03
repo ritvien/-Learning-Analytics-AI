@@ -91,6 +91,109 @@ def test_tool_accuracy_includes_success_rate():
     assert scored["score"] < 1.0
 
 
+def test_tool_accuracy_scores_ordered_multi_tool_sequence():
+    tc = {
+        "tc": "TC78",
+        "expected_tools": ["lookup_student_by_code", "execute_sql_query"],
+        "expected_tool_sequence": ["lookup_student_by_code", "execute_sql_query"],
+        "expected_tool_counts": {"lookup_student_by_code": 1, "execute_sql_query": 1},
+    }
+    result = {
+        "status": "OK",
+        "tool_calls": [
+            {
+                "tool_name": "lookup_student_by_code",
+                "tool_input": {"student_code": "21810310019"},
+                "tool_output": '{"program":"Công nghệ thông tin"}',
+            },
+            {
+                "tool_name": "execute_sql_query",
+                "tool_input": {"query": "SELECT 1"},
+                "tool_output": '[{"fail_rate": 0.12}]',
+            },
+        ],
+    }
+
+    scored = score_tool_accuracy(tc, result)
+
+    assert scored["score"] == 1.0
+    assert scored["sequence_score"] == 1.0
+    assert scored["count_score"] == 1.0
+
+
+def test_tool_accuracy_penalizes_wrong_multi_tool_order():
+    tc = {
+        "tc": "TC78",
+        "expected_tools": ["lookup_student_by_code", "execute_sql_query"],
+        "expected_tool_sequence": ["lookup_student_by_code", "execute_sql_query"],
+        "expected_tool_counts": {"lookup_student_by_code": 1, "execute_sql_query": 1},
+    }
+    result = {
+        "status": "OK",
+        "tool_calls": [
+            {
+                "tool_name": "execute_sql_query",
+                "tool_input": {"query": "SELECT 1"},
+                "tool_output": '[{"fail_rate": 0.12}]',
+            },
+            {
+                "tool_name": "lookup_student_by_code",
+                "tool_input": {"student_code": "21810310019"},
+                "tool_output": '{"program":"Công nghệ thông tin"}',
+            },
+        ],
+    }
+
+    scored = score_tool_accuracy(tc, result)
+
+    assert scored["selection_score"] == 1.0
+    assert scored["count_score"] == 1.0
+    assert scored["sequence_score"] == 0.5
+    assert scored["score"] <= 0.75
+
+
+def test_tool_accuracy_requires_duplicate_tool_counts():
+    tc = {
+        "tc": "TC79",
+        "expected_tools": ["get_student_dropout_risk"],
+        "expected_tool_sequence": ["get_student_dropout_risk", "get_student_dropout_risk"],
+        "expected_tool_counts": {"get_student_dropout_risk": 2},
+    }
+    one_call_result = {
+        "status": "OK",
+        "tool_calls": [
+            {
+                "tool_name": "get_student_dropout_risk",
+                "tool_input": {"student_code": "21810310019"},
+                "tool_output": '{"dropout_probability":0.99}',
+            }
+        ],
+    }
+    two_call_result = {
+        "status": "OK",
+        "tool_calls": [
+            {
+                "tool_name": "get_student_dropout_risk",
+                "tool_input": {"student_code": "21810310019"},
+                "tool_output": '{"dropout_probability":0.99}',
+            },
+            {
+                "tool_name": "get_student_dropout_risk",
+                "tool_input": {"student_code": "24810310117"},
+                "tool_output": '{"dropout_probability":0.98}',
+            },
+        ],
+    }
+
+    one_call = score_tool_accuracy(tc, one_call_result)
+    two_calls = score_tool_accuracy(tc, two_call_result)
+
+    assert one_call["count_score"] == 0.5
+    assert one_call["sequence_score"] == 0.5
+    assert one_call["score"] <= 0.75
+    assert two_calls["score"] == 1.0
+
+
 def test_semantic_gpa_match():
     tc = {
         "tc": "TC02",
@@ -174,6 +277,53 @@ def test_task_completion_valid_empty_data():
         "tool_calls": [{"tool_name": "execute_sql_query", "tool_output": "[]"}],
     }
     scored = score_task_completion(tc, result)
+    assert scored["verdict"] == "Pass"
+
+
+def test_task_completion_allowlisted_tool_error_counts_as_success():
+    tc = {
+        "tc": "TC90",
+        "category": "data_query",
+        "expected_outcome": "valid_empty_data",
+        "expected_intent": "core_agent",
+        "allowed_tool_error_prefixes": ["ERROR: no prediction"],
+        "completion_criteria": ["intent_match", "tool_success", "acknowledges_missing_data"],
+    }
+    result = {
+        "status": "OK",
+        "response": "Chưa có prediction ML cho sinh viên này nên tôi không tự tính xác suất.",
+        "intent": "core_agent",
+        "tool_calls": [
+            {
+                "tool_name": "get_student_dropout_risk",
+                "tool_output": "ERROR: no prediction for student",
+            }
+        ],
+    }
+
+    scored = score_task_completion(tc, result)
+
+    assert scored["checks"]["tool_success"] is True
+    assert scored["verdict"] == "Pass"
+
+
+def test_task_completion_clarification_counts_for_scope_guardrail():
+    tc = {
+        "tc": "TC92",
+        "category": "guardrail_scope",
+        "expected_intent": "core_agent",
+        "completion_criteria": ["refusal_pattern", "intent_match"],
+    }
+    result = {
+        "status": "OK",
+        "response": "Chưa đủ thông tin để xếp hạng ngành tốt hơn; vui lòng chọn tiêu chí như GPA hay tỷ lệ trượt.",
+        "intent": "core_agent",
+        "tool_calls": [],
+    }
+
+    scored = score_task_completion(tc, result)
+
+    assert scored["checks"]["refusal_pattern"] is True
     assert scored["verdict"] == "Pass"
 
 
@@ -377,6 +527,20 @@ def test_grounding_guardrail_skipped():
     result = {"status": "OK", "response": "Xin lỗi, ngoài phạm vi.", "tool_calls": []}
     scored = score_grounding(tc, result)
     assert scored["score"] == 1.0
+
+
+def test_grounding_ignores_identifier_like_numbers():
+    tc = {"tc": "TC47", "category": "data_query"}
+    result = {
+        "status": "OK",
+        "response": "Sinh viên 21810310019 thuộc khóa 2021, mã ngành 7480201.",
+        "tool_calls": [],
+    }
+
+    scored = score_grounding(tc, result)
+
+    assert scored["rule_score"] == 1.0
+    assert scored["unsupported"] == []
 
 
 def test_latency_breakdown():
