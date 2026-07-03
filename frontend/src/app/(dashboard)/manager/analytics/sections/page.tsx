@@ -734,7 +734,7 @@ export default function SectionsRiskPage() {
         </CardContent>
       </Card>
 
-      {selectedSection && selectedRow ? (
+      {selectedSection && selectedRow && (
         <div className="grid gap-5">
           <Card className="border-primary/20">
             <CardContent className="flex flex-col gap-4 py-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1115,10 +1115,8 @@ export default function SectionsRiskPage() {
                   {isSubmittingContact ? "Đang xử lý..." : "Lưu liên hệ"}
                 </Button>
               </DialogFooter>
-            </DialogContent>
+          </DialogContent>
           </Dialog>
-        </>
-      )}
 
       <Dialog open={mailPreviewOpen} onOpenChange={setMailPreviewOpen}>
         <DialogContent className="sm:max-w-4xl">
@@ -1249,6 +1247,8 @@ export default function SectionsRiskPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+      )}
     </div>
   )
 }
