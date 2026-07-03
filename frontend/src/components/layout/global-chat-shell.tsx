@@ -32,6 +32,22 @@ type ReportScopeSelection = {
   scopeType: string
 }
 
+type ChatButtonPosition = {
+  x: number
+  y: number
+}
+
+const CHAT_BUTTON_SIZE = 48
+const CHAT_BUTTON_MARGIN = 16
+const CHAT_BUTTON_POSITION_KEY = "eduinsight-chat-button-position"
+
+function clampChatButtonPosition(position: ChatButtonPosition): ChatButtonPosition {
+  return {
+    x: Math.min(Math.max(position.x, CHAT_BUTTON_MARGIN), window.innerWidth - CHAT_BUTTON_SIZE - CHAT_BUTTON_MARGIN),
+    y: Math.min(Math.max(position.y, CHAT_BUTTON_MARGIN), window.innerHeight - CHAT_BUTTON_SIZE - CHAT_BUTTON_MARGIN),
+  }
+}
+
 function reportScopeLabel(scopeType: string) {
   return {
     department: "khoa",
@@ -218,9 +234,93 @@ function GlobalChatWindow({
   const [reportRequest, setReportRequest] = React.useState("")
   const [reportBuildSessionId, setReportBuildSessionId] = React.useState<string | undefined>()
   const [dashboardContext, setDashboardContext] = React.useState<DashboardAgentContext | null>(null)
+  const [chatButtonPosition, setChatButtonPosition] = React.useState<ChatButtonPosition | null>(null)
+  const dragStateRef = React.useRef<{
+    pointerId: number
+    offsetX: number
+    offsetY: number
+    startX: number
+    startY: number
+    moved: boolean
+  } | null>(null)
+  const suppressChatButtonClickRef = React.useRef(false)
   
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
+
+  React.useEffect(() => {
+    const defaultPosition = {
+      x: window.innerWidth - CHAT_BUTTON_SIZE - 24,
+      y: window.innerHeight - CHAT_BUTTON_SIZE - 24,
+    }
+    try {
+      const savedPosition = window.localStorage.getItem(CHAT_BUTTON_POSITION_KEY)
+      setChatButtonPosition(clampChatButtonPosition(savedPosition ? JSON.parse(savedPosition) : defaultPosition))
+    } catch {
+      setChatButtonPosition(clampChatButtonPosition(defaultPosition))
+    }
+
+    const handleResize = () => {
+      setChatButtonPosition((position) => position ? clampChatButtonPosition(position) : position)
+    }
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
+
+  const handleChatButtonPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      startX: event.clientX,
+      startY: event.clientY,
+      moved: false,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const handleChatButtonPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = dragStateRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 4) {
+      drag.moved = true
+    }
+    if (drag.moved) {
+      setChatButtonPosition(clampChatButtonPosition({
+        x: event.clientX - drag.offsetX,
+        y: event.clientY - drag.offsetY,
+      }))
+    }
+  }
+
+  const handleChatButtonPointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = dragStateRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    event.currentTarget.releasePointerCapture(event.pointerId)
+    dragStateRef.current = null
+    if (drag.moved) {
+      suppressChatButtonClickRef.current = true
+      const finalPosition = clampChatButtonPosition({
+        x: event.clientX - drag.offsetX,
+        y: event.clientY - drag.offsetY,
+      })
+      setChatButtonPosition(finalPosition)
+      try {
+        window.localStorage.setItem(CHAT_BUTTON_POSITION_KEY, JSON.stringify(finalPosition))
+      } catch {
+        // The button remains draggable when browser storage is unavailable.
+      }
+    }
+  }
+
+  const handleChatButtonClick = () => {
+    if (suppressChatButtonClickRef.current) {
+      suppressChatButtonClickRef.current = false
+      return
+    }
+    setIsOpen(true)
+  }
 
   React.useEffect(() => {
     setDashboardContext(getDashboardAgentContext(pathname))
@@ -751,12 +851,22 @@ function GlobalChatWindow({
       )}
 
       {/* Floating Action Button — draggable */}
-      {!isOpen ? <div className="fixed bottom-6 right-6 z-[60]">
+      {!isOpen ? <div
+        className="fixed z-[60]"
+        style={chatButtonPosition
+          ? { left: chatButtonPosition.x, top: chatButtonPosition.y }
+          : { bottom: 24, right: 24 }}
+      >
         <Button
-          onClick={() => setIsOpen(true)}
           size="icon"
           title="Mở trợ lý AI"
-          className="h-12 w-12 rounded-full shadow-lg transition-transform duration-200 hover:scale-105 active:scale-95 bg-primary text-primary-foreground select-none"
+          aria-label="Mở trợ lý AI; có thể kéo để đổi vị trí"
+          onClick={handleChatButtonClick}
+          onPointerDown={handleChatButtonPointerDown}
+          onPointerMove={handleChatButtonPointerMove}
+          onPointerUp={handleChatButtonPointerUp}
+          onPointerCancel={() => { dragStateRef.current = null }}
+          className="h-12 w-12 touch-none rounded-full bg-primary text-primary-foreground shadow-lg transition-transform duration-200 hover:scale-105 active:scale-95 select-none cursor-grab active:cursor-grabbing"
         >
           <MessageSquare className="h-5 w-5" />
         </Button>
