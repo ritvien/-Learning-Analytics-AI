@@ -37,6 +37,7 @@ Active sprint: [Sprint4.md](../../docs/07-Sprint-Planning/Sprint4.md)
 ## Sprint 4 priority (Demo Day 05/07)
 
 - **D59:** done — Live URL [evidence](../../docs/21-Release-Readiness/d59-deployment-evidence.md)
-- **H61 → V47 → H60 → D60/D61:** eval evidence
+- **H47 → H66:** 100-TC review + metrics/scorer optimize (chuyển từ V47)
+- **H60/D60/D61:** 71-case evidence archived
 - **D56 → T58a → T58b:** README + slide + rehearsal
-- **V56, VUX-3:** frontend demo polish
+- **V56, VUX-3, V66:** frontend polish + UI QA/screenshots

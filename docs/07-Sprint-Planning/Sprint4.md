@@ -1,6 +1,6 @@
 # Sprint 4 — Demo Day final & chất lượng sản phẩm
 
-> **29/06 – 05/07/2026** · Cập nhật **03/07/2026** (Hoàng AI/eval/deploy sync)  
+> **29/06 – 05/07/2026** · Cập nhật **03/07/2026** (H47/H66 · V66 UI QA + screenshots)  
 > **Goal:** Hoàn thiện 10/10 deliverables BTC · mở rộng eval · dữ liệu đủ cho UI demo · cảnh báo SV + luồng liên hệ GV.  
 > **Deadline cuối Demo Day:** **05/07/2026 23:59**.  
 > **Checklist:** [Checklist.md](../10-References/Checklist.md) · **Sprint trước:** [Sprint3.md](./Sprint3.md)
@@ -15,10 +15,10 @@
 
 | Nhóm | Đã xong (S3 carry) | Sprint 4 focus |
 |:-----|:-------------------|:---------------|
-| Demo Day Phase 1 | H54, H55, V34, V35, V45, V46, D59 | Deliverables BTC còn thiếu: D56/D57/D63/D62 + slide/rehearsal |
-| Agent / Eval | 35 TC framework, guardrails, H59, H49, H62, H63, H64, H51, H61, H60, D60, D61 | 100-TC dataset ready; H60 71-case evidence archived; 100-case rerun/golden refresh remains follow-up |
+| Demo Day Phase 1 | H54, H55, V34, V35, V45, V46, D59 | Deliverables BTC còn thiếu: D56/D57/D62 + slide/rehearsal |
+| Agent / Eval | 35 TC framework, guardrails, H59, H49, H62, H63, H64, H51, H61, H60, D60, D61 | **H47** review 100 TC (chuyển từ V47) · **H66** optimize metrics/scorer · 100-case rerun sau H47/H66 |
 | Data / UI | 1.277 SV seed v2 | Gap audit · T55a–e phased seed · ML score đủ MSSV demo |
-| UX | RBAC, observability | **VUX-1/2/3** (gộp 5 UX22 thiết yếu) |
+| UX | RBAC, observability | **VUX-1/2/3** · **V65** skeleton/progress · **V66** QA toàn page + screenshots |
 | Product | Dropout UI (V20) | Cảnh báo SV kém + liên hệ GV–SV (T56a–b) |
 
 ---
@@ -68,13 +68,17 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | | Done: `gate3_test_cases.json` có 100 TC contiguous; TC36–TC71 Sprint 4 coverage, TC72–TC100 R2 harder coverage (multi-tool, linguistic robustness, hard data edges). Scorer hỗ trợ `expected_tool_sequence` / `expected_tool_counts`. | | | | |
 | **D59** | Production deploy Render + Vercel (+ UptimeRobot) | 02/07 EOD | P1 | T45 | [x] |
 | | Live: Vercel `c2-app-056.vercel.app` · Render `eduinsight-backend-jxmm.onrender.com` · bootstrap ETL+ML · smoke pass · UptimeRobot monitors [FE](https://dashboard.uptimerobot.com/monitors/803424323) [BE](https://dashboard.uptimerobot.com/monitors/803424335). Evidence: [d59-deployment-evidence.md](../21-Release-Readiness/d59-deployment-evidence.md). | | | | |
-| **H60** | **Review/re-run evaluation sau H61 + V47** | 03/07 12:00 | P0 | H61, V47 | [x] |
+| **H60** | **Review/re-run evaluation sau H61** | 03/07 12:00 | P0 | H61 | [x] |
 | | Done: archived production 71-case H60 run with measured cost and 6-metric rubric in `docs/evaluation.md`; 100-case R2 dataset is ready but still needs a fresh production rerun/golden refresh. | | | | |
+| **H47** | **Review test cases (QA dataset)** *(chuyển từ V47)* | 04/07 12:00 | P0 | H61 | [ ] |
+| | Review 100 TC: input realistic, golden khớp seed post-T55e, RBAC/intent/source tags; sửa TC sai data trước khi H66 rerun; handoff block cho scorer/prompt tuning. | | | | |
+| **H66** | **Optimize eval metrics & scorer** | 05/07 12:00 | P0 | H47, H60 | [ ] |
+| | Cải thiện task completion, semantic accuracy, latency trên 100-TC production rerun: tune scorer thresholds, golden fixes, prompt/router/tool policy; archive run mới và cập nhật `docs/evaluation.md` nếu vượt gate. Ref metrics hiện tại: [evaluation.md](../evaluation.md). | | | | |
 | **D60** | `docs/evaluation.md` tổng hợp nộp BTC | 03/07 EOD | P0 | H60 | [x] |
 | **D61** | Coverage report ≥60% artifact | 03/07 EOD | P1 | H60 | [x] |
 | **D56** | README Demo Day (screenshot, team, Live URL, API summary) | 04/07 12:00 | P0 | V58, D59, D60 | [ ] |
-| | Hoàng owner; Hiếu screenshot/flow qua V58; Hưng deploy/demo links. | | | | |
-| **D63** | Journal + Worklog S3–S4 → `docs/journal.md`, `docs/worklog.md` | 04/07 EOD | P1 | — | [ ] |
+| | Hoàng owner; Hiếu screenshot/flow qua **V66**; Hưng deploy/demo links. | | | | |
+| **D63** | Journal + Worklog S1–S4 → `docs/journal.md`, `docs/worklog.md` | 04/07 EOD | P1 | — | [x] |
 | **D57** | `docs/architecture.md` export (copy README) | 04/07 EOD | P1 | D56 draft | [ ] |
 | **H30** | Agent safety eval mở rộng | 05/07 buffer | P2 | H52, H60 | [ ] defer |
 
@@ -135,10 +139,12 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | | Click chart/table → filter đúng khoa/ngành; deep-link analytics programs; empty state khi synthetic chưa phủ. Luồng demo 3 phút: Tổng quan → ngành. | | | | |
 | **V56** | **UI cảnh báo SV + luồng liên hệ GV** | 02/07 EOD | P0 | T56b, T57b | [x] |
 | | Lecturer thấy section/SV “Cần can thiệp”; badge at-risk; CTA liên hệ; hiển thị trạng thái email/log; đồng bộ T56/T57 API; Playwright smoke at-risk flow. | | | | |
-| **V47** | **Review test cases (QA dataset)** | 03/07 12:00 | P0 | H61 | [ ] |
-| | Review 100 TC: input realistic, golden khớp seed post-T55e, RBAC/intent/source tags; feedback block H60 nếu TC sai data. | | | | |
+| **V65** | **Skeleton loading + spinner có progress** | 04/07 EOD | P1 | VUX-1, V57 | [ ] |
+| | Skeleton placeholder khớp layout thật (KPI/chart/bảng) thay màn trắng/`Đang tải...`; spinner kèm `Progress` cho tải dài. P0: overview, analytics programs/courses/sections/students, lecturer sections, reports. Story: [V65.md](./stories/V65.md) · UX22-22. | | | | |
+| **V66** | **QA giao diện toàn page + screenshots minh chứng** | 05/07 12:00 | P0 | V65, V57, D59 | [ ] |
+| | Chạy `npm test` + Playwright smoke trên production; kiểm tra thủ công mọi route demo (V57): login, tổng quan, analytics, tree, dropout, lecturer at-risk, reports, chat, CRUD chính; ghi pass/fail/copy/lỗi hiển thị; chụp screenshot mỗi page → `docs/21-Release-Readiness/screenshots/`; tổng hợp [ui-qa-evidence.md](../21-Release-Readiness/ui-qa-evidence.md) (bảng route, ảnh, ghi chú). Feed D56 README. | | | | |
 | **D62** | User feedback 3–5 người (form + tóm tắt) | 04/07 EOD | P2 | V56 | [ ] |
-| **V18–V23** | CRUD polish, charts, responsive, FE tests | 05/07 buffer | P2 | — | [ ] defer |
+| **V18–V23** | CRUD polish, charts, FE tests | 05/07 buffer | P2 | — | [ ] defer |
 
 **Verify:** `cd frontend && npm run lint && npm test` · Playwright smoke at-risk flow
 
@@ -151,6 +157,8 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | **VUX-1** | UX22-01, UX22-02 | Cùng ngày 1: perf login + demo entry |
 | **VUX-2** | UX22-04, UX22-05 | Cùng sprint polish copy/role — không phụ thuộc data |
 | **VUX-3** | UX22-16 | Phụ thuộc T55e + VUX-1; drill-down sau khi có data |
+| **V65** | UX22-22 *(mới)* | Skeleton layout + spinner/progress; sau VUX-1 (perf login) |
+| **V66** | QA/screenshot evidence *(mới)* | Test + rà toàn page; ảnh minh chứng cho D56/Demo Day |
 
 **Defer S4:** UX22-03, 06, 07, 08–13, 17–21 → Sprint 5 hoặc T55/R25.
 
@@ -162,12 +170,12 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 |:--:|:------------|:-----|:---------|:------:|
 | D58 | AI Logs traces | H59 | 30/06 EOD | [x] |
 | D59 | Live URL production | Hoàng | 02/07 EOD | [x] |
-| D60 | Evaluation evidence | H60, H61, V47 | 03/07 EOD | [x] |
+| D60 | Evaluation evidence | H60, H61, H47, H66 | 03/07 EOD · refresh sau H66 | [x] |
 | D61 | Test coverage ≥60% | Hoàng | 03/07 EOD | [x] |
-| D56 | README.md đầy đủ | V58 → D56 + team | 04/07 12:00 | [ ] |
+| D56 | README.md đầy đủ | V58, **V66** → D56 + team | 04/07 12:00 | [ ] |
 | D57 | `docs/architecture.md` | Hoàng | 04/07 EOD | [ ] |
 | D62 | User feedback | Hiếu | 04/07 EOD | [ ] |
-| D63 | Journal + Worklog | Hoàng | 04/07 EOD | [ ] |
+| D63 | Journal + Worklog | Hoàng | 04/07 EOD | [x] |
 | — | Slide + thuyết trình | T58a → T58b | 05/07 18:00 | [ ] |
 | — | Video Phase 1 | V34, V35 | Done S3 | [x] |
 
@@ -185,10 +193,12 @@ T56b + T57b → V56
 H62 → H63 → H51 → H61
 H49 → H64 (plan only, không block H51)
 H59 → D58
-H61 → V47 → H60 → D60/D61
+H61 → H47 → H66 → D60 refresh
+H60/D61 → archived 71-case (done)
 T57a → T57b
 V58 + D59 + D60 → D56 → T58a → T58b
 VUX-1 → VUX-2 → VUX-3
+VUX-1 + V57 → V65 → V66 → D56
 ```
 
 ---
@@ -201,9 +211,9 @@ VUX-1 → VUX-2 → VUX-3
 | **30/06** | H49 · H62 · H63 · D58 · T55a · T55c · T55b · V59 · VUX-1 · V58 · VUX-2 |
 | **01/07** | H64 · H51 · T55d · T56a · T55e · T56b |
 | **02/07** | H61 · D59 · T57a · T57b · VUX-3 · V56 |
-| **03/07** | H60 · D60 · D61 · T58a · V47 |
-| **04/07** | D56 · D57 · D63 · D62 |
-| **05/07** | T58b · H30 · V18–V23 · nộp 23:59 |
+| **03/07** | H60 · D60 · D61 · T58a |
+| **04/07** | **H47** · D56 draft · D57 · D63 · D62 · **V65** |
+| **05/07** | **H66** · **V66** · T58b · H30 · V18–V23 · nộp 23:59 |
 
 **Cut-off 05/07:** 18:00 freeze slide/demo (T58b) · 21:00 verify Live URL + README + eval · 23:59 nộp cuối.
 
