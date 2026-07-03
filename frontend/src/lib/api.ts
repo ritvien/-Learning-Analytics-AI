@@ -130,32 +130,6 @@ export interface ApiSection {
   is_active: boolean
 }
 
-export interface ApiIntervention {
-  id: number
-  actor_id: string
-  student_id: number
-  section_id: number
-  channel: string
-  status: string
-  notes: string | null
-  created_at: string
-  updated_at: string
-}
-
-export interface ApiAtRiskStudent {
-  student_id: number
-  student_code: string
-  full_name: string
-  final_grade: number | null
-  is_passed: boolean | null
-  gpa_cumulative: number | null
-  fail_count: number
-  dropout_probability: number | null
-  dropout_risk_level: string | null
-  reasons: string[]
-  risk_level: "high" | "watch"
-}
-
 export interface ApiTeacher {
   id: number
   user_id: string | null
@@ -1864,16 +1838,6 @@ export const api = {
     }),
   deleteSection: (id: number) =>
     fetcher<void>(`/api/v1/sections/${id}`, { method: "DELETE" }),
-  getSectionAtRiskStudents: (sectionId: number) =>
-    fetcher<ApiAtRiskStudent[]>(`/api/v1/sections/${sectionId}/at-risk`),
-  getSectionInterventionHistory: (sectionId: number) =>
-    fetcher<ApiIntervention[]>(`/api/v1/interventions/sections/${sectionId}`),
-  createInterventionContact: (body: { student_id: number; section_id: number; channel: string; notes?: string }) =>
-    fetcher<ApiIntervention>("/api/v1/interventions/contact", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }),
 
   // --- Teachers ---
   getTeachers: (params?: { limit?: number; department_id?: number }) =>
