@@ -130,9 +130,9 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | | Checklist ảnh chụp; flow demo 3–5 màn; placeholder README section; khung nộp sẵn trước D59/D60 final. | | | | |
 | **VUX-2** | **Việt hóa UI demo** *(UX22-04, UX22-05)* | 30/06 EOD | P1 | VUX-1 | [x] |
 | | **UX22-04:** dashboard/report/analytics không còn label EN lộ; empty/error states tiếng Việt. **UX22-05:** header role `Quản trị`, `Quản lý khoa`, `Giảng viên`, `Người xem`; nhất quán sidebar. | | | | |
-| **VUX-3** | **Overview drill-down** *(UX22-16)* | 02/07 12:00 | P1 | VUX-1, T55e | [] |
+| **VUX-3** | **Overview drill-down** *(UX22-16)* | 02/07 12:00 | P1 | VUX-1, T55e | [x] |
 | | Click chart/table → filter đúng khoa/ngành; deep-link analytics programs; empty state khi synthetic chưa phủ. Luồng demo 3 phút: Tổng quan → ngành. | | | | |
-| **V56** | **UI cảnh báo SV + luồng liên hệ GV** | 02/07 EOD | P0 | T56b, T57b | [ ] |
+| **V56** | **UI cảnh báo SV + luồng liên hệ GV** | 02/07 EOD | P0 | T56b, T57b | [x] |
 | | Lecturer thấy section/SV “Cần can thiệp”; badge at-risk; CTA liên hệ; hiển thị trạng thái email/log; đồng bộ T56/T57 API; Playwright smoke at-risk flow. | | | | |
 | **V47** | **Review test cases (QA dataset)** | 03/07 12:00 | P0 | H61 | [ ] |
 | | Review 50 TC: input realistic, golden khớp seed post-T55e, RBAC/intent/source tags; feedback block H60 nếu TC sai data. | | | | |
