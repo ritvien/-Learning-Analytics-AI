@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Send, Bot, User, Sparkles, BarChart2, BookOpen, AlertTriangle, MessageSquare, Plus, Trash2, ChevronDown } from "lucide-react"
-import { api, chatStreamV2, ChatSessionSummary, getReportBuildContext, type ApiReportBuildPlan } from "@/lib/api"
+import { api, chatStreamV2, ChatSessionSummary, getReportBuildContext, invalidateApiCacheByPrefix, type ApiReportBuildPlan } from "@/lib/api"
 
 interface Message {
   id: string
@@ -317,6 +317,9 @@ export default function ChatPage() {
 
   async function fetchSessions() {
     try {
+      // Chat mutations happen via a raw fetch stream that bypasses the GET
+      // cache, so invalidate here to guarantee a fresh listing from the server.
+      invalidateApiCacheByPrefix("/api/v1/chat/sessions")
       const data = await api.getChatSessions()
       setSessions(data)
     } catch (e) {
@@ -606,6 +609,9 @@ export default function ChatPage() {
           case "session_created":
             setActiveSessionId(event.thread_id)
             setSessions(prev => [{ id: event.thread_id, title: event.title, updated_at: new Date().toISOString() }, ...prev])
+            // Backend just persisted a new ChatSession row; invalidate the
+            // cached listing so any subsequent GET (e.g. on remount) is fresh.
+            invalidateApiCacheByPrefix("/api/v1/chat/sessions")
             break
             
           case "router":
@@ -672,6 +678,14 @@ export default function ChatPage() {
                 ? { ...m, content: fullContent, isStreaming: false, latencyMs: event.latency_ms }
                 : m
             ))
+            // Fallback: if `session_created` was missed (e.g. dropped SSE
+            // chunk), still bind the session id to the UI from `done`.
+            if (event.thread_id && !activeSessionId) {
+              setActiveSessionId(event.thread_id)
+            }
+            // The backend has now persisted the merged history + short_summary.
+            // Refresh the sidebar so titles/timestamps stay accurate.
+            void fetchSessions()
             break
 
           case "error":

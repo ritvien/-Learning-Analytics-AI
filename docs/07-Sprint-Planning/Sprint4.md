@@ -80,6 +80,8 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | | Hoàng owner; Hiếu screenshot/flow qua **V66**; Hưng deploy/demo links. | | | | |
 | **D63** | Journal + Worklog S1–S4 → `docs/journal.md`, `docs/worklog.md` | 04/07 EOD | P1 | — | [x] |
 | **D57** | `docs/architecture.md` export (copy README) | 04/07 EOD | P1 | D56 draft | [ ] |
+| **H67** | **Agent concurrency limiter & backpressure** | 05/07 buffer | P2 | — | [ ] |
+| | Semaphore giới hạn max 3 concurrent agent runs; timeout 120s; frontend retry UI; ADR-0011. Story: [H67.md](./stories/H67.md). | | | | |
 | **H30** | Agent safety eval mở rộng | 05/07 buffer | P2 | H52, H60 | [ ] defer |
 
 **Verify:** `cd backend && pytest -q -m "not slow and not eval"` · `python scripts/run_evaluation.py`
