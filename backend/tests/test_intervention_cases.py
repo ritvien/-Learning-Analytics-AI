@@ -4,7 +4,8 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.endpoints.interventions import _bulk_message
-from app.dependencies import create_access_token
+from app.dependencies import create_access_token, hash_password
+from app.models.people import User, UserRole
 from tests.test_homeroom_rbac import _seed_homeroom_data
 
 
@@ -351,6 +352,73 @@ async def test_manager_can_prepare_edit_and_approve_scoped_campaign(
     assert edited.status_code == 200
     assert approved.status_code == 200
     assert approved.json()["status"] == "approved"
+
+
+async def test_scoped_viewer_cannot_mutate_intervention_campaign(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    data = await _seed_homeroom_data(db_session)
+    manager = data["manager"]
+    student = data["own_student"]
+    viewer = User(
+        id="homeroom-viewer",
+        email="homeroom.viewer@example.com",
+        hashed_password=hash_password("password123"),
+        full_name="Homeroom Viewer",
+        role=UserRole.viewer,
+        department_id=manager.department_id,
+    )
+    db_session.add(viewer)
+    await db_session.flush()
+
+    client.headers["Authorization"] = f"Bearer {create_access_token(manager.id, manager.role)}"
+    created = await client.post(
+        "/api/v1/interventions/campaigns",
+        json={
+            "scope_type": "homeroom",
+            "class_code": "K21-A",
+            "title": "Đợt hỗ trợ cần bảo vệ quyền ghi",
+            "student_ids": [student.id],
+        },
+    )
+    campaign_id = created.json()["id"]
+    drafted = await client.post(
+        f"/api/v1/interventions/campaigns/{campaign_id}/generate-drafts",
+        json={
+            "student_ids": [student.id],
+            "channel": "internal",
+            "subject": "Trao đổi học tập",
+            "message_template": "Chào {full_name}",
+        },
+    )
+    message_id = drafted.json()["messages"][0]["id"]
+
+    client.headers["Authorization"] = f"Bearer {create_access_token(viewer.id, viewer.role)}"
+    create_attempt = await client.post(
+        "/api/v1/interventions/campaigns",
+        json={
+            "scope_type": "homeroom",
+            "class_code": "K21-A",
+            "title": "Viewer không được tạo",
+            "student_ids": [student.id],
+        },
+    )
+    generate_attempt = await client.post(
+        f"/api/v1/interventions/campaigns/{campaign_id}/generate-drafts",
+        json={"student_ids": [student.id], "channel": "internal", "subject": "Không hợp lệ"},
+    )
+    edit_attempt = await client.patch(
+        f"/api/v1/interventions/campaigns/messages/{message_id}",
+        json={"body": "Viewer không được sửa."},
+    )
+    approve_attempt = await client.post(f"/api/v1/interventions/campaigns/{campaign_id}/approve")
+    send_attempt = await client.post(f"/api/v1/interventions/campaigns/{campaign_id}/send")
+
+    assert create_attempt.status_code == 403
+    assert generate_attempt.status_code == 403
+    assert edit_attempt.status_code == 403
+    assert approve_attempt.status_code == 403
+    assert send_attempt.status_code == 403
 
 
 async def test_manager_can_view_but_not_edit_advisor_assessment(

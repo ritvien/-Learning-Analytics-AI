@@ -24,7 +24,7 @@ from app.models.intervention import (
     InterventionMessageEvent,
     StudentInterventionContact,
 )
-from app.models.people import HomeroomAssignment, Teacher
+from app.models.people import HomeroomAssignment, Teacher, UserRole
 from app.models.teaching import Section
 from app.schemas.intervention import (
     InterventionBulkNotifyRequest,
@@ -40,9 +40,12 @@ from .interventions import (
     _bulk_message,
     _require_homeroom_scope,
     _scope_payload_for_bulk,
+    require_intervention_actor,
 )
 
 router = APIRouter()
+
+CAMPAIGN_MANAGER_ROLES = {UserRole.superadmin, UserRole.admin, UserRole.manager}
 
 
 def _now() -> datetime:
@@ -161,6 +164,21 @@ async def _get_campaign(db: DBSession, user: CurrentUser, campaign_id: int) -> I
     return campaign
 
 
+def _require_campaign_prepare_access(user: CurrentUser) -> None:
+    if user.role in CAMPAIGN_MANAGER_ROLES:
+        return
+    require_intervention_actor(user)
+
+
+def _require_campaign_write_access(user: CurrentUser, campaign: InterventionCampaign) -> None:
+    if user.role in CAMPAIGN_MANAGER_ROLES or campaign.actor_user_id == user.id:
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Only the assigned campaign actor or a manager may modify this campaign",
+    )
+
+
 async def _add_event(db: DBSession, message: InterventionMessage, event_type: str, payload: dict | None = None) -> None:
     db.add(
         InterventionMessageEvent(
@@ -210,6 +228,7 @@ async def create_intervention_campaign(
     current_user: CurrentUser,
 ) -> dict:
     """Create an empty learning-support campaign for a visible scope."""
+    _require_campaign_prepare_access(current_user)
     bulk_payload = InterventionBulkNotifyRequest(
         scope_type=payload.scope_type,
         scope_id=payload.scope_id,
@@ -345,6 +364,7 @@ async def generate_campaign_drafts(
 ) -> dict:
     """Generate personalized message drafts for selected at-risk students."""
     campaign = await _get_campaign(db, current_user, campaign_id)
+    _require_campaign_write_access(current_user, campaign)
     if payload.replace_existing:
         for message in list(campaign.messages):
             await db.delete(message)
@@ -449,7 +469,8 @@ async def update_campaign_message(
     message = await db.get(InterventionMessage, message_id)
     if message is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
-    await _get_campaign(db, current_user, message.campaign_id)
+    campaign = await _get_campaign(db, current_user, message.campaign_id)
+    _require_campaign_write_access(current_user, campaign)
     for field in ("channel", "recipient_email", "subject", "body", "status"):
         value = getattr(payload, field)
         if value is not None:
@@ -468,7 +489,8 @@ async def approve_campaign_message(message_id: int, db: DBSession, current_user:
     message = await db.get(InterventionMessage, message_id)
     if message is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
-    await _get_campaign(db, current_user, message.campaign_id)
+    campaign = await _get_campaign(db, current_user, message.campaign_id)
+    _require_campaign_write_access(current_user, campaign)
     if message.channel == "email" and not message.recipient_email:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot approve email without recipient")
     message.status = "approved"
@@ -484,6 +506,7 @@ async def approve_campaign_message(message_id: int, db: DBSession, current_user:
 async def approve_intervention_campaign(campaign_id: int, db: DBSession, current_user: CurrentUser) -> dict:
     """Approve all valid drafted messages in a campaign."""
     campaign = await _get_campaign(db, current_user, campaign_id)
+    _require_campaign_write_access(current_user, campaign)
     approved = 0
     for message in campaign.messages:
         if message.status not in {"drafted", "approved"}:
@@ -507,6 +530,7 @@ async def approve_intervention_campaign(campaign_id: int, db: DBSession, current
 async def send_intervention_campaign(campaign_id: int, db: DBSession, current_user: CurrentUser) -> dict:
     """Send approved campaign emails when SMTP is configured, and always keep an audit trail."""
     campaign = await _get_campaign(db, current_user, campaign_id)
+    _require_campaign_write_access(current_user, campaign)
     smtp_ready = _smtp_ready()
     internal_only = bool(campaign.messages) and all(message.channel == "internal" for message in campaign.messages)
     delivery_mode = "internal" if internal_only else ("smtp" if smtp_ready else "smtp_not_configured")
@@ -642,7 +666,8 @@ async def log_campaign_message_event(
     message = await db.get(InterventionMessage, message_id)
     if message is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
-    await _get_campaign(db, current_user, message.campaign_id)
+    campaign = await _get_campaign(db, current_user, message.campaign_id)
+    _require_campaign_write_access(current_user, campaign)
     await _add_event(db, message, payload.event_type, {"actor_user_id": current_user.id, **payload.payload})
     await db.flush()
     await db.refresh(message, attribute_names=["student", "updated_at"])
