@@ -15,11 +15,11 @@ Error handling (3-tier as per LangGraphAgent.md §4.9):
 
 import logging
 
+from langchain_core.messages import ToolMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.types import RetryPolicy
-from langchain_core.messages import ToolMessage
 
 from app.agent.errors import tool_error_handler
 from app.agent.nodes import (
