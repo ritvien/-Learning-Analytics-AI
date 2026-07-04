@@ -22,8 +22,14 @@ fi
 echo "[entrypoint] Backfilling student emails..."
 python scripts/seed_student_emails.py
 
-echo "[entrypoint] Refreshing CLO achievement materialization..."
-python -m app.analytics.clo
+if [ -n "${DATABASE_URL:-}" ] && printf '%s' "$DATABASE_URL" | grep -qi 'postgresql'; then
+    echo "[entrypoint] Refreshing analytics warehouse..."
+    python -m app.analytics.etl
+    echo "[entrypoint] Refreshing CLO achievement materialization..."
+    python -m app.analytics.clo
+else
+    echo "[entrypoint] Skipping analytics warehouse refresh for non-PostgreSQL database"
+fi
 
 echo "[entrypoint] Starting EduInsight API on port ${PORT:-8000}..."
 exec uvicorn app.main:app \

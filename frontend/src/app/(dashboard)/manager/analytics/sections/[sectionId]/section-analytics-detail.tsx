@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
+import { DetailPageSkeleton } from "@/components/loading/page-skeletons"
 import {
   api,
   type ApiReport,
@@ -249,7 +250,7 @@ export function SectionAnalyticsDetail({ sectionId }: { sectionId: number }) {
     .filter(({ segment }) => ["meet_now", "academic_support", "advisor_checkin", "wait_for_grades"].includes(segment.key))
     .slice(0, 8), [studentItems])
 
-  if (loading && !section) return <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">Đang tải aggregate lớp...</div>
+  if (loading && !section) return <DetailPageSkeleton message="Đang tải aggregate lớp..." />
 
   return <div className="space-y-6">
     <div className="flex flex-wrap items-start justify-between gap-3">

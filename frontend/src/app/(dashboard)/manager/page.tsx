@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { School, MessageSquare } from "lucide-react"
 import { api } from "@/lib/api"
 import type { ApiTreeMetrics, ApiTreeNode } from "@/lib/api"
+import { DetailPageSkeleton } from "@/components/loading/page-skeletons"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -139,12 +140,7 @@ export default function ManagerDashboard() {
   return (
     <div className="space-y-6">
       {isLoading ? (
-        <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-border bg-muted/20">
-          <div className="text-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto"></div>
-            <p className="mt-2 text-sm text-muted-foreground">Đang tải dữ liệu học thuật...</p>
-          </div>
-        </div>
+        <DetailPageSkeleton message="Đang tải dữ liệu học thuật..." />
       ) : (
         <>
           <KpiWidgets 

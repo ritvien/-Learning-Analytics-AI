@@ -8,6 +8,7 @@ import { api, type ApiDepartment, type ApiTeacher, type ApiUser, type ApiUserRol
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { CrudListSkeleton } from "@/components/loading/page-skeletons"
 import {
   Dialog,
   DialogClose,
@@ -239,7 +240,7 @@ export default function UsersPage() {
   }
 
   if (isLoading) {
-    return <div className="text-sm text-muted-foreground">Đang tải tài khoản...</div>
+    return <CrudListSkeleton message="Đang tải tài khoản..." columns={6} />
   }
 
   if (!canManageUsers(currentUser)) {
