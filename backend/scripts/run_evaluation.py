@@ -180,6 +180,9 @@ def score_all(
     scored: list[dict[str, Any]] = []
     for tc, result in zip(test_cases, results, strict=True):
         tc_id = tc["tc"]
+        result_tc = result.get("tc")
+        if result_tc and result_tc != tc_id:
+            raise ValueError(f"Result/test-case misalignment: {result_tc} != {tc_id}")
         judges = (judge_results or {}).get(tc_id, {})
         sem_judge = judges.get("semantic", {}).get("normalized_score")
         ground_judge = judges.get("grounding", {}).get("faithfulness")
@@ -374,7 +377,7 @@ def main() -> None:
 
     if args.results_file:
         raw = json.loads(Path(args.results_file).read_text(encoding="utf-8"))
-        results = raw.get("results", raw)
+        results = raw.get("results", raw) if isinstance(raw, dict) else raw
         logger.info("Loaded %d results from %s", len(results), args.results_file)
     else:
         try:

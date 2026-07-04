@@ -50,6 +50,21 @@ def test_h61_cases_have_feature_owner_and_expected_source_mapping():
     } <= features
 
 
+def test_h47_review_metadata_is_present_for_all_cases():
+    cases = load_test_cases()
+
+    for case in cases:
+        assert case["feature"]
+        assert case["owner"] in {"Existing", "H61"}
+        assert case["expected_source"]
+        assert case["tool_policy"] in {"required", "optional", "forbidden"}
+
+        if case["expected_tools"]:
+            assert case["tool_policy"] in {"required", "optional"}
+        else:
+            assert case["tool_policy"] == "forbidden"
+
+
 def test_h61_preserves_t55e_numeric_golden_values():
     cases = {case["tc"]: case for case in load_test_cases()}
 
@@ -85,7 +100,11 @@ def test_h61_tool_policy_marks_optional_and_forbidden_paths():
 
     assert cases["TC39"]["expected_tools"] == ["search_ctdt_program_info"]
     assert cases["TC39"]["tool_policy"] == "optional"
-    assert cases["TC39"]["allowed_tool_error_prefixes"] == ["ERROR: unsupported program"]
+    assert cases["TC39"]["allowed_tool_error_prefixes"] == [
+        "ERROR: unsupported program",
+        "ERROR: Ngành",
+        "ERROR: Không tìm thấy nguồn phù hợp",
+    ]
 
     assert cases["TC40"]["feature"] == "no_ctdt_for_personal_clo"
     assert cases["TC40"]["expected_tools"] == []
@@ -138,3 +157,41 @@ def test_h61_100_r2_review_adjustments_are_present():
     assert cases["TC92"]["expected_outcome"] == "clarification"
     assert cases["TC93"]["category"] == "ctdt_rag"
     assert cases["TC93"]["feature"] == "ctdt_multi_chunk_credit_synthesis"
+
+
+def test_h66_allowlists_cover_actual_vietnamese_tool_errors():
+    """Allowlist prefixes must match the real Vietnamese tool errors (startswith).
+
+    Sample outputs are copied verbatim from backend/app/agent/tools.py so this
+    test fails if the dataset regresses to English-only prefixes or the tool
+    wording drifts.
+    """
+    cases = {case["tc"]: case for case in load_test_cases()}
+
+    lookup_not_found = "ERROR: Không tìm thấy sinh viên với mã '99999999999'."
+    dropout_missing = (
+        "ERROR: Chưa có dự đoán dropout ML cho sinh viên '99999999999'. "
+    )
+    ctdt_unsupported = (
+        "ERROR: Ngành 'Quản trị kinh doanh' chưa được lập chỉ mục trong hệ thống CTĐT RAG. "
+    )
+    ctdt_no_source = "ERROR: Không tìm thấy nguồn phù hợp cho câu hỏi 'Chuẩn đầu ra'. "
+
+    expected_samples = {
+        "TC33": [lookup_not_found],
+        "TC39": [ctdt_unsupported, ctdt_no_source],
+        "TC41": [dropout_missing, lookup_not_found],
+        "TC55": [ctdt_unsupported, ctdt_no_source],
+        "TC64": [lookup_not_found],
+        "TC84": [dropout_missing, lookup_not_found],
+        "TC87": [lookup_not_found],
+        "TC89": [lookup_not_found],
+        "TC91": [ctdt_unsupported],
+    }
+
+    for tc_id, samples in expected_samples.items():
+        prefixes = cases[tc_id]["allowed_tool_error_prefixes"]
+        for sample in samples:
+            assert any(sample.startswith(prefix) for prefix in prefixes), (
+                f"{tc_id}: no allowlist prefix matches real tool error {sample!r}"
+            )
