@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
+import { DashboardOverviewSkeleton } from "@/components/loading/page-skeletons"
 import { api, getCachedCurrentUser, type ApiDashboardOverview } from "@/lib/api"
 import { analyticsHref, parseAnalyticsFilters, serializeAnalyticsFilters } from "@/lib/analytics-filters"
 import { requestDashboardAgent, setDashboardAgentContext } from "@/lib/dashboard-agent-context"
@@ -290,7 +291,7 @@ export default function OverviewPage() {
   }, [data, dateFrom, dateTo, departmentId, departmentLabel, heatRows, heatSemesters, passRateTrendDelta, riskyPrograms, scopedDepartmentId, semesterCode, semesterLabel, trendRows, weakDepartments])
 
   if (loading) {
-    return <div className="flex h-80 items-center justify-center text-sm text-muted-foreground">Đang tải tổng quan từ DWH...</div>
+    return <DashboardOverviewSkeleton message="Đang tải tổng quan từ DWH..." />
   }
 
   if (!data) {

@@ -4,6 +4,7 @@ import * as React from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import { api, getCachedCurrentUser, type ApiSection, type ApiSemester, type ApiCourse, type ApiTeacher, type ApiDepartment } from "@/lib/api"
 import { DataTable } from "@/components/crud/data-table"
+import { CrudListSkeleton } from "@/components/loading/page-skeletons"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -454,7 +455,9 @@ export default function SectionsPage() {
 
       <div className="border rounded-md bg-card">
         {isLoading ? (
-          <div className="p-8 text-center text-muted-foreground">Đang tải dữ liệu lớp học phần...</div>
+          <div className="p-4">
+            <CrudListSkeleton message="Đang tải dữ liệu lớp học phần..." columns={8} />
+          </div>
         ) : (
           <DataTable columns={columns} data={filteredData} searchKey="section_code" searchPlaceholder="Tìm theo mã lớp..." />
         )}

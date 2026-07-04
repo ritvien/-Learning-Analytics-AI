@@ -26,6 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { AnalyticsTableSkeleton } from "@/components/loading/page-skeletons"
 import {
   api,
   type ApiHomeroomAssignment,
@@ -190,7 +191,7 @@ export default function HomeroomAnalyticsPage() {
     await refresh()
   }
 
-  if (loading) return <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">Đang tải lớp chủ nhiệm...</div>
+  if (loading) return <AnalyticsTableSkeleton message="Đang tải lớp chủ nhiệm..." />
 
   if (currentUser?.role !== "lecturer") {
     return (

@@ -141,7 +141,7 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | | Click chart/table → filter đúng khoa/ngành; deep-link analytics programs; empty state khi synthetic chưa phủ. Luồng demo 3 phút: Tổng quan → ngành. | | | | |
 | **V56** | **UI cảnh báo SV + luồng liên hệ GV** | 02/07 EOD | P0 | T56b, T57b | [x] |
 | | Lecturer thấy section/SV “Cần can thiệp”; badge at-risk; CTA liên hệ; hiển thị trạng thái email/log; đồng bộ T56/T57 API; Playwright smoke at-risk flow. | | | | |
-| **V65** | **Skeleton loading + spinner có progress** | 04/07 EOD | P1 | VUX-1, V57 | [ ] |
+| **V65** | **Skeleton loading + spinner có progress** | 04/07 EOD | P1 | VUX-1, V57 | [x] |
 | | Skeleton placeholder khớp layout thật (KPI/chart/bảng) thay màn trắng/`Đang tải...`; spinner kèm `Progress` cho tải dài. P0: overview, analytics programs/courses/sections/students, lecturer sections, reports. Story: [V65.md](./stories/V65.md) · UX22-22. | | | | |
 | **V66** | **QA giao diện toàn page + screenshots minh chứng** | 05/07 12:00 | P0 | V65, V57, D59 | [ ] |
 | | Chạy `npm test` + Playwright smoke trên production; kiểm tra thủ công mọi route demo (V57): login, tổng quan, analytics, tree, dropout, lecturer at-risk, reports, chat, CRUD chính; ghi pass/fail/copy/lỗi hiển thị; chụp screenshot mỗi page → `docs/21-Release-Readiness/screenshots/`; tổng hợp [ui-qa-evidence.md](../21-Release-Readiness/ui-qa-evidence.md) (bảng route, ảnh, ghi chú). Feed D56 README. | | | | |

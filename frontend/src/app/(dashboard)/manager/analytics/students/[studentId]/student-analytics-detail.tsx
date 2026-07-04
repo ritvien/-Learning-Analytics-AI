@@ -36,6 +36,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
+import { DetailPageSkeleton } from "@/components/loading/page-skeletons"
 import { api, type ApiHomeroomStudentAnalytics, type ApiInterventionContact, type ApiStudentSupportProfile } from "@/lib/api"
 
 function riskPresentation(level: ApiHomeroomStudentAnalytics["risk"]["level"]) {
@@ -251,7 +252,7 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
   }, [data, query, resultFilter, semesterFilter])
 
   if (loading) {
-    return <div className="flex h-80 items-center justify-center text-sm text-muted-foreground">Đang tổng hợp hồ sơ học tập sinh viên...</div>
+    return <DetailPageSkeleton message="Đang tổng hợp hồ sơ học tập sinh viên..." />
   }
 
   if (error || !data) {

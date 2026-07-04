@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
+import { DashboardOverviewSkeleton } from "@/components/loading/page-skeletons"
 import { api, type ApiDashboardProgram, type ApiDashboardProgramOption } from "@/lib/api"
 import { analyticsHref, parseAnalyticsFilters, serializeAnalyticsFilters } from "@/lib/analytics-filters"
 
@@ -166,7 +167,7 @@ export default function ProgramAnalyticsPage() {
   }, [data, heatSemesters])
 
   if (loading) {
-    return <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">Đang tải dashboard ngành từ DWH...</div>
+    return <DashboardOverviewSkeleton message="Đang tải dashboard ngành từ DWH..." />
   }
 
   if (error) {

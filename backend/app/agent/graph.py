@@ -15,6 +15,7 @@ Error handling (3-tier as per LangGraphAgent.md §4.9):
 
 import logging
 
+from langchain_core.messages import ToolMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
@@ -44,6 +45,15 @@ def should_continue(state: AgentState) -> str:
     """
     messages = state.get("messages", [])
     if not messages:
+        return END
+
+    # Safety guard: if the LLM requests tools repeatedly we may enter a
+    # ReAct loop that never terminates. Detect excessive tool-call cycles
+    # by counting ToolMessage occurrences in the conversation and stop
+    # after a reasonable threshold.
+    TOOL_LOOP_LIMIT = 5
+    tool_msg_count = sum(1 for m in messages if isinstance(m, ToolMessage))
+    if tool_msg_count >= TOOL_LOOP_LIMIT:
         return END
 
     last_message = messages[-1]
