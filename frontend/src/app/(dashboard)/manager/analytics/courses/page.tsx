@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
+import { AnalyticsTableSkeleton } from "@/components/loading/page-skeletons"
 import { api, type ApiCourse, type ApiDashboardCourses, type ApiUser } from "@/lib/api"
 import { analyticsHref } from "@/lib/analytics-filters"
 
@@ -502,7 +503,7 @@ export default function CourseAnalyticsPage() {
       ) : null}
 
       {isLoading && (
-        <div className="flex h-56 items-center justify-center text-sm text-muted-foreground">Đang tải phân tích môn học...</div>
+        <AnalyticsTableSkeleton message="Đang tải phân tích môn học..." />
       )}
 
       {!isLoading && selCourse === "all" ? (

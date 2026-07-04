@@ -36,6 +36,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
+import { AnalyticsTableSkeleton } from "@/components/loading/page-skeletons"
 import {
   parseAnalyticsFilters,
   serializeAnalyticsFilters,
@@ -271,7 +272,7 @@ export default function SectionsAnalyticsPage() {
     </div> : null}</CardContent></Card>
 
     <DataStateNotice status={data?.data_status} error={error} onRetry={() => setReloadKey((value) => value + 1)} />
-    {loading && !data ? <div className="py-20 text-center text-sm text-muted-foreground">Đang tổng hợp dashboard can thiệp...</div> : null}
+    {loading && !data ? <AnalyticsTableSkeleton message="Đang tổng hợp dashboard can thiệp..." /> : null}
     {summary ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><KpiCard label="Tổng lớp" value={summary.total_sections} note={`${summary.total_students} sinh viên trong phạm vi`} /><KpiCard label="Cần can thiệp" value={summary.needs_action_sections} note="Ưu tiên, theo dõi hoặc thiếu điểm" tone="danger" /><KpiCard label="Tỷ lệ đạt" value={`${numberValue(summary.average_pass_rate).toFixed(1)}%`} note="Trên toàn bộ lớp đã lọc" /><KpiCard label="Thiếu điểm" value={summary.missing_grade_count} note="Bản ghi chưa có điểm tổng kết" tone="warning" /><KpiCard label="Độ phủ ML" value={`${Math.round(numberValue(summary.prediction_coverage) * 100)}%`} note="Sinh viên có prediction" /></div> : null}
 
     <Card className="border-red-500/20"><CardHeader><CardTitle className="text-base">Top điểm nóng cần xử lý</CardTitle><p className="text-xs text-muted-foreground">Ba lớp có điểm ưu tiên cao nhất trong phạm vi hiện tại.</p></CardHeader><CardContent className={topHotspots.length ? "grid gap-3 md:grid-cols-3" : ""}>{topHotspots.length ? topHotspots.map((row, index) => <button key={row.id} className="rounded-lg border p-4 text-left transition hover:bg-muted/40" onClick={() => openSection(row.id)}><div className="flex items-center justify-between gap-2"><Badge variant={index === 0 ? "destructive" : "secondary"}>#{index + 1}</Badge><span className="text-xs text-muted-foreground">Score {numberValue(row.priority_score)}</span></div><div className="mt-3 font-semibold">{row.section_code}</div><div className="truncate text-xs text-muted-foreground">{row.course_code} - {row.course_name}</div><div className="mt-3 text-sm text-red-700">{sectionPriorityLabel(row.primary_reason)}</div><div className="mt-2 grid grid-cols-3 gap-2 text-xs text-muted-foreground"><span>{row.student_count} SV</span><span>{numberValue(row.pass_rate).toFixed(1)}% đạt</span><span>{row.failed_count} trượt</span></div></button>) : <EmptyVisual title="Chưa có điểm nóng" note="Chọn học kỳ/khoa/môn khác hoặc chạy ETL analytics để có section_matrix ưu tiên." />}</CardContent></Card>

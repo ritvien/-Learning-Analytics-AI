@@ -10,8 +10,8 @@ test.describe('EduInsight E2E Suite', () => {
     await page.fill('input[name="password"]', '123456');
     await page.click('button[type="submit"]');
 
-    // Wait for redirect to manager dashboard
-    await page.waitForURL('**/manager', { timeout: 15000 });
+    // Wait for redirect to the manager dashboard entry route.
+    await page.waitForURL(/\/manager(\/analytics)?$/, { timeout: 15000 });
 
     // Dismiss onboarding tour if it appears
     await page.waitForTimeout(2000);
@@ -28,7 +28,11 @@ test.describe('EduInsight E2E Suite', () => {
       // ignore if loading was fast
     }
 
-    await expect(page.locator('text=Cơ cấu tổ chức đào tạo')).toBeVisible({ timeout: 10000 });
+    if (page.url().endsWith('/manager/analytics')) {
+      await page.goto('/manager');
+    }
+
+    await expect(page.locator('text=Tổng quan cơ cấu đào tạo')).toBeVisible({ timeout: 10000 });
 
     // 2. Academic Tree 5-tier inspection
     await expect(page.locator('#academic-tree-view')).toBeVisible();

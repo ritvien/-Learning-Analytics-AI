@@ -9,7 +9,8 @@ export default defineConfig({
   reporter: 'html',
   timeout: 60000, // Increase test timeout to 60 seconds to prevent slow cold startup timeouts
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000',
+    ignoreHTTPSErrors: process.env.PLAYWRIGHT_IGNORE_HTTPS_ERRORS === '1',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
