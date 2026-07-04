@@ -1159,7 +1159,7 @@ export interface ApiInterventionContact {
   student_id: number
   section_id: number | null
   class_code: string | null
-  channel: "email" | "phone" | "meeting" | "in_person" | "other" | string
+  channel: "internal" | "email" | "phone" | "meeting" | "in_person" | "other" | string
   status: "drafted" | "logged" | "emailed" | "failed" | string
   subject: string | null
   message: string | null
@@ -1595,8 +1595,6 @@ async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
     if (cached !== undefined) return cached
     const inFlight = getApiInFlight<T>(cacheKey)
     if (inFlight) return inFlight
-  } else {
-    clearApiReadCache()
   }
   const customInit = { ...init }
   customInit.headers = {
@@ -1615,9 +1613,10 @@ async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
       response = await fetch(input, customInit)
     }
 
-  if (response.status === 204) {
-    return null as T
-  }
+    if (response.status === 204) {
+      invalidateCacheAfterMutation(method, input)
+      return null as T
+    }
   const text = await response.text()
   const contentType = response.headers.get("content-type") || ""
   const data = contentType.includes("application/json") && text ? JSON.parse(text) : text
@@ -1628,6 +1627,7 @@ async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
     )
   }
 
+      invalidateCacheAfterMutation(method, input)
       if (method === "GET") setApiCache(cacheKey, data as T)
       return data as T
   }
@@ -1660,6 +1660,17 @@ function getApiCache<T>(key: string): T | undefined {
 
 function setApiCache<T>(key: string, value: T) {
   apiCache.set(key, { expiresAt: Date.now() + API_CACHE_TTL_MS, value })
+}
+
+function invalidateCacheAfterMutation(method: string, input: string) {
+  if (method === "GET") return
+  if (input.startsWith("/api/v1/interventions")) {
+    invalidateApiCacheByPrefix("/api/v1/interventions")
+  }
+  if (input.startsWith("/api/v1/tasks")) {
+    invalidateApiCacheByPrefix("/api/v1/tasks")
+    invalidateApiCacheByPrefix("/api/v1/interventions")
+  }
 }
 
 function getApiInFlight<T>(key: string): Promise<T> | null {
@@ -1907,6 +1918,41 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
+  createInterventionCampaign: (body: {
+    scope_type: "section" | "homeroom"
+    scope_id?: number | null
+    class_code?: string | null
+    title: string
+    student_ids: number[]
+    max_students?: number
+  }) => fetcher<ApiInterventionCampaign>("/api/v1/interventions/campaigns", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }),
+  getInterventionCampaigns: (params?: { scope_type?: "section" | "homeroom"; section_id?: number; class_code?: string }) =>
+    fetcher<ApiInterventionCampaign[]>(`/api/v1/interventions/campaigns${qs(params ?? {})}`),
+  generateInterventionCampaignDrafts: (id: number, body: {
+    student_ids: number[]
+    channel: "internal"
+    subject: string
+    message_template: string
+    max_students?: number
+  }) => fetcher<ApiInterventionCampaign>(`/api/v1/interventions/campaigns/${id}/generate-drafts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }),
+  updateInterventionCampaignMessage: (id: number, body: { subject?: string; body?: string }) =>
+    fetcher<ApiInterventionMessage>(`/api/v1/interventions/campaigns/messages/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  approveInterventionCampaign: (id: number) =>
+    fetcher<ApiInterventionCampaign>(`/api/v1/interventions/campaigns/${id}/approve`, { method: "POST" }),
+  sendInterventionCampaign: (id: number) =>
+    fetcher<ApiInterventionCampaign>(`/api/v1/interventions/campaigns/${id}/send`, { method: "POST" }),
   getInterventionAppointments: (params?: { case_id?: number; student_id?: number; upcoming?: boolean }) =>
     fetcher<ApiInterventionAppointment[]>(`/api/v1/interventions/appointments${qs(params ?? {})}`),
   createInterventionAppointment: (caseId: number, body: {

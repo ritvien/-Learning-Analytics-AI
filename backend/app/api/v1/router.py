@@ -11,6 +11,7 @@ from app.api.v1.endpoints import (
     departments,
     grades,
     homeroom,
+    intervention_campaigns,
     intervention_cases,
     interventions,
     observability,
@@ -41,6 +42,11 @@ api_router.include_router(grades.router, prefix="/grades", tags=["grades"])
 api_router.include_router(homeroom.router, prefix="/homeroom", tags=["homeroom"])
 api_router.include_router(interventions.router, prefix="/interventions", tags=["interventions"])
 api_router.include_router(intervention_cases.router, prefix="/interventions", tags=["intervention-cases"])
+api_router.include_router(
+    intervention_campaigns.router,
+    prefix="/interventions/campaigns",
+    tags=["intervention-campaigns"],
+)
 api_router.include_router(observability.router, prefix="/observability", tags=["observability"])
 api_router.include_router(ops.router, tags=["ops"])
 api_router.include_router(semesters.router, prefix="/semesters", tags=["semesters"])

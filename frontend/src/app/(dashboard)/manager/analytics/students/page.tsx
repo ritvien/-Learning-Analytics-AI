@@ -36,6 +36,7 @@ import {
   type ApiTeacher,
   type ApiUser,
 } from "@/lib/api"
+import { getPageDataCache, setPageDataCache } from "@/lib/page-data-cache"
 
 function riskBadge(level: "high" | "watch" | "normal") {
   if (level === "high") return <Badge variant="destructive">Cần ưu tiên</Badge>
@@ -43,18 +44,31 @@ function riskBadge(level: "high" | "watch" | "normal") {
   return <Badge className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600" variant="outline">Ổn định</Badge>
 }
 
+type HomeroomAnalyticsPageCache = {
+  currentUser: ApiUser | null
+  classes: ApiHomeroomClassSummary[]
+  selectedClass: string
+  detail: ApiHomeroomClassDetail | null
+  teachers: ApiTeacher[]
+  students: ApiStudent[]
+  assignments: ApiHomeroomAssignment[]
+}
+
+const HOMEROOM_ANALYTICS_PAGE_CACHE_KEY = "manager:analytics:students"
+
 export default function HomeroomAnalyticsPage() {
   const router = useRouter()
-  const [currentUser, setCurrentUser] = React.useState<ApiUser | null>(null)
-  const [classes, setClasses] = React.useState<ApiHomeroomClassSummary[]>([])
-  const [selectedClass, setSelectedClass] = React.useState("")
-  const [detail, setDetail] = React.useState<ApiHomeroomClassDetail | null>(null)
-  const [teachers, setTeachers] = React.useState<ApiTeacher[]>([])
-  const [students, setStudents] = React.useState<ApiStudent[]>([])
-  const [assignments, setAssignments] = React.useState<ApiHomeroomAssignment[]>([])
+  const cachedPage = React.useMemo(() => getPageDataCache<HomeroomAnalyticsPageCache>(HOMEROOM_ANALYTICS_PAGE_CACHE_KEY), [])
+  const [currentUser, setCurrentUser] = React.useState<ApiUser | null>(cachedPage?.currentUser ?? null)
+  const [classes, setClasses] = React.useState<ApiHomeroomClassSummary[]>(cachedPage?.classes ?? [])
+  const [selectedClass, setSelectedClass] = React.useState(cachedPage?.selectedClass ?? "")
+  const [detail, setDetail] = React.useState<ApiHomeroomClassDetail | null>(cachedPage?.detail ?? null)
+  const [teachers, setTeachers] = React.useState<ApiTeacher[]>(cachedPage?.teachers ?? [])
+  const [students, setStudents] = React.useState<ApiStudent[]>(cachedPage?.students ?? [])
+  const [assignments, setAssignments] = React.useState<ApiHomeroomAssignment[]>(cachedPage?.assignments ?? [])
   const [teacherId, setTeacherId] = React.useState("")
   const [classCode, setClassCode] = React.useState("")
-  const [loading, setLoading] = React.useState(true)
+  const [loading, setLoading] = React.useState(!cachedPage?.currentUser)
   const [error, setError] = React.useState("")
   const [studentQuery, setStudentQuery] = React.useState("")
   const [riskFilter, setRiskFilter] = React.useState<"all" | "high" | "watch" | "normal">("all")
@@ -66,13 +80,16 @@ export default function HomeroomAnalyticsPage() {
     setError("")
     const me = await api.me()
     const classList = await api.getHomeroomClasses()
+    let teacherList: ApiTeacher[] = []
+    let studentList: ApiStudent[] = []
+    let assignmentList: ApiHomeroomAssignment[] = []
     setCurrentUser(me)
     setClasses(classList)
     setSelectedClass((current) => current && classList.some(item => item.class_code === current)
       ? current
       : classList[0]?.class_code ?? "")
     if (["superadmin", "admin", "manager"].includes(me.role)) {
-      const [teacherList, studentList, assignmentList] = await Promise.all([
+      ;[teacherList, studentList, assignmentList] = await Promise.all([
         api.getTeachers({ limit: 1000 }),
         api.getStudents({ limit: 5000 }),
         api.getHomeroomAssignments(),
@@ -81,6 +98,15 @@ export default function HomeroomAnalyticsPage() {
       setStudents(studentList)
       setAssignments(assignmentList)
     }
+    setPageDataCache<HomeroomAnalyticsPageCache>(HOMEROOM_ANALYTICS_PAGE_CACHE_KEY, {
+      currentUser: me,
+      classes: classList,
+      selectedClass: classList[0]?.class_code ?? "",
+      detail: getPageDataCache<HomeroomAnalyticsPageCache>(HOMEROOM_ANALYTICS_PAGE_CACHE_KEY)?.detail ?? null,
+      teachers: teacherList,
+      students: studentList,
+      assignments: assignmentList,
+    })
   }, [])
 
   React.useEffect(() => {
@@ -94,7 +120,11 @@ export default function HomeroomAnalyticsPage() {
       setDetail(null)
       return
     }
-    api.getHomeroomClass(selectedClass).then(setDetail).catch((err: unknown) => {
+    api.getHomeroomClass(selectedClass).then((nextDetail) => {
+      setDetail(nextDetail)
+      const cached = getPageDataCache<HomeroomAnalyticsPageCache>(HOMEROOM_ANALYTICS_PAGE_CACHE_KEY)
+      if (cached) setPageDataCache(HOMEROOM_ANALYTICS_PAGE_CACHE_KEY, { ...cached, selectedClass, detail: nextDetail })
+    }).catch((err: unknown) => {
       setDetail(null)
       setError(err instanceof Error ? err.message : "Không tải được lớp chủ nhiệm.")
     })

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import dynamic from "next/dynamic"
 import { usePathname, useRouter } from "next/navigation"
 
 import { AppSidebar } from "@/components/layout/app-sidebar"
@@ -15,8 +16,25 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { api, clearAccessToken, getAccessToken, getCachedCurrentUser, startPageTrace, type ApiUser } from "@/lib/api"
-import { OnboardingTour } from "@/components/onboarding-tour"
-import { GlobalChatShell } from "@/components/layout/global-chat-shell"
+
+const GlobalChatShell = dynamic(
+  () => import("@/components/layout/global-chat-shell").then((mod) => mod.GlobalChatShell),
+  { ssr: false },
+)
+const OnboardingTour = dynamic(
+  () => import("@/components/onboarding-tour").then((mod) => mod.OnboardingTour),
+  { ssr: false },
+)
+
+function runWhenIdle(callback: () => void) {
+  if (typeof window === "undefined") return
+  const requestIdle = window.requestIdleCallback
+  if (requestIdle) {
+    requestIdle(callback, { timeout: 2000 })
+    return
+  }
+  window.setTimeout(callback, 800)
+}
 
 function isManagementRole(role: ApiUser["role"]) {
   return role === "superadmin" || role === "admin" || role === "manager"
@@ -59,6 +77,7 @@ export default function DashboardLayout({
   const pathname = usePathname()
   const [user, setUser] = useState<ApiUser | null>(null)
   const [isChecking, setIsChecking] = useState(true)
+  const [enhancementsReady, setEnhancementsReady] = useState(false)
 
   useEffect(() => {
     let isActive = true
@@ -113,21 +132,29 @@ export default function DashboardLayout({
   useEffect(() => {
     if (!user || !pathname) return
     const traceId = startPageTrace(pathname)
-    void api.trackEvent({
-      event_name: "page_view",
-      route: pathname,
-      module: pathname.includes("/manager/analytics")
-        ? "analytics"
-        : pathname.includes("/manager/reports")
-          ? "reports"
-          : "manager",
-      status: "ok",
-      payload: {
-        trace_id: traceId,
-        user_role: user.role,
-      },
-    }).catch(() => undefined)
+    runWhenIdle(() => {
+      void api.trackEvent({
+        event_name: "page_view",
+        route: pathname,
+        module: pathname.includes("/manager/analytics")
+          ? "analytics"
+          : pathname.includes("/manager/reports")
+            ? "reports"
+            : "manager",
+        status: "ok",
+        payload: {
+          trace_id: traceId,
+          user_role: user.role,
+        },
+      }).catch(() => undefined)
+    })
   }, [pathname, user])
+
+  useEffect(() => {
+    if (!user) return
+    setEnhancementsReady(false)
+    runWhenIdle(() => setEnhancementsReady(true))
+  }, [user])
 
   if (isChecking) {
     return (
@@ -177,11 +204,11 @@ export default function DashboardLayout({
         </header>
         <div className="flex min-h-0 flex-1 2xl:flex-row">
           <main className="min-w-0 flex-1 space-y-4 p-4">
-            <OnboardingTour />
-            <DashboardPreloader userRole={user?.role ?? null} />
+            {enhancementsReady ? <OnboardingTour /> : null}
+            {enhancementsReady ? <DashboardPreloader userRole={user?.role ?? null} /> : null}
             {children}
           </main>
-          <GlobalChatShell />
+          {enhancementsReady ? <GlobalChatShell /> : null}
         </div>
       </SidebarInset>
     </SidebarProvider>

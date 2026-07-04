@@ -14,6 +14,16 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { api, type ApiOpsNotification } from "@/lib/api"
 
+function runWhenIdle(callback: () => void) {
+  if (typeof window === "undefined") return
+  const requestIdle = window.requestIdleCallback
+  if (requestIdle) {
+    requestIdle(callback, { timeout: 3000 })
+    return
+  }
+  window.setTimeout(callback, 1000)
+}
+
 function priorityLabel(priority: string) {
   if (priority === "critical" || priority === "urgent") return "Khẩn cấp"
   if (priority === "high") return "Cao"
@@ -34,8 +44,10 @@ export function NotificationBell() {
   }, [])
 
   React.useEffect(() => {
-    reloadCount()
-    const timer = window.setInterval(reloadCount, 60000)
+    runWhenIdle(reloadCount)
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") reloadCount()
+    }, 120000)
     return () => window.clearInterval(timer)
   }, [reloadCount])
 

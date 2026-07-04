@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -189,6 +190,18 @@ async def log_event(
         logger.debug("Failed to write observability event %s: %s", event_name, exc)
 
 
+def _schedule_log_event(event_name: str, **kwargs: Any) -> None:
+    task = asyncio.create_task(log_event(event_name, **kwargs))
+
+    def _consume_result(done: asyncio.Task[None]) -> None:
+        try:
+            done.result()
+        except Exception as exc:  # pragma: no cover - log_event handles expected DB errors
+            logger.debug("Failed to schedule observability event %s: %s", event_name, exc)
+
+    task.add_done_callback(_consume_result)
+
+
 async def observability_middleware(
     request: Request,
     call_next: Callable[[Request], Awaitable[Response]],
@@ -217,7 +230,7 @@ async def observability_middleware(
         if request.url.path not in {"/health", "/api/v1/observability/events"}:
             duration_ms = int((time.perf_counter() - start) * 1000)
             user_context = _user_context_from_request(request)
-            await log_event(
+            _schedule_log_event(
                 "http_request_completed",
                 **user_context,
                 session_id=session_id,

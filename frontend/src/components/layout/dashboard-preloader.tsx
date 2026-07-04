@@ -32,6 +32,8 @@ function isReadRole(role?: ApiUserRole | null) {
   return isManagementRole(role) || role === "lecturer" || role === "viewer"
 }
 
+const ENABLE_DATA_PRELOAD = process.env.NEXT_PUBLIC_ENABLE_DASHBOARD_PRELOAD === "true"
+
 function canPrefetchRoute(route: string, role?: ApiUserRole | null) {
   if (route === "/chat") return true
   if (route === "/manager/users") return role === "superadmin" || role === "admin"
@@ -83,6 +85,8 @@ export function DashboardPreloader({ userRole }: { userRole?: ApiUserRole | null
         if (!canPrefetchRoute(route, userRole)) continue
         router.prefetch(route)
       }
+
+      if (!ENABLE_DATA_PRELOAD) return
 
       const tasks: Array<() => Promise<unknown>> = [
         () => api.getReports({ limit: 20 }),

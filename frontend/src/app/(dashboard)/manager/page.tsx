@@ -6,14 +6,9 @@ import { useRouter } from "next/navigation"
 import { School, MessageSquare } from "lucide-react"
 import { api } from "@/lib/api"
 import type { ApiTreeMetrics, ApiTreeNode } from "@/lib/api"
+import { setDashboardAgentContext } from "@/lib/dashboard-agent-context"
+import { getPageDataCache, setPageDataCache } from "@/lib/page-data-cache"
 import { DetailPageSkeleton } from "@/components/loading/page-skeletons"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuGroup,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import type { Department } from "@/types"
 import { DetailPanel } from "@/components/dashboard/detail-panel"
 import { KpiWidgets } from "@/components/dashboard/kpi-widgets"
@@ -63,29 +58,49 @@ function flattenMetrics(tree: ApiTreeNode | null): Record<string, ApiTreeMetrics
   return metrics
 }
 
+type ManagerDashboardCache = {
+  tree: ApiTreeNode | null
+  departments: Department[]
+  expandedDepts: Record<string, boolean>
+  selection: { id: string; type: "department" | "major" } | null
+}
+
+const MANAGER_DASHBOARD_CACHE_KEY = "manager:dashboard"
+
 export default function ManagerDashboard() {
   const router = useRouter()
-  const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>({})
-  const [tree, setTree] = useState<ApiTreeNode | null>(null)
-  const [departments, setDepartments] = useState<Department[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [selection, setSelection] = useState<{ id: string; type: "department" | "major" } | null>(null)
+  const cachedPage = useMemo(() => getPageDataCache<ManagerDashboardCache>(MANAGER_DASHBOARD_CACHE_KEY), [])
+  const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>(cachedPage?.expandedDepts ?? {})
+  const [tree, setTree] = useState<ApiTreeNode | null>(cachedPage?.tree ?? null)
+  const [departments, setDepartments] = useState<Department[]>(cachedPage?.departments ?? [])
+  const [isLoading, setIsLoading] = useState(!cachedPage?.tree)
+  const [selection, setSelection] = useState<{ id: string; type: "department" | "major" } | null>(cachedPage?.selection ?? null)
 
   useEffect(() => {
     let active = true
     async function loadData() {
       try {
-        setIsLoading(true)
+        if (!getPageDataCache<ManagerDashboardCache>(MANAGER_DASHBOARD_CACHE_KEY)?.tree) setIsLoading(true)
         const treeRes = await api.getTree()
         if (active) {
           const feDepartments = mapTreeToDepartments(treeRes)
+          const nextSelection = feDepartments.length > 0
+            ? { id: feDepartments[0].id, type: "department" as const }
+            : null
+          const nextExpanded = Object.fromEntries(feDepartments.map((department) => [department.id, true]))
           setTree(treeRes)
           setDepartments(feDepartments)
 
           if (feDepartments.length > 0) {
-            setSelection({ id: feDepartments[0].id, type: "department" })
-            setExpandedDepts(Object.fromEntries(feDepartments.map((department) => [department.id, true])))
+            setSelection((current) => current ?? nextSelection)
+            setExpandedDepts((current) => Object.keys(current).length ? current : nextExpanded)
           }
+          setPageDataCache<ManagerDashboardCache>(MANAGER_DASHBOARD_CACHE_KEY, {
+            tree: treeRes,
+            departments: feDepartments,
+            expandedDepts: nextExpanded,
+            selection: nextSelection,
+          })
           setIsLoading(false)
         }
       } catch (err) {
@@ -102,6 +117,12 @@ export default function ManagerDashboard() {
   const toggleDept = (id: string) => {
     setExpandedDepts((prev) => ({ ...prev, [id]: !prev[id] }))
     setSelection({ id, type: "department" })
+    setPageDataCache<ManagerDashboardCache>(MANAGER_DASHBOARD_CACHE_KEY, {
+      tree,
+      departments,
+      expandedDepts: { ...expandedDepts, [id]: !expandedDepts[id] },
+      selection: { id, type: "department" },
+    })
   }
 
   const toggleAll = (expand: boolean) => {
@@ -267,33 +288,23 @@ export default function ManagerDashboard() {
                         </div>
                       </button>
 
-                      {/* Chat AI dropdown for Department */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          title={`Hỏi AI về khoa ${dept.tenKhoa}`}
-                          className="absolute top-0 right-0 w-5 h-5 rounded-full bg-white text-primary flex items-center justify-center opacity-0 hover:opacity-100 transition-all duration-200 shadow-lg hover:scale-110 z-20 border border-primary/20 cursor-pointer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <MessageSquare className="w-2.5 h-2.5" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-64 p-1.5 bg-white border-primary/10 shadow-xl rounded-xl">
-                          <DropdownMenuGroup className="flex flex-col gap-0.5">
-                            {[`Khoa ${dept.tenKhoa.toLowerCase()} có tổng cộng bao nhiêu sinh viên đang học?`, `Điểm GPA trung bình của toàn bộ sinh viên khoa ${dept.tenKhoa.toLowerCase()} là bao nhiêu?`, `Thống kê số lượng sinh viên theo từng trạng thái (đang học, đã tốt nghiệp, buộc thôi học) của khoa ${dept.tenKhoa.toLowerCase()}?`].map((prompt, i) => (
-                              <DropdownMenuItem
-                                key={i}
-                                className="text-xs py-2 px-2.5 rounded-lg cursor-pointer flex items-start gap-2 hover:bg-primary/5 hover:text-primary transition-colors group/item"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  router.push(`/chat?q=${encodeURIComponent(prompt)}`)
-                                }}
-                              >
-                                <MessageSquare className="w-3.5 h-3.5 mt-0.5 shrink-0 opacity-50 group-hover/item:opacity-100" />
-                                <span className="leading-snug">{prompt}</span>
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuGroup>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <button
+                        type="button"
+                        title={`Mở Chat AI với ngữ cảnh khoa ${dept.tenKhoa}`}
+                        className="absolute top-0 right-0 w-5 h-5 rounded-full bg-white text-primary flex items-center justify-center opacity-0 hover:opacity-100 transition-all duration-200 shadow-lg hover:scale-110 z-20 border border-primary/20 cursor-pointer"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          setDashboardAgentContext({
+                            source: "academic_tree",
+                            route: "/chat",
+                            dashboard_type: "academic_tree",
+                            scope: { type: "department", id: dept.id, name: dept.tenKhoa },
+                          })
+                          router.push("/chat")
+                        }}
+                      >
+                        <MessageSquare className="w-2.5 h-2.5" />
+                      </button>
 
                       {/* Stem to majors */}
                       <div
@@ -361,33 +372,23 @@ export default function ManagerDashboard() {
                                 <span className={`w-1 h-1 rounded-full ${status.dotClass}`} />
                                 <span>{status.percent}</span>
                               </div>
-                              {/* Chat AI dropdown for Major */}
-                              <DropdownMenu>
-                                <DropdownMenuTrigger
-                                  title={`Hỏi AI về ngành ${major.tenNganh}`}
-                                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white text-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-lg hover:scale-110 z-20 border border-primary/20 cursor-pointer"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <MessageSquare className="w-2.5 h-2.5" />
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-64 p-1.5 bg-white border-primary/10 shadow-xl rounded-xl">
-                                  <DropdownMenuGroup className="flex flex-col gap-0.5">
-                                    {[`Điểm GPA trung bình của sinh viên thuộc ngành/chuyên ngành ${major.tenNganh.toLowerCase()} là bao nhiêu?`, `Top 3 môn học có nhiều sinh viên trượt nhất của ngành/chuyên ngành ${major.tenNganh.toLowerCase()}?`, `Có bao nhiêu sinh viên ngành/chuyên ngành ${major.tenNganh.toLowerCase()} đang bị cảnh báo học vụ hoặc buộc thôi học?`].map((prompt, i) => (
-                                      <DropdownMenuItem
-                                        key={i}
-                                        className="text-xs py-2 px-2.5 rounded-lg cursor-pointer flex items-start gap-2 hover:bg-primary/5 hover:text-primary transition-colors group/item"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          router.push(`/chat?q=${encodeURIComponent(prompt)}`)
-                                        }}
-                                      >
-                                        <MessageSquare className="w-3.5 h-3.5 mt-0.5 shrink-0 opacity-50 group-hover/item:opacity-100" />
-                                        <span className="leading-snug">{prompt}</span>
-                                      </DropdownMenuItem>
-                                    ))}
-                                  </DropdownMenuGroup>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                              <button
+                                type="button"
+                                title={`Mở Chat AI với ngữ cảnh ngành ${major.tenNganh}`}
+                                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white text-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-lg hover:scale-110 z-20 border border-primary/20 cursor-pointer"
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  setDashboardAgentContext({
+                                    source: "academic_tree",
+                                    route: "/chat",
+                                    dashboard_type: "academic_tree",
+                                    scope: { type: "major", id: major.id, name: major.tenNganh, department_id: dept.id },
+                                  })
+                                  router.push("/chat")
+                                }}
+                              >
+                                <MessageSquare className="w-2.5 h-2.5" />
+                              </button>
                             </div>
                           )
                         })}

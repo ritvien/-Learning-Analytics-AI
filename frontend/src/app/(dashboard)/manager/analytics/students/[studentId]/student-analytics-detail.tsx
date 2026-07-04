@@ -90,6 +90,14 @@ function contactScopeLabel(item: ApiInterventionContact) {
   return "Hồ sơ sinh viên"
 }
 
+function contactTitle(item: ApiInterventionContact) {
+  return item.subject || (item.channel === "internal" ? "Thông báo nội bộ" : "Nhận xét học tập")
+}
+
+function contactMainText(item: ApiInterventionContact) {
+  return item.message || item.subject || item.note || "Đã ghi nhận trao đổi"
+}
+
 function toNumber(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null
   const numeric = Number(value)
@@ -101,26 +109,74 @@ function formatFixed(value: unknown, digits = 1) {
   return numeric === null ? "—" : numeric.toFixed(digits)
 }
 
+function mergeInterventionHistory(
+  current: ApiInterventionContact[],
+  incoming: ApiInterventionContact[],
+) {
+  const byId = new Map<number, ApiInterventionContact>()
+  for (const item of [...current, ...incoming]) {
+    byId.set(item.id, item)
+  }
+  return [...byId.values()].sort((a, b) => {
+    const timeDiff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    return timeDiff || b.id - a.id
+  })
+}
+
+type StudentAnalyticsDetailSnapshot = {
+  data: ApiHomeroomStudentAnalytics | null
+  history: ApiInterventionContact[]
+  supportProfile: ApiStudentSupportProfile | null
+}
+
+const studentAnalyticsDetailCache = new Map<number, StudentAnalyticsDetailSnapshot>()
+
+function updateStudentAnalyticsDetailCache(studentId: number, patch: Partial<StudentAnalyticsDetailSnapshot>) {
+  const current = studentAnalyticsDetailCache.get(studentId) ?? {
+    data: null,
+    history: [],
+    supportProfile: null,
+  }
+  studentAnalyticsDetailCache.set(studentId, { ...current, ...patch })
+}
+
 export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
-  const [data, setData] = React.useState<ApiHomeroomStudentAnalytics | null>(null)
-  const [loading, setLoading] = React.useState(true)
+  const cachedSnapshot = studentAnalyticsDetailCache.get(studentId)
+  const [data, setData] = React.useState<ApiHomeroomStudentAnalytics | null>(cachedSnapshot?.data ?? null)
+  const [loading, setLoading] = React.useState(!cachedSnapshot?.data)
   const [error, setError] = React.useState("")
   const [semesterFilter, setSemesterFilter] = React.useState("all")
   const [resultFilter, setResultFilter] = React.useState<"all" | "failed" | "passed">("all")
   const [query, setQuery] = React.useState("")
-  const [history, setHistory] = React.useState<ApiInterventionContact[]>([])
+  const [history, setHistory] = React.useState<ApiInterventionContact[]>(cachedSnapshot?.history ?? [])
   const [historyLoading, setHistoryLoading] = React.useState(false)
-  const [supportProfile, setSupportProfile] = React.useState<ApiStudentSupportProfile | null>(null)
+  const [supportProfile, setSupportProfile] = React.useState<ApiStudentSupportProfile | null>(cachedSnapshot?.supportProfile ?? null)
 
   React.useEffect(() => {
     let active = true
-    setLoading(true)
+    const cached = studentAnalyticsDetailCache.get(studentId)
+    setError("")
+    if (cached?.data) {
+      setData(cached.data)
+      setHistory(cached.history)
+      setSupportProfile(cached.supportProfile)
+      setLoading(false)
+    } else {
+      setData(null)
+      setHistory([])
+      setSupportProfile(null)
+      setLoading(true)
+    }
     api.getHomeroomStudentAnalytics(studentId)
       .then((response) => {
-        if (active) setData(response)
+        if (!active) return
+        setData(response)
+        updateStudentAnalyticsDetailCache(studentId, { data: response })
       })
       .catch(() => {
-        if (active) setError("Không thể mở phân tích sinh viên này. Hãy kiểm tra lại phạm vi lớp chủ nhiệm.")
+        if (active && !cached?.data) {
+          setError("Không thể mở phân tích sinh viên này. Hãy kiểm tra lại phạm vi lớp chủ nhiệm.")
+        }
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -136,10 +192,15 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
     setHistoryLoading(true)
     api.getInterventionHistory(studentId)
       .then((items) => {
-        if (active) setHistory(items)
+        if (!active) return
+        setHistory((current) => {
+          const next = mergeInterventionHistory(current, items)
+          updateStudentAnalyticsDetailCache(studentId, { history: next })
+          return next
+        })
       })
       .catch(() => {
-        if (active) setHistory([])
+        if (active) setHistory((current) => current)
       })
       .finally(() => {
         if (active) setHistoryLoading(false)
@@ -154,7 +215,14 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
     let active = true
     api.getStudentSupportProfile(studentId, { class_code: data.profile.class_code })
       .then((profile) => {
-        if (active) setSupportProfile(profile)
+        if (!active) return
+        setSupportProfile(profile)
+        updateStudentAnalyticsDetailCache(studentId, { supportProfile: profile })
+        setHistory((current) => {
+          const next = mergeInterventionHistory(current, profile?.contact_history ?? [])
+          updateStudentAnalyticsDetailCache(studentId, { history: next })
+          return next
+        })
       })
       .catch(() => {
         if (active) setSupportProfile(null)
@@ -407,15 +475,16 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
         </Card>
       </div>
 
-      <Card className="border-primary/20">
+      <Card id="support-history" className="scroll-mt-24 border-primary/20">
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle className="flex items-center gap-2 text-base"><ListTodo className="h-4 w-4 text-primary" />Hỗ trợ học tập</CardTitle>
-              <CardDescription>Nhận định, lịch hẹn và follow-up được quản lý tại Việc cần xử lý; các biểu đồ analytics vẫn giữ nguyên.</CardDescription>
+              <CardDescription>Hồ sơ sinh viên hiển thị lịch sử hỗ trợ đã lưu; Việc cần xử lý chỉ dùng để quản lý tác vụ, lịch hẹn và follow-up.</CardDescription>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link href={`/manager/tasks?scope_type=homeroom&scope_id=${encodeURIComponent(profile.class_code)}&student_id=${studentId}`} className={buttonVariants({ size: "sm" })}><ListTodo className="mr-2 h-4 w-4" />Mở hồ sơ cố vấn</Link>
+              <a href="#support-history" className={buttonVariants({ size: "sm", variant: "outline" })}><MessageSquareText className="mr-2 h-4 w-4" />Xem lịch sử chi tiết</a>
+              <Link href={`/manager/tasks?scope_type=homeroom&scope_id=${encodeURIComponent(profile.class_code)}&student_id=${studentId}`} className={buttonVariants({ size: "sm" })}><ListTodo className="mr-2 h-4 w-4" />Mở việc cần xử lý liên quan</Link>
             </div>
           </div>
         </CardHeader>
@@ -445,14 +514,29 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
             ) : history.length ? (
               <div className="space-y-3">
                 {history.slice(0, 3).map((item) => (
-                  <div key={item.id} className="border-l-2 border-primary/40 pl-3 text-sm">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">{channelLabel(item.channel)}</span>
-                      <Badge variant={item.status === "emailed" ? "secondary" : "outline"} className="text-[10px]">{statusLabel(item.status)}</Badge>
+                  <details key={item.id} className="group border-l-2 border-primary/40 pl-3 text-sm" open={history.length <= 2}>
+                    <summary className="cursor-pointer list-none">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{contactTitle(item)}</span>
+                        <Badge variant="outline" className="text-[10px]">{channelLabel(item.channel)}</Badge>
+                        <Badge variant={item.status === "emailed" ? "secondary" : "outline"} className="text-[10px]">{statusLabel(item.status)}</Badge>
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-muted-foreground">{contactMainText(item)}</p>
+                      <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground"><Clock3 className="h-3 w-3" />{new Date(item.created_at).toLocaleString("vi-VN")}</p>
+                      <span className="mt-1 inline-block text-xs font-medium text-primary group-open:hidden">Mở chi tiết</span>
+                    </summary>
+                    <div className="mt-2 rounded-md bg-muted/30 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Nội dung trao đổi</p>
+                      <p className="mt-1 whitespace-pre-line">{contactMainText(item)}</p>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        <span>{contactScopeLabel(item)}</span>
+                        {item.actor_name ? <span>· Người ghi: {item.actor_name}</span> : null}
+                      </div>
+                      {item.note && item.note !== contactMainText(item) ? (
+                        <p className="mt-2 rounded bg-background/70 p-2 text-xs text-muted-foreground">Ghi chú hệ thống: {item.note}</p>
+                      ) : null}
                     </div>
-                    <p className="mt-1 line-clamp-2 text-muted-foreground">{item.note || item.subject || item.message || "Đã ghi nhận trao đổi"}</p>
-                    <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground"><Clock3 className="h-3 w-3" />{new Date(item.created_at).toLocaleString("vi-VN")}</p>
-                  </div>
+                  </details>
                 ))}
               </div>
             ) : (
@@ -539,58 +623,6 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
               })}
             </div>
           ) : <p className="py-10 text-center text-sm text-muted-foreground">Chưa có ánh xạ CLO/PLO đủ để tạo hồ sơ năng lực.</p>}
-        </CardContent>
-      </Card>
-
-      <Card className="border-sky-200/70">
-        <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <MessageSquareText className="h-4 w-4 text-sky-600" />
-                Thông báo và nhận xét cá nhân
-              </CardTitle>
-              <CardDescription>
-                Mẫu có thể được soạn theo nhóm lớp, nhưng khi lưu sẽ tách thành từng bản ghi riêng trong hồ sơ năng lực của sinh viên này.
-              </CardDescription>
-            </div>
-            <Badge variant="secondary">{history.length} bản ghi</Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {historyLoading ? (
-            <p className="py-8 text-sm text-muted-foreground">Đang tải thông báo đã lưu...</p>
-          ) : history.length ? (
-            <div className="space-y-3">
-              {history.map((item) => (
-                <div key={item.id} className="rounded-lg border bg-background p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">{item.subject || "Nhận xét học tập"}</span>
-                        <Badge variant="outline">{channelLabel(item.channel)}</Badge>
-                        <Badge variant={item.status === "logged" ? "secondary" : "outline"}>{statusLabel(item.status)}</Badge>
-                      </div>
-                      <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                        <span>{contactScopeLabel(item)}</span>
-                        {item.actor_name ? <span>· Người ghi: {item.actor_name}</span> : null}
-                      </div>
-                    </div>
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock3 className="h-3 w-3" />
-                      {new Date(item.created_at).toLocaleString("vi-VN")}
-                    </span>
-                  </div>
-                  {item.message ? <p className="mt-3 whitespace-pre-line text-sm">{item.message}</p> : null}
-                  {item.note ? <p className="mt-3 rounded-md bg-muted/40 p-2 text-xs text-muted-foreground">{item.note}</p> : null}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-              Chưa có thông báo hoặc nhận xét nào được lưu cho sinh viên này.
-            </div>
-          )}
         </CardContent>
       </Card>
 

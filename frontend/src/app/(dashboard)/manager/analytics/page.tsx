@@ -28,6 +28,7 @@ import { DashboardOverviewSkeleton } from "@/components/loading/page-skeletons"
 import { api, getCachedCurrentUser, type ApiDashboardOverview } from "@/lib/api"
 import { analyticsHref, parseAnalyticsFilters, serializeAnalyticsFilters } from "@/lib/analytics-filters"
 import { requestDashboardAgent, setDashboardAgentContext } from "@/lib/dashboard-agent-context"
+import { getPageDataCache, setPageDataCache } from "@/lib/page-data-cache"
 
 const bucketColors: Record<string, string> = {
   "Trượt nặng": "#ef4444",
@@ -58,6 +59,13 @@ function chartActiveLabel(state: unknown) {
   return typeof label === "string" ? label : null
 }
 
+type OverviewPageCache = {
+  data: ApiDashboardOverview | null
+  trendRows: ApiDashboardOverview["trend"]
+}
+
+const OVERVIEW_PAGE_CACHE_KEY = "manager:analytics:overview"
+
 export default function OverviewPage() {
   const router = useRouter()
   const pathname = usePathname()
@@ -66,8 +74,9 @@ export default function OverviewPage() {
   const currentUser = React.useMemo(() => getCachedCurrentUser(), [])
   const isScopedDepartmentManager = currentUser?.role === "manager" && currentUser.department_id !== null
   const scopedDepartmentId = isScopedDepartmentManager ? String(currentUser.department_id) : null
-  const [data, setData] = React.useState<ApiDashboardOverview | null>(null)
-  const [trendRows, setTrendRows] = React.useState<ApiDashboardOverview["trend"]>([])
+  const cachedPage = React.useMemo(() => getPageDataCache<OverviewPageCache>(OVERVIEW_PAGE_CACHE_KEY), [])
+  const [data, setData] = React.useState<ApiDashboardOverview | null>(cachedPage?.data ?? null)
+  const [trendRows, setTrendRows] = React.useState<ApiDashboardOverview["trend"]>(cachedPage?.trendRows ?? [])
   const [semesterCode, setSemesterCode] = React.useState(() => {
     if (typeof window !== "undefined") {
       return routeFilters.semester_code || sessionStorage.getItem("vinuni_selected_semester") || "all"
@@ -77,7 +86,7 @@ export default function OverviewPage() {
   const [departmentId, setDepartmentId] = React.useState(() => scopedDepartmentId ?? (routeFilters.department_id ? String(routeFilters.department_id) : "all"))
   const [dateFrom, setDateFrom] = React.useState(routeFilters.date_from?.slice(0, 10) ?? "")
   const [dateTo, setDateTo] = React.useState(routeFilters.date_to?.slice(0, 10) ?? "")
-  const [loading, setLoading] = React.useState(true)
+  const [loading, setLoading] = React.useState(!cachedPage?.data)
 
   React.useEffect(() => {
     if (data?.semesters && data.semesters.length > 0) {
@@ -98,9 +107,11 @@ export default function OverviewPage() {
   React.useEffect(() => {
     let ignore = false
 
-    setTimeout(() => {
-      if (!ignore) setLoading(true)
-    }, 0)
+    if (!getPageDataCache<OverviewPageCache>(OVERVIEW_PAGE_CACHE_KEY)?.data) {
+      setTimeout(() => {
+        if (!ignore) setLoading(true)
+      }, 0)
+    }
 
     const scopedParams = {
       semester_code: semesterCode === "all" ? undefined : semesterCode,
@@ -121,7 +132,12 @@ export default function OverviewPage() {
       .then(([nextData, unfilteredTrendData]) => {
         if (ignore) return
         setData(nextData)
-        setTrendRows(unfilteredTrendData?.trend ?? nextData.trend)
+        const nextTrendRows = unfilteredTrendData?.trend ?? nextData.trend
+        setTrendRows(nextTrendRows)
+        setPageDataCache<OverviewPageCache>(OVERVIEW_PAGE_CACHE_KEY, {
+          data: nextData,
+          trendRows: nextTrendRows,
+        })
       })
       .catch(console.error)
       .finally(() => {

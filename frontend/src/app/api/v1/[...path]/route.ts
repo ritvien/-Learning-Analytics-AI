@@ -44,8 +44,7 @@ async function proxy(req: NextRequest, { params }: { params: Promise<{ path: str
     return new NextResponse(null, { status: res.status, headers: resHeaders })
   }
 
-  const resBody = await res.arrayBuffer()
-  return new NextResponse(resBody, { status: res.status, headers: resHeaders })
+  return new Response(res.body, { status: res.status, headers: resHeaders })
 }
 
 export const GET = proxy
