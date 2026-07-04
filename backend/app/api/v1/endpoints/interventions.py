@@ -404,6 +404,53 @@ async def _global_failure_counts(db: DBSession, student_ids: list[int]) -> dict[
     }
 
 
+async def _academic_risk_details(db: DBSession, student_ids: list[int]) -> dict[int, list[dict]]:
+    """Return named weak/failed course attempts used as explainable outreach evidence."""
+    if not student_ids:
+        return {}
+    rows = (
+        await db.execute(
+            select(
+                Enrollment.student_id,
+                Enrollment.final_grade,
+                Enrollment.is_passed,
+                Enrollment.attempt_number,
+                Section.id.label("section_id"),
+                Section.section_code,
+                Course.code.label("course_code"),
+                Course.name.label("course_name"),
+                Semester.code.label("semester_code"),
+            )
+            .join(Section, Section.id == Enrollment.section_id)
+            .join(Course, Course.id == Section.course_id)
+            .join(Semester, Semester.id == Section.semester_id)
+            .where(
+                Enrollment.student_id.in_(student_ids),
+                (Enrollment.is_passed == False)  # noqa: E712
+                | ((Enrollment.final_grade.is_not(None)) & (Enrollment.final_grade < 5.5)),
+            )
+            .order_by(Enrollment.student_id, Enrollment.final_grade.asc(), Semester.code.desc())
+        )
+    ).all()
+    result: dict[int, list[dict]] = {}
+    for row in rows:
+        grade = _float(row.final_grade)
+        result.setdefault(int(row.student_id), []).append(
+            {
+                "section_id": row.section_id,
+                "section_code": row.section_code,
+                "course_code": row.course_code,
+                "course_name": row.course_name,
+                "semester_code": row.semester_code,
+                "final_grade": grade,
+                "attempt_number": row.attempt_number,
+                "risk_label": "chưa đạt" if row.is_passed is False or (grade is not None and grade < 5) else "cận ngưỡng đạt",
+                "source": "academic_record",
+            }
+        )
+    return result
+
+
 def _summary(rows: list[dict]) -> dict:
     return {
         "total": len(rows),
@@ -471,13 +518,45 @@ async def _latest_semester_predictions(db: DBSession, student_ids: list[int]) ->
 
 
 def _bulk_message(student: dict, template: str | None = None) -> str:
-    if template:
-        return (
-            template.replace("{full_name}", str(student.get("full_name") or ""))
-            .replace("{student_code}", str(student.get("student_code") or ""))
-            .replace("{reasons}", "; ".join(student.get("reasons") or []))
-            .replace("{actions}", "; ".join(student.get("recommended_actions") or []))
+    academic_details = student.get("academic_risk_details") or []
+    detail_lines = []
+    for item in academic_details[:8]:
+        grade = item.get("final_grade")
+        grade_text = f", điểm tổng kết {grade:g}" if isinstance(grade, (int, float)) else ""
+        detail_lines.append(
+            f"- {item.get('course_code')} - {item.get('course_name')} "
+            f"(lớp {item.get('section_code')}, kỳ {item.get('semester_code')}{grade_text}, "
+            f"{item.get('risk_label')})"
         )
+    scope_context = student.get("scope_context") or {}
+    if scope_context:
+        grade = scope_context.get("current_grade")
+        grade_text = f", điểm hiện tại {grade:g}" if isinstance(grade, (int, float)) else ", chưa có điểm tổng kết"
+        scope_line = (
+            f"{scope_context.get('course_code')} - {scope_context.get('course_name')} "
+            f"(lớp {scope_context.get('section_code')}, kỳ {scope_context.get('semester_code')}{grade_text})"
+        )
+    else:
+        scope_line = "Không áp dụng"
+    source_labels = ["quy tắc học vụ từ điểm/GPA"]
+    if student.get("dropout_probability") is not None:
+        source_labels.append("mô hình ML nguy cơ gián đoạn học tập")
+    if student.get("course_fail_probability") is not None:
+        source_labels.append("ước tính nguy cơ chưa đạt lớp học phần")
+    replacements = {
+        "{full_name}": str(student.get("full_name") or ""),
+        "{student_code}": str(student.get("student_code") or ""),
+        "{reasons}": "; ".join(student.get("reasons") or []),
+        "{actions}": "; ".join(student.get("recommended_actions") or []),
+        "{risk_details}": "\n".join(detail_lines) or "- Chưa có học phần yếu/trượt được định danh trong dữ liệu hiện tại.",
+        "{risk_sources}": ", ".join(source_labels),
+        "{gpa}": f"{student['gpa_cumulative']:.2f}" if student.get("gpa_cumulative") is not None else "chưa có dữ liệu",
+        "{scope_course}": scope_line,
+    }
+    if template:
+        for placeholder, value in replacements.items():
+            template = template.replace(placeholder, value)
+        return template
     reasons = student.get("reasons") or ["cần trao đổi định kỳ về tình hình học tập"]
     actions = student.get("recommended_actions") or ["Duy trì theo dõi định kỳ"]
     lines = [
@@ -554,6 +633,7 @@ async def _section_at_risk_payload(db: DBSession, user: CurrentUser, section_id:
     student_ids = [student.id for _, student, _ in enrollment_rows]
     enrollment_ids = [enrollment.id for enrollment, _, _ in enrollment_rows]
     failures = await _global_failure_counts(db, student_ids)
+    academic_details = await _academic_risk_details(db, student_ids)
     predictions = await _dropout_predictions(db, student_ids)
     course_predictions = await _course_failure_predictions(db, enrollment_ids)
     contacts = await _contact_counts(db, student_ids, section_id=section_id)
@@ -601,6 +681,15 @@ async def _section_at_risk_payload(db: DBSession, user: CurrentUser, section_id:
                 "current_is_passed": enrollment.is_passed,
                 "fail_count": _int(signal.get("fail_count")),
                 "near_fail_count": _int(signal.get("near_fail_count")),
+                "academic_risk_details": academic_details.get(student.id, []),
+                "scope_context": {
+                    "section_id": section_id,
+                    "section_code": section_row.section_code,
+                    "course_code": section_row.course_code,
+                    "course_name": section_row.course_name,
+                    "semester_code": section_row.semester_code,
+                    "current_grade": current_grade,
+                },
                 "dropout_probability": dropout_probability,
                 "dropout_risk_level": prediction.get("risk_level"),
                 "course_fail_probability": course_fail_probability,
@@ -642,6 +731,7 @@ async def _homeroom_at_risk_payload(db: DBSession, user: CurrentUser, class_code
     ).all()
     student_ids = [student.id for student, _, _ in student_rows]
     failures = await _global_failure_counts(db, student_ids)
+    academic_details = await _academic_risk_details(db, student_ids)
     predictions = await _dropout_predictions(db, student_ids)
     contacts = await _contact_counts(db, student_ids, class_code=assignment.class_code)
 
@@ -679,6 +769,7 @@ async def _homeroom_at_risk_payload(db: DBSession, user: CurrentUser, class_code
                 "gpa_cumulative": _float(student.gpa_cumulative),
                 "fail_count": _int(signal.get("fail_count")),
                 "near_fail_count": _int(signal.get("near_fail_count")),
+                "academic_risk_details": academic_details.get(student.id, []),
                 "dropout_probability": dropout_probability,
                 "dropout_risk_level": prediction.get("risk_level"),
                 "top_factors": prediction.get("top_factors") or [],
@@ -753,6 +844,26 @@ def _contact_payload(contact: StudentInterventionContact, actor_name: str | None
         "created_at": contact.created_at,
         "updated_at": contact.updated_at,
     }
+
+
+async def _student_intervention_history_payload(
+    db: DBSession,
+    student_id: int,
+    *,
+    section_id: int | None = None,
+    class_code: str | None = None,
+) -> list[dict]:
+    query = (
+        select(StudentInterventionContact)
+        .options(selectinload(StudentInterventionContact.actor))
+        .where(StudentInterventionContact.student_id == student_id)
+        .order_by(desc(StudentInterventionContact.created_at), desc(StudentInterventionContact.id))
+    )
+    if section_id is not None:
+        query = query.where(StudentInterventionContact.section_id == section_id)
+    if class_code:
+        query = query.where(StudentInterventionContact.class_code == class_code)
+    return [_contact_payload(row) for row in (await db.execute(query)).scalars().all()]
 
 
 @router.get("/sections/worklist")
@@ -1118,17 +1229,12 @@ async def list_student_intervention_history(
 ) -> list[dict]:
     """Return contact history for a visible student, optionally narrowed to one scope."""
     await _require_contact_scope(db, current_user, student_id=student_id, section_id=section_id, class_code=class_code)
-    query = (
-        select(StudentInterventionContact)
-        .options(selectinload(StudentInterventionContact.actor))
-        .where(StudentInterventionContact.student_id == student_id)
-        .order_by(desc(StudentInterventionContact.created_at), desc(StudentInterventionContact.id))
+    return await _student_intervention_history_payload(
+        db,
+        student_id,
+        section_id=section_id,
+        class_code=class_code,
     )
-    if section_id is not None:
-        query = query.where(StudentInterventionContact.section_id == section_id)
-    if class_code:
-        query = query.where(StudentInterventionContact.class_code == class_code)
-    return [_contact_payload(row) for row in (await db.execute(query)).scalars().all()]
 
 
 @router.get("/students/{student_id}/support-profile")
@@ -1217,10 +1323,9 @@ async def get_student_support_profile(
             payload["source"] = "course_failure_rule"
             course_predictions.append(payload)
 
-    contacts = await list_student_intervention_history(
-        student_id,
+    contacts = await _student_intervention_history_payload(
         db,
-        current_user,
+        student_id,
         section_id=section_id,
         class_code=class_code,
     )

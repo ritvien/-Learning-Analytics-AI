@@ -54,7 +54,7 @@ export function OnboardingTour() {
           element: ".major-node-item", // A major node
           popover: {
             title: "3. Nhắn tin cùng Chatbot AI",
-            description: "Rê chuột vào một Ngành hoặc click chọn để hiển thị biểu tượng Chat AI. Bấm vào để lấy gợi ý phân tích.",
+            description: "Rê chuột vào một Khoa hoặc Ngành để hiện biểu tượng Chat AI. Bấm vào để mở thẳng trang Chat với đúng ngữ cảnh đang chọn.",
             side: "right",
             align: "start"
           }

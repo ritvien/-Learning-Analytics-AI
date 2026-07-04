@@ -29,7 +29,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { api, type ApiUserRole } from "@/lib/api"
+import { type ApiUserRole } from "@/lib/api"
 
 type NavItem = {
   title: string
@@ -85,34 +85,6 @@ function canSeeItem(item: NavItem, role?: ApiUserRole | null) {
   return !item.roles || (role != null && item.roles.includes(role))
 }
 
-function prefetchNavData(url: string) {
-  if (url === "/manager") {
-    void api.getTree().catch(() => undefined)
-    return
-  }
-  if (url === "/manager/analytics") {
-    void api.getDashboardOverview().catch(() => undefined)
-    return
-  }
-  if (url === "/manager/analytics/departments") {
-    void api.getDashboardDepartments().catch(() => undefined)
-    return
-  }
-  if (url === "/manager/analytics/programs") {
-    void api.getDashboardOverview()
-      .then((overview) => {
-        const firstProgramId = overview.programs[0]?.id
-        if (firstProgramId) return api.getDashboardProgram(firstProgramId)
-        return undefined
-      })
-      .catch(() => undefined)
-    return
-  }
-  if (url === "/manager/reports") {
-    void api.getReports({ limit: 50 }).catch(() => undefined)
-  }
-}
-
 export function AppSidebar({ userRole, ...props }: React.ComponentProps<typeof Sidebar> & { userRole?: ApiUserRole | null }) {
   const homeUrl = userRole === "lecturer" ? "/manager/analytics/sections" : "/manager/analytics"
   const groups = data.navMain
@@ -129,7 +101,7 @@ export function AppSidebar({ userRole, ...props }: React.ComponentProps<typeof S
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
-              render={<Link href={homeUrl} prefetch onMouseEnter={() => prefetchNavData(homeUrl)} onFocus={() => prefetchNavData(homeUrl)} />}
+              render={<Link href={homeUrl} prefetch />}
             >
               <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-primary text-white shadow-sm border border-accent/20">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="size-5 text-[var(--accent)]">
@@ -162,8 +134,6 @@ export function AppSidebar({ userRole, ...props }: React.ComponentProps<typeof S
                         <Link
                           href={subItem.url}
                           prefetch
-                          onMouseEnter={() => prefetchNavData(subItem.url)}
-                          onFocus={() => prefetchNavData(subItem.url)}
                         />
                       )}
                     >

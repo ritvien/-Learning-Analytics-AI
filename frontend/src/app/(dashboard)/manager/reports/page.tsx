@@ -78,6 +78,18 @@ interface ReportTemplate {
   scopeType: "school" | "department" | "program" | "course" | "section"
 }
 
+interface RoleReportPreset {
+  id: string
+  templateId: TemplateId
+  label: string
+  description: string
+  departmentId?: string
+  programId?: string
+  courseId?: string
+  sectionId?: string
+  semesterId?: string
+}
+
 const templates: ReportTemplate[] = [
   {
     id: "department_report",
@@ -125,6 +137,30 @@ const templates: ReportTemplate[] = [
     scopeType: "school",
   },
 ]
+
+function reportPresetsForRole(role: ReportUserRole): RoleReportPreset[] {
+  if (role === "superadmin" || role === "admin") {
+    return [
+      { id: "school-current", templateId: "school_report", label: "Toàn trường · kỳ hiện tại", description: "Tổng quan điều hành và các vùng rủi ro chính" },
+      { id: "department-current", templateId: "department_report", label: "Theo khoa · kỳ hiện tại", description: "Sức khỏe một khoa và các ngành cần chú ý" },
+      { id: "program-current", templateId: "program_report", label: "Theo ngành · kỳ hiện tại", description: "PLO, môn học và điểm nghẽn của ngành" },
+    ]
+  }
+  if (role === "manager") {
+    return [
+      { id: "my-department", templateId: "department_report", label: "Khoa phụ trách", description: "Tự chọn khoa được phân quyền và kỳ hiện tại" },
+      { id: "my-program", templateId: "program_report", label: "Ngành thuộc khoa", description: "Chọn sẵn một ngành trong phạm vi quản lý" },
+      { id: "my-section", templateId: "section_report", label: "Lớp cần can thiệp", description: "Chọn nhanh lớp học phần trong kỳ hiện tại" },
+    ]
+  }
+  if (role === "lecturer") {
+    return [
+      { id: "teaching-section", templateId: "section_report", label: "Lớp đang giảng dạy", description: "Tình hình lớp và sinh viên cần hỗ trợ" },
+      { id: "teaching-course", templateId: "course_report", label: "Môn đang phụ trách", description: "Kết quả và CLO của môn học" },
+    ]
+  }
+  return []
+}
 
 function allowedTemplatesForRole(role: ReportUserRole) {
   if (role === "superadmin" || role === "admin") return templates
@@ -232,6 +268,7 @@ const scopeTypeLabels: Record<string, string> = {
 }
 
 const statusLabels: Record<string, string> = {
+  generated: "Bản được hệ thống lập",
   draft: "Bản nháp",
   final: "Bản chính thức",
   approved: "Đã duyệt",
@@ -279,7 +316,11 @@ function localizeReportText(value: unknown) {
     .replace(/\bsnapshot\b/gi, "ảnh chụp")
     .replace(/\breport\b/gi, "báo cáo")
     .replace(/\baction list\b/gi, "danh sách hành động")
+    .replace(/\baction plan\b/gi, "kế hoạch hành động")
     .replace(/\baction\b/gi, "hành động")
+    .replace(/\bbottleneck\b/gi, "điểm nghẽn")
+    .replace(/\binsight\b/gi, "nhận định")
+    .replace(/\bmapping\b/gi, "ánh xạ")
     .replace(/\bissue\b/gi, "vấn đề")
     .replace(/\brisk\b/gi, "rủi ro")
     .replace(/\bcompleted\b/gi, "đã hoàn thành")
@@ -336,6 +377,20 @@ function formatDate(value?: string) {
 
 function formatDateOnly(value?: string | null) {
   return value ? new Date(value).toLocaleDateString("vi-VN") : "-"
+}
+
+function formalReportDate(value?: string) {
+  const date = value ? new Date(value) : new Date()
+  return `Hà Nội, ngày ${date.getDate()} tháng ${date.getMonth() + 1} năm ${date.getFullYear()}`
+}
+
+function reportReference(report: ApiReport) {
+  const year = new Date(report.created_at).getFullYear()
+  return `${report.id.slice(0, 8).toUpperCase()}/${year}/BC-ĐHĐL`
+}
+
+function reportRecipient(report: ApiReport) {
+  return report.actor_role === "lecturer" ? "Giảng viên, cố vấn học tập phụ trách" : "Lãnh đạo đơn vị và cán bộ quản lý đào tạo"
 }
 
 function startOfDayIso(value: string) {
@@ -652,6 +707,9 @@ function buildReportHtml(report: ApiReport) {
       font-weight: 700;
     }
     .underline { display: inline-block; border-bottom: 1px solid #111827; padding-bottom: 2px; }
+    .document-meta { display: grid; grid-template-columns: 1fr 1fr; margin-top: 14px; font-size: 12.5pt; }
+    .document-date { text-align: center; font-style: italic; }
+    .recipient { margin: 12px 0 18px; }
     h1 {
       margin: 28px 0 8px;
       text-align: center;
@@ -663,15 +721,18 @@ function buildReportHtml(report: ApiReport) {
     h2 { margin: 18px 0 8px; font-size: 13.5pt; text-transform: uppercase; }
     h3 { margin: 12px 0 6px; font-size: 13pt; }
     p { margin: 6px 0; text-align: justify; }
-    table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 11.5pt; }
     th, td { border: 1px solid #111827; padding: 6px 8px; vertical-align: top; }
     th { background: #f3f4f6; text-align: center; font-weight: 700; }
+    thead { display: table-header-group; }
+    tr, .summary { break-inside: avoid; page-break-inside: avoid; }
+    h2, h3 { break-after: avoid; page-break-after: avoid; }
     ul { margin: 6px 0 12px 22px; padding: 0; }
     li { margin: 4px 0; text-align: justify; }
     .summary { border: 1px solid #111827; padding: 10px 12px; margin: 10px 0 14px; }
     .signature {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(3, 1fr);
       gap: 24px;
       margin-top: 32px;
       text-align: center;
@@ -685,19 +746,26 @@ function buildReportHtml(report: ApiReport) {
 </head>
 <body><main>
   <div class="topline">
-    <div>TRƯỜNG ĐẠI HỌC VINUNIVERSITY<br/><span class="underline">HỆ THỐNG PHÂN TÍCH HỌC TẬP</span></div>
+    <div>TRƯỜNG ĐẠI HỌC ĐIỆN LỰC<br/><span class="underline">ĐƠN VỊ QUẢN LÝ ĐÀO TẠO</span></div>
     <div>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM<br/><span class="underline">Độc lập - Tự do - Hạnh phúc</span></div>
   </div>
 
+  <div class="document-meta">
+    <div>Số: ${escapeHtml(reportReference(report))}</div>
+    <div class="document-date">${escapeHtml(formalReportDate(report.created_at))}</div>
+  </div>
+
   <h1>${escapeHtml(report.title)}</h1>
-  <div class="subtitle">${escapeHtml(labelFromMap(report.report_type, reportTypeLabels))} · ${escapeHtml(formatDate(report.created_at))}</div>
+  <div class="subtitle">${escapeHtml(labelFromMap(report.report_type, reportTypeLabels))}</div>
+  <p class="recipient"><strong>Kính gửi:</strong> ${escapeHtml(reportRecipient(report))}</p>
 
   <h2>I. Thông tin báo cáo</h2>
   <table>
     <tr><td><strong>Loại báo cáo</strong></td><td>${escapeHtml(labelFromMap(report.report_type, reportTypeLabels))}</td></tr>
     <tr><td><strong>Phạm vi</strong></td><td>${escapeHtml(reportScopeDisplay(report))}</td></tr>
     <tr><td><strong>Kỳ dữ liệu phân tích</strong></td><td>${escapeHtml(reportPeriodLabel(report))}</td></tr>
-    <tr><td><strong>Actor nhận báo cáo</strong></td><td>${escapeHtml(report.actor_role === "lecturer" ? "Giảng viên" : "Quản lý")}</td></tr>
+    <tr><td><strong>Đối tượng tiếp nhận</strong></td><td>${escapeHtml(reportRecipient(report))}</td></tr>
+    <tr><td><strong>Mã tra cứu</strong></td><td>${escapeHtml(report.id)}</td></tr>
     <tr><td><strong>Trạng thái</strong></td><td>${escapeHtml(labelFromMap(report.status, statusLabels))}</td></tr>
     <tr><td><strong>Độ tin cậy dữ liệu</strong></td><td>${confidence}% - ${reportHtmlText(dataConfidenceBasis(report))}</td></tr>
   </table>
@@ -742,11 +810,16 @@ function buildReportHtml(report: ApiReport) {
   </table>
 
   <h2>VIII. Kết luận</h2>
-  <p>Báo cáo này là căn cứ ban đầu để actor phụ trách xem xét, xác minh dữ liệu chi tiết và triển khai hành động cải tiến. Các quyết định chính thức cần đối chiếu với minh chứng học vụ, điểm thành phần và quy định hiện hành của đơn vị.</p>
+  <p>Báo cáo này là căn cứ ban đầu để đơn vị phụ trách xem xét, xác minh dữ liệu chi tiết và triển khai biện pháp cải tiến. Các quyết định chính thức cần được đối chiếu với hồ sơ học vụ, điểm thành phần và quy định hiện hành của Nhà trường.</p>
 
   <div class="signature">
-    <div><strong>Người lập báo cáo</strong><br/><span class="muted">(Hệ thống phân tích học tập)</span></div>
-    <div><strong>Đơn vị tiếp nhận</strong><br/><span class="muted">(Ký, ghi rõ họ tên nếu in bản giấy)</span></div>
+    <div><strong>NGƯỜI LẬP BÁO CÁO</strong><br/><span class="muted">(Ký, ghi rõ họ tên)</span></div>
+    <div><strong>NGƯỜI KIỂM TRA</strong><br/><span class="muted">(Ký, ghi rõ họ tên)</span></div>
+    <div><strong>THỦ TRƯỞNG ĐƠN VỊ</strong><br/><span class="muted">(Ký, đóng dấu nếu có)</span></div>
+  </div>
+  <div style="margin-top: 54px; border-top: 1px solid #9ca3af; padding-top: 8px; font-size: 10.5pt;">
+    <strong>Nơi nhận:</strong> Như trên; lưu đơn vị lập báo cáo.<br/>
+    <span class="muted">Mã tra cứu: ${escapeHtml(report.id)} · Phiên bản 1.0 · Tài liệu sử dụng nội bộ.</span>
   </div>
 </main></body></html>`
 }
@@ -957,6 +1030,130 @@ export default function ReportsPage() {
   const workspaceDescription = workspace === "actions"
     ? "Các snapshot có cảnh báo hoặc sinh viên cần theo dõi. Mở một báo cáo để xem bằng chứng và đi sâu vào dashboard."
     : "Tất cả snapshot báo cáo trong phạm vi bạn được phép xem."
+  const roleReportPresets = React.useMemo(() => {
+    const base = reportPresetsForRole(currentRole)
+    const semesterRank = new Map(semesters.map((item) => [item.id, item.year * 10 + item.term]))
+    const recentSections = [...sections].sort(
+      (left, right) => (semesterRank.get(right.semester_id) ?? 0) - (semesterRank.get(left.semester_id) ?? 0),
+    )
+    if (currentRole === "lecturer") {
+      const sectionPresets = recentSections.slice(0, 8).map((section) => ({
+        id: `section-${section.id}`,
+        templateId: "section_report" as TemplateId,
+        label: `Lớp ${section.section_code}`,
+        description: buildSectionLabel(section, courseMap, semesterMap),
+        courseId: String(section.course_id),
+        sectionId: String(section.id),
+        semesterId: String(section.semester_id),
+      }))
+      const seenCourses = new Set<number>()
+      const coursePresets = recentSections.flatMap((section) => {
+        if (seenCourses.has(section.course_id)) return []
+        seenCourses.add(section.course_id)
+        const course = courseMap.get(section.course_id)
+        return [{
+          id: `course-${section.course_id}`,
+          templateId: "course_report" as TemplateId,
+          label: course ? `${course.code} · ${course.name}` : `Môn học #${section.course_id}`,
+          description: `Môn được phân công · ${semesterMap.get(section.semester_id)?.name ?? "Kỳ gần nhất"}`,
+          courseId: String(section.course_id),
+          semesterId: String(section.semester_id),
+        }]
+      }).slice(0, 6)
+      return [...sectionPresets, ...coursePresets]
+    }
+    if (currentRole === "manager") {
+      const department = scopedDepartments[0]
+      const departmentId = department ? String(department.id) : lockedDepartmentId
+      const programPresets = programs
+        .filter((item) => !departmentId || String(item.department_id) === departmentId)
+        .slice(0, 6)
+        .map((program) => ({
+          id: `program-${program.id}`,
+          templateId: "program_report" as TemplateId,
+          label: program.name,
+          description: `Báo cáo ngành ${program.code}`,
+          departmentId,
+          programId: String(program.id),
+        }))
+      const sectionPresets = recentSections.slice(0, 6).map((section) => ({
+        id: `section-${section.id}`,
+        templateId: "section_report" as TemplateId,
+        label: `Lớp ${section.section_code}`,
+        description: buildSectionLabel(section, courseMap, semesterMap),
+        departmentId,
+        courseId: String(section.course_id),
+        sectionId: String(section.id),
+        semesterId: String(section.semester_id),
+      }))
+      return [
+        ...(base[0] ? [{ ...base[0], label: department?.name ?? "Khoa phụ trách", departmentId }] : []),
+        ...programPresets,
+        ...sectionPresets,
+      ] as RoleReportPreset[]
+    }
+    if (currentRole === "superadmin" || currentRole === "admin") {
+      const departmentPresets = departments.slice(0, 5).map((department) => ({
+        id: `department-${department.id}`,
+        templateId: "department_report" as TemplateId,
+        label: department.name,
+        description: `Báo cáo khoa ${department.code}`,
+        departmentId: String(department.id),
+      }))
+      const programPresets = programs.slice(0, 5).map((program) => ({
+        id: `program-${program.id}`,
+        templateId: "program_report" as TemplateId,
+        label: program.name,
+        description: `Báo cáo ngành ${program.code}`,
+        departmentId: String(program.department_id),
+        programId: String(program.id),
+      }))
+      return [...(base[0] ? [base[0]] : []), ...departmentPresets, ...programPresets] as RoleReportPreset[]
+    }
+    return base
+  }, [currentRole, semesters, sections, courseMap, semesterMap, scopedDepartments, lockedDepartmentId, programs, departments])
+
+  function applyRoleReportPreset(preset: RoleReportPreset) {
+    setSelectedTemplateId(preset.templateId)
+    setPeriodStartDate("")
+    setPeriodEndDate("")
+    setCourseSearch("")
+    setSectionSearch("")
+
+    const lecturerSemester = currentRole === "lecturer"
+      ? orderedSemesters.find((item) => sections.some((section) => section.semester_id === item.id))
+      : null
+    const semester = lecturerSemester ?? semesters.find((item) => item.is_current) ?? orderedSemesters[0]
+    const semesterId = preset.semesterId ?? (semester ? String(semester.id) : "")
+    if (semesterId) setSelectedSemesterId(semesterId)
+
+    const departmentId = preset.departmentId || lockedDepartmentId
+      || (currentUser?.department_id != null ? String(currentUser.department_id) : "")
+      || (scopedDepartments[0] ? String(scopedDepartments[0].id) : "")
+    if (departmentId) setSelectedDepartmentId(departmentId)
+
+    const nextProgram = programs.find((item) => !departmentId || String(item.department_id) === departmentId)
+    const programId = preset.programId ?? (nextProgram ? String(nextProgram.id) : "")
+    setSelectedProgramId(programId)
+
+    const nextCourse = courses.find((item) => {
+      if (programId) return item.program_ids.includes(Number(programId))
+      return !departmentId || String(item.department_id) === departmentId
+    })
+    const courseId = preset.courseId ?? (nextCourse ? String(nextCourse.id) : "")
+    setSelectedCourseId(courseId)
+
+    const nextSection = sections.find((item) => {
+      if (preset.sectionId) return String(item.id) === preset.sectionId
+      if (semesterId && String(item.semester_id) !== semesterId) return false
+      const course = courseMap.get(item.course_id)
+      return !departmentId || String(course?.department_id) === departmentId
+    })
+    if (preset.templateId === "section_report" && nextSection) {
+      setSelectedCourseId(String(nextSection.course_id))
+    }
+    setSelectedSectionId(preset.sectionId ?? (nextSection ? String(nextSection.id) : ""))
+  }
 
   function startReport(templateId: TemplateId) {
     if (!availableTemplates.some((template) => template.id === templateId)) {
@@ -1035,7 +1232,12 @@ export default function ReportsPage() {
         setSelectedCourseId(courseList[0] ? String(courseList[0].id) : "")
         const savedCode = typeof window !== "undefined" ? sessionStorage.getItem("vinuni_selected_semester") : null
         const savedSem = savedCode ? semesterList.find((s) => s.code === savedCode) : null
-        const currentSem = savedSem ?? semesterList.find((s) => s.is_current) ?? semesterList[0]
+        const latestAssignedSem = me?.role === "lecturer"
+          ? [...semesterList]
+              .sort((a, b) => b.year * 10 + b.term - (a.year * 10 + a.term))
+              .find((semester) => sectionList.some((section) => section.semester_id === semester.id))
+          : null
+        const currentSem = latestAssignedSem ?? savedSem ?? semesterList.find((s) => s.is_current) ?? semesterList[0]
         if (currentSem) {
           setSelectedSemesterId(String(currentSem.id))
           if (typeof window !== "undefined" && !savedCode) {
@@ -1303,6 +1505,32 @@ export default function ReportsPage() {
           </DialogHeader>
 
           <div className="space-y-5">
+            {roleReportPresets.length ? (
+              <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                <div>
+                  <Label className="text-sm font-semibold">Lựa chọn nhanh cho {reportActorLabel(currentRole)}</Label>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Danh sách được tạo từ đúng khoa, ngành, môn và lớp mà tài khoản này được phép xem.
+                  </p>
+                </div>
+                <div className="grid max-h-64 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
+                  {roleReportPresets.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => applyRoleReportPreset(preset)}
+                      className={`rounded-md border bg-background p-2.5 text-left transition hover:border-primary hover:bg-primary/5 ${
+                        selectedTemplateId === preset.templateId ? "border-primary ring-1 ring-primary/20" : ""
+                      }`}
+                    >
+                      <div className="text-xs font-semibold">{preset.label}</div>
+                      <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{preset.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             {/* Bước A: cấp báo cáo */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Báo cáo cho cấp nào?</Label>
@@ -2065,8 +2293,8 @@ function ReportStandardDocument({
     >
       <div className="grid gap-4 text-center text-[13px] font-bold uppercase sm:grid-cols-2">
         <div>
-          TRƯỜNG ĐẠI HỌC VINUNIVERSITY
-          <div className="mx-auto mt-1 w-fit border-b border-slate-900 pb-0.5">HỆ THỐNG PHÂN TÍCH HỌC TẬP</div>
+          TRƯỜNG ĐẠI HỌC ĐIỆN LỰC
+          <div className="mx-auto mt-1 w-fit border-b border-slate-900 pb-0.5">ĐƠN VỊ QUẢN LÝ ĐÀO TẠO</div>
         </div>
         <div>
           CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
@@ -2074,12 +2302,18 @@ function ReportStandardDocument({
         </div>
       </div>
 
+      <div className="grid gap-2 text-[13px] sm:grid-cols-2">
+        <div>Số: {reportReference(report)}</div>
+        <div className="text-center italic">{formalReportDate(report.created_at)}</div>
+      </div>
+
       <div className="py-5 text-center">
         <h2 className="text-[21px] font-bold uppercase leading-snug">{report.title}</h2>
         <p className="mt-2 text-[14px] text-slate-700">
-          {labelFromMap(report.report_type, reportTypeLabels)} · {formatDate(report.created_at)}
+          {labelFromMap(report.report_type, reportTypeLabels)}
         </p>
       </div>
+      <p className="text-[14px]"><strong>Kính gửi:</strong> {reportRecipient(report)}</p>
 
       <ReportSectionBlock
         index={sectionIndex++}
@@ -2095,9 +2329,10 @@ function ReportStandardDocument({
             { label: "Kỳ dữ liệu phân tích", value: reportPeriodLabel(report) },
             { label: "Người tạo", value: report.generated_by ? "Người dùng hệ thống" : "Hệ thống" },
             { label: "Dữ liệu tính đến", value: formatDate(report.created_at) },
+            { label: "Mã tra cứu", value: report.id },
             { label: "Phiên bản", value: "v1.0" },
             { label: "Trạng thái", value: labelFromMap(report.status, statusLabels) },
-            { label: "Actor", value: report.actor_role === "lecturer" ? "Giảng viên" : "Quản lý" },
+            { label: "Đối tượng tiếp nhận", value: reportRecipient(report) },
           ]}
         />
       </ReportSectionBlock>
@@ -2200,14 +2435,14 @@ function ReportStandardDocument({
 
       <ReportSectionBlock
         index={sectionIndex++}
-        title="Nguyên nhân / bottleneck"
+          title="Nguyên nhân và điểm nghẽn"
         purpose="Không chỉ nêu chuẩn yếu, mà chỉ ra môn, CLO, thành phần điểm hoặc lớp kéo kết quả xuống."
         status={bottleneckRows.length ? "watch" : "missing"}
       >
         <ReportSimpleTable
           columns={["Hạng", "Điểm nghẽn", "Loại", "Mức ảnh hưởng", "Ghi chú", "Phân tích sâu"]}
           rows={bottleneckRows}
-          empty="Chưa đủ dữ liệu để truy vết bottleneck. Cần có CLO/PLO, điểm thành phần và mapping học phần."
+          empty="Chưa đủ dữ liệu để xác định điểm nghẽn. Cần bổ sung CLO/PLO, điểm thành phần và ánh xạ học phần."
         />
       </ReportSectionBlock>
 
@@ -2255,22 +2490,22 @@ function ReportStandardDocument({
         <ReportSimpleTable
           columns={["#", "Hành động", "Phụ trách", "Lý do", "Hạn", "Ưu tiên", "Mở sâu"]}
           rows={actionRows}
-          empty="Chưa có action plan. Có thể hỏi trợ lý báo cáo để đề xuất hành động từ dữ liệu hiện tại."
+          empty="Chưa có kế hoạch hành động. Cần rà soát dữ liệu và xác định đơn vị phụ trách."
         />
       </ReportSectionBlock>
 
-      <div className="border-t border-slate-900 pt-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h3 className="text-[15px] font-bold uppercase">Trợ lý phân tích báo cáo</h3>
-            <p className="mt-1 text-[13px] leading-6 text-slate-600">
-              Dùng liên kết này trong chat hoặc gửi cho actor liên quan để mở đúng snapshot báo cáo.
-            </p>
-          </div>
-          <Button variant="outline" nativeButton={false} render={<a href={reportUrl(report.id)} />}>
-            <Bot className="mr-2 size-4" />
-            Mở báo cáo với trợ lý
-          </Button>
+      <div className="border-t border-slate-900 pt-5">
+        <p className="text-[14px] leading-6 text-justify">
+          Báo cáo này là căn cứ ban đầu để đơn vị phụ trách xem xét, xác minh dữ liệu chi tiết và triển khai biện pháp cải tiến. Các quyết định chính thức cần được đối chiếu với hồ sơ học vụ và quy định hiện hành của Nhà trường.
+        </p>
+        <div className="mt-8 grid gap-8 text-center text-[13px] font-bold sm:grid-cols-3">
+          <div>NGƯỜI LẬP BÁO CÁO<div className="mt-1 font-normal italic">(Ký, ghi rõ họ tên)</div></div>
+          <div>NGƯỜI KIỂM TRA<div className="mt-1 font-normal italic">(Ký, ghi rõ họ tên)</div></div>
+          <div>THỦ TRƯỞNG ĐƠN VỊ<div className="mt-1 font-normal italic">(Ký, đóng dấu nếu có)</div></div>
+        </div>
+        <div className="mt-16 border-t border-slate-300 pt-2 text-[12px] text-slate-600">
+          <strong>Nơi nhận:</strong> Như trên; lưu đơn vị lập báo cáo.<br />
+          Mã tra cứu: {report.id} · Phiên bản 1.0 · Tài liệu sử dụng nội bộ.
         </div>
       </div>
     </article>
@@ -2342,9 +2577,9 @@ function ReportPreview({ report, isLoading }: { report: ApiReport; isLoading: bo
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3">
         <div>
-          <div className="text-sm font-semibold">Bản xem báo cáo chuẩn PDF</div>
+          <div className="text-sm font-semibold">Bản trình bày theo thể thức báo cáo nội bộ</div>
           <div className="text-xs text-muted-foreground">
-            Layout A4 cũ, có thông tin báo cáo, phân tích sâu, nguyên nhân và kế hoạch hành động.
+            Khổ A4, thể thức hành chính–học vụ, có mã tra cứu, nội dung phân tích và phần ký xác nhận.
           </div>
         </div>
         <div className="flex flex-wrap gap-2">

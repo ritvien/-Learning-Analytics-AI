@@ -14,7 +14,8 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { queueDashboardAgentPrompt, requestDashboardAgent, setDashboardAgentContext } from "@/lib/dashboard-agent-context"
-import { api, getCachedCurrentUser, type ApiAdvisorCase, type ApiImprovementOutcome, type ApiOpsAlert, type ApiOpsTask, type ApiUser } from "@/lib/api"
+import { api, getCachedCurrentUser, type ApiAdvisorCase, type ApiInterventionCampaign, type ApiInterventionMessage, type ApiImprovementOutcome, type ApiOpsAlert, type ApiOpsTask, type ApiUser } from "@/lib/api"
+import { getPageDataCache, setPageDataCache } from "@/lib/page-data-cache"
 import { canAssignTasks, canGenerateAlerts, canHandleTask, hasAlertData, taskTabsForRole, type TaskTabKey } from "@/lib/task-policy"
 
 const TAB_LABELS: Record<TaskTabKey, string> = {
@@ -500,28 +501,45 @@ function buildAdvisorGroups(cases: ApiAdvisorCase[]): AdvisorCaseGroup[] {
   })
 }
 
+type TasksPageCache = {
+  user: ApiUser | null
+  tasks: ApiOpsTask[]
+  alerts: ApiOpsAlert[]
+  advisorCases: ApiAdvisorCase[]
+  selected: ApiOpsTask | null
+  selectedCase: ApiAdvisorCase | null
+}
+
+const TASKS_PAGE_CACHE_KEY = "manager:tasks"
+
 export default function TasksPage() {
   const searchParams = useSearchParams()
-  const [user, setUser] = React.useState<ApiUser | null>(null)
+  const cachedPage = React.useMemo(() => getPageDataCache<TasksPageCache>(TASKS_PAGE_CACHE_KEY), [])
+  const [user, setUser] = React.useState<ApiUser | null>(cachedPage?.user ?? null)
   const [tab, setTab] = React.useState<TaskTabKey>("mine")
-  const [tasks, setTasks] = React.useState<ApiOpsTask[]>([])
-  const [alerts, setAlerts] = React.useState<ApiOpsAlert[]>([])
-  const [selected, setSelected] = React.useState<ApiOpsTask | null>(null)
-  const [loading, setLoading] = React.useState(true)
+  const [tasks, setTasks] = React.useState<ApiOpsTask[]>(cachedPage?.tasks ?? [])
+  const [alerts, setAlerts] = React.useState<ApiOpsAlert[]>(cachedPage?.alerts ?? [])
+  const [selected, setSelected] = React.useState<ApiOpsTask | null>(cachedPage?.selected ?? null)
+  const [loading, setLoading] = React.useState(!cachedPage?.user)
   const [error, setError] = React.useState<string | null>(null)
   const [statusFilter, setStatusFilter] = React.useState<string>("all")
   const [scopeFilter, setScopeFilter] = React.useState<"all" | "section" | "homeroom">("all")
-  const [advisorCases, setAdvisorCases] = React.useState<ApiAdvisorCase[]>([])
-  const [selectedCase, setSelectedCase] = React.useState<ApiAdvisorCase | null>(null)
+  const [advisorCases, setAdvisorCases] = React.useState<ApiAdvisorCase[]>(cachedPage?.advisorCases ?? [])
+  const [selectedCase, setSelectedCase] = React.useState<ApiAdvisorCase | null>(cachedPage?.selectedCase ?? null)
   const [syncingCases, setSyncingCases] = React.useState(false)
   const [noticeGroupKey, setNoticeGroupKey] = React.useState<string | null>(null)
   const [noticeTitle, setNoticeTitle] = React.useState("Nhận xét về tình trạng học tập")
   const [noticeMessage, setNoticeMessage] = React.useState("")
+  const [noticeCampaign, setNoticeCampaign] = React.useState<ApiInterventionCampaign | null>(null)
+  const [noticeError, setNoticeError] = React.useState<string | null>(null)
   const [sendingBulk, setSendingBulk] = React.useState(false)
   const initialTabSelectedRef = React.useRef(false)
 
   const tabs = taskTabsForRole(user?.role)
-  const advisorGroups = React.useMemo(() => buildAdvisorGroups(advisorCases), [advisorCases])
+  const advisorGroups = React.useMemo(
+    () => buildAdvisorGroups(advisorCases.filter((item) => !["resolved", "closed"].includes(item.status))),
+    [advisorCases],
+  )
   const noticeGroup = React.useMemo(
     () => advisorGroups.find((group) => group.key === noticeGroupKey) ?? null,
     [advisorGroups, noticeGroupKey],
@@ -531,7 +549,7 @@ export default function TasksPage() {
   const highProblemCount = advisorCases.filter((item) => item.priority === "high" || item.priority === "critical").length
 
   const load = React.useCallback(async () => {
-    setLoading(true)
+    if (!getPageDataCache<TasksPageCache>(TASKS_PAGE_CACHE_KEY)?.user) setLoading(true)
     setError(null)
     try {
       const taskParams =
@@ -556,6 +574,15 @@ export default function TasksPage() {
       setSelected((current) => current
         ? visibleTasks.find((row) => row.id === current.id) ?? current
         : null)
+      const cachedTasksPage = getPageDataCache<TasksPageCache>(TASKS_PAGE_CACHE_KEY)
+      setPageDataCache<TasksPageCache>(TASKS_PAGE_CACHE_KEY, {
+        user: cachedTasksPage?.user ?? null,
+        tasks: visibleTasks,
+        alerts: visibleAlerts,
+        advisorCases: caseRows,
+        selected: cachedTasksPage?.selected ? visibleTasks.find((row) => row.id === cachedTasksPage.selected?.id) ?? cachedTasksPage.selected : null,
+        selectedCase: cachedTasksPage?.selectedCase ?? null,
+      })
     } catch (err) {
       const message = err instanceof Error ? err.message : "Không tải được danh sách việc cần xử lý."
       setError(message)
@@ -570,7 +597,18 @@ export default function TasksPage() {
   React.useEffect(() => {
     const cached = getCachedCurrentUser()
     if (cached) setUser(cached)
-    api.me().then(setUser).catch((reason: unknown) => {
+    api.me().then((nextUser) => {
+      setUser(nextUser)
+      const cachedTasks = getPageDataCache<TasksPageCache>(TASKS_PAGE_CACHE_KEY)
+      setPageDataCache<TasksPageCache>(TASKS_PAGE_CACHE_KEY, {
+        user: nextUser,
+        tasks: cachedTasks?.tasks ?? [],
+        alerts: cachedTasks?.alerts ?? [],
+        advisorCases: cachedTasks?.advisorCases ?? [],
+        selected: cachedTasks?.selected ?? null,
+        selectedCase: cachedTasks?.selectedCase ?? null,
+      })
+    }).catch((reason: unknown) => {
       setError(reason instanceof Error ? reason.message : "Không xác định được người dùng hiện tại.")
       setLoading(false)
     })
@@ -589,6 +627,17 @@ export default function TasksPage() {
   React.useEffect(() => {
     if (user) void load()
   }, [load, user])
+
+  React.useEffect(() => {
+    const cachedTasksPage = getPageDataCache<TasksPageCache>(TASKS_PAGE_CACHE_KEY)
+    if (!cachedTasksPage) return
+    setPageDataCache<TasksPageCache>(TASKS_PAGE_CACHE_KEY, {
+      ...cachedTasksPage,
+      user,
+      selected,
+      selectedCase,
+    })
+  }, [selected, selectedCase, user])
 
   React.useEffect(() => {
     const taskId = Number(searchParams.get("task_id"))
@@ -644,29 +693,126 @@ export default function TasksPage() {
     }
   }
 
-  function openGroupNotice(group: AdvisorCaseGroup) {
+  async function openGroupNotice(group: AdvisorCaseGroup) {
     setNoticeGroupKey(group.key)
-    setNoticeTitle(`Nhận xét tình trạng học tập - ${group.title}`)
+    setNoticeCampaign(null)
+    setNoticeError(null)
+    setNoticeTitle(`Trao đổi hỗ trợ học tập - ${group.title}`)
     setNoticeMessage(
       [
-        `Thầy/cô ghi nhận ${group.cases.length} sinh viên trong ${group.title} đang có tín hiệu cần quan tâm.`,
-        "Đề nghị sinh viên rà soát kết quả học tập, chủ động hoàn thành các học phần còn yếu/trượt và phản hồi nếu cần hỗ trợ.",
+        "Chào {full_name} ({student_code}),",
+        "",
+        "Thầy/cô gửi em thông tin rà soát tình hình học tập hiện tại.",
+        "",
+        "Lớp học phần đang được theo dõi:",
+        "{scope_course}",
+        "",
+        "Các học phần yếu, cận ngưỡng hoặc chưa đạt ghi nhận trong hệ thống:",
+        "{risk_details}",
+        "",
+        "Tổng hợp tín hiệu: GPA tích lũy {gpa}; {reasons}.",
+        "Nguồn cảnh báo: {risk_sources}. Đây là tín hiệu hỗ trợ để trao đổi, không thay thế kết luận học vụ chính thức.",
+        "",
+        "Đề nghị em thực hiện: {actions}.",
+        "Nếu cần hỗ trợ, em hãy phản hồi để thầy/cô cùng trao đổi phương án phù hợp.",
       ].join("\n"),
     )
+    try {
+      const campaigns = await api.getInterventionCampaigns({
+        scope_type: group.scopeType,
+        section_id: group.scopeId ?? undefined,
+        class_code: group.classCode ?? undefined,
+      })
+      const active = campaigns.find((campaign) => ["draft", "reviewing", "approved"].includes(campaign.status))
+      if (active?.messages.length) setNoticeCampaign(active)
+    } catch (err) {
+      setNoticeError(err instanceof Error ? err.message : "Không tải được đợt thông báo đang duyệt.")
+    }
   }
 
-  async function sendBulkNotice() {
-    const caseIds = noticeGroup?.cases.map((item) => item.id) ?? []
-    if (!caseIds.length || !noticeTitle.trim() || !noticeMessage.trim()) return
+  async function createNoticeDrafts() {
+    const group = noticeGroup
+    const studentIds = group?.cases.map((item) => item.student_id) ?? []
+    if (!group || !studentIds.length || !noticeTitle.trim() || !noticeMessage.trim()) return
     setSendingBulk(true)
     setError(null)
+    setNoticeError(null)
     try {
-      await api.createBulkStudentNotice({ case_ids: caseIds, title: noticeTitle.trim(), message: noticeMessage.trim() })
+      const campaign = await api.createInterventionCampaign({
+        scope_type: group.scopeType,
+        scope_id: group.scopeId,
+        class_code: group.classCode,
+        title: noticeTitle.trim(),
+        student_ids: studentIds,
+        max_students: studentIds.length,
+      })
+      const drafted = await api.generateInterventionCampaignDrafts(campaign.id, {
+        student_ids: studentIds,
+        channel: "internal",
+        subject: noticeTitle.trim(),
+        message_template: noticeMessage.trim(),
+        max_students: studentIds.length,
+      })
+      setNoticeCampaign(drafted)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Không tạo được danh sách thông báo nháp."
+      setError(message)
+      setNoticeError(message)
+    } finally {
+      setSendingBulk(false)
+    }
+  }
+
+  function updateLocalDraft(messageId: number, field: "subject" | "body", value: string) {
+    setNoticeCampaign((current) => current ? {
+      ...current,
+      messages: current.messages.map((message) => message.id === messageId ? { ...message, [field]: value } : message),
+    } : current)
+  }
+
+  async function saveNoticeDraft(message: ApiInterventionMessage) {
+    setSendingBulk(true)
+    setError(null)
+    setNoticeError(null)
+    try {
+      const saved = await api.updateInterventionCampaignMessage(message.id, {
+        subject: message.subject ?? "",
+        body: message.body ?? "",
+      })
+      setNoticeCampaign((current) => current ? {
+        ...current,
+        messages: current.messages.map((item) => item.id === saved.id ? saved : item),
+      } : current)
+    } catch (err) {
+      const messageText = err instanceof Error ? err.message : "Không lưu được thông báo nháp."
+      setError(messageText)
+      setNoticeError(messageText)
+    } finally {
+      setSendingBulk(false)
+    }
+  }
+
+  const canReviewNoticeCampaign = !!user && ["superadmin", "admin", "manager", "lecturer"].includes(user.role)
+
+  async function finalizeNoticeCampaign() {
+    if (!noticeCampaign) return
+    setSendingBulk(true)
+    setError(null)
+    setNoticeError(null)
+    try {
+      for (const message of noticeCampaign.messages) {
+        await api.updateInterventionCampaignMessage(message.id, { subject: message.subject ?? "", body: message.body ?? "" })
+      }
+      await api.approveInterventionCampaign(noticeCampaign.id)
+      await api.sendInterventionCampaign(noticeCampaign.id)
       setNoticeGroupKey(null)
+      setNoticeCampaign(null)
       setNoticeMessage("")
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không lưu được nhận xét hàng loạt.")
+      const message = err instanceof Error ? err.message : "Không chốt được đợt thông báo."
+      setError(message)
+      setNoticeError(message)
     } finally {
       setSendingBulk(false)
     }
@@ -743,21 +889,53 @@ export default function TasksPage() {
           {noticeGroup ? <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <div className="font-medium">Soạn mẫu thông báo cho {noticeGroup.title}</div>
-                <div className="text-xs text-muted-foreground">Soạn một lần cho {noticeGroup.cases.length} sinh viên; hệ thống sẽ ghi riêng từng thông báo vào hồ sơ năng lực của từng sinh viên, không gửi email ngoài hệ thống.</div>
+                <div className="font-medium">Chuẩn bị đợt thông báo cho {noticeGroup.title}</div>
+                <div className="text-xs text-muted-foreground">Tạo {noticeGroup.cases.length} bản nháp riêng để giảng viên xem và chỉnh từng sinh viên trước khi chốt gửi. Chỉ khi chốt, thông báo mới được lưu vào hồ sơ năng lực.</div>
               </div>
-              <Button size="sm" variant="ghost" onClick={() => setNoticeGroupKey(null)}>Đóng</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setNoticeGroupKey(null); setNoticeCampaign(null) }}>Đóng</Button>
             </div>
-            <div className="grid gap-3">
+            {noticeError ? <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Không thể hoàn tất thao tác: {noticeError}</div> : null}
+            {!noticeCampaign ? <div className="grid gap-3">
               <Input value={noticeTitle} onChange={(event) => setNoticeTitle(event.target.value)} placeholder="Tiêu đề nhận xét" />
               <Textarea value={noticeMessage} onChange={(event) => setNoticeMessage(event.target.value)} placeholder="Nội dung về tình trạng học tập và hành động sinh viên cần thực hiện..." />
+              <p className="text-xs text-muted-foreground">Dữ liệu cá nhân hóa: <code>{"{scope_course}"}</code> lớp đang theo dõi, <code>{"{risk_details}"}</code> các học phần yếu/trượt, <code>{"{gpa}"}</code>, <code>{"{reasons}"}</code>, <code>{"{risk_sources}"}</code> và <code>{"{actions}"}</code>.</p>
               <div className="flex justify-end">
-                <Button onClick={sendBulkNotice} disabled={sendingBulk || !noticeMessage.trim()}>
+                <Button onClick={createNoticeDrafts} disabled={sendingBulk || !noticeTitle.trim() || !noticeMessage.trim()}>
                   <Send className="size-4" />
-                  {sendingBulk ? "Đang lưu..." : `Ghi riêng cho từng sinh viên (${noticeGroup.cases.length})`}
+                  {sendingBulk ? "Đang tạo bản nháp..." : `Tạo ${noticeGroup.cases.length} bản nháp để duyệt`}
                 </Button>
               </div>
-            </div>
+            </div> : <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium">Duyệt từng thông báo ({noticeCampaign.messages.length})</p>
+                <Badge variant="outline">{noticeCampaign.messages.filter((message) => !message.contact_id).length} bản nháp chưa gửi</Badge>
+              </div>
+              {!canReviewNoticeCampaign ? <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">Tài khoản hiện tại chỉ có quyền xem bản nháp.</div> : null}
+              <div className="max-h-[32rem] space-y-3 overflow-y-auto pr-1">
+                {noticeCampaign.messages.map((message, index) => (
+                  <div key={message.id} className="rounded-lg border bg-background p-3">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <div className="font-medium">{index + 1}. {message.full_name ?? `Sinh viên #${message.student_id}`}</div>
+                      <span className="text-xs text-muted-foreground">{message.student_code ?? "Chưa có MSSV"}</span>
+                    </div>
+                    <div className="grid gap-2">
+                      <Input disabled={!canReviewNoticeCampaign} value={message.subject ?? ""} onChange={(event) => updateLocalDraft(message.id, "subject", event.target.value)} aria-label={`Tiêu đề cho ${message.full_name ?? message.student_id}`} />
+                      <Textarea disabled={!canReviewNoticeCampaign} className="min-h-32" value={message.body ?? ""} onChange={(event) => updateLocalDraft(message.id, "body", event.target.value)} aria-label={`Nội dung cho ${message.full_name ?? message.student_id}`} />
+                      <div className="flex justify-end">
+                        <Button size="sm" variant="outline" disabled={!canReviewNoticeCampaign || sendingBulk || !message.subject?.trim() || !message.body?.trim()} onClick={() => saveNoticeDraft(message)}>Lưu bản nháp này</Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
+                <p className="text-xs text-muted-foreground">Chốt một lần sẽ lưu từng bản ghi vào đúng hồ sơ năng lực; không gửi email ngoài hệ thống.</p>
+                <Button onClick={finalizeNoticeCampaign} disabled={!canReviewNoticeCampaign || sendingBulk || noticeCampaign.messages.some((message) => !message.subject?.trim() || !message.body?.trim())}>
+                  <CheckCircle2 className="size-4" />
+                  {sendingBulk ? "Đang chốt..." : `Chốt và gửi ${noticeCampaign.messages.length} thông báo`}
+                </Button>
+              </div>
+            </div>}
           </div> : null}
 
           {advisorGroups.length ? advisorGroups.map((group) => {

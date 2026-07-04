@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Send, Bot, User, Sparkles, BarChart2, BookOpen, AlertTriangle, MessageSquare, Plus, Trash2, ChevronDown } from "lucide-react"
 import { api, chatStreamV2, ChatSessionSummary, getReportBuildContext, invalidateApiCacheByPrefix, type ApiReportBuildPlan } from "@/lib/api"
+import { getDashboardAgentContext } from "@/lib/dashboard-agent-context"
 
 interface Message {
   id: string
@@ -604,7 +605,16 @@ export default function ChatPage() {
       let hasStartedAnswering = false
       const targetThreadId = threadIdOverride !== undefined ? threadIdOverride : activeSessionId
 
-      for await (const event of chatStreamV2({ message: text.trim(), thread_id: targetThreadId })) {
+      const treeContext = getDashboardAgentContext("/chat")
+      for await (const event of chatStreamV2({
+        message: text.trim(),
+        thread_id: targetThreadId,
+        context: treeContext ? {
+          source: treeContext.source,
+          dashboard_type: treeContext.dashboard_type,
+          scope: treeContext.scope,
+        } : undefined,
+      })) {
         switch (event.type) {
           case "session_created":
             setActiveSessionId(event.thread_id)

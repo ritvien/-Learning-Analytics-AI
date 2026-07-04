@@ -641,6 +641,26 @@ async def upsert_advisor_assessment(
     if payload.confirm:
         item.assessment_confirmed_by_user_id = current_user.id
         item.assessment_confirmed_at = datetime.now(UTC)
+        db.add(
+            StudentInterventionContact(
+                case_id=item.id,
+                task_id=item.task_id,
+                actor_user_id=current_user.id,
+                student_id=item.student_id,
+                section_id=item.section_id,
+                class_code=item.class_code,
+                channel="other",
+                status="logged",
+                subject="Nhận định hỗ trợ học tập đã xác nhận",
+                message=payload.assessment,
+                note=payload.action_plan,
+                metadata_json={
+                    "source": "advisor_assessment",
+                    "conclusion": payload.conclusion,
+                    "confirmed": True,
+                },
+            )
+        )
     else:
         item.assessment_confirmed_by_user_id = None
         item.assessment_confirmed_at = None
@@ -775,6 +795,30 @@ async def create_appointment(
     )
     db.add(appointment)
     await db.flush()
+    db.add(
+        StudentInterventionContact(
+            case_id=item.id,
+            task_id=item.task_id,
+            actor_user_id=current_user.id,
+            student_id=item.student_id,
+            section_id=item.section_id,
+            class_code=item.class_code,
+            channel="meeting",
+            status="logged",
+            subject="Lịch trao đổi hỗ trợ học tập",
+            message=payload.purpose,
+            note=(
+                f"Thời gian: {appointment.scheduled_at.isoformat()} · "
+                f"Hình thức: {appointment.meeting_mode}"
+                + (f" · Địa điểm: {appointment.location}" if appointment.location else "")
+            ),
+            metadata_json={
+                "source": "intervention_appointment",
+                "appointment_id": appointment.id,
+                "status": appointment.status,
+            },
+        )
+    )
     db.add(
         InterventionCaseEvent(
             case_id=item.id,

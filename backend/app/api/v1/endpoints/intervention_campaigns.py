@@ -24,6 +24,8 @@ from app.models.intervention import (
     InterventionMessageEvent,
     StudentInterventionContact,
 )
+from app.models.people import HomeroomAssignment, Teacher
+from app.models.teaching import Section
 from app.schemas.intervention import (
     InterventionBulkNotifyRequest,
     InterventionCampaignCreate,
@@ -31,13 +33,13 @@ from app.schemas.intervention import (
     InterventionMessageEventCreate,
     InterventionMessageUpdate,
 )
+from app.services.notification_service import notify_user
 
 from .interventions import (
     _bulk_candidates,
     _bulk_message,
     _require_homeroom_scope,
     _scope_payload_for_bulk,
-    require_intervention_actor,
 )
 
 router = APIRouter()
@@ -170,6 +172,37 @@ async def _add_event(db: DBSession, message: InterventionMessage, event_type: st
     )
 
 
+async def _responsible_actor_user_id(
+    db: DBSession,
+    *,
+    scope_type: str,
+    section_id: int | None,
+    class_code: str | None,
+) -> str:
+    if scope_type == "section" and section_id is not None:
+        user_id = await db.scalar(
+            select(Teacher.user_id)
+            .join(Section, Section.teacher_id == Teacher.id)
+            .where(Section.id == section_id, Teacher.is_active == True)  # noqa: E712
+        )
+    else:
+        user_id = await db.scalar(
+            select(Teacher.user_id)
+            .join(HomeroomAssignment, HomeroomAssignment.teacher_id == Teacher.id)
+            .where(
+                HomeroomAssignment.class_code == class_code,
+                HomeroomAssignment.is_active == True,  # noqa: E712
+                Teacher.is_active == True,  # noqa: E712
+            )
+        )
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Scope has no active lecturer account assigned to review this campaign",
+        )
+    return str(user_id)
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_intervention_campaign(
     payload: InterventionCampaignCreate,
@@ -177,7 +210,6 @@ async def create_intervention_campaign(
     current_user: CurrentUser,
 ) -> dict:
     """Create an empty learning-support campaign for a visible scope."""
-    require_intervention_actor(current_user)
     bulk_payload = InterventionBulkNotifyRequest(
         scope_type=payload.scope_type,
         scope_id=payload.scope_id,
@@ -186,9 +218,15 @@ async def create_intervention_campaign(
         max_students=payload.max_students,
     )
     data, section_id, class_code = await _scope_payload_for_bulk(db, current_user, bulk_payload)
+    actor_user_id = await _responsible_actor_user_id(
+        db,
+        scope_type=payload.scope_type,
+        section_id=section_id,
+        class_code=class_code,
+    )
     title = payload.title or f"Campaign hỗ trợ học tập - {data['scope'].get('code') or class_code or section_id}"
     campaign = InterventionCampaign(
-        actor_user_id=current_user.id,
+        actor_user_id=actor_user_id,
         scope_type=payload.scope_type,
         section_id=section_id,
         class_code=class_code,
@@ -201,10 +239,30 @@ async def create_intervention_campaign(
             "summary": data["summary"],
             "selected_student_ids": payload.student_ids or [],
             "delivery_mode": "campaign_draft",
+            "prepared_by_user_id": current_user.id,
         },
     )
     db.add(campaign)
     await db.flush()
+    await notify_user(
+        db,
+        user_id=current_user.id,
+        notification_type="intervention_campaign_created",
+        title="Đã chuẩn bị đợt thông báo học tập",
+        message=f"Đã tạo đợt “{campaign.title}” và giao giảng viên phụ trách duyệt trước khi gửi.",
+        priority="medium",
+        link_url=f"/manager/tasks?campaign_id={campaign.id}",
+    )
+    if actor_user_id != current_user.id:
+        await notify_user(
+            db,
+            user_id=actor_user_id,
+            notification_type="intervention_campaign_review_required",
+            title="Có đợt thông báo cần duyệt",
+            message=f"Đợt “{campaign.title}” đã được chuẩn bị. Vui lòng kiểm tra từng sinh viên và chốt gửi.",
+            priority="high",
+            link_url=f"/manager/tasks?campaign_id={campaign.id}",
+        )
     return _campaign_payload(await _get_campaign(db, current_user, campaign.id))
 
 
@@ -286,7 +344,6 @@ async def generate_campaign_drafts(
     current_user: CurrentUser,
 ) -> dict:
     """Generate personalized message drafts for selected at-risk students."""
-    require_intervention_actor(current_user)
     campaign = await _get_campaign(db, current_user, campaign_id)
     if payload.replace_existing:
         for message in list(campaign.messages):
@@ -334,6 +391,9 @@ async def generate_campaign_drafts(
                 "risk_score": student["risk_score"],
                 "reasons": student.get("reasons") or [],
                 "recommended_actions": student.get("recommended_actions") or [],
+                "academic_risk_details": student.get("academic_risk_details") or [],
+                "scope_context": student.get("scope_context") or {},
+                "risk_sources": [signal.get("type") for signal in student.get("signals") or []],
                 "delivery_mode": "draft_review",
             },
         )
@@ -356,6 +416,25 @@ async def generate_campaign_drafts(
         "skipped": skipped,
     }
     await db.flush()
+    await notify_user(
+        db,
+        user_id=current_user.id,
+        notification_type="intervention_campaign_completed",
+        title="Đã gửi thông báo hỗ trợ học tập",
+        message=f"Đã chốt {created} thông báo trong đợt “{campaign.title}”; các cảnh báo tương ứng đã được đóng.",
+        priority="medium",
+        link_url="/manager/tasks",
+    )
+    if campaign.actor_user_id != current_user.id:
+        await notify_user(
+            db,
+            user_id=campaign.actor_user_id,
+            notification_type="intervention_campaign_completed",
+            title="Đợt thông báo phụ trách đã hoàn tất",
+            message=f"Đợt “{campaign.title}” đã gửi {created} thông báo và lưu vào hồ sơ năng lực sinh viên.",
+            priority="medium",
+            link_url="/manager/tasks",
+        )
     return _campaign_payload(await _get_campaign(db, current_user, campaign_id))
 
 
@@ -367,7 +446,6 @@ async def update_campaign_message(
     current_user: CurrentUser,
 ) -> dict:
     """Edit one campaign message before approval."""
-    require_intervention_actor(current_user)
     message = await db.get(InterventionMessage, message_id)
     if message is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
@@ -380,14 +458,13 @@ async def update_campaign_message(
     message.error_message = None if message.error_code is None else "Sinh viên chưa có email trong hồ sơ."
     await db.flush()
     await _add_event(db, message, "edited", {"updated_by": current_user.id})
-    await db.refresh(message, attribute_names=["student"])
+    await db.refresh(message, attribute_names=["student", "updated_at"])
     return _message_payload(message)
 
 
 @router.post("/messages/{message_id}/approve")
 async def approve_campaign_message(message_id: int, db: DBSession, current_user: CurrentUser) -> dict:
     """Approve one message after lecturer review."""
-    require_intervention_actor(current_user)
     message = await db.get(InterventionMessage, message_id)
     if message is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
@@ -399,14 +476,13 @@ async def approve_campaign_message(message_id: int, db: DBSession, current_user:
     message.approved_at = _now()
     await db.flush()
     await _add_event(db, message, "approved", {"approved_by": current_user.id})
-    await db.refresh(message, attribute_names=["student"])
+    await db.refresh(message, attribute_names=["student", "updated_at"])
     return _message_payload(message)
 
 
 @router.post("/{campaign_id}/approve")
 async def approve_intervention_campaign(campaign_id: int, db: DBSession, current_user: CurrentUser) -> dict:
     """Approve all valid drafted messages in a campaign."""
-    require_intervention_actor(current_user)
     campaign = await _get_campaign(db, current_user, campaign_id)
     approved = 0
     for message in campaign.messages:
@@ -430,10 +506,10 @@ async def approve_intervention_campaign(campaign_id: int, db: DBSession, current
 @router.post("/{campaign_id}/send")
 async def send_intervention_campaign(campaign_id: int, db: DBSession, current_user: CurrentUser) -> dict:
     """Send approved campaign emails when SMTP is configured, and always keep an audit trail."""
-    require_intervention_actor(current_user)
     campaign = await _get_campaign(db, current_user, campaign_id)
     smtp_ready = _smtp_ready()
-    delivery_mode = "smtp" if smtp_ready else "smtp_not_configured"
+    internal_only = bool(campaign.messages) and all(message.channel == "internal" for message in campaign.messages)
+    delivery_mode = "internal" if internal_only else ("smtp" if smtp_ready else "smtp_not_configured")
     created = 0
     sent = 0
     queued = 0
@@ -453,7 +529,11 @@ async def send_intervention_campaign(campaign_id: int, db: DBSession, current_us
         sent_at = None
         contact_status = "logged"
         note = "Campaign can thiệp học tập đã được giảng viên duyệt và lưu vào lịch sử hỗ trợ."
-        next_status = "queued"
+        next_status = "sent" if message.channel == "internal" else "queued"
+        if message.channel == "internal":
+            sent_at = _now()
+            note = "Thông báo nội bộ đã được giảng viên duyệt và lưu vào hồ sơ năng lực của sinh viên."
+            sent += 1
         if message.channel == "email" and smtp_ready:
             try:
                 provider_message_id = await asyncio.to_thread(_send_smtp_message, message)
@@ -478,7 +558,6 @@ async def send_intervention_campaign(campaign_id: int, db: DBSession, current_us
                 InterventionCase.student_id == message.student_id,
                 InterventionCase.scope_key == scope_key,
                 InterventionCase.active_key == "active",
-                InterventionCase.assignee_user_id == current_user.id,
             )
         )
         contact = StudentInterventionContact(
@@ -502,13 +581,15 @@ async def send_intervention_campaign(campaign_id: int, db: DBSession, current_us
         db.add(contact)
         await db.flush()
         if active_case is not None:
-            if active_case.status in {"new", "assigned"}:
-                active_case.status = "contacting"
+            active_case.status = "resolved"
+            active_case.active_key = None
+            active_case.resolved_at = _now()
+            active_case.resolution = "Đã chốt và gửi thông báo hỗ trợ học tập trong hệ thống."
             db.add(
                 InterventionCaseEvent(
                     case_id=active_case.id,
                     actor_user_id=current_user.id,
-                    event_type="contact",
+                    event_type="resolved_after_campaign_sent",
                     payload_json={"contact_id": contact.id, "campaign_id": campaign.id, "channel": message.channel},
                 )
             )
@@ -533,7 +614,9 @@ async def send_intervention_campaign(campaign_id: int, db: DBSession, current_us
         "delivery_mode": delivery_mode,
     }
     await db.flush()
-    if smtp_ready:
+    if internal_only:
+        message_text = f"Đã chốt {created} thông báo nội bộ và lưu vào hồ sơ năng lực của từng sinh viên."
+    elif smtp_ready:
         message_text = f"Đã gửi {sent} email và lưu {created} liên hệ vào lịch sử hỗ trợ."
     else:
         message_text = "Đã lưu campaign và danh sách email, nhưng chưa gửi thật vì SMTP chưa được cấu hình."
@@ -562,5 +645,5 @@ async def log_campaign_message_event(
     await _get_campaign(db, current_user, message.campaign_id)
     await _add_event(db, message, payload.event_type, {"actor_user_id": current_user.id, **payload.payload})
     await db.flush()
-    await db.refresh(message, attribute_names=["student"])
+    await db.refresh(message, attribute_names=["student", "updated_at"])
     return _message_payload(message)

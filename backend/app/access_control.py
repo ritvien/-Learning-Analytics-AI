@@ -111,6 +111,14 @@ async def can_access_course(db: AsyncSession, user: User, course_id: int) -> boo
     """Return whether a user can access a Course through department scope."""
     if is_admin(user):
         return True
+    if user.role == UserRole.lecturer:
+        teacher = await get_teacher_for_user(db, user)
+        if teacher is None:
+            return False
+        result = await db.execute(
+            select(exists().where(Section.course_id == course_id, Section.teacher_id == teacher.id))
+        )
+        return bool(result.scalar())
     department_ids = await user_department_ids(db, user)
     if not department_ids:
         return False

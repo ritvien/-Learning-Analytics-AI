@@ -39,6 +39,7 @@ router = APIRouter()
 settings = get_settings()
 _DASHBOARD_CACHE_TTL_SECONDS = 300
 _dashboard_cache: dict[tuple, tuple[float, dict]] = {}
+_dashboard_meta_cache: tuple[float, dict] | None = None
 SAFE_DASHBOARD_SQL_FRAGMENTS = frozenset(
     {
         "",
@@ -179,6 +180,21 @@ def _dashboard_cache_set(key: tuple, payload: dict) -> dict:
     return payload
 
 
+def _dashboard_cache_clear() -> None:
+    global _dashboard_meta_cache
+    _dashboard_cache.clear()
+    _dashboard_meta_cache = None
+
+
+def _clone_dashboard_meta(payload: dict) -> dict:
+    return {
+        "departments": [dict(row) for row in payload.get("departments", [])],
+        "programs": [dict(row) for row in payload.get("programs", [])],
+        "semesters": [dict(row) for row in payload.get("semesters", [])],
+        "cohorts": [dict(row) for row in payload.get("cohorts", [])],
+    }
+
+
 @router.api_route("/health", methods=["GET", "HEAD"], tags=["system"])
 async def api_health_check() -> dict[str, str]:
     """Return service health (mirrors root /health, useful for load-balancer path-based checks)."""
@@ -317,6 +333,13 @@ async def _fetch_one(db: DBSession, sql: str, params: dict | None = None) -> dic
 
 
 async def _dashboard_meta(db: DBSession) -> dict:
+    global _dashboard_meta_cache
+    if _dashboard_meta_cache is not None:
+        cached_at, cached_payload = _dashboard_meta_cache
+        if monotonic() - cached_at <= _DASHBOARD_CACHE_TTL_SECONDS:
+            return _clone_dashboard_meta(cached_payload)
+        _dashboard_meta_cache = None
+
     departments = await _fetch_all(
         db,
         """
@@ -359,7 +382,9 @@ async def _dashboard_meta(db: DBSession) -> dict:
         ORDER BY year_start, code
         """,
     )
-    return {"departments": departments, "programs": programs, "semesters": semesters, "cohorts": cohorts}
+    payload = {"departments": departments, "programs": programs, "semesters": semesters, "cohorts": cohorts}
+    _dashboard_meta_cache = (monotonic(), payload)
+    return _clone_dashboard_meta(payload)
 
 
 @router.get("/analytics/dashboard/overview")
@@ -2586,6 +2611,17 @@ async def analytics_dashboard_section_students(
     """Return paginated student evidence for a section; probabilities only come from ML."""
     if not await can_access_section(db, current_user, section_id):
         _deny_out_of_scope()
+    cache_key = (
+        "dashboard-section-students",
+        current_user.id,
+        section_id,
+        risk_level,
+        limit,
+        offset,
+    )
+    cached = _dashboard_cache_get(cache_key)
+    if cached:
+        return cached
     params: dict = {"section_id": section_id, "limit": limit, "offset": offset}
     risk_sql = ""
     if risk_level:
@@ -2616,9 +2652,18 @@ async def analytics_dashboard_section_students(
     total = int(rows[0]["total"]) if rows else 0
     items = [{key: value for key, value in row.items() if key != "total"} for row in rows]
     warnings = [] if all(item.get("dropout_probability") is not None for item in items) else ["Một số sinh viên chưa có dự đoán dropout ML."]
-    return {"items": items, "pagination": {"total": total, "limit": limit, "offset": offset,
-            "has_more": offset + len(items) < total}, "data_status": "empty" if not items else "partial" if warnings else "ready",
-            "warnings": warnings}
+    payload = {
+        "items": items,
+        "pagination": {
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + len(items) < total,
+        },
+        "data_status": "empty" if not items else "partial" if warnings else "ready",
+        "warnings": warnings,
+    }
+    return _dashboard_cache_set(cache_key, payload)
 
 
 @router.get("/analytics/refresh-status")
@@ -2645,7 +2690,7 @@ async def analytics_refresh_status(db: DBSession) -> dict:
 async def trigger_dwh_refresh() -> dict[str, int | str]:
     """Run the idempotent OLTP-to-DWH refresh."""
     run_id = await refresh_dwh()
-    _dashboard_cache.clear()
+    _dashboard_cache_clear()
     return {"status": "completed", "etl_run_id": run_id}
 
 
@@ -2680,7 +2725,7 @@ async def trigger_dropout_score(model_run_id: int) -> dict[str, int | str]:
         rows = await asyncio.to_thread(score_dropout_predictions, model_run_id)
     except (RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    _dashboard_cache.clear()
+    _dashboard_cache_clear()
     return {"status": "completed", "rows_upserted": rows}
 
 
@@ -2696,7 +2741,7 @@ async def trigger_course_risk_score() -> dict[str, int | str]:
     """Score course-failure risk for enrollments and aggregate expected credits."""
     try:
         result = await score_course_failure_predictions(aggregate=True)
-        _dashboard_cache.clear()
+        _dashboard_cache_clear()
         return result
     except RuntimeError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc

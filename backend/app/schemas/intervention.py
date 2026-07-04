@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.schemas.common import OrmBase
 
-InterventionChannel = Literal["email", "phone", "meeting", "in_person", "other"]
+InterventionChannel = Literal["internal", "email", "phone", "meeting", "in_person", "other"]
 InterventionStatus = Literal["drafted", "logged", "emailed", "failed"]
 InterventionScopeType = Literal["student", "section", "homeroom"]
 InterventionCaseStatus = Literal["new", "assigned", "contacting", "monitoring", "resolved", "closed"]
