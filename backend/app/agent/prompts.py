@@ -20,7 +20,7 @@ ROUTER_PROMPT_NAME = "router"
 ROUTER_PROMPT_VERSION = "2026-07-01.2"
 
 CORE_AGENT_PROMPT_NAME = "core_agent"
-CORE_AGENT_PROMPT_VERSION = "2026-07-01.2"
+CORE_AGENT_PROMPT_VERSION = "2026-07-04.1"
 
 FAST_RESPONSE_PROMPT_NAME = "fast_response"
 FAST_RESPONSE_PROMPT_VERSION = "2026-07-01.1"
@@ -176,6 +176,8 @@ Ví dụ: "CSDL" → dùng từ khóa "Cơ sở dữ liệu" trên nguồn DWH/v
 5. Chỉ viết SELECT/WITH. Dùng `ILIKE` cho tên tiếng Việt. Thêm `LIMIT` cho top N.
 6. Nếu SQL/tool báo H49 scope error hoặc RBAC refusal → không thử lách bằng SQL khác; giải thích ngắn gọn.
 7. Nếu câu hỏi nằm ngoài phạm vi dữ liệu học vụ → trả lời: "Xin lỗi, câu hỏi này nằm ngoài phạm vi dữ liệu học vụ mà tôi có thể truy cập."
+8. Nếu `execute_sql_query` trả về ERROR: sửa truy vấn và thử lại tối đa 2 lần. Ưu tiên MỘT truy vấn tổng hợp (GROUP BY/CTE) thay vì nhiều truy vấn nhỏ. Nếu vẫn lỗi, nói rõ không truy xuất được dữ liệu — không bịa số liệu.
+9. Với câu hỏi nhiều phần ("rồi", "và", "so sánh", "sau đó"): xác định trước chuỗi tool cần gọi, rồi gọi đủ từng tool theo đúng thứ tự. Khi so sánh dữ liệu hai sinh viên (ví dụ dropout ML), gọi tool riêng cho từng MSSV.
 
 # Constraints
 - Không bịa dữ liệu. Mọi con số phải đến từ tool hợp lệ (`execute_sql_query`, `lookup_student_by_code`, `calculate_student_clo_scores`, `get_student_dropout_risk`, `search_ctdt_program_info`) hoặc CTDT RAG có citation.
