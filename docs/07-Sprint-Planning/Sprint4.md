@@ -92,25 +92,25 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 
 | Task | Mô tả | Deadline | P | Depends | Status |
 |:-----|:------|:---------|:-:|:--------|:------:|
-| **T54** | **Data gap audit cho UI** | 29/06 18:00 | P0 | V57 draft | [ ] |
+| **T54** | **Data gap audit cho UI** | 29/06 18:00 | P0 | V57 draft | [x] |
 | | Liệt kê page/route trống dữ liệu; đối chiếu manifest + smoke manual; map gap → task T55a–e; output `docs/17-Data-Pipeline/ui-data-gap-audit.md`. Feed Hiếu V59 + Hoàng H49. | | | | |
-| **T55a** | **ML dropout batch predict + MSSV golden** | 30/06 12:00 | P0 | T54 | [ ] |
+| **T55a** | **ML dropout batch predict + MSSV golden** | 30/06 12:00 | P0 | T54 | [x] |
 | | Chạy `/admin/ml/train` nếu cần; batch predict toàn bộ SV active; verify MSSV `21810310019` có score; smoke T52d API + badge V20. Unblock TC28–30 và H61 dropout TC. | | | | |
-| **T55c** | **Import SV ngành thưa** | 30/06 18:00 | P0 | V59, T54 | [ ] |
+| **T55c** | **Import SV ngành thưa** | 30/06 18:00 | P0 | V59, T54 | [x] |
 | | Nhận artifact V59; dedupe với 1.277 SV; re-import; chạy ETL; verify heatmap/list ngành demo (vd TTNT ≥10 SV hoặc ngưỡng audit). | | | | |
-| **T55b** | **Synthetic GV + phân công lớp** | 30/06 EOD | P0 | T54 | [ ] |
+| **T55b** | **Synthetic GV + phân công lớp** | 30/06 EOD | P0 | T54 | [x] |
 | | Mock catalog GV (tên, email nội bộ, khoa/ngành/môn); gán `sections.teacher_id`; tạo ≥3 lecturer demo account; ghi count/naming/mapping/rollback trong manifest. Ref [24-Teacher-Section-Assignment](../24-Teacher-Section-Assignment/README.md). | | | | |
-| **T55d** | **Synthetic CLO achievements từ điểm** | 01/07 12:00 | P1 | T55c | [ ] |
+| **T55d** | **Synthetic CLO achievements từ điểm** | 01/07 12:00 | P1 | T55c | [x] |
 | | Map grade components/final → CLO theo trọng số; seed cố định; clamp 0–1; `source=synthetic_from_grade`; badge unofficial nếu thiếu CLO chính thức. Unblock TC5 + report CLO/PLO. | | | | |
-| **T56a** | **At-risk rule API + danh sách lớp lecturer** | 01/07 12:00 | P0 | T55a, T55b | [ ] |
+| **T56a** | **At-risk rule API + danh sách lớp lecturer** | 01/07 12:00 | P0 | T55a, T55b | [x] |
 | | Rule SV at-risk: GPA thấp, fail count, dropout ML score; endpoint list theo section; RBAC lecturer scope (`can_access_section`); response shape cho V56. **MVP:** không cần notification queue. | | | | |
-| **T55e** | **Golden refresh + manifest lineage** | 01/07 18:00 | P0 | T55a–d | [ ] |
+| **T55e** | **Golden refresh + manifest lineage** | 01/07 18:00 | P0 | T55a–d | [x] |
 | | Re-import/ETL final; cập nhật `gate3_test_cases.json` expected_values; ghi lineage synthetic/crawl trong manifest; handoff Hoàng H61. | | | | |
-| **T56b** | **Action “Liên hệ” + audit log** | 01/07 EOD | P0 | T56a | [ ] |
+| **T56b** | **Action “Liên hệ” + audit log** | 01/07 EOD | P0 | T56a | [x] |
 | | `POST` intervention/contact: ghi actor, student, section, channel, timestamp; trạng thái `logged` / `emailed`; list history per section. Unblock V56 CTA. | | | | |
-| **T57a** | **Generate login GV demo** | 02/07 12:00 | P1 | T55b, T56a | [ ] |
+| **T57a** | **Generate login GV demo** | 02/07 12:00 | P1 | T55b, T56a | [x] |
 | | Script/tool: Gmail-style address nội bộ + password; map Teacher → User lecturer; output CSV credentials demo; không đăng ký Google thật. | | | | |
-| **T57b** | **Gửi mail cảnh báo (SMTP fallback log)** | 02/07 18:00 | P1 | T56b, T57a | [ ] |
+| **T57b** | **Gửi mail cảnh báo (SMTP fallback log)** | 02/07 18:00 | P1 | T56b, T57a | [x] |
 | | Gửi qua SMTP/Gmail App Password nếu có secret; fallback log-only + API trả `status=logged`; Hiếu V56 hiển thị trạng thái. | | | | |
 | **T58a** | **Slide draft + script thuyết trình** | 03/07 EOD | P0 | D56 draft, D58 | [ ] |
 | | 10 slides Checklist §9.6; metric/cost từ eval; demo flow 3 phút; video backup link V35; rehearsal nội bộ lần 1. | | | | |
