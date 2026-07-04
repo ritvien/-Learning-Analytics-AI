@@ -26,7 +26,13 @@ services:
       - key: DEBUG
         value: "false"
       - key: SEED_ON_EMPTY
-        value: "true"
+        value: "false"
+      - key: IMPORT_V59_STUDENTS
+        value: "false"
+      - key: BACKFILL_STUDENT_EMAILS_ON_STARTUP
+        value: "false"
+      - key: RUN_ANALYTICS_REFRESH_ON_STARTUP
+        value: "false"
       - key: SEED_PASSWORD
         value: "123456"
       - key: ML_ARTIFACT_DIR
