@@ -26,6 +26,33 @@ const emptyMetrics: ApiTreeMetrics = {
   health_score: 0,
 }
 
+function clampPercent(value: number): number {
+  return Math.max(0, Math.min(100, value))
+}
+
+function getHealthColorStyle(percent: number, isActive = false): React.CSSProperties {
+  const clamped = clampPercent(percent)
+  const ratio = clamped <= 50 ? 0 : (clamped - 50) / 50
+  const start = { red: 0xf5, green: 0x02, blue: 0x02 }
+  const end = { red: 0x4f, green: 0xf5, blue: 0x02 }
+  const red = Math.round(start.red + (end.red - start.red) * ratio)
+  const green = Math.round(start.green + (end.green - start.green) * ratio)
+  const blue = Math.round(start.blue + (end.blue - start.blue) * ratio)
+  const brightness = isActive ? 0.96 : 1
+  const backgroundColor = `rgb(${Math.round(red * brightness)} ${Math.round(green * brightness)} ${Math.round(blue * brightness)})`
+  const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255
+
+  return {
+    backgroundColor,
+    borderColor: backgroundColor,
+    color: luminance > 0.62 ? "#111827" : "#ffffff",
+  }
+}
+
+function getHealthPercent(metrics: ApiTreeMetrics | undefined): number | null {
+  return metrics?.health_score ?? null
+}
+
 function mapTreeToDepartments(tree: ApiTreeNode | null): Department[] {
   return (tree?.children ?? [])
     .filter((node) => node.type === "department")
@@ -142,6 +169,14 @@ export default function ManagerDashboard() {
   }, [selection, departments])
 
   const metricsByNode = useMemo(() => flattenMetrics(tree), [tree])
+  const visibleDepartments = useMemo(
+    () =>
+      departments.map((department) => ({
+        ...department,
+        nganhs: department.nganhs.filter((major) => (metricsByNode[`specialization_${major.id}`]?.student_count ?? 0) > 0),
+      })),
+    [departments, metricsByNode]
+  )
 
   const selectedMetrics = useMemo(() => {
     if (!selection) return emptyMetrics
@@ -156,7 +191,7 @@ export default function ManagerDashboard() {
   const globalGpaAvg = tree?.metrics.avg_gpa ?? 0
   const globalFailRate = tree?.metrics.fail_rate ?? 0
   const scopeLabel = "toàn trường"
-  const totalMajors = departments.reduce((sum, department) => sum + department.nganhs.length, 0)
+  const totalMajors = visibleDepartments.reduce((sum, department) => sum + department.nganhs.length, 0)
 
   return (
     <div className="space-y-6">
@@ -223,50 +258,48 @@ export default function ManagerDashboard() {
               {/* ── Columns Wrapper ── */}
               <div className="w-full overflow-x-auto pb-3">
                 <div className="relative flex min-w-[1120px] pt-0">
-                  {departments.map((dept, index) => {
+                  {visibleDepartments.map((dept, index) => {
                   const isExpanded = !!expandedDepts[dept.id]
                   const isDeptSelected = selection?.type === "department" && selection.id === dept.id
 
                   const getDeptStatus = (deptId: string) => {
-                    const hScore = metricsByNode[`department_${deptId}`]?.health_score
-                    const avg = hScore !== undefined ? hScore : 0
+                    const percent = getHealthPercent(metricsByNode[`department_${deptId}`])
                     
-                    if (hScore === undefined) {
-                      return { percent: "...", colorClass: "bg-card border-border text-muted-foreground", activeColorClass: "bg-card border-primary text-primary", dotClass: "bg-muted" };
+                    if (percent === null) {
+                      return {
+                        percent: "...",
+                        colorClass: "bg-card border-border text-muted-foreground",
+                        activeColorClass: "bg-card border-primary text-primary",
+                        dotClass: "bg-muted",
+                        style: undefined,
+                        activeStyle: undefined,
+                      }
                     }
 
-                    if (avg >= 70) {
-                      return {
-                        percent: avg,
-                        colorClass: "bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700 shadow-sm",
-                        activeColorClass: "bg-emerald-600 border-white text-white shadow-lg scale-[1.05] ring-2 ring-emerald-500 ring-offset-1 font-bold",
-                        dotClass: "bg-white",
-                      }
-                    }
-                    if (avg >= 40) {
-                      return {
-                        percent: avg,
-                        colorClass: "bg-amber-500 border-amber-500 text-white hover:bg-amber-600 shadow-sm",
-                        activeColorClass: "bg-amber-500 border-white text-white shadow-lg scale-[1.05] ring-2 ring-amber-400 ring-offset-1 font-bold",
-                        dotClass: "bg-white",
-                      }
-                    }
                     return {
-                      percent: avg,
-                      colorClass: "bg-rose-600 border-rose-600 text-white hover:bg-rose-700 shadow-sm",
-                      activeColorClass: "bg-rose-600 border-white text-white shadow-lg scale-[1.05] ring-2 ring-rose-500 ring-offset-1 font-bold",
+                      percent,
+                      colorClass: "border text-white shadow-sm",
+                      activeColorClass: "border-white text-white shadow-lg scale-[1.05] ring-2 ring-offset-1 font-bold",
                       dotClass: "bg-white",
+                      style: getHealthColorStyle(percent),
+                      activeStyle: getHealthColorStyle(percent, true),
                     }
                   }
 
                   const deptStatus = getDeptStatus(dept.id)
+                  const sortedMajors = [...dept.nganhs].sort((left, right) => {
+                    const leftPercent = getHealthPercent(metricsByNode[`specialization_${left.id}`]) ?? -1
+                    const rightPercent = getHealthPercent(metricsByNode[`specialization_${right.id}`]) ?? -1
+                    if (rightPercent !== leftPercent) return rightPercent - leftPercent
+                    return left.tenNganh.localeCompare(right.tenNganh, "vi")
+                  })
 
                   return (
                     <div key={dept.id} className="flex-1 flex flex-col items-center px-[2px] relative min-w-[55px] max-w-[120px] w-full">
                       {/* ── Edge-to-Edge Connecting Line (Zero Gap) ── */}
                       <div className="absolute top-0 left-0 right-0 h-[1.5px] flex">
                         <div className={`flex-1 ${index === 0 ? "invisible" : "bg-primary/30"}`} />
-                        <div className={`flex-1 ${index === departments.length - 1 ? "invisible" : "bg-primary/30"}`} />
+                        <div className={`flex-1 ${index === visibleDepartments.length - 1 ? "invisible" : "bg-primary/30"}`} />
                       </div>
 
                       {/* Vertical stem to card */}
@@ -275,6 +308,7 @@ export default function ManagerDashboard() {
                       {/* Department card (clickable) */}
                       <button
                         onClick={() => toggleDept(dept.id)}
+                        style={isExpanded ? deptStatus.activeStyle : deptStatus.style}
                         className={`w-full rounded border px-1 py-1.5 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-between min-h-[56px] z-10
                           ${isExpanded ? deptStatus.activeColorClass : deptStatus.colorClass}
                           ${isDeptSelected ? "ring-2 ring-primary ring-offset-2" : ""}`}
@@ -319,37 +353,24 @@ export default function ManagerDashboard() {
                           : "max-h-0 opacity-0 scale-y-95 overflow-hidden pointer-events-none"
                           }`}
                       >
-                        {dept.nganhs.map((major) => {
+                        {sortedMajors.map((major) => {
                           const getMajorStatus = (majorId: string) => {
-                            const hScore = metricsByNode[`specialization_${majorId}`]?.health_score
-                            const percent = hScore !== undefined ? hScore : 0
+                            const percent = getHealthPercent(metricsByNode[`specialization_${majorId}`])
                             
-                            if (hScore === undefined) {
+                            if (percent === null) {
                               return {
                                 colorClass: "bg-card border-border text-muted-foreground",
                                 dotClass: "bg-muted",
                                 percent: "...",
+                                style: undefined,
                               }
                             }
                             
-                            if (percent >= 70) {
-                              return {
-                                colorClass: "bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700 shadow-sm",
-                                dotClass: "bg-white",
-                                percent: `${percent}%`,
-                              }
-                            }
-                            if (percent >= 40) {
-                              return {
-                                colorClass: "bg-amber-500 border-amber-500 text-white hover:bg-amber-600 shadow-sm",
-                                dotClass: "bg-white",
-                                percent: `${percent}%`,
-                              }
-                            }
                             return {
-                              colorClass: "bg-rose-600 border-rose-600 text-white hover:bg-rose-700 shadow-sm",
+                              colorClass: "border text-white shadow-sm",
                               dotClass: "bg-white",
                               percent: `${percent}%`,
+                              style: getHealthColorStyle(percent),
                             }
                           }
 
@@ -361,6 +382,7 @@ export default function ManagerDashboard() {
                               key={major.id}
                               id={`major-${major.id}`}
                               onClick={() => setSelection({ id: major.id, type: "major" })}
+                              style={status.style}
                               className={`major-node-item group w-full px-1 py-1 rounded border flex flex-col gap-0.5 transition-all duration-150 cursor-pointer relative
                                 ${status.colorClass}
                                 ${isMajorSelected ? "ring-2 ring-primary ring-offset-1" : ""}`}
