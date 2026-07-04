@@ -51,7 +51,7 @@ def should_continue(state: AgentState) -> str:
     # ReAct loop that never terminates. Detect excessive tool-call cycles
     # by counting ToolMessage occurrences in the conversation and stop
     # after a reasonable threshold.
-    TOOL_LOOP_LIMIT = 5
+    TOOL_LOOP_LIMIT = 10
     tool_msg_count = sum(1 for m in messages if isinstance(m, ToolMessage))
     if tool_msg_count >= TOOL_LOOP_LIMIT:
         return END
