@@ -755,12 +755,14 @@ async def chat_stream(
                 merged_context["memory_summary"] = memory_note
 
             final_state_messages = []
+            accumulated_ai_content = ""
             tool_call_ids: dict[str, str] = {}
             tool_count = 0
 
             # H59: build LangSmith tracing config (prompt versions seeded at startup)
+            stream_run_name = "eduinsight-chat-stream"
             langsmith_config = _build_langsmith_config(
-                run_name="eduinsight-chat-stream",
+                run_name=stream_run_name,
                 mode="stream",
                 agent_run_id=agent_run_id,
                 conversation_id=str(db_session.id),
@@ -865,10 +867,11 @@ async def chat_stream(
                         if node_name in ("core_agent", "fast_response"):
                             chunk = event["data"]["chunk"]
                             if hasattr(chunk, "content") and chunk.content and isinstance(chunk.content, str):
+                                accumulated_ai_content += chunk.content
                                 yield f"data: {json.dumps({'type': 'token', 'content': chunk.content})}\n\n"
                                 await asyncio.sleep(0)  # force flush
-                    
-                    elif kind == "on_chain_end" and name == "LangGraph": # The top level graph
+
+                    elif kind == "on_chain_end" and name in (stream_run_name, "LangGraph"):
                         final_state = event["data"].get("output", {})
                         if isinstance(final_state, dict) and "messages" in final_state:
                             final_state_messages = final_state["messages"]
@@ -892,10 +895,19 @@ async def chat_stream(
                 # Merge prior DB history with only the messages the graph
                 # appended to its (compacted) input — this preserves older
                 # turns that were compacted out of the agent context.
+                merged_history: list[Any] | None = None
                 if final_state_messages:
                     merged_history = _merge_persisted_history(
                         history_msgs, user_turn, input_messages, final_state_messages
                     )
+                elif accumulated_ai_content:
+                    logger.warning("on_chain_end not captured; using streamed-token fallback")
+                    merged_history = list(history_msgs) + [
+                        user_turn,
+                        AIMessage(content=accumulated_ai_content),
+                    ]
+
+                if merged_history is not None:
                     db_session.messages = messages_to_dict(merged_history)
                     # H64: update short_summary + save long-term memories
                     try:
