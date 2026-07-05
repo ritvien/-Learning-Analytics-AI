@@ -73,6 +73,11 @@ AGENT_TIMEOUT_MESSAGE = (
 )
 SERVER_BUSY_RETRY_AFTER_SECONDS = 10
 
+# Max chars of each tool output echoed back in API responses/SSE events.
+# Eval scorers verify citations and number grounding against this capture,
+# so it must be long enough to keep RAG citation metadata and result rows.
+TOOL_OUTPUT_CAPTURE_MAX_CHARS = 4000
+
 
 class AgentBusyError(Exception):
     """All agent slots are taken; the request is rejected instead of queued."""
@@ -634,7 +639,7 @@ async def chat(
                     tool_call_id = new_id()
                     tool_output = ""
                     if i + 1 < len(messages) and isinstance(messages[i + 1], ToolMessage):
-                        tool_output = messages[i + 1].content[:500]
+                        tool_output = messages[i + 1].content[:TOOL_OUTPUT_CAPTURE_MAX_CHARS]
                     tool_name = tc.get("name", "unknown")
                     timing = None
                     if tool_seq_index < len(run_metrics.tool_calls):
@@ -972,7 +977,7 @@ async def chat_stream(
 
                     elif kind == "on_tool_end":
                         output = event['data'].get('output')
-                        output_str = str(output)[:500] if output else ""
+                        output_str = str(output)[:TOOL_OUTPUT_CAPTURE_MAX_CHARS] if output else ""
                         await log_event(
                             "tool_call_completed",
                             user_id=str(current_user.id),
