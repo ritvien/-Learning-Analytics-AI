@@ -51,6 +51,16 @@ class Settings(BaseSettings):
     max_concurrent_agent_runs: int = 3
     agent_run_timeout_seconds: int = 120
 
+    # --------------------------------------------------------------- dashboards
+    # DWH-backed dashboard payloads only change via admin refresh/imports (which
+    # clear the cache explicitly), so the TTL is a safety net, not freshness.
+    dashboard_cache_ttl_seconds: int = 21600  # 6 hours
+    # Background worker that keeps the default dashboards + academic tree warm
+    # so no user request ever pays the cold aggregation. 0 disables the worker.
+    dashboard_prewarm_interval_seconds: int = 300
+    # Academic tree reads OLTP tables directly; keep its staleness window short.
+    tree_cache_ttl_seconds: int = 900
+
     # ---------------------------------------------------------------------- ml
     # Writable in Docker (non-root app user); override via ML_ARTIFACT_DIR.
     ml_artifact_dir: str = "/tmp/ml_artifacts"

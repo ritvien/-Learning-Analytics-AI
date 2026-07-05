@@ -1586,6 +1586,16 @@ function isApiError(err: unknown, statusCode: number, detail?: string) {
   return statusMatch && (!detail || err.message.includes(detail))
 }
 
+// When set (e.g. https://eduinsight-backend-xxxx.onrender.com), API calls go
+// straight to the backend instead of hopping through the Vercel proxy function
+// (browser → Vercel region → Render adds 200ms–1s per request). Requires the
+// frontend origin in the backend's CORS_ORIGINS. Empty = same-origin proxy.
+const API_BASE = (process.env.NEXT_PUBLIC_API_BASE ?? "").replace(/\/+$/, "")
+
+function apiUrl(path: string) {
+  return API_BASE && path.startsWith("/api/") ? `${API_BASE}${path}` : path
+}
+
 async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null
   const method = (init?.method ?? "GET").toUpperCase()
@@ -1606,11 +1616,12 @@ async function fetcher<T>(input: string, init?: RequestInit): Promise<T> {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   }
 
+  const requestUrl = apiUrl(input)
   const runRequest = async () => {
-    let response = await fetch(input, customInit)
+    let response = await fetch(requestUrl, customInit)
     if (method === "GET" && [502, 503, 504].includes(response.status)) {
       await new Promise((resolve) => window.setTimeout(resolve, 750))
-      response = await fetch(input, customInit)
+      response = await fetch(requestUrl, customInit)
     }
 
     if (response.status === 204) {
@@ -2448,7 +2459,7 @@ export async function* chatStreamV2(
     ...body,
     context: { ...buildPageContext(), ...(body.context ?? {}) },
   }
-  const res = await fetch("/api/v1/chat/stream", {
+  const res = await fetch(apiUrl("/api/v1/chat/stream"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

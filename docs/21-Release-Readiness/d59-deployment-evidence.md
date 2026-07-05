@@ -59,6 +59,22 @@ powershell -ExecutionPolicy Bypass -File .\scripts\d59-smoke-production.ps1 `
 
 Last automated smoke: **passed** (health 200, login admin, `/auth/me` role=admin).
 
+## Performance knobs (2026-07-05)
+
+Measured from VN: every API call used to hop browser → Vercel fn (**iad1**, US East) → Render (**oregon**, US West), adding 0.2–1.1s per request; cold dashboard aggregations took 5–60s on the free instance (tree 23s, outcomes 61s) with a 5-min per-user cache.
+
+| Knob | Where | Default | Effect |
+|:-----|:------|:--------|:-------|
+| `DASHBOARD_CACHE_TTL_SECONDS` | Render env | 21600 | Dashboard payload cache lifetime (cleared by `/admin/dwh/refresh` + ML scoring) |
+| `DASHBOARD_PREWARM_INTERVAL_SECONDS` | Render env | 300 | Background worker keeps tree + default dashboards warm; `0` disables |
+| `TREE_CACHE_TTL_SECONDS` | Render env | 900 | Academic tree cache (shared across users, force-refreshed each sweep) |
+| `RUN_ANALYTICS_REFRESH_ON_STARTUP` | Render env (in blueprint) | `false` | Skip boot-time ETL+CLO refresh; run via bootstrap script instead |
+| `NEXT_PUBLIC_API_BASE` | Vercel env | unset | Set to the Render URL so the browser calls the backend directly (CORS already allows the Vercel origin); unset = same-origin proxy |
+| `NEXT_PUBLIC_ENABLE_DASHBOARD_PRELOAD` | Vercel env | unset | `true` prefetches dashboard data after login into the client cache |
+| `frontend/vercel.json` `regions` | repo | `sin1` | Runs the proxy function in Singapore instead of US East |
+
+Dashboard caches are shared across users (keys carry the resolved scope, not the user id), so the prewarm worker's entries serve real logins. Biggest remaining win: recreate the Render service + Postgres in the **singapore** region (region is fixed at creation; needs dump/restore + URL/env updates).
+
 ## UptimeRobot (Free)
 
 | Monitor | URL | Interval | Dashboard |

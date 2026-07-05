@@ -1,0 +1,6 @@
+# Caddy fronts the backend with automatic Let's Encrypt/ZeroSSL TLS.
+# API_DOMAIN comes from .env.production (e.g. api.yourdomain.com or 18.143.20.43.nip.io).
+{$API_DOMAIN} {
+	encode gzip
+	reverse_proxy backend:8000
+}

@@ -1,5 +1,6 @@
 # Environment
 .env
+.env.production
 frontend/.env.local
 ngrok_dir/.authtoken
 

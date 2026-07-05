@@ -1,6 +1,7 @@
 """Analytics warehouse and prediction read/operation endpoints."""
 
 import asyncio
+import logging
 from datetime import UTC, datetime, timedelta
 from time import monotonic
 
@@ -24,6 +25,7 @@ from app.analytics.health_score import (
     get_program_health_score,
 )
 from app.config import get_settings
+from app.database import AsyncSessionLocal
 from app.dependencies import CurrentUser, DBSession, require_admin_access
 from app.ml.course_risk import score_course_failure_predictions
 from app.ml.dropout import predict_dropout_risk_for_student, score_dropout_predictions, train_dropout_model
@@ -31,13 +33,16 @@ from app.ml.dropout.score import DropoutModelNotFoundError, DropoutStudentNotFou
 from app.ml.dropout.types import DropoutRiskResult
 from app.ml.scoring import aggregate_student_semester_predictions
 from app.models.academic import Course, Program, Semester
-from app.models.people import Student
+from app.models.people import Student, User, UserRole
 from app.models.teaching import Enrollment, Section
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 settings = get_settings()
-_DASHBOARD_CACHE_TTL_SECONDS = 300
+_DASHBOARD_CACHE_TTL_SECONDS = settings.dashboard_cache_ttl_seconds
+_DASHBOARD_CACHE_MAX_ENTRIES = 512
 _dashboard_cache: dict[tuple, tuple[float, dict]] = {}
 _dashboard_meta_cache: tuple[float, dict] | None = None
 SAFE_DASHBOARD_SQL_FRAGMENTS = frozenset(
@@ -176,6 +181,9 @@ def _dashboard_cache_get(key: tuple) -> dict | None:
 
 
 def _dashboard_cache_set(key: tuple, payload: dict) -> dict:
+    if len(_dashboard_cache) >= _DASHBOARD_CACHE_MAX_ENTRIES:
+        oldest_key = min(_dashboard_cache.items(), key=lambda item: item[1][0])[0]
+        _dashboard_cache.pop(oldest_key, None)
     _dashboard_cache[key] = (monotonic(), payload)
     return payload
 
@@ -400,7 +408,10 @@ async def analytics_dashboard_overview(
     _require_dashboard_role(current_user)
     if current_user.role.value == "manager":
         department_id = await _scoped_department_filter(db, current_user, department_id)
-    cache_key = ("overview", current_user.role.value, current_user.id, semester_code, department_id, date_from, date_to)
+    # Payload depends only on the resolved filters (role scoping is folded into
+    # department_id above), so entries are shared across users and can be
+    # populated by the background prewarm worker.
+    cache_key = ("overview", semester_code, department_id, date_from, date_to)
     cached = _dashboard_cache_get(cache_key)
     if cached is not None:
         return cached
@@ -653,9 +664,94 @@ async def analytics_dashboard_overview(
     })
 
 
+_prewarm_task: asyncio.Task[None] | None = None
+
+
+def _prewarm_user() -> User:
+    """Synthetic superadmin that only satisfies role checks during prewarm."""
+    user = User()
+    user.id = "dashboard-prewarm"
+    user.email = "prewarm@internal"
+    user.full_name = "Dashboard Prewarm"
+    user.role = UserRole.superadmin
+    user.department_id = None
+    user.is_active = True
+    return user
+
+
+def _evict_aging_dashboard_entries() -> None:
+    """Retire entries before TTL expiry so the sweep, not a user, recomputes."""
+    interval = settings.dashboard_prewarm_interval_seconds
+    max_age = max(_DASHBOARD_CACHE_TTL_SECONDS - 2 * interval, interval)
+    now = monotonic()
+    for key, (cached_at, _) in list(_dashboard_cache.items()):
+        if now - cached_at > max_age:
+            _dashboard_cache.pop(key, None)
+
+
+async def _prewarm_default_dashboards() -> None:
+    from app.api.v1.endpoints.tree import prewarm_academic_tree
+
+    user = _prewarm_user()
+    _evict_aging_dashboard_entries()
+    async with AsyncSessionLocal() as db:
+        # The academic tree backs the landing page; force-refresh it every
+        # sweep because it reads OLTP tables that CRUD edits change directly.
+        await prewarm_academic_tree(db, user)
+        # Unfiltered default views — what each dashboard page requests first.
+        # Each call returns straight from cache when the entry is still warm.
+        await analytics_dashboard_overview(db, user)
+        await analytics_dashboard_departments(db, user)
+        await analytics_dashboard_courses(db, user)
+        await analytics_dashboard_sections(
+            db, user, q=None, risk_level=None, sort="risk_desc", limit=50, offset=0
+        )
+        await analytics_dashboard_outcomes(db, user, min_evidence=30)
+
+
+async def _dashboard_prewarm_loop() -> None:
+    interval = settings.dashboard_prewarm_interval_seconds
+    await asyncio.sleep(5)
+    while True:
+        started = monotonic()
+        try:
+            await _prewarm_default_dashboards()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning("Dashboard prewarm sweep failed", exc_info=True)
+        elapsed = monotonic() - started
+        await asyncio.sleep(max(interval - elapsed, 30))
+
+
 async def prewarm_dashboard_cache() -> None:
-    """Warm the most common aggregate dashboard after backend startup."""
-    return None
+    """Start the background worker that keeps the default dashboards warm.
+
+    On the Render free instance the cold aggregations take 5–60s, so no user
+    request should ever be the one that pays them.
+    """
+    global _prewarm_task
+    if settings.dashboard_prewarm_interval_seconds <= 0:
+        return
+    if settings.app_env in {"test", "testing"}:
+        return
+    if settings.database_url.startswith("sqlite"):
+        # DWH queries need PostgreSQL; dev SQLite would fail every sweep.
+        return
+    if _prewarm_task is None or _prewarm_task.done():
+        _prewarm_task = asyncio.create_task(_dashboard_prewarm_loop())
+
+
+async def stop_dashboard_prewarm() -> None:
+    """Cancel the prewarm worker (application shutdown)."""
+    global _prewarm_task
+    if _prewarm_task is not None:
+        _prewarm_task.cancel()
+        try:
+            await _prewarm_task
+        except asyncio.CancelledError:
+            pass
+        _prewarm_task = None
 
 
 @router.get("/analytics/dashboard/departments")
@@ -678,8 +774,6 @@ async def analytics_dashboard_departments(
         _require_dashboard_role(current_user)
     cache_key = (
         "departments",
-        current_user.role.value,
-        current_user.id,
         semester_code,
         department_id,
         program_id,
@@ -964,8 +1058,6 @@ async def analytics_dashboard_outcomes(
 
     cache_key = (
         "outcomes",
-        current_user.role.value,
-        current_user.id,
         semester_code,
         department_id,
         program_id,
@@ -1341,8 +1433,6 @@ async def analytics_dashboard_program(
     await _require_program_scope(db, current_user, program_id)
     cache_key = (
         "program",
-        current_user.role.value,
-        current_user.id,
         program_id,
         semester_code,
         cohort_id,
@@ -2041,7 +2131,7 @@ async def analytics_dashboard_courses(
         _require_dashboard_role(current_user)
     if program_id is not None:
         await _require_program_scope(db, current_user, program_id)
-    cache_key = ("courses", current_user.id, semester_code, department_id, program_id, date_from, date_to)
+    cache_key = ("courses", semester_code, department_id, program_id, date_from, date_to)
     cached = _dashboard_cache_get(cache_key)
     if cached is not None:
         return cached
@@ -2079,7 +2169,6 @@ async def analytics_dashboard_course_detail(
         await _require_program_scope(db, current_user, program_id)
     cache_key = (
         "course-detail",
-        current_user.id,
         course_id,
         semester_code,
         department_id,
@@ -2261,8 +2350,12 @@ async def analytics_dashboard_sections(
     if risk_level:
         risk_sql = _safe_dashboard_sql_fragment("WHERE risk_level = :risk_level")
         params["risk_level"] = risk_level
-    cache_key = ("sections-v3", current_user.id, semester_code, department_id, program_id, course_id, section_id,
-                 teacher_id, q, date_from, date_to, risk_level, sort, limit, offset)
+    # The visible rows depend on the role-resolved scope clause and the drill
+    # hierarchy level, not on the user — key on those so entries are shared.
+    scope_token = (scope_sql, tuple(sorted(scope_params.items())))
+    hierarchy_level = _section_hierarchy_level(current_user, department_id, program_id)
+    cache_key = ("sections-v3", scope_token, hierarchy_level, semester_code, department_id, program_id, course_id,
+                 section_id, teacher_id, q, date_from, date_to, risk_level, sort, limit, offset)
     cached = _dashboard_cache_get(cache_key)
     if cached is not None:
         return cached
@@ -2469,7 +2562,6 @@ async def analytics_dashboard_sections(
         """,
         params,
     )
-    hierarchy_level = _section_hierarchy_level(current_user, department_id, program_id)
     hierarchy_fields = {
         "department": ("department_id", "department_code", "department_name"),
         "program": ("program_id", "program_code", "program_name"),
@@ -2613,7 +2705,6 @@ async def analytics_dashboard_section_students(
         _deny_out_of_scope()
     cache_key = (
         "dashboard-section-students",
-        current_user.id,
         section_id,
         risk_level,
         limit,
@@ -2689,8 +2780,11 @@ async def analytics_refresh_status(db: DBSession) -> dict:
 @router.post("/admin/dwh/refresh", dependencies=[Depends(require_admin_access)])
 async def trigger_dwh_refresh() -> dict[str, int | str]:
     """Run the idempotent OLTP-to-DWH refresh."""
+    from app.api.v1.endpoints.tree import invalidate_tree_cache
+
     run_id = await refresh_dwh()
     _dashboard_cache_clear()
+    invalidate_tree_cache()
     return {"status": "completed", "etl_run_id": run_id}
 
 
