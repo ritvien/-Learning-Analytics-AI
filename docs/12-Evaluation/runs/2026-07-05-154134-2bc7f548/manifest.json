@@ -1,0 +1,52 @@
+{
+  "task": "H68",
+  "started_at": "2026-07-05T15:41:34.373788+00:00",
+  "commit_sha": "2bc7f548b0e7af962ca2d2a35c090a64ffa7b645",
+  "commit_short_sha": "2bc7f548",
+  "git_dirty": true,
+  "dataset_version": "gate3-h61-100-a0c713adb2fd",
+  "eval_set_version": "h61-expanded-100",
+  "test_cases_path": "docs\\12-Evaluation\\gate3_test_cases.json",
+  "test_cases_sha256": "a0c713adb2fd03cf8dad426c2707803839bc52340c10778f3f6b6f0f7eb7af85",
+  "test_case_count": 100,
+  "prompt_versions": [
+    {
+      "name": "router",
+      "version": "2026-07-01.2",
+      "checksum": "3b067817117440c258064f4323d263ef172ad98a1ff4b9ec3fd8aa60baf73e7c",
+      "is_active": true
+    },
+    {
+      "name": "core_agent",
+      "version": "2026-07-04.2",
+      "checksum": "b2a7d71a79d6b44e10e51ea65a8087ba465a97095e9f2d72ea62381d47df5a40",
+      "is_active": true
+    },
+    {
+      "name": "fast_response",
+      "version": "2026-07-01.1",
+      "checksum": "e3ab4d024b9dc70d07d0f163b3189ac31b1260f52e3e400070c53086b5539208",
+      "is_active": true
+    }
+  ],
+  "runtime": {
+    "llm_provider": "openai",
+    "llm_model": "gpt-5.4-nano",
+    "agent_router_model": "gpt-5.4-nano",
+    "agent_core_model": "gpt-5.4-nano",
+    "rag_embedding_model": "text-embedding-3-small",
+    "base_url": "https://eduinsight-backend-jxmm.onrender.com",
+    "eval_email": "lecturer@epu.edu.vn",
+    "evaluator_pricing_model": "gpt-5.4-nano",
+    "langsmith_tracing": "true",
+    "langsmith_project": "EduInsight",
+    "runtime_config_hash": "006bb24c38f0d1fa7df0e2a1d72e782d05810bb949713afb365152c69a081125"
+  },
+  "with_judge": false,
+  "results_source": "api",
+  "notes": [
+    "Deployed backend: main @ 3fb98ff1 (PR #130: H67 concurrency limiter + H68 CTDT citation capture fix)",
+    "No ML retrain after deploy: agent dropout tool reads persisted ml.student_dropout_prediction rows only",
+    "Purpose: verify H68 fix for ctdt_rag task 50% / grounding 0.25 capture artifact found in H66"
+  ]
+}
