@@ -27,6 +27,11 @@ services:
         value: "false"
       - key: SEED_ON_EMPTY
         value: "true"
+      - key: RUN_ANALYTICS_REFRESH_ON_STARTUP
+        # Boot-time ETL+CLO refresh adds minutes to every deploy/restart on the
+        # free instance; run it via POST /api/v1/admin/dwh/refresh instead
+        # (d59-bootstrap-production.ps1). Fresh databases need that bootstrap anyway.
+        value: "false"
       - key: SEED_PASSWORD
         value: "123456"
       - key: ML_ARTIFACT_DIR

@@ -22,7 +22,9 @@ fi
 echo "[entrypoint] Backfilling student emails..."
 python scripts/seed_student_emails.py
 
-if [ -n "${DATABASE_URL:-}" ] && printf '%s' "$DATABASE_URL" | grep -qi 'postgresql'; then
+if [ "${RUN_ANALYTICS_REFRESH_ON_STARTUP:-true}" = "false" ]; then
+    echo "[entrypoint] Skipping analytics warehouse refresh (RUN_ANALYTICS_REFRESH_ON_STARTUP=false)"
+elif [ -n "${DATABASE_URL:-}" ] && printf '%s' "$DATABASE_URL" | grep -qi 'postgresql'; then
     echo "[entrypoint] Refreshing analytics warehouse..."
     python -m app.analytics.etl
     echo "[entrypoint] Refreshing CLO achievement materialization..."

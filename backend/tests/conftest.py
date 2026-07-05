@@ -59,6 +59,15 @@ def _clear_settings_cache() -> None:
     get_settings.cache_clear()
 
 
+@pytest.fixture(autouse=True)
+def _clear_response_caches() -> None:
+    """Dashboard/tree caches are shared across users; reset them per test."""
+    from app.api.v1.endpoints import analytics, tree
+
+    analytics._dashboard_cache_clear()
+    tree.invalidate_tree_cache()
+
+
 @pytest.fixture
 async def test_engine():
     """Create a fresh async engine with schema for each test."""

@@ -42,6 +42,9 @@ COPY --chown=app:app . .
 # Entrypoint: convert CRLF to LF to avoid 'Illegal option' errors on Windows, then run migrations & start server
 RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
 
+# Writable mountpoint for persistent ML model bundles (named volume inherits this ownership)
+RUN mkdir -p /data/ml_artifacts && chown app:app /data/ml_artifacts
+
 USER app
 
 EXPOSE 8000

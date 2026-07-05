@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from app.config import get_settings
 from app.dependencies import CurrentUser, DBSession
 from app.models.academic import Course, Department, Program, Specialization
 from app.models.people import Student
@@ -18,28 +19,40 @@ router = APIRouter()
 
 
 TreeNode = dict[str, Any]
-TREE_CACHE_TTL_SECONDS = 60
+TREE_CACHE_TTL_SECONDS = get_settings().tree_cache_ttl_seconds
 _TREE_CACHE: dict[str, tuple[float, TreeNode]] = {}
 
-
-def _tree_cache_key(current_user: CurrentUser) -> str:
-    return f"institution_overview:{current_user.id}"
+# _load_visible_tree_data ignores the user entirely, so the tree is identical
+# for every role — one shared entry lets a background prewarm serve everyone.
+_TREE_CACHE_KEY = "institution_overview"
 
 
 def _get_cached_tree(current_user: CurrentUser) -> TreeNode | None:
-    cached = _TREE_CACHE.get(_tree_cache_key(current_user))
+    _ = current_user
+    cached = _TREE_CACHE.get(_TREE_CACHE_KEY)
     if cached is None:
         return None
     created_at, tree = cached
     if monotonic() - created_at > TREE_CACHE_TTL_SECONDS:
-        _TREE_CACHE.pop(_tree_cache_key(current_user), None)
+        _TREE_CACHE.pop(_TREE_CACHE_KEY, None)
         return None
     return tree
 
 
 def _set_cached_tree(current_user: CurrentUser, tree: TreeNode) -> TreeNode:
-    _TREE_CACHE[_tree_cache_key(current_user)] = (monotonic(), tree)
+    _ = current_user
+    _TREE_CACHE[_TREE_CACHE_KEY] = (monotonic(), tree)
     return tree
+
+
+def invalidate_tree_cache() -> None:
+    """Drop the shared tree so the next read (or prewarm sweep) rebuilds it."""
+    _TREE_CACHE.clear()
+
+
+async def prewarm_academic_tree(db: DBSession, current_user: CurrentUser) -> None:
+    """Force-rebuild the shared tree; called by the dashboard prewarm worker."""
+    _set_cached_tree(current_user, _build_tree(await _load_visible_tree_data(db, current_user)))
 
 
 def _pct(part: int, total: int) -> float:

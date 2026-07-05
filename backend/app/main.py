@@ -54,6 +54,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         yield
     finally:
+        from app.api.v1.endpoints.analytics import stop_dashboard_prewarm
+
+        await stop_dashboard_prewarm()
         if schedule_worker_task is not None:
             schedule_worker_stop.set()
             schedule_worker_task.cancel()

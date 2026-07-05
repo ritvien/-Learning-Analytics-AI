@@ -1,0 +1,59 @@
+# EduInsight — production stack on a single EC2 host (Postgres + backend + Caddy TLS)
+#
+#   cp deploy/.env.production.example .env.production   # then fill in secrets
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+#
+# .env.production is BOTH the compose interpolation file (--env-file) and the
+# container env file (env_file:) — keep every value literal, no ${...} nesting.
+
+name: eduinsight
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: eduinsight
+      POSTGRES_USER: eduinsight
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eduinsight -d eduinsight"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    # Never publish 5432 — the backend reaches it on the compose network.
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env.production
+    volumes:
+      - ml_artifacts:/data/ml_artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Keep WORKERS=1: the dashboard cache + prewarm worker are in-process;
+    # extra uvicorn workers would each rebuild their own cache.
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env.production}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  ml_artifacts:
+  caddy_data:
+  caddy_config:
