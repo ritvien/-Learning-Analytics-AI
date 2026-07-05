@@ -75,6 +75,24 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=(".env", "../.env"), env_file_encoding="utf-8", extra="ignore")
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _force_async_postgres_driver(cls, value: object) -> object:
+        """Rewrite plain postgres schemes to asyncpg.
+
+        Render/Heroku connection strings use postgresql:// (psycopg2), but the
+        app and Alembic both need the async driver. Normalizing here removes
+        the manual "edit DATABASE_URL in the dashboard" step that blueprint
+        re-syncs kept reverting.
+        """
+        if isinstance(value, str):
+            url = value.strip()
+            if url.startswith("postgres://"):
+                return "postgresql+asyncpg://" + url.removeprefix("postgres://")
+            if url.startswith("postgresql://"):
+                return "postgresql+asyncpg://" + url.removeprefix("postgresql://")
+        return value
+
     @field_validator("debug", mode="before")
     @classmethod
     def _parse_debug(cls, value: object) -> object:

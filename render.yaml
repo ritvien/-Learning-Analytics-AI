@@ -40,7 +40,8 @@ services:
         fromDatabase:
           name: eduinsight-db
           property: connectionString
-        # After first deploy: change postgresql:// → postgresql+asyncpg:// in dashboard
+        # postgresql:// scheme is normalized to postgresql+asyncpg:// in app/config.py —
+        # no manual dashboard edit needed (blueprint re-sync used to revert it and break deploys)
       - key: AGENT_DB_URL
         fromDatabase:
           name: eduinsight-db

@@ -16,3 +16,33 @@ def test_settings_block_llm_key_fallback_when_app_env_is_test(monkeypatch: pytes
     assert settings.llm_api_key == ""
     assert settings.openai_api_key == ""
     assert settings.gemini_api_key == ""
+
+
+@pytest.mark.parametrize(
+    ("raw_url", "expected"),
+    [
+        (
+            "postgresql://user:pass@host:5432/eduinsight",
+            "postgresql+asyncpg://user:pass@host:5432/eduinsight",
+        ),
+        (
+            "postgres://user:pass@host:5432/eduinsight",
+            "postgresql+asyncpg://user:pass@host:5432/eduinsight",
+        ),
+        (
+            "postgresql+asyncpg://user:pass@host:5432/eduinsight",
+            "postgresql+asyncpg://user:pass@host:5432/eduinsight",
+        ),
+        ("sqlite+aiosqlite:///./eduinsight.db", "sqlite+aiosqlite:///./eduinsight.db"),
+    ],
+)
+def test_database_url_normalized_to_asyncpg(
+    monkeypatch: pytest.MonkeyPatch, raw_url: str, expected: str
+) -> None:
+    """Render blueprint injects postgresql:// — Settings must force asyncpg."""
+    monkeypatch.setenv("DATABASE_URL", raw_url)
+    get_settings.cache_clear()
+
+    assert get_settings().database_url == expected
+
+    get_settings.cache_clear()
