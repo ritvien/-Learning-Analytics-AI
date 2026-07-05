@@ -10,7 +10,8 @@ name: eduinsight
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # pgvector build — migration 9f2b7c6d4a10 (RAG CTĐT) needs CREATE EXTENSION vector
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_DB: eduinsight
