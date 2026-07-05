@@ -72,8 +72,8 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | | Done: archived production 71-case H60 run with measured cost and 6-metric rubric in `docs/evaluation.md`; 100-case R2 dataset is ready but still needs a fresh production rerun/golden refresh. | | | | |
 | **H47** | **Review test cases (QA dataset)** *(chuyển từ V47)* | 04/07 12:00 | P0 | H61 | [x] |
 | | Done: 100 TC reviewed; legacy TC01–TC35 metadata normalized (`feature`, `owner`, `expected_source`, `tool_policy`); T55e goldens preserved; H66 handoff and verification notes in [h47_qa_dataset_review.md](../12-Evaluation/h47_qa_dataset_review.md). | | | | |
-| **H66** | **Optimize eval metrics & scorer** | 05/07 12:00 | P0 | H47, H60 | [ ] |
-| | Cải thiện task completion, semantic accuracy, latency trên 100-TC production rerun: tune scorer thresholds, golden fixes, prompt/router/tool policy; archive run mới và cập nhật `docs/evaluation.md` nếu vượt gate. Ref metrics hiện tại: [evaluation.md](../evaluation.md). | | | | |
+| **H66** | **Optimize eval metrics & scorer** | 05/07 12:00 | P0 | H47, H60 | [x] |
+| | Done: 100-case production rerun archived (`runs/2026-07-05-052509-941f4e36`): task **89.5%** ✓ · tool **0.92** ✓ · grounding **0.87** ✓ · semantic 0.73 (miss 0.02, structural cohort-dim) · p95 17.7s (multi-tool, free tier). Kèm fix deploy asyncpg + CTĐT tool + prompt views/retry (PR #125–#128), DWH refresh, ML train/score run 6, ingest CTĐT corpus, golden audit production, allowlist VN, matcher nghìn VN. Chi tiết: [evaluation.md](../evaluation.md). | | | | |
 | **D60** | `docs/evaluation.md` tổng hợp nộp BTC | 03/07 EOD | P0 | H60 | [x] |
 | **D61** | Coverage report ≥60% artifact | 03/07 EOD | P1 | H60 | [x] |
 | **D56** | README Demo Day (screenshot, team, Live URL, API summary) | 04/07 12:00 | P0 | V58, D59, D60 | [ ] |
