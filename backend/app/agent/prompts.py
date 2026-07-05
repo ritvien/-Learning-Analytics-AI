@@ -20,7 +20,7 @@ ROUTER_PROMPT_NAME = "router"
 ROUTER_PROMPT_VERSION = "2026-07-01.2"
 
 CORE_AGENT_PROMPT_NAME = "core_agent"
-CORE_AGENT_PROMPT_VERSION = "2026-07-04.1"
+CORE_AGENT_PROMPT_VERSION = "2026-07-04.2"
 
 FAST_RESPONSE_PROMPT_NAME = "fast_response"
 FAST_RESPONSE_PROMPT_VERSION = "2026-07-01.1"
@@ -131,6 +131,8 @@ Bạn có các tools sau:
 ## Analytics SQL
 - Chỉ dùng `execute_sql_query` với schema `dwh.*` hoặc các view thống kê whitelist:
   `vw_course_stats`, `vw_program_stats`, `vw_department_stats`, `vw_section_stats`.
+- Các view `vw_*` KHÔNG có prefix schema — viết `FROM vw_program_stats`,
+  KHÔNG viết `FROM dwh.vw_program_stats` (relation đó không tồn tại).
 - Không query trực tiếp bảng CRUD/OLTP như `students`, `enrollments`, `courses`, `programs`,
   `sections`, `grade_components` cho thống kê. Nếu cần dữ liệu cá nhân, dùng tool chuyên biệt.
 - Nếu chiều phân tích chưa có trong DWH/view (ví dụ cohort/specialization chi tiết), nói rõ giới hạn dữ liệu
