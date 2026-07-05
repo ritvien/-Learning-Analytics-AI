@@ -10,8 +10,9 @@ name: eduinsight
 
 services:
   postgres:
-    # pgvector build — migration 9f2b7c6d4a10 (RAG CTĐT) needs CREATE EXTENSION vector
-    image: pgvector/pgvector:pg16
+    # pgvector build — migration 9f2b7c6d4a10 (RAG CTĐT) needs CREATE EXTENSION vector.
+    # pg18 matches the Render source DB: pg_dump/pg_restore must not be older than the server.
+    image: pgvector/pgvector:pg18
     restart: unless-stopped
     environment:
       POSTGRES_DB: eduinsight
