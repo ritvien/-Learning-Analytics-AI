@@ -216,7 +216,7 @@ async def search_ctdt_chunks(
             1 - (embedding <=> CAST(:vec_literal AS vector)) AS score
         FROM rag.ctdt_chunks
         WHERE embedding IS NOT NULL
-          AND (:program_name IS NULL OR program_name = :program_name)
+          AND (CAST(:program_name AS TEXT) IS NULL OR program_name = CAST(:program_name AS TEXT))
         ORDER BY embedding <=> CAST(:vec_literal AS vector)
         LIMIT :top_k
     """
