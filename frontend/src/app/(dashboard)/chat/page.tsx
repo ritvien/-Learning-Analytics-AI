@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Send, Bot, User, Sparkles, BarChart2, BookOpen, AlertTriangle, MessageSquare, Plus, Trash2, ChevronDown } from "lucide-react"
 import { api, chatStreamV2, ChatSessionSummary, getReportBuildContext, invalidateApiCacheByPrefix, type ApiReportBuildPlan } from "@/lib/api"
 import { getDashboardAgentContext } from "@/lib/dashboard-agent-context"
+import { ServerBusyRetry } from "@/components/chat/server-busy-retry"
 
 interface Message {
   id: string
@@ -21,6 +22,7 @@ interface Message {
   statuses?: string[]
   reportPlan?: ApiReportBuildPlan
   reportUrl?: string
+  retryText?: string
 }
 
 type ReportBrief = {
@@ -698,13 +700,22 @@ export default function ChatPage() {
             void fetchSessions()
             break
 
-          case "error":
+          case "error": {
+            // H67d: server-busy/timeout rejections carry a friendly message
+            // and (for busy) a retry affordance instead of a raw system error.
+            const friendly = event.code === "server_busy" || event.code === "agent_timeout"
             setMessages(prev => prev.map(m =>
               m.id === assistantMsgId
-                ? { ...m, content: `**Lỗi hệ thống:** ${event.message}`, isStreaming: false }
+                ? {
+                    ...m,
+                    content: friendly ? event.message : `**Lỗi hệ thống:** ${event.message}`,
+                    isStreaming: false,
+                    retryText: event.code === "server_busy" ? text.trim() : undefined,
+                  }
                 : m
             ))
             break
+          }
         }
       }
 
@@ -713,9 +724,17 @@ export default function ChatPage() {
       ))
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Không rõ lỗi"
+      const isBusy429 = message.startsWith("API 429")
       setMessages(prev => prev.map(m =>
         m.id === assistantMsgId
-          ? { ...m, content: `**Lỗi hệ thống:** Không thể kết nối với Agent.\n\nChi tiết: ${message}`, isStreaming: false }
+          ? {
+              ...m,
+              content: isBusy429
+                ? "Server đang bận xử lý nhiều yêu cầu cùng lúc. Vui lòng thử lại sau ít phút."
+                : `**Lỗi hệ thống:** Không thể kết nối với Agent.\n\nChi tiết: ${message}`,
+              isStreaming: false,
+              retryText: isBusy429 ? text.trim() : undefined,
+            }
           : m
       ))
     }
@@ -1001,6 +1020,16 @@ export default function ChatPage() {
                         >
                           Mở báo cáo đã tạo
                         </a>
+                      )}
+                      {msg.retryText && !msg.isStreaming && (
+                        <ServerBusyRetry
+                          disabled={isLoading}
+                          onRetry={() => {
+                            const retryText = msg.retryText!
+                            setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, retryText: undefined } : m))
+                            void sendMessage(retryText)
+                          }}
+                        />
                       )}
                       {msg.isStreaming && (
                         <span className="inline-block w-1 h-4 bg-primary animate-pulse ml-1 rounded" />

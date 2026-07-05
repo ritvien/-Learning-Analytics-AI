@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     agent_core_model: str = "gpt-5.4-nano"
     chat_title_model: str = "gpt-5.4-nano"
     agent_db_url: str = "postgresql://eduinsight:eduinsight_dev@localhost:5433/eduinsight"
+    # H67: in-process backpressure (ADR-0011). Limits apply per worker process.
+    max_concurrent_agent_runs: int = 3
+    agent_run_timeout_seconds: int = 120
 
     # ---------------------------------------------------------------------- ml
     # Writable in Docker (non-root app user); override via ML_ARTIFACT_DIR.

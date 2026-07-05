@@ -592,7 +592,10 @@ async def search_ctdt_program_info(
                 "Hãy thử hỏi cụ thể hơn hoặc chỉ rõ tên ngành."
             )
 
-        # 6. Build response
+        # 6. Build response. Citation metadata comes BEFORE content in each
+        # hit: downstream consumers (chat API tool_output capture, eval
+        # scorers) truncate long outputs, and the citation fields must
+        # survive truncation. Compact JSON for the same reason.
         result = {
             "status": "ok",
             "query": query,
@@ -600,8 +603,6 @@ async def search_ctdt_program_info(
             "program_name_inferred": inferred_from_query,
             "hits": [
                 {
-                    "content": h.content,
-                    "score": round(h.score, 4),
                     "citation_label": h.citation_label,
                     "source_file": h.source_file,
                     "page_start": h.page_start,
@@ -609,11 +610,13 @@ async def search_ctdt_program_info(
                     "section_title": h.section_title,
                     "program_name": h.program_name,
                     "program_code": h.program_code,
+                    "score": round(h.score, 4),
+                    "content": h.content,
                 }
                 for h in good_hits
             ],
         }
-        return json.dumps(result, ensure_ascii=False, indent=2)
+        return json.dumps(result, ensure_ascii=False)
 
     except Exception as exc:
         logger.exception("search_ctdt_program_info error")

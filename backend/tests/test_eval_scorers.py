@@ -591,6 +591,47 @@ def test_grounding_ignores_identifier_like_numbers():
     assert scored["unsupported"] == []
 
 
+def test_grounding_ignores_citation_page_numbers():
+    tc = {"tc": "TC36", "category": "ctdt_rag"}
+    result = {
+        "status": "OK",
+        "response": (
+            "CĐR gồm PLO1–PLO5. Nguồn: `9_ Cong nghe thong tin.pdf` — "
+            "trang 1–28, mục Chuẩn đầu ra. Xem thêm trang 18-22 và page 30."
+        ),
+        "tool_calls": [
+            {
+                "tool_name": "search_ctdt_program_info",
+                "tool_output": '{"status": "ok", "hits": [{"content": "PLO1..."}]}',
+            }
+        ],
+    }
+
+    scored = score_grounding(tc, result)
+
+    assert scored["rule_score"] == 1.0
+    assert scored["unsupported"] == []
+
+
+def test_grounding_still_checks_non_citation_numbers_in_ctdt():
+    tc = {"tc": "TC53", "category": "ctdt_rag"}
+    result = {
+        "status": "OK",
+        "response": "Tổng 155 tín chỉ. Nguồn: khdl.pdf, trang 12.",
+        "tool_calls": [
+            {
+                "tool_name": "search_ctdt_program_info",
+                "tool_output": '{"hits": [{"content": "Tín chỉ tối thiểu: 120"}]}',
+            }
+        ],
+    }
+
+    scored = score_grounding(tc, result)
+
+    assert scored["rule_score"] == 0.0
+    assert scored["unsupported"] == [155.0]
+
+
 def test_latency_breakdown():
     result = {
         "latency_ms": 5000,

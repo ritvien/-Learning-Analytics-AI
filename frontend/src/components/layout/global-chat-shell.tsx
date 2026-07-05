@@ -6,6 +6,7 @@ import { MessageSquare, X, Send, Bot, User, Maximize2, Loader2 } from "lucide-re
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { api, chatStreamV2, getReportBuildContext, invalidateApiCacheByPrefix, resolveChatHandoffRoute, type ApiReportBuildPlan } from "@/lib/api"
+import { ServerBusyRetry } from "@/components/chat/server-busy-retry"
 import {
   DASHBOARD_AGENT_CONTEXT_EVENT,
   DASHBOARD_AGENT_PROMPT_EVENT,
@@ -24,6 +25,7 @@ interface Message {
   reportPlan?: ApiReportBuildPlan & { reportUrl?: string }
   reportUrl?: string
   reportChoices?: boolean
+  retryText?: string
 }
 
 type ReportScopeSelection = {
@@ -603,11 +605,21 @@ function GlobalChatWindow({
             ))
             break
 
-          case "error":
+          case "error": {
+            // H67d: friendly copy + retry button when the backend is saturated.
+            const friendly = event.code === "server_busy" || event.code === "agent_timeout"
             setMessages(prev => prev.map(m =>
-              m.id === assistantMsgId ? { ...m, content: `**Lỗi:** ${event.message}`, isStreaming: false } : m
+              m.id === assistantMsgId
+                ? {
+                    ...m,
+                    content: friendly ? event.message : `**Lỗi:** ${event.message}`,
+                    isStreaming: false,
+                    retryText: event.code === "server_busy" ? text.trim() : undefined,
+                  }
+                : m
             ))
             break
+          }
         }
       }
     } catch (error: unknown) {
@@ -615,8 +627,18 @@ function GlobalChatWindow({
         return // Ignored since we intentionally aborted for redirection
       }
       const msg = error instanceof Error ? error.message : "Lỗi kết nối"
+      const isBusy429 = msg.startsWith("API 429")
       setMessages(prev => prev.map(m =>
-        m.id === assistantMsgId ? { ...m, content: `**Lỗi:** ${msg}`, isStreaming: false } : m
+        m.id === assistantMsgId
+          ? {
+              ...m,
+              content: isBusy429
+                ? "Server đang bận xử lý nhiều yêu cầu cùng lúc. Vui lòng thử lại sau ít phút."
+                : `**Lỗi:** ${msg}`,
+              isStreaming: false,
+              retryText: isBusy429 ? text.trim() : undefined,
+            }
+          : m
       ))
     } finally {
       setIsLoading(false)
@@ -817,6 +839,16 @@ function GlobalChatWindow({
                           )
                         })() : null}
                         {msg.reportUrl ? <a href={msg.reportUrl} className="mt-2 block font-medium text-primary underline underline-offset-2">Mở báo cáo vừa tạo</a> : null}
+                        {msg.retryText && !msg.isStreaming ? (
+                          <ServerBusyRetry
+                            disabled={isLoading}
+                            onRetry={() => {
+                              const retryText = msg.retryText!
+                              setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, retryText: undefined } : m))
+                              void sendMessage(retryText)
+                            }}
+                          />
+                        ) : null}
                         {msg.reportChoices ? (
                           <div className="mt-3 grid gap-2">
                             <Button variant="outline" size="sm" onClick={() => void sendMessage("Tạo báo cáo lớp đang xem, dùng điểm giữa kỳ")}>Báo cáo lớp / can thiệp</Button>

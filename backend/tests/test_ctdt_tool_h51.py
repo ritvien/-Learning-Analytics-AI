@@ -173,6 +173,28 @@ class TestHitStructure:
         data = json.loads(result)
         assert len(data["hits"]) == 2
 
+    @pytest.mark.asyncio
+    async def test_citation_fields_survive_capture_truncation(self) -> None:
+        """Citation metadata must precede content so the chat API's
+        tool_output capture (and eval has_citation check) keeps it even
+        when the output is truncated."""
+        mock_hit = _make_mock_hit(content="Nội dung rất dài. " * 200)
+
+        with patch(
+            "app.rag.ctdt_retrieval.search_ctdt_chunks",
+            new_callable=AsyncMock,
+            return_value=[mock_hit],
+        ):
+            result = await search_ctdt_program_info.coroutine(
+                query="Mục tiêu đào tạo ngành CNTT",
+                program_name="CNTT",
+            )
+
+        captured = result[:500].lower()
+        assert "source_file" in captured
+        assert "page_start" in captured
+        assert "section_title" in captured
+
 
 # ── 3. Unsupported program tests ──────────────────────────────────────
 

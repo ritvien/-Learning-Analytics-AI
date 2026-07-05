@@ -9,17 +9,19 @@ Read this file first before changing code or docs in this repository.
 3. Task spec for your story (e.g. [H45-Plan.md](docs/07-Sprint-Planning/H45-Plan.md), [docs/07-Sprint-Planning/stories/](docs/07-Sprint-Planning/stories/))
 4. [docs/decisions/](docs/decisions/) — architecture decisions before schema/API changes
 
-### Sprint 4 status (03/07/2026)
+### Sprint 4 status (05/07/2026)
 
 | Done | Open focus |
 |:-------|:----------------------------|
-| S3 carry closed · H59 · H49 · H62 · H63 · D58 · **H64** · **H51** · **D59** · **H61** · **H60/D60/D61** · **D63** · **V56** | D56/D57 · D62 · T58 · **H47** (ex-V47) · **H66** eval metrics · **H67** concurrency limiter · **V65** skeleton · **V66** UI QA/screenshots · V18–V23 buffer |
+| S3 carry closed · H59 · H49 · H62 · H63 · D58 · **H64** · **H51** · **D59** · **H61** · **H60/D60/D61** · **D63** · **V56** · **H47** · **H66** · **H67** | D56/D57 · D62 · T58 · **V65** skeleton · **V66** UI QA/screenshots · V18–V23 buffer |
 
 **Production:** Live URL [c2-app-056.vercel.app](https://c2-app-056.vercel.app) · smoke pass · evidence [d59-deployment-evidence.md](docs/21-Release-Readiness/d59-deployment-evidence.md).
 
-**Eval / observability:** H59/D58 LangSmith tracing done; H64 memory/cache done; H51 CTĐT RAG Q&A MVP done; H60 71-case production evidence archived in [docs/evaluation.md](docs/evaluation.md); H61 dataset 100 TCs. **H47** (ex-V47) review + **H66** metrics optimize remain open before 100-case rerun.
+**Eval / observability:** H59/D58 LangSmith tracing done; H64 memory/cache done; H51 CTĐT RAG Q&A MVP done; H60 71-case production evidence archived in [docs/evaluation.md](docs/evaluation.md); H61 dataset 100 TCs; **H47** review done with metadata normalization + handoff in [h47_qa_dataset_review.md](docs/12-Evaluation/h47_qa_dataset_review.md). **H66** done 05/07: 100-case production rerun archived (task 89.5% · tool 0.92 · grounding 0.87 · semantic 0.73 · p95 17.7s) — see [Sprint4.md](docs/07-Sprint-Planning/Sprint4.md).
 
 **Session fix:** Chat session persistence + memory merge fix deployed (early user-message persist, history merge instead of overwrite, frontend cache invalidation).
+
+**Backpressure (H67):** Max 3 concurrent agent runs (`MAX_CONCURRENT_AGENT_RUNS`) + timeout 120s (`AGENT_RUN_TIMEOUT_SECONDS`) trên cả 2 chat endpoints; busy → 429 / SSE `server_busy` + retry UI ([ADR-0011](docs/decisions/0011-agent-concurrency-limiter.md)).
 
 Handoff snapshot: [.cursor/session-handoff.md](.cursor/session-handoff.md). UX polish backlog (non-blocking): [docs/22-UX-Simplification-Review/README.md](docs/22-UX-Simplification-Review/README.md).
 

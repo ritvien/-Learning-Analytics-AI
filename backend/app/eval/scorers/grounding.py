@@ -18,6 +18,16 @@ _IDENTIFIER_NUMBER_PATTERNS = (
     re.compile(r"\b20[12]\d\b"),
     re.compile(r"\b(?:K|khóa\s*)\d{2}\b", re.IGNORECASE),
     re.compile(r"\b\d{7}\b"),
+    # Numeric file-name prefixes like "22_ Khoa hoc du lieu.pdf"
+    re.compile(r"\b\d+_"),
+)
+# Page numbers inside citations ("trang 1–28", "page 12") are source
+# references, not factual claims; citation validity is checked by the
+# has_citation completion criterion instead. Markdown emphasis or code
+# marks may sit between the keyword and the digits ("trang **1–24**").
+_PAGE_CITATION_PATTERN = re.compile(
+    r"(?:trang|tr\.|page|p\.)\s*[*_`'\"]*\s*(\d+)(?:\s*[–—-]\s*(\d+))?",
+    re.IGNORECASE,
 )
 
 
@@ -43,6 +53,10 @@ def _identifier_numbers(text: str) -> set[float]:
             digits = "".join(ch for ch in match.group(0) if ch.isdigit())
             if digits:
                 excluded.add(float(digits))
+    for match in _PAGE_CITATION_PATTERN.finditer(text):
+        for group in match.groups():
+            if group:
+                excluded.add(float(group))
     return excluded
 
 
