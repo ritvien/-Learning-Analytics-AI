@@ -1,0 +1,53 @@
+{
+  "task": "H66",
+  "started_at": "2026-07-05T05:25:09.000720+00:00",
+  "commit_sha": "941f4e36ce0d0f0cf83a43e9667a0aaf822e5c80",
+  "commit_short_sha": "941f4e36",
+  "git_dirty": true,
+  "dataset_version": "gate3-h61-100-a0c713adb2fd",
+  "eval_set_version": "h61-expanded-100",
+  "test_cases_path": "docs\\12-Evaluation\\gate3_test_cases.json",
+  "test_cases_sha256": "a0c713adb2fd03cf8dad426c2707803839bc52340c10778f3f6b6f0f7eb7af85",
+  "test_case_count": 100,
+  "prompt_versions": [
+    {
+      "name": "router",
+      "version": "2026-07-01.2",
+      "checksum": "3b067817117440c258064f4323d263ef172ad98a1ff4b9ec3fd8aa60baf73e7c",
+      "is_active": true
+    },
+    {
+      "name": "core_agent",
+      "version": "2026-07-04.2",
+      "checksum": "b2a7d71a79d6b44e10e51ea65a8087ba465a97095e9f2d72ea62381d47df5a40",
+      "is_active": true
+    },
+    {
+      "name": "fast_response",
+      "version": "2026-07-01.1",
+      "checksum": "e3ab4d024b9dc70d07d0f163b3189ac31b1260f52e3e400070c53086b5539208",
+      "is_active": true
+    }
+  ],
+  "runtime": {
+    "llm_provider": "openai",
+    "llm_model": "gpt-5.4-nano",
+    "agent_router_model": "gpt-5.4-nano",
+    "agent_core_model": "gpt-5.4-nano",
+    "rag_embedding_model": "text-embedding-3-small",
+    "base_url": "https://eduinsight-backend-jxmm.onrender.com",
+    "eval_email": "lecturer@epu.edu.vn",
+    "evaluator_pricing_model": "gpt-5.4-nano",
+    "langsmith_tracing": "true",
+    "langsmith_project": "EduInsight",
+    "runtime_config_hash": "006bb24c38f0d1fa7df0e2a1d72e782d05810bb949713afb365152c69a081125"
+  },
+  "with_judge": false,
+  "results_source": "api",
+  "notes": [
+    "Goldens for TC01/02/03/10/13/17/22 audited against production via read-only SQL on 2026-07-05; TC05/08/11/12/32/35 goldens confirmed correct. Offline re-score with audited goldens produced identical aggregates.",
+    "Latency p95 17746ms exceeds the 15000ms gate: 11 cases >15s average 7.7 tool calls (multi-tool ReAct), llm time dominates (avg 14.3s of e2e); Render free tier. p50 5306ms.",
+    "Dropout probabilities are valid only when returned by persisted ML predictions, per ADR-006. Model run 6 v20260705.044657: 21810310019=0.99984, 24810310117=0.99982 (within 0.001 tolerance of T55e goldens).",
+    "Deployed backend commit 98c8ec83 (main, PR 125-128); core_agent prompt 2026-07-04.2."
+  ]
+}

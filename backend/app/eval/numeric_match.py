@@ -12,6 +12,11 @@ def expand_number_variants(value: float) -> set[float]:
     if 1.0 < abs(value) <= 100.0:
         variants.add(value / 100)
         variants.add(round(value / 100, 6))
+    # Vietnamese thousands separator: "1.628 sinh viên" parses as 1.628 but
+    # means 1628. Only exact 3-decimal values qualify (2.75 GPA stays 2.75).
+    scaled = value * 1000
+    if 1.0 <= abs(value) < 1000.0 and scaled == round(scaled) and value * 100 != round(value * 100):
+        variants.add(round(scaled))
     return variants
 
 

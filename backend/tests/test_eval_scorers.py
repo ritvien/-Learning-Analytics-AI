@@ -307,6 +307,15 @@ def test_task_completion_allowlisted_tool_error_counts_as_success():
     assert scored["verdict"] == "Pass"
 
 
+def test_values_match_vietnamese_thousands_separator():
+    from app.eval.numeric_match import values_match
+
+    # "1.628 sinh viên" is parsed as 1.628 but means 1628
+    assert values_match(1628, 1.628, 0.001) is True
+    # GPA-style two-decimal values must NOT get the x1000 interpretation
+    assert values_match(2750, 2.75, 0.001) is False
+
+
 def test_tool_success_and_success_rate_accept_vietnamese_allowlisted_error():
     tc = {
         "tc": "TC33",
