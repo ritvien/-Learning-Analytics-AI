@@ -464,7 +464,7 @@ class TestPromptCtdtPolicy:
         )
 
         assert ROUTER_PROMPT_VERSION == "2026-07-01.2"
-        assert CORE_AGENT_PROMPT_VERSION == "2026-07-04.1"
+        assert CORE_AGENT_PROMPT_VERSION == "2026-07-04.2"
 
     def test_prompt_manifest_checksums_valid(self) -> None:
         """Checksums should be 64-char hex and deterministic."""
