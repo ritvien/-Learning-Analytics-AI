@@ -307,6 +307,45 @@ def test_task_completion_allowlisted_tool_error_counts_as_success():
     assert scored["verdict"] == "Pass"
 
 
+def test_tool_success_and_success_rate_accept_vietnamese_allowlisted_error():
+    tc = {
+        "tc": "TC33",
+        "category": "data_query",
+        "expected_outcome": "valid_empty_data",
+        "expected_intent": "core_agent",
+        "expected_tools": ["lookup_student_by_code"],
+        "tool_policy": "required",
+        "allowed_tool_error_prefixes": ["ERROR: Không tìm thấy sinh viên"],
+        "completion_criteria": ["intent_match", "tool_success", "acknowledges_missing_data"],
+    }
+    result = {
+        "status": "OK",
+        "response": "Không tìm thấy sinh viên với mã 99999999999 trong hệ thống.",
+        "intent": "core_agent",
+        "tool_calls": [
+            {
+                "tool_name": "lookup_student_by_code",
+                "tool_input": {"student_code": "99999999999"},
+                "tool_output": "ERROR: Không tìm thấy sinh viên với mã '99999999999'.",
+            }
+        ],
+    }
+
+    task = score_task_completion(tc, result)
+    tool = score_tool_accuracy(tc, result)
+
+    assert task["checks"]["tool_success"] is True
+    assert tool["success_rate"] == 1.0
+
+    control_tc = {**tc}
+    control_tc.pop("allowed_tool_error_prefixes")
+    control_task = score_task_completion(control_tc, result)
+    control_tool = score_tool_accuracy(control_tc, result)
+
+    assert control_task["checks"]["tool_success"] is False
+    assert control_tool["success_rate"] == 0.0
+
+
 def test_task_completion_clarification_counts_for_scope_guardrail():
     tc = {
         "tc": "TC92",

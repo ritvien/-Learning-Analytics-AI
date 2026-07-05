@@ -70,8 +70,8 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | | Live: Vercel `c2-app-056.vercel.app` · Render `eduinsight-backend-jxmm.onrender.com` · bootstrap ETL+ML · smoke pass · UptimeRobot monitors [FE](https://dashboard.uptimerobot.com/monitors/803424323) [BE](https://dashboard.uptimerobot.com/monitors/803424335). Evidence: [d59-deployment-evidence.md](../21-Release-Readiness/d59-deployment-evidence.md). | | | | |
 | **H60** | **Review/re-run evaluation sau H61** | 03/07 12:00 | P0 | H61 | [x] |
 | | Done: archived production 71-case H60 run with measured cost and 6-metric rubric in `docs/evaluation.md`; 100-case R2 dataset is ready but still needs a fresh production rerun/golden refresh. | | | | |
-| **H47** | **Review test cases (QA dataset)** *(chuyển từ V47)* | 04/07 12:00 | P0 | H61 | [ ] |
-| | Review 100 TC: input realistic, golden khớp seed post-T55e, RBAC/intent/source tags; sửa TC sai data trước khi H66 rerun; handoff block cho scorer/prompt tuning. | | | | |
+| **H47** | **Review test cases (QA dataset)** *(chuyển từ V47)* | 04/07 12:00 | P0 | H61 | [x] |
+| | Done: 100 TC reviewed; legacy TC01–TC35 metadata normalized (`feature`, `owner`, `expected_source`, `tool_policy`); T55e goldens preserved; H66 handoff and verification notes in [h47_qa_dataset_review.md](../12-Evaluation/h47_qa_dataset_review.md). | | | | |
 | **H66** | **Optimize eval metrics & scorer** | 05/07 12:00 | P0 | H47, H60 | [ ] |
 | | Cải thiện task completion, semantic accuracy, latency trên 100-TC production rerun: tune scorer thresholds, golden fixes, prompt/router/tool policy; archive run mới và cập nhật `docs/evaluation.md` nếu vượt gate. Ref metrics hiện tại: [evaluation.md](../evaluation.md). | | | | |
 | **D60** | `docs/evaluation.md` tổng hợp nộp BTC | 03/07 EOD | P0 | H60 | [x] |

@@ -31,6 +31,9 @@ H61 keeps the T55e-refreshed TC01-TC35 golden values, adds TC36-TC71 Sprint 4 co
 
 ## Review Notes For H47/H60
 
+- H47 review completed on 2026-07-04; see
+  [h47_qa_dataset_review.md](h47_qa_dataset_review.md) for the metadata fix,
+  static audit, and H66 handoff.
 - TC01-TC35 preserve the T55e refreshed golden values from `sprint4-final.manifest.json`.
 - TC28, TC30, TC42, and TC57 are intended dropout-success paths using persisted T55a predictions.
 - TC36-TC38, TC49, TC51-TC54, TC93, and TC94 require `has_citation`; they should fail when the final answer mentions sources but tool output lacks `source_file`, page, and section metadata.
