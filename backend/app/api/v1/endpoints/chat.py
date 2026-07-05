@@ -12,6 +12,8 @@ import json
 import logging
 import time
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -56,6 +58,53 @@ _settings = get_settings()
 
 # ── Singleton agent (created once at import time) ──────────────────────
 _agent = create_agent()
+
+# ── H67: in-process concurrency limiter (ADR-0011) ─────────────────────
+# Render Free runs a single uvicorn worker; the semaphore bounds concurrent
+# LangGraph runs so parallel chats cannot exhaust RAM or the shared LLM quota.
+# Only valid while WORKERS=1 — multi-worker/multi-instance needs ADR-0011 layer 3.
+_AGENT_SEMAPHORE = asyncio.Semaphore(_settings.max_concurrent_agent_runs)
+
+SERVER_BUSY_MESSAGE = (
+    "Server đang bận xử lý nhiều yêu cầu cùng lúc. Vui lòng thử lại sau ít phút."
+)
+AGENT_TIMEOUT_MESSAGE = (
+    "Yêu cầu xử lý quá lâu và đã bị dừng. Vui lòng thử lại hoặc chia nhỏ câu hỏi."
+)
+SERVER_BUSY_RETRY_AFTER_SECONDS = 10
+
+
+class AgentBusyError(Exception):
+    """All agent slots are taken; the request is rejected instead of queued."""
+
+
+@asynccontextmanager
+async def _agent_slot() -> AsyncIterator[None]:
+    """Reserve one agent-run slot or raise AgentBusyError immediately.
+
+    The locked() check and the acquire() fast path both run without
+    suspending, so within the single event loop a rejected request can never
+    end up queued behind running agent invocations.
+    """
+    if _AGENT_SEMAPHORE.locked():
+        raise AgentBusyError()
+    await _AGENT_SEMAPHORE.acquire()
+    try:
+        yield
+    finally:
+        _AGENT_SEMAPHORE.release()
+
+
+async def _with_run_timeout(agent_stream: AsyncIterator[Any]) -> AsyncIterator[Any]:
+    """Apply the H67 total run deadline across an agent event stream.
+
+    The Vercel proxy caps requests at 120s but the backend kept the agent
+    running past that; this enforces the deadline server-side so a hung run
+    releases its slot instead of holding it open.
+    """
+    async with asyncio.timeout(_settings.agent_run_timeout_seconds):
+        async for item in agent_stream:
+            yield item
 
 
 def _is_development() -> bool:
@@ -448,13 +497,60 @@ async def chat(
         run_metrics = AgentRunMetrics()
         metrics_token = set_run_metrics(run_metrics)
         try:
-            result = await _agent.ainvoke(
-                {
-                    "messages": input_messages,
-                    "context": merged_context,
+            async with _agent_slot():
+                result = await asyncio.wait_for(
+                    _agent.ainvoke(
+                        {
+                            "messages": input_messages,
+                            "context": merged_context,
+                        },
+                        config=langsmith_config,
+                    ),
+                    timeout=_settings.agent_run_timeout_seconds,
+                )
+        except AgentBusyError:
+            await log_event(
+                "agent_run_rejected",
+                user_id=str(current_user.id),
+                user_role=current_user.role.value,
+                department_id=current_user.department_id,
+                conversation_id=str(db_session.id),
+                agent_run_id=agent_run_id,
+                status="rejected",
+                duration_ms=int((time.perf_counter() - start) * 1000),
+                error_code="AgentBusyError",
+                payload={
+                    "mode": "standard",
+                    "max_concurrent": _settings.max_concurrent_agent_runs,
                 },
-                config=langsmith_config,
+                **obs_context,
             )
+            reset_run_metrics(metrics_token)
+            raise HTTPException(
+                status_code=429,
+                detail=SERVER_BUSY_MESSAGE,
+                headers={"Retry-After": str(SERVER_BUSY_RETRY_AFTER_SECONDS)},
+            ) from None
+        except TimeoutError:
+            logger.warning("Agent invocation exceeded %ss timeout", _settings.agent_run_timeout_seconds)
+            await log_event(
+                "agent_run_timeout",
+                user_id=str(current_user.id),
+                user_role=current_user.role.value,
+                department_id=current_user.department_id,
+                conversation_id=str(db_session.id),
+                agent_run_id=agent_run_id,
+                status="error",
+                duration_ms=int((time.perf_counter() - start) * 1000),
+                error_code="AgentRunTimeout",
+                payload={
+                    "mode": "standard",
+                    "timeout_seconds": _settings.agent_run_timeout_seconds,
+                },
+                **obs_context,
+            )
+            reset_run_metrics(metrics_token)
+            raise HTTPException(status_code=504, detail=AGENT_TIMEOUT_MESSAGE) from None
         except MissingLLMCredentialsError as exc:
             logger.warning("Agent invocation blocked by missing LLM credentials")
             status_code, detail = map_agent_exception_to_http(
@@ -644,8 +740,38 @@ async def chat_stream(
     merged_context = validate_and_merge_context(current_user, _merge_client_context(request, payload.context))
 
     async def event_generator():
+        # H67: hold one agent slot for the whole run (title LLM call included)
+        # and reject up front — before creating a session — when all are busy.
+        try:
+            async with _agent_slot():
+                async for chunk in _generate_events():
+                    yield chunk
+        except AgentBusyError:
+            await log_event(
+                "agent_run_rejected",
+                user_id=str(current_user.id),
+                user_role=current_user.role.value,
+                department_id=current_user.department_id,
+                agent_run_id=agent_run_id,
+                status="rejected",
+                error_code="AgentBusyError",
+                payload={
+                    "mode": "stream",
+                    "max_concurrent": _settings.max_concurrent_agent_runs,
+                },
+                **obs_context,
+            )
+            busy_event = {
+                "type": "error",
+                "code": "server_busy",
+                "message": SERVER_BUSY_MESSAGE,
+                "retry_after_seconds": SERVER_BUSY_RETRY_AFTER_SECONDS,
+            }
+            yield f"data: {json.dumps(busy_event)}\n\n"
+
+    async def _generate_events():
         start = time.perf_counter()
-        
+
         async with AsyncSessionLocal() as db:
             history_msgs = []
             db_session = None
@@ -770,15 +896,16 @@ async def chat_stream(
                 obs_context=obs_context,
             )
 
+            agent_events = _agent.astream_events(
+                {
+                    "messages": input_messages,
+                    "context": merged_context,
+                },
+                config=langsmith_config,
+                version="v2",
+            )
             try:
-                async for event in _agent.astream_events(
-                    {
-                        "messages": input_messages,
-                        "context": merged_context,
-                    },
-                    config=langsmith_config,
-                    version="v2",
-                ):
+                async for event in _with_run_timeout(agent_events):
                     kind = event["event"]
                     name = event["name"]
                     node_name = event.get("metadata", {}).get("langgraph_node")
@@ -926,6 +1053,32 @@ async def chat_stream(
                         logger.warning("H64: failed to update memory (stream)", exc_info=True)
                     await db.commit()
 
+            except TimeoutError:
+                logger.warning(
+                    "Agent stream exceeded %ss timeout", _settings.agent_run_timeout_seconds
+                )
+                await log_event(
+                    "agent_run_timeout",
+                    user_id=str(current_user.id),
+                    user_role=current_user.role.value,
+                    department_id=current_user.department_id,
+                    conversation_id=str(db_session.id) if db_session else None,
+                    agent_run_id=agent_run_id,
+                    status="error",
+                    duration_ms=int((time.perf_counter() - start) * 1000),
+                    error_code="AgentRunTimeout",
+                    payload={
+                        "mode": "stream",
+                        "timeout_seconds": _settings.agent_run_timeout_seconds,
+                    },
+                    **obs_context,
+                )
+                timeout_event = {
+                    "type": "error",
+                    "code": "agent_timeout",
+                    "message": AGENT_TIMEOUT_MESSAGE,
+                }
+                yield f"data: {json.dumps(timeout_event)}\n\n"
             except MissingLLMCredentialsError as exc:
                 logger.warning("Agent stream blocked by missing LLM credentials")
                 await log_event(

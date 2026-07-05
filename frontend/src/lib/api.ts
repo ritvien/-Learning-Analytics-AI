@@ -2435,7 +2435,7 @@ export type SSEEvent =
   | { type: "tool_result"; output: string }
   | { type: "token"; content: string }
   | { type: "done"; latency_ms: number; thread_id?: string }
-  | { type: "error"; message: string }
+  | { type: "error"; message: string; code?: string; retry_after_seconds?: number }
   | { type: "session_created"; thread_id: string; title: string }
 
 export async function* chatStreamV2(
