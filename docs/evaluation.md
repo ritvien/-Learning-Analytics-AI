@@ -23,10 +23,15 @@ immutable 71-case H60 evidence until a 100-case production rerun is executed
 and archived.
 
 > **Update 2026-07-05 (H66):** the 100-case production rerun is done and
-> archived. Current evidence is in the
-> [H66 section](#h66--100-case-production-rerun-2026-07-05) at the end of
-> this page; the H60 content below is preserved unchanged as historical
-> evidence.
+> archived. See the
+> [H66 section](#h66--100-case-production-rerun-2026-07-05); the H60 content
+> below is preserved unchanged as historical evidence.
+
+> **Update 2026-07-05 (H68):** current evidence is now the
+> [H68 section](#h68--ctdt-citation-capture-fix--100-case-rerun-2026-07-05)
+> at the end of this page. It fixes a tool-output capture artifact that
+> caused the H66 ctdt_rag miss and reruns the same 100 cases against
+> production. H66 below is preserved unchanged as historical evidence.
 
 ## BTC Evidence Checklist
 
@@ -176,7 +181,15 @@ pytest -q -m "not slow and not eval"
 
 # H66 — 100-case Production Rerun (2026-07-05)
 
-Current evaluation evidence. Archived immutable run folder:
+> **Superseded by [H68](#h68--ctdt-citation-capture-fix--100-case-rerun-2026-07-05)
+> later the same day.** Root-cause analysis showed the ctdt_rag miss reported
+> below (task 50%, grounding 0.25) was a measurement artifact — the chat API
+> truncated `tool_output` capture at 500 chars, hiding the citation metadata
+> from the scorers. One correction to the notes below: **all 10** ctdt_rag
+> cases scored Partial on `has_citation` (10 × 0.5 = 50%), not "half the
+> cases". This section is preserved unchanged as historical evidence.
+
+Archived immutable run folder:
 `docs/12-Evaluation/runs/2026-07-05-052509-941f4e36/` (manifest, cases,
 raw results, metrics, report).
 
@@ -282,3 +295,135 @@ Production remediation (root causes of most H60 partials):
 | guardrail_safety | 1 | 100.0% | 1.00 | 0.67 | 1.00 |
 | guardrail_scope | 16 | 96.9% | 0.86 | 0.64 | 1.00 |
 | guardrail_uncertainty | 4 | 100.0% | 0.75 | 0.78 | 1.00 |
+
+---
+
+# H68 — CTDT Citation Capture Fix + 100-case Rerun (2026-07-05)
+
+Current evaluation evidence. Archived immutable run folder:
+`docs/12-Evaluation/runs/2026-07-05-154134-2bc7f548/` (manifest, cases,
+raw results, metrics, report).
+
+## Snapshot
+
+| Field | Value |
+|:--|:--|
+| Task | H68 (root-cause and fix the H66 ctdt_rag miss: task 50%, grounding 0.25) |
+| Run timestamp | `2026-07-05T15:41:34+00:00` |
+| Deployed backend | `main` @ `3fb98ff1` (PR #130: H67 concurrency limiter ADR-0011 + H68 capture fix) |
+| Dataset | `h61-expanded-100`, hash `gate3-h61-100-a0c713adb2fd` — **identical to H66** |
+| Prompts | unchanged from H66: `core_agent 2026-07-04.2` · `router 2026-07-01.2` · `fast_response 2026-07-01.1` |
+| Environment | Production API `https://eduinsight-backend-jxmm.onrender.com` (Render free tier) |
+| Judge | Off (`with_judge=false`, same as H60/H66) |
+| ML | No retrain after deploy: the agent dropout tool only reads persisted `ml.student_dropout_prediction` rows (model run 6), which survive deploys |
+
+## Root cause of the H66 ctdt_rag miss
+
+The RAG pipeline itself was healthy in H66 (tool accuracy 1.00, semantic
+1.00, and the model's answers cited file/page/section). The miss was a
+**measurement artifact**: the chat API truncated each `tool_output` echoed
+in API responses to 500 chars, and the CTDT tool placed citation fields
+*after* the long `content` field in each hit — so the scorers never saw
+`source_file`/`page_start`/`section_title`:
+
+- `has_citation` failed for **all 10** ctdt_rag cases (each Partial 0.5 →
+  slice task 50%).
+- Citation page numbers ("trang 1–28") and numeric PDF filename prefixes
+  ("`22_ Khoa hoc du lieu.pdf`") counted as response numbers with no
+  matching tool-output number → slice grounding 0.25.
+
+## What H68 changed
+
+Backend (deployed before the rerun):
+
+- `search_ctdt_program_info` emits citation metadata **before** `content`
+  in each hit and uses compact JSON, so citation fields survive any
+  downstream truncation (`backend/app/agent/tools.py`).
+- `TOOL_OUTPUT_CAPTURE_MAX_CHARS = 4000` replaces the hardcoded 500-char
+  cap in both the non-stream and SSE capture paths
+  (`backend/app/api/v1/endpoints/chat.py`).
+
+Scorer (offline, no model change):
+
+- Grounding excludes citation page numbers (`trang/page X–Y`, tolerant of
+  markdown emphasis) and numeric filename prefixes — they are source
+  references, not factual claims; citation validity stays enforced by the
+  `has_citation` completion criterion
+  (`backend/app/eval/scorers/grounding.py`).
+- Regression tests: citation fields must appear in the first 500 chars of
+  tool output; page-citation numbers are ignored; genuinely unsupported
+  numbers still fail grounding.
+
+## Results
+
+Offline re-score = archived H66 responses re-scored with H68 scorers. It
+recovers grounding (page-number exclusion) but cannot recover
+`has_citation` — the archived captures are truncated forever, which is why
+a production rerun was required.
+
+| Metric | H66 rerun | Offline re-score (same responses) | **H68 production rerun** | Gate | Status |
+|:--|--:|--:|--:|--:|:--|
+| Task completion | 89.5% | 89.5% | **94.0%** | >=85% | **Pass** |
+| Tool accuracy | 0.92 | 0.92 | **0.92** | >=0.80 | **Pass** |
+| Semantic accuracy | 0.73 | 0.73 | **0.72** | >=0.75 | Miss (−0.03) |
+| Grounding | 0.87 | 0.97 | **0.98** | >=0.70 | **Pass** |
+| Latency p95 | 17,746 ms | n/a | **19,571 ms** | <=15,000 ms | Miss |
+| Latency p50 | 5,306 ms | n/a | **6,559 ms** | measured | Measured |
+| Cost avg/task | $0.0041 | n/a | **$0.0039** | measured | Measured (93%) |
+
+The ctdt_rag slice moved exactly as the root cause predicted:
+**task 50% → 100% (10/10 Pass with `has_citation`), grounding 0.25 → 1.00**.
+
+Block split:
+
+| Block | Cases | Task | Tool | Semantic | Grounding | p95 |
+|:--|--:|--:|--:|--:|--:|--:|
+| TC01–TC71 (legacy) | 71 | 93.7% | 0.92 | 0.69 | 1.00 | 18,604 ms |
+| TC72–TC100 (R2) | 29 | 94.8% | 0.92 | 0.78 | 0.93 | 19,684 ms |
+
+## Category slices (H68 rerun)
+
+| Category | Cases | Task | Tool | Semantic | Grounding |
+|:--|--:|--:|--:|--:|--:|
+| chit_chat | 6 | 100.0% | 1.00 | 0.61 | 1.00 |
+| ctdt_rag | 10 | **100.0%** | 1.00 | 0.98 | **1.00** |
+| data_query | 55 | 91.8% | 0.89 | 0.71 | 0.96 |
+| guardrail_injection | 4 | 100.0% | 1.00 | 0.83 | 1.00 |
+| guardrail_privacy | 4 | 100.0% | 1.00 | 0.67 | 1.00 |
+| guardrail_safety | 1 | 100.0% | 1.00 | 0.67 | 1.00 |
+| guardrail_scope | 16 | 90.6% | 0.86 | 0.62 | 1.00 |
+| guardrail_uncertainty | 4 | 100.0% | 1.00 | 0.66 | 1.00 |
+
+## Remaining misses — honest notes
+
+- **Semantic 0.72 (gate 0.75).** Same structural gaps as H66, unchanged by
+  this task: (a) K21/K22 cohort questions (TC02/TC03/TC22/TC35) remain
+  structurally unanswerable — the whitelisted views have no cohort
+  dimension, so the agent correctly reports the data limitation instead of
+  the golden number; (b) TC11 headcount not derivable from
+  enrollment-based view columns; (c) TC05 aggregate CLO needs the prompt to
+  point at `dwh.fact_clo_achievement`. Per-case deltas vs H66 (some up:
+  TC17/TC46; some down: TC02/TC09) are run-to-run response variance on the
+  same behavior class, not a regression — both runs' answers for the moved
+  cases report the identical data limitation.
+- **Latency p95 19.6 s (gate 15 s).** 13 cases exceed 15 s with an average
+  of 7.8 tool calls each; LLM time dominates (≈12.9 s on those cases; p50
+  is 6.6 s). Same multi-tool ReAct + Render free tier profile as H66 (p95
+  varies run to run on shared infrastructure). Reported as measured; no
+  re-runs were made to shop for a better number.
+
+## Follow-ups
+
+- [x] Root-cause ctdt_rag task/grounding miss — capture artifact, fixed and
+  verified by this rerun.
+- Add retrieval recall and citation precision metrics for CTDT RAG
+  (carried over; capture now preserves the metadata these metrics need).
+- Replace the 12-chunk demo CTDT corpus with real-PDF extraction: 38 source
+  PDFs exist in the local crawl (`crawl/pdf_ctdt`), pipeline is
+  `extract_ctdt_corpus.py` (Gemini OCR) → `ingest_ctdt_rag.py`. The demo
+  KHDL text has no numeric credit totals, so credit-count questions
+  (TC53/TC93) can only answer "data not available" until then.
+- Add a cohort dimension to the DWH views and point the core prompt at
+  `dwh.fact_clo_achievement` (main semantic-gate blockers).
+- Add per-role auth fixture matrices and multi-turn evaluation once runner
+  support exists (carried over).
