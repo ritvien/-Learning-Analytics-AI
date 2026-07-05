@@ -15,7 +15,7 @@
 
 | Nhóm | Đã xong (S3 carry) | Sprint 4 focus |
 |:-----|:-------------------|:---------------|
-| Demo Day Phase 1 | H54, H55, V34, V35, V45, V46, D59 | Deliverables BTC còn thiếu: D56/D57/D62 + slide/rehearsal |
+| Demo Day Phase 1 | H54, H55, V34, V35, V45, V46, D59, D62 | Deliverables BTC còn thiếu: D56/D57 + slide/rehearsal |
 | Agent / Eval | 35 TC framework, guardrails, H59, H49, H62, H63, H64, H51, H61, H60, D60, D61 | **H47** review 100 TC (chuyển từ V47) · **H66** optimize metrics/scorer · 100-case rerun sau H47/H66 |
 | Data / UI | 1.277 SV seed v2 | Gap audit · T55a–e phased seed · ML score đủ MSSV demo |
 | UX | RBAC, observability | **VUX-1/2/3** · **V65** skeleton/progress · **V66** QA toàn page + screenshots |
@@ -143,9 +143,9 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | | Lecturer thấy section/SV “Cần can thiệp”; badge at-risk; CTA liên hệ; hiển thị trạng thái email/log; đồng bộ T56/T57 API; Playwright smoke at-risk flow. | | | | |
 | **V65** | **Skeleton loading + spinner có progress** | 04/07 EOD | P1 | VUX-1, V57 | [x] |
 | | Skeleton placeholder khớp layout thật (KPI/chart/bảng) thay màn trắng/`Đang tải...`; spinner kèm `Progress` cho tải dài. P0: overview, analytics programs/courses/sections/students, lecturer sections, reports. Story: [V65.md](./stories/V65.md) · UX22-22. | | | | |
-| **V66** | **QA giao diện toàn page + screenshots minh chứng** | 05/07 12:00 | P0 | V65, V57, D59 | [ ] |
+| **V66** | **QA giao diện toàn page + screenshots minh chứng** | 05/07 12:00 | P0 | V65, V57, D59 | [x] |
 | | Chạy `npm test` + Playwright smoke trên production; kiểm tra thủ công mọi route demo (V57): login, tổng quan, analytics, tree, dropout, lecturer at-risk, reports, chat, CRUD chính; ghi pass/fail/copy/lỗi hiển thị; chụp screenshot mỗi page → `docs/21-Release-Readiness/screenshots/`; tổng hợp [ui-qa-evidence.md](../21-Release-Readiness/ui-qa-evidence.md) (bảng route, ảnh, ghi chú). Feed D56 README. | | | | |
-| **D62** | User feedback 3–5 người (form + tóm tắt) | 04/07 EOD | P2 | V56 | [ ] |
+| **D62** | User feedback 3–5 người (form + tóm tắt) | 04/07 EOD | P2 | V56 | [x] |
 | **V18–V23** | CRUD polish, charts, FE tests | 05/07 buffer | P2 | — | [ ] defer |
 
 **Verify:** `cd frontend && npm run lint && npm test` · Playwright smoke at-risk flow
@@ -176,7 +176,7 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | D61 | Test coverage ≥60% | Hoàng | 03/07 EOD | [x] |
 | D56 | README.md đầy đủ | V58, **V66** → D56 + team | 04/07 12:00 | [ ] |
 | D57 | `docs/architecture.md` | Hoàng | 04/07 EOD | [ ] |
-| D62 | User feedback | Hiếu | 04/07 EOD | [ ] |
+| D62 | User feedback | Hiếu | 04/07 EOD | [x] |
 | D63 | Journal + Worklog | Hoàng | 04/07 EOD | [x] |
 | — | Slide + thuyết trình | T58a → T58b | 05/07 18:00 | [ ] |
 | — | Video Phase 1 | V34, V35 | Done S3 | [x] |

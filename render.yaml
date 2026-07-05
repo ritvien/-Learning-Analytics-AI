@@ -26,11 +26,12 @@ services:
       - key: DEBUG
         value: "false"
       - key: SEED_ON_EMPTY
-        value: "true"
+        value: "false"
+      - key: IMPORT_V59_STUDENTS
+        value: "false"
+      - key: BACKFILL_STUDENT_EMAILS_ON_STARTUP
+        value: "false"
       - key: RUN_ANALYTICS_REFRESH_ON_STARTUP
-        # Boot-time ETL+CLO refresh adds minutes to every deploy/restart on the
-        # free instance; run it via POST /api/v1/admin/dwh/refresh instead
-        # (d59-bootstrap-production.ps1). Fresh databases need that bootstrap anyway.
         value: "false"
       - key: SEED_PASSWORD
         value: "123456"
