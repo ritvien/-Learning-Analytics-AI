@@ -15,5 +15,6 @@ Numbered ADRs for EduInsight. Read relevant decisions before changing schema, AP
 | [0009](0009-homeroom-assignment-scope.md) | Explicit homeroom assignment scope | accepted |
 | [0010](0010-langsmith-tracing.md) | LangSmith tracing for agent observability | accepted |
 | [0011](0011-agent-concurrency-limiter.md) | In-process semaphore for agent concurrency limiting | accepted |
+| [0012](0012-aws-ec2-production-hosting.md) | AWS EC2 (Singapore) thay Render làm production hosting | accepted |
 
 Human decisions not yet formalized as ADRs may appear in [docs/worklog.md](../worklog.md). New decisions: add the next numbered file here.

@@ -14,8 +14,9 @@ Trang này giúp team biết tài liệu nào là nguồn chuẩn hiện tại, 
 | Backend progress (Hưng) | [Hung/README.md](./09-Materials/Hung/README.md) |
 | Kiến trúc tổng thể | [SystemArchitecture.md](./10-References/SystemArchitecture.md) |
 | Setup, pull, reset và migration | [ProjectSetup.md](./10-References/ProjectSetup.md) |
-| Kế hoạch thực thi hiện tại | [Sprint4.md](./07-Sprint-Planning/Sprint4.md) — Demo Day final + chất lượng sản phẩm, cập nhật 03/07 (D59 live, H60 evidence, H61 100 TC) |
-| Production deploy evidence | [d59-deployment-evidence.md](./21-Release-Readiness/d59-deployment-evidence.md) — Live URL + UptimeRobot |
+| Kế hoạch thực thi hiện tại | [Sprint4.md](./07-Sprint-Planning/Sprint4.md) — Phase 1 đóng 05/07; đang chạy § "Demo Day Phase 2 — EC2 migration & ops" (H69–H75, deadline 08/07 23:00) |
+| Production runbook (AWS EC2) | [deploy/README.md](../deploy/README.md) — backend `edu-insight.duckdns.org`, docker-compose pg18 + Caddy, migrate/cutover 06/07 |
+| Production deploy evidence | [d59-deployment-evidence.md](./21-Release-Readiness/d59-deployment-evidence.md) — Render (historical) + perf knobs + UptimeRobot |
 | Agent handoff (session) | [.cursor/session-handoff.md](../.cursor/session-handoff.md) |
 | UX simplification review | [README.md](./22-UX-Simplification-Review/README.md) — P0 polish backlog |
 | Contract Academic Tree 3-tier | [H45-Plan.md](./07-Sprint-Planning/H45-Plan.md) |

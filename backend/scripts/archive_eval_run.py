@@ -5,7 +5,7 @@ manifest.json, cases.json, raw-results.json, metrics.json, report.md.
 
 Usage:
     python scripts/archive_eval_run.py --source-dir <dir with agent_eval_results.json> \
-        --task H66 --base-url https://eduinsight-backend-jxmm.onrender.com
+        --task H69 --base-url https://edu-insight.duckdns.org
 """
 
 from __future__ import annotations

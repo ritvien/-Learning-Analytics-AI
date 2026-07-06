@@ -259,9 +259,11 @@ alembic downgrade -1
 
 ## 6. D59 Production Deploy (Render + Vercel)
 
-Updated: 2026-07-02 · Owner: Hoàng · Blueprint: [render.yaml](../../render.yaml) · Evidence: [d59-deployment-evidence.md](./d59-deployment-evidence.md)
+Updated: 2026-07-06 · Owner: Hoàng · Blueprint: [render.yaml](../../render.yaml) · Evidence: [d59-deployment-evidence.md](./d59-deployment-evidence.md)
 
-**Live:** [https://c2-app-056.vercel.app](https://c2-app-056.vercel.app) · Backend [https://eduinsight-backend-jxmm.onrender.com](https://eduinsight-backend-jxmm.onrender.com)
+> **06/07/2026:** backend primary đã chuyển sang **AWS EC2 Singapore** — `https://edu-insight.duckdns.org`, runbook [deploy/README.md](../../deploy/README.md). Render bên dưới là historical/fallback tới H72 ([Sprint4.md](../07-Sprint-Planning/Sprint4.md) § Demo Day Phase 2, deadline 08/07 23:00).
+
+**Live:** [https://c2-app-056.vercel.app](https://c2-app-056.vercel.app) · Backend [https://edu-insight.duckdns.org](https://edu-insight.duckdns.org) · (Render fallback: `eduinsight-backend-jxmm.onrender.com`)
 
 ### Architecture
 
@@ -298,7 +300,9 @@ Dockerfile does `COPY pyproject.toml ./`; build context must be `backend/`.
 
 | Variable | Value |
 |:---------|:------|
-| `BACKEND_URL` | `https://eduinsight-backend-jxmm.onrender.com` |
+| `BACKEND_URL` | `https://edu-insight.duckdns.org` (từ 06/07 — trước đó là URL Render) |
+| `NEXT_PUBLIC_API_BASE` | `https://edu-insight.duckdns.org` — browser gọi thẳng backend, bỏ hop proxy |
+| `NEXT_PUBLIC_ENABLE_DASHBOARD_PRELOAD` | `true` — prefetch dashboard sau login |
 
 Chat stream proxy: `maxDuration = 120` in `frontend/src/app/api/v1/chat/stream/route.ts`.
 
@@ -369,7 +373,7 @@ Invoke-WebRequest https://<render>/health
 | Monitor | URL | Dashboard |
 |:--------|:----|:----------|
 | FE e2e | `https://c2-app-056.vercel.app/api/v1/health` | [803424323](https://dashboard.uptimerobot.com/monitors/803424323) |
-| BE | `https://eduinsight-backend-jxmm.onrender.com/health` | [803424335](https://dashboard.uptimerobot.com/monitors/803424335) |
+| BE | `https://eduinsight-backend-jxmm.onrender.com/health` → **H70: đổi sang `https://edu-insight.duckdns.org/health`** | [803424335](https://dashboard.uptimerobot.com/monitors/803424335) |
 
 UptimeRobot HTTP(s) monitors use **HEAD** by default; health endpoints must support HEAD (or use **Keyword** monitor with `ok`). See [UptimeRobot help](https://uptimerobot.com/help/monitor-status-is-wrong/).
 

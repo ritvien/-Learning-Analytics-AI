@@ -1,0 +1,52 @@
+{
+  "task": "H69",
+  "started_at": "2026-07-05T22:35:23.723786+00:00",
+  "commit_sha": "e9762e34667f1a1207649b8e4ac5aa971e625239",
+  "commit_short_sha": "e9762e34",
+  "git_dirty": true,
+  "dataset_version": "gate3-h61-100-88ed3ab71f60",
+  "eval_set_version": "h61-expanded-100",
+  "test_cases_path": "docs\\12-Evaluation\\gate3_test_cases.json",
+  "test_cases_sha256": "88ed3ab71f60fa60ed1e3c6ccc96742ae2678a73a07667ae0a7ae84b071ecaae",
+  "test_case_count": 100,
+  "prompt_versions": [
+    {
+      "name": "router",
+      "version": "2026-07-01.2",
+      "checksum": "3b067817117440c258064f4323d263ef172ad98a1ff4b9ec3fd8aa60baf73e7c",
+      "is_active": true
+    },
+    {
+      "name": "core_agent",
+      "version": "2026-07-04.2",
+      "checksum": "b2a7d71a79d6b44e10e51ea65a8087ba465a97095e9f2d72ea62381d47df5a40",
+      "is_active": true
+    },
+    {
+      "name": "fast_response",
+      "version": "2026-07-01.1",
+      "checksum": "e3ab4d024b9dc70d07d0f163b3189ac31b1260f52e3e400070c53086b5539208",
+      "is_active": true
+    }
+  ],
+  "runtime": {
+    "llm_provider": "openai",
+    "llm_model": "gpt-5.4-nano",
+    "agent_router_model": "gpt-5.4-nano",
+    "agent_core_model": "gpt-5.4-nano",
+    "rag_embedding_model": "text-embedding-3-small",
+    "base_url": "https://edu-insight.duckdns.org",
+    "eval_email": "lecturer@epu.edu.vn",
+    "evaluator_pricing_model": "gpt-5.4-nano",
+    "langsmith_tracing": "true",
+    "langsmith_project": "EduInsight",
+    "runtime_config_hash": "af7deccffbfe95996cf363049126ea4eccc39979b70af966c505fae38056407c"
+  },
+  "with_judge": false,
+  "results_source": "api",
+  "notes": [
+    "EC2 Singapore production rerun after Render->EC2 cutover (PR #133); infra-only change vs H68 — identical dataset (gate3-h61-100), prompts, scorers, with_judge=false.",
+    "Latency: p95 19,571->15,581 ms, p99 29,719->17,740 ms, tool_p95 1,378->561 ms (colocated Postgres on same host); LLM p95 unchanged 13,783->14,317 ms as expected (LLM API call independent of infra).",
+    "No ML retrain during eval: agent dropout tool reads persisted ml.student_dropout_prediction rows (model_run_id 7, 1628 scored)."
+  ]
+}

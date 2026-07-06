@@ -1,8 +1,8 @@
 # Sprint 4 — Demo Day final & chất lượng sản phẩm
 
-> **29/06 – 05/07/2026** · Cập nhật **03/07/2026** (H47/H66 · V66 UI QA + screenshots)  
+> **29/06 – 05/07/2026** · Cập nhật **06/07/2026** (EC2 migration · Demo Day Phase 2)  
 > **Goal:** Hoàn thiện 10/10 deliverables BTC · mở rộng eval · dữ liệu đủ cho UI demo · cảnh báo SV + luồng liên hệ GV.  
-> **Deadline cuối Demo Day:** **05/07/2026 23:59**.  
+> **Deadline Phase 1:** **05/07/2026 23:59** (đã đóng) · **Deadline Phase 2:** **08/07/2026 23:00** — xem § [Demo Day Phase 2 — EC2 migration & ops](#demo-day-phase-2--ec2-migration--ops-thêm-0607--deadline-0807-2300).  
 > **Checklist:** [Checklist.md](../10-References/Checklist.md) · **Sprint trước:** [Sprint3.md](./Sprint3.md)
 
 **Sprint 3 đã đóng (xác nhận 29/06):** H54, H55, T41, V34, V35, V45, V46 · Gate G3-1/2/3/5 · G3-4 (slide + video).
@@ -83,6 +83,27 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | **H67** | **Agent concurrency limiter & backpressure** | 05/07 buffer | P2 | — | [x] |
 | | Semaphore giới hạn max 3 concurrent agent runs; timeout 120s; frontend retry UI; ADR-0011. Story: [H67.md](./stories/H67.md). Done 05/07: `/chat` 429 + `Retry-After`, `/chat/stream` SSE `server_busy`; timeout log `agent_run_timeout` (504 / SSE `agent_timeout`); nút "Thử lại" 5s cả 2 UI; `test_chat_concurrency_h67.py` 8 tests pass. | | | | |
 | **H30** | Agent safety eval mở rộng | 05/07 buffer | P2 | H52, H60 | [ ] defer |
+
+#### Demo Day Phase 2 — EC2 migration & ops (thêm 06/07 · deadline **08/07 23:00**)
+
+> **Bối cảnh:** 06/07 đã migrate backend Render → **AWS EC2 Singapore** (`https://edu-insight.duckdns.org`, PR #133): docker-compose pgvector pg18 + Caddy TLS, browser gọi thẳng backend, cache shared + prewarm. Đo thực tế dashboard 0.30–0.50s (Render cũ cold: 5–61s). Runbook: [deploy/README.md](../../deploy/README.md) · ADR: [0012](../decisions/0012-aws-ec2-production-hosting.md). **Ưu tiên H69 trước tiên** — evidence latency mới cho Phase 2.
+
+| Task | Mô tả | Deadline | P | Depends | Status |
+|:-----|:------|:---------|:-:|:--------|:------:|
+| **H69** | **Rerun 100-case evaluation trên EC2 production** | 07/07 EOD | P0 | PR #133 (done) | [x] |
+| | Done 06/07: 100-case rerun trên EC2 (`main @ e9762e34`, dataset content-identical H68) → archive `runs/2026-07-05-223523-e9762e34/`, section H69 + bảng so sánh trong [evaluation.md](../evaluation.md). Kết quả: task **94.5%** ✓ · tool **0.93** ✓ · grounding **0.98** ✓ · semantic 0.72 (miss 0.03, structural — không đổi) · **p95 19,571→15,581 ms (−20%)**, p99 29,719→17,740 ms (−40%), tool p95 1,378→561 ms (DB colocated); **LLM p95 13,783→14,317 ms không đổi** đúng kỳ vọng. 89 Pass/11 Partial/0 Fail, 100/100 HTTP 200. Không retrain ML (model_run_id 7). | | | | |
+| **H70** | **UptimeRobot monitor BE → EC2** | 07/07 EOD | P1 | — | [x] |
+| | Done 06/07: monitor [803424335](https://dashboard.uptimerobot.com/monitors/803424335) repoint qua API (`editMonitor`) sang `https://edu-insight.duckdns.org/health`, friendly_name → `edu-insight.duckdns.org/health`; status **Up** (~240 ms). EC2 `/health` khai báo `methods=["GET","HEAD"]` ([main.py](../../backend/app/main.py#L98)) nên HEAD mặc định của UptimeRobot trả 200 — **không dính 405 như cảnh báo D59**, không cần keyword monitor. Monitor FE [803424323](https://dashboard.uptimerobot.com/monitors/803424323) giữ nguyên (`c2-app-056.vercel.app/api/v1/health`). | | | | |
+| **H71** | **Backup Postgres hằng đêm trên EC2** | 08/07 12:00 | P0 | — | [x] |
+| | Done 06/07: [deploy/backup.sh](../../deploy/backup.sh) (`pg_dump -Fc` trong container → `~/backups/eduinsight-<weekday>.dump`, rotation 7 slot theo `date +%u`, ghi atomic temp→mv + size-check) + [deploy/backup-verify.sh](../../deploy/backup-verify.sh) (restore vào DB throwaway rồi drop — non-destructive) + `.gitattributes` (LF cho `*.sh`); merged vào `main`, EC2 pull. Cron `0 18 * * *` (18:00 UTC = 01:00 SGT) đã cài. Seed bản đầu `eduinsight-1.dump` **7.49 MB**; verify restore **PASS: 72 bảng, `enrollments`=56301 khớp prod**, throwaway DB drop OK. Runbook: [deploy/README.md](../../deploy/README.md) "Backups (H71)". Tùy chọn tương lai: đẩy S3. | | | | |
+| **H73** | **AWS billing alert + hardening nhẹ** | 08/07 **23:00** | P2 | — | [ ] |
+| | Budget $30/tháng + email alert; xác nhận SG chỉ mở 22 (My IP)/80/443; bật unattended-upgrades; theo dõi disk 18GB (`docker system df`). Chốt trước deadline Phase 2. | | | | |
+| **H72** | **Nghỉ hưu Render (sau ≥48h fallback)** | 09/07 EOD (sau Phase 2) | P1 | H69, H70 | [ ] |
+| | EC2 ổn định ≥48h → suspend `eduinsight-backend`; dump archive cuối của Render PG (free PG hết hạn ~30 ngày kể từ tạo); cập nhật d59-deployment-evidence.md. | | | | |
+| **H74** | **Auto-deploy GitHub Actions → EC2** | buffer (sau Phase 2) | P2 | H71 | [ ] |
+| | Workflow on push `main`: SSH (secrets `EC2_SSH_KEY`, `EC2_HOST`) chạy `deploy/deploy.sh`; concurrency group; notify khi fail. | | | | |
+| **H75** | **Domain thật thay DuckDNS** | buffer (sau Phase 2) | P2 | — | [ ] |
+| | Mua domain (~50–250k/năm); A record → 18.143.20.43; đổi `API_DOMAIN` + restart caddy; đổi env Vercel + `CORS_ORIGINS` nếu cần. Giảm phụ thuộc DuckDNS (free, không SLA). | | | | |
 
 **Verify:** `cd backend && pytest -q -m "not slow and not eval"` · `python scripts/run_evaluation.py`
 

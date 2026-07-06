@@ -1,6 +1,10 @@
 # EC2 production deploy (Singapore)
 
-Host: `ubuntu@18.143.20.43` (t4g.small, ap-southeast-1). Stack: [docker-compose.prod.yml](../docker-compose.prod.yml) = Postgres 16 + backend + Caddy (auto-TLS). Frontend stays on Vercel.
+> **Status 06/07/2026: LIVE — cutover complete.** Backend `https://edu-insight.duckdns.org` (DuckDNS → Elastic IP), repo on `main`, data restored from Render (1824 SV / 56301 enrollments / 12 RAG chunks), ML run 7 scored 1628. Vercel calls it via `BACKEND_URL` + `NEXT_PUBLIC_API_BASE`. Render = fallback until H72. Measured: dashboards 0.30–0.50s, login 0.55s from VN.
+
+Host: `ubuntu@18.143.20.43` (x86_64, ap-southeast-1, 18GB disk). Stack: [docker-compose.prod.yml](../docker-compose.prod.yml) = **pgvector/pgvector:pg18** (mount at `/var/lib/postgresql` — pg18 image convention; Render source DB is PG18 so dump/restore tools must match) + backend + Caddy (auto-TLS). Frontend stays on Vercel.
+
+Gotchas learned during migration: login endpoint is OAuth2 form (`username`/`password`), not JSON; `pg_restore` from Render dumps prints 4 harmless `role "postgres" does not exist` errors; RAG table is schema-qualified `rag.ctdt_chunks`.
 
 ## One-time host setup
 
@@ -56,9 +60,25 @@ Set `NEXT_PUBLIC_API_BASE=https://<API_DOMAIN>` and `BACKEND_URL=https://<API_DO
 ~/C2-App-056/deploy/deploy.sh
 ```
 
-## Backups
+## Backups (H71)
+
+The DB is self-managed since the EC2 cutover — [backup.sh](backup.sh) is the only
+line of defence. It runs `pg_dump -Fc` inside the postgres container into
+`~/backups/`, keeping 7 rotating copies (one slot per weekday, overwritten
+weekly), writing atomically so a crash never clobbers the last good copy.
+
+Install the nightly cron (18:00 UTC = 01:00 SGT, low traffic):
 
 ```bash
-crontab -e   # nightly dump, keep 7 days
-0 18 * * * docker exec eduinsight-postgres-1 pg_dump -U eduinsight -Fc eduinsight > $HOME/backups/eduinsight-$(date +\%u).dump
+mkdir -p ~/backups
+( crontab -l 2>/dev/null | grep -vF 'deploy/backup.sh'; \
+  echo '0 18 * * * /home/ubuntu/C2-App-056/deploy/backup.sh >> /home/ubuntu/backups/backup.log 2>&1' \
+) | crontab -
+~/C2-App-056/deploy/backup.sh          # run once now to seed a first dump
+```
+
+Verify a copy actually restores (into a throwaway DB, never touches the live one):
+
+```bash
+~/C2-App-056/deploy/backup-verify.sh   # newest dump; or pass a path
 ```
