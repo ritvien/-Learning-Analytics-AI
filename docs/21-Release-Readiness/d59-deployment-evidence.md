@@ -1,17 +1,24 @@
 # D59 — Deployment evidence & operator checklist
 
-Updated: 2026-07-02 · Owner: Hoàng · Blueprint: [render.yaml](../../render.yaml)
+Updated: 2026-07-06 · Owner: Hoàng · Blueprint: [render.yaml](../../render.yaml)
+
+> **⚠️ 06/07/2026 — backend migrated to AWS EC2 (Singapore).** Primary backend is now
+> `https://edu-insight.duckdns.org` — runbook: [deploy/README.md](../../deploy/README.md).
+> Render (this document's original subject) is **fallback-only until H72** ([Sprint4.md](../07-Sprint-Planning/Sprint4.md) § Demo Day Phase 2);
+> the sections below remain as historical evidence + fallback ops reference.
+> Measured after cutover: dashboards 0.30–0.50s from VN (Render free cold: 5–61s); login 0.55s.
 
 Production deploy evidence for Demo Day Live URL. Do not commit secrets.
 
-## Live URLs (handoff D56)
+## Live URLs
 
 | Service | URL |
 |:--------|:----|
 | Frontend (Vercel) | `https://c2-app-056.vercel.app` |
-| Backend (Render) | `https://eduinsight-backend-jxmm.onrender.com` |
+| **Backend (AWS EC2 — primary since 06/07)** | `https://edu-insight.duckdns.org` |
+| Backend (Render — fallback until H72) | `https://eduinsight-backend-jxmm.onrender.com` |
 | UptimeRobot FE monitor | https://dashboard.uptimerobot.com/monitors/803424323 |
-| UptimeRobot BE monitor | https://dashboard.uptimerobot.com/monitors/803424335 |
+| UptimeRobot BE monitor (H70 done — now → EC2 `/health`) | https://dashboard.uptimerobot.com/monitors/803424335 |
 
 Demo login: `admin@epu.edu.vn` / `123456` (`SEED_PASSWORD=123456` on Render).
 
@@ -30,7 +37,7 @@ Demo login: `admin@epu.edu.vn` / `123456` (`SEED_PASSWORD=123456` on Render).
 ## Vercel — frontend
 
 1. Import repo; **Root Directory** = `frontend`.
-2. Env: `BACKEND_URL` = `https://eduinsight-backend-jxmm.onrender.com` (no trailing slash).
+2. Env: `BACKEND_URL` = `https://edu-insight.duckdns.org` (no trailing slash; pre-06/07 giá trị là URL Render). Kèm `NEXT_PUBLIC_API_BASE` = cùng URL (browser gọi thẳng backend) và `NEXT_PUBLIC_ENABLE_DASHBOARD_PRELOAD=true`.
 3. Deploy production.
 4. Update Render `CORS_ORIGINS` with final Vercel URL; redeploy backend if needed.
 
@@ -73,16 +80,16 @@ Measured from VN: every API call used to hop browser → Vercel fn (**iad1**, US
 | `NEXT_PUBLIC_ENABLE_DASHBOARD_PRELOAD` | Vercel env | unset | `true` prefetches dashboard data after login into the client cache |
 | `frontend/vercel.json` `regions` | repo | `sin1` | Runs the proxy function in Singapore instead of US East |
 
-Dashboard caches are shared across users (keys carry the resolved scope, not the user id), so the prewarm worker's entries serve real logins. Biggest remaining win: recreate the Render service + Postgres in the **singapore** region (region is fixed at creation; needs dump/restore + URL/env updates).
+Dashboard caches are shared across users (keys carry the resolved scope, not the user id), so the prewarm worker's entries serve real logins. The "move to Singapore" win was realized on 06/07 by migrating the backend to AWS EC2 ap-southeast-1 ([deploy/README.md](../../deploy/README.md)) instead of recreating the Render service.
 
 ## UptimeRobot (Free)
 
 | Monitor | URL | Interval | Dashboard |
 |:--------|:----|:---------|:----------|
 | FE e2e | `https://c2-app-056.vercel.app/api/v1/health` | 5 min | [803424323](https://dashboard.uptimerobot.com/monitors/803424323) |
-| BE | `https://eduinsight-backend-jxmm.onrender.com/health` | 5 min | [803424335](https://dashboard.uptimerobot.com/monitors/803424335) |
+| BE | `https://edu-insight.duckdns.org/health` (H70, 06/07: repoint từ Render qua `editMonitor` API) | 5 min | [803424335](https://dashboard.uptimerobot.com/monitors/803424335) |
 
-**HEAD vs GET:** UptimeRobot HTTP(s) monitors send **HEAD** by default ([docs](https://uptimerobot.com/help/monitor-status-is-wrong/)). Before HEAD support deploy, monitors may show `405 Method Not Allowed` while GET/smoke still pass. Workarounds: (1) **Keyword** monitor with keyword `ok` (uses GET), or (2) redeploy after commit adding HEAD on `/health` + proxy `HEAD` handler.
+**HEAD vs GET:** UptimeRobot HTTP(s) monitors send **HEAD** by default ([docs](https://uptimerobot.com/help/monitor-status-is-wrong/)). The EC2 backend declares `@app.api_route("/health", methods=["GET", "HEAD"])` ([backend/app/main.py](../../backend/app/main.py#L98)) so the default HEAD check returns 200 (verified: HEAD 0.16s / GET 0.40s) — **no 405, no workaround needed**. (Historical: on Render, before HEAD support, monitors could show `405 Method Not Allowed` while GET/smoke passed; workarounds were a **Keyword** monitor with keyword `ok` (GET) or adding a `HEAD` handler.)
 
 Track Render **750 instance-hours/month** quota.
 

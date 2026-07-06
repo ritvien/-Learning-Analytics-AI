@@ -5,8 +5,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c \".cursor\\hooks\\log-cursor.cmd\" claude",
-            "shell": "cmd"
+            "command": ".\\.cursor\\hooks\\log-cursor.cmd claude",
+            "shell": "powershell"
           }
         ]
       }
@@ -17,8 +17,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c \".cursor\\hooks\\log-cursor.cmd\" claude",
-            "shell": "cmd"
+            "command": ".\\.cursor\\hooks\\log-cursor.cmd claude",
+            "shell": "powershell"
           }
         ]
       }
@@ -28,8 +28,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c \".cursor\\hooks\\log-cursor.cmd\" claude",
-            "shell": "cmd"
+            "command": ".\\.cursor\\hooks\\log-cursor.cmd claude",
+            "shell": "powershell"
           }
         ]
       }

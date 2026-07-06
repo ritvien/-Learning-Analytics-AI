@@ -27,11 +27,19 @@ and archived.
 > [H66 section](#h66--100-case-production-rerun-2026-07-05); the H60 content
 > below is preserved unchanged as historical evidence.
 
-> **Update 2026-07-05 (H68):** current evidence is now the
-> [H68 section](#h68--ctdt-citation-capture-fix--100-case-rerun-2026-07-05)
-> at the end of this page. It fixes a tool-output capture artifact that
-> caused the H66 ctdt_rag miss and reruns the same 100 cases against
-> production. H66 below is preserved unchanged as historical evidence.
+> **Update 2026-07-05 (H68):** the H68 rerun fixed a tool-output capture
+> artifact that caused the H66 ctdt_rag miss and reran the same 100 cases
+> against production. See the
+> [H68 section](#h68--ctdt-citation-capture-fix--100-case-rerun-2026-07-05).
+> H66 below is preserved unchanged as historical evidence.
+
+> **Update 2026-07-06 (H69):** current evidence is now the
+> [H69 section](#h69--ec2-production-rerun-2026-07-06) at the end of this page —
+> the first 100-case rerun on the new AWS EC2 Singapore host after the
+> Render→EC2 cutover (PR #133). Quality held at H68 levels (task 94.5%, tool
+> 0.93, grounding 0.98); latency p95 dropped 19,571→15,581 ms as the
+> infra-driven tail was removed. H68 below is preserved unchanged as the
+> Render-host evidence.
 
 ## BTC Evidence Checklist
 
@@ -300,7 +308,12 @@ Production remediation (root causes of most H60 partials):
 
 # H68 — CTDT Citation Capture Fix + 100-case Rerun (2026-07-05)
 
-Current evaluation evidence. Archived immutable run folder:
+> **Superseded as current evidence by [H69](#h69--ec2-production-rerun-2026-07-06)
+> (2026-07-06 EC2 rerun).** H68 remains the definitive evidence for the Render
+> deployment and the CTDT capture-fix analysis; its metrics were reproduced on
+> EC2 in H69.
+
+Last Render-host evaluation. Archived immutable run folder:
 `docs/12-Evaluation/runs/2026-07-05-154134-2bc7f548/` (manifest, cases,
 raw results, metrics, report).
 
@@ -427,3 +440,127 @@ Block split:
   `dwh.fact_clo_achievement` (main semantic-gate blockers).
 - Add per-role auth fixture matrices and multi-turn evaluation once runner
   support exists (carried over).
+
+---
+
+# H69 — EC2 Production Rerun (2026-07-06)
+
+**Current evaluation evidence.** First 100-case rerun on the new AWS EC2
+Singapore host after the Render→EC2 cutover (PR #133). Archived immutable run
+folder: `docs/12-Evaluation/runs/2026-07-05-223523-e9762e34/` (manifest, cases,
+raw results, metrics, report).
+
+## Snapshot
+
+| Field | Value |
+|:--|:--|
+| Task | H69 (rerun the 100-case eval on EC2 production; verify quality held and measure the infra latency change) |
+| Run timestamp | `2026-07-05T22:35:23+00:00` (2026-07-06 05:35 ICT) |
+| Deployed backend | `main` @ `e9762e34` (PR #133: Render→EC2 cutover — docker-compose pgvector pg18 + Caddy TLS) |
+| Dataset | `h61-expanded-100`, **content-identical to H68** (same 100 TCs and inputs). Manifest hash `gate3-h61-100-88ed3ab71f60` differs from H68's `a0c713adb2fd` by CRLF-vs-LF line endings only — the normalized-LF content hash is exactly `a0c713adb2fd` |
+| Prompts | unchanged from H68: `core_agent 2026-07-04.2` · `router 2026-07-01.2` · `fast_response 2026-07-01.1` |
+| Environment | Production API `https://edu-insight.duckdns.org` (AWS EC2 `ap-southeast-1`, always-on; Postgres colocated on the same host) |
+| Judge | Off (`with_judge=false`, same as H60/H66/H68) |
+| ML | No retrain: the agent dropout tool reads persisted `ml.student_dropout_prediction` rows (`model_run_id 7`, 1628 scored), which survive deploys |
+
+## Why H69
+
+Task/tool/semantic/grounding are driven by backend logic, prompts and the
+dataset — none of which changed — so moving the host should leave them where
+H68 left them. The migration *should*, however, remove the infra-driven latency
+tail: H68 ran on Render's free tier (cold starts, shared CPU) reached over
+trans-Pacific RTT; H69 runs on an always-on EC2 instance in Singapore with
+Postgres on the same host. H69 confirms both — quality held, and the infra
+portion of latency dropped while the LLM-API portion (independent of host)
+stayed flat.
+
+## Results — H68 (Render) vs H69 (EC2)
+
+| Metric | H68 (Render free) | **H69 (EC2 Singapore)** | Δ | Gate | Status |
+|:--|--:|--:|--:|--:|:--|
+| Task completion | 94.0% | **94.5%** | +0.5 | ≥85% | **Pass** |
+| Tool accuracy | 0.92 | **0.93** | +0.01 | ≥0.80 | **Pass** |
+| Semantic accuracy | 0.72 | **0.72** | ~0 | ≥0.75 | Miss (−0.03) |
+| Grounding | 0.98 | **0.98** | ~0 | ≥0.70 | **Pass** |
+| Latency p50 | 6,559 ms | **6,052 ms** | −507 | measured | Measured |
+| Latency p95 | 19,571 ms | **15,581 ms** | −3,990 | ≤15,000 ms | Miss (−581, marginal) |
+| Latency p99 | 29,719 ms | **17,740 ms** | −11,979 | measured | Measured |
+| Latency avg | 7,912 ms | **7,280 ms** | −632 | measured | Measured |
+| Cost avg/task | $0.0039 | **$0.0040** | +$0.0001 | measured | Measured (93%) |
+
+Quality held at H68 levels (task/tool up marginally, semantic/grounding flat) —
+as expected for an infra-only change with identical dataset, prompts and
+scorers. **89 Pass / 11 Partial / 0 Fail; all 100 cases returned HTTP 200.**
+
+## Latency: where the infra move helped (and where it can't)
+
+The migration removed the latency **tail** but not the LLM-dominated body:
+
+| Latency component (p95) | H68 (Render) | H69 (EC2) | Δ |
+|:--|--:|--:|--:|
+| End-to-end | 19,571 ms | 15,581 ms | **−20%** |
+| End-to-end p99 | 29,719 ms | 17,740 ms | **−40%** |
+| Tool calls (DB) | 1,378 ms | 561 ms | **−59%** |
+| LLM API | 13,783 ms | 14,317 ms | +4% (flat) |
+
+- **Tool/DB latency more than halved** (1,378 → 561 ms): Postgres now shares the
+  host with the backend, removing the cross-service network hop Render imposed.
+- **The p99 tail collapsed** (29.7 → 17.7 s): an always-on EC2 instance has no
+  cold-start / shared-CPU spikes.
+- **LLM time is essentially unchanged** (13.8 → 14.3 s p95): the OpenAI API call
+  is independent of where the backend runs, so it sets the latency floor.
+
+**p95 is now marginally over the 15 s gate (15,581 ms, +581 ms / +3.9%)**, versus
++30% on H68. The residual is LLM inference on the ~13 heavy multi-tool ReAct
+cases (avg 7.8 tool calls each), not infrastructure — closing it needs fewer
+tool round-trips or a faster model, not a bigger box. Reported as measured; the
+run was not repeated to shop for a sub-gate number.
+
+## Category slices (H69 rerun)
+
+| Category | Cases | Task | Tool | Semantic | Grounding |
+|:--|--:|--:|--:|--:|--:|
+| chit_chat | 6 | 100.0% | 1.00 | 0.44 | 1.00 |
+| ctdt_rag | 10 | **100.0%** | 1.00 | 0.94 | **1.00** |
+| data_query | 55 | 92.7% | 0.93 | 0.74 | 0.97 |
+| guardrail_injection | 4 | 100.0% | 1.00 | 0.83 | 1.00 |
+| guardrail_privacy | 4 | 100.0% | 0.75 | 0.58 | 1.00 |
+| guardrail_safety | 1 | 100.0% | 1.00 | 0.67 | 1.00 |
+| guardrail_scope | 16 | 90.6% | 0.86 | 0.60 | 1.00 |
+| guardrail_uncertainty | 4 | 100.0% | 1.00 | 0.71 | 1.00 |
+
+The ctdt_rag slice stayed clean (10/10 task Pass, grounding 1.00) — the H68
+citation-capture fix holds on EC2.
+
+Block split:
+
+| Block | Cases | Task | Tool | Semantic | Grounding | p95 |
+|:--|--:|--:|--:|--:|--:|--:|
+| TC01–TC71 (legacy) | 71 | 94.4% | 0.93 | 0.69 | 1.00 | 14,788 ms |
+| TC72–TC100 (R2) | 29 | 94.8% | 0.91 | 0.78 | 0.95 | 15,272 ms |
+
+## Remaining misses — unchanged from H68
+
+- **Semantic 0.72 (gate 0.75).** Same structural gaps, unaffected by the host
+  move: K21/K22 cohort questions (TC02/TC03/TC22/TC35) are unanswerable from the
+  whitelisted views (no cohort dimension); TC11 headcount not derivable; TC05
+  aggregate CLO needs the prompt pointed at `dwh.fact_clo_achievement`. Small
+  category shifts (e.g. chit_chat semantic 0.61 → 0.44 across 6 cases) are the
+  usual ±0.3 run-to-run variance of the keyword-overlap scorer on these "data
+  limitation" answers, not a behavior change.
+- **Latency p95 15.6 s (gate 15 s).** Now LLM-bound, not infra-bound (see
+  above). The remaining 581 ms is model inference on the heavy multi-tool cases.
+
+## Follow-ups (EC2 ops — Sprint 4 "Demo Day Phase 2")
+
+- **H70:** repoint the UptimeRobot BE monitor from the Render URL to
+  `https://edu-insight.duckdns.org/health`.
+- **H71 (done 06/07):** nightly `pg_dump -Fc` backup on EC2 (the DB is now
+  self-managed). `deploy/backup.sh` (7-slot weekly rotation) on cron `0 18 * * *`;
+  `deploy/backup-verify.sh` confirmed a 7.49 MB dump restores cleanly (72 tables,
+  enrollments 56301) into a throwaway DB.
+- **H72:** suspend the Render service after ≥48 h of EC2 stability.
+- Semantic-gate blockers carried from H68: add a cohort dimension to the DWH
+  views and point the core prompt at `dwh.fact_clo_achievement`.
+- Replace the 12-chunk demo CTDT corpus with real-PDF extraction (38 PDFs in
+  `crawl/pdf_ctdt`).

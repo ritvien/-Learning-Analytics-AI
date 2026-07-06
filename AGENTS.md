@@ -5,19 +5,19 @@ Read this file first before changing code or docs in this repository.
 ## Read first (in order)
 
 1. [docs/README.md](docs/README.md) — documentation index and authority order
-2. [docs/07-Sprint-Planning/Sprint4.md](docs/07-Sprint-Planning/Sprint4.md) — active sprint, open tasks, Demo Day final scope
+2. [docs/07-Sprint-Planning/Sprint4.md](docs/07-Sprint-Planning/Sprint4.md) — sprint board; Phase 1 closed 05/07, active: § "Demo Day Phase 2 — EC2 migration & ops" (H69–H75, **deadline 08/07 23:00**)
 3. Task spec for your story (e.g. [H45-Plan.md](docs/07-Sprint-Planning/H45-Plan.md), [docs/07-Sprint-Planning/stories/](docs/07-Sprint-Planning/stories/))
 4. [docs/decisions/](docs/decisions/) — architecture decisions before schema/API changes
 
-### Sprint 4 status (05/07/2026)
+### Status (06/07/2026)
 
-| Done | Open focus |
+| Done | Open focus (Demo Day Phase 2, deadline 08/07 23:00) |
 |:-------|:----------------------------|
-| S3 carry closed · H59 · H49 · H62 · H63 · D58 · **H64** · **H51** · **D59** · **H61** · **H60/D60/D61** · **D63** · **V56** · **H47** · **H66** · **H67** | D56/D57 · D62 · T58 · **V65** skeleton · **V66** UI QA/screenshots · V18–V23 buffer |
+| Phase 1 closed (H47/H66/H67/H68, V65/V66, D58–D63) · **AWS EC2 migration + cutover (06/07, PR #133)** · **H69 eval rerun on EC2 (done)** · **H71 nightly PG backup + restore-verify (done)** | H70 UptimeRobot · H73 billing/hardening · H72/H74/H75 sau Phase 2 |
 
-**Production:** Live URL [c2-app-056.vercel.app](https://c2-app-056.vercel.app) · smoke pass · evidence [d59-deployment-evidence.md](docs/21-Release-Readiness/d59-deployment-evidence.md).
+**Production (since 06/07/2026):** Frontend [c2-app-056.vercel.app](https://c2-app-056.vercel.app) (Vercel, fn region sin1) · Backend **AWS EC2 Singapore** `https://edu-insight.duckdns.org` (docker-compose: pgvector pg18 + FastAPI + Caddy TLS — runbook [deploy/README.md](deploy/README.md)). Browser calls the backend directly via `NEXT_PUBLIC_API_BASE`; dashboards are served from a shared prewarmed cache (0.3–0.5s vs 5–61s on old Render free). **Render is fallback-only until H72** — `render.yaml` still deploys from `main` but is no longer primary. Deploy to production = merge to `main` + run `deploy/deploy.sh` on the EC2 host over SSH.
 
-**Eval / observability:** H59/D58 LangSmith tracing done; H64 memory/cache done; H51 CTĐT RAG Q&A MVP done; H60 71-case production evidence archived in [docs/evaluation.md](docs/evaluation.md); H61 dataset 100 TCs; **H47** review done with metadata normalization + handoff in [h47_qa_dataset_review.md](docs/12-Evaluation/h47_qa_dataset_review.md). **H66** done 05/07: 100-case production rerun archived (task 89.5% · tool 0.92 · grounding 0.87 · semantic 0.73 · p95 17.7s) — see [Sprint4.md](docs/07-Sprint-Planning/Sprint4.md).
+**Eval / observability:** H59/D58 LangSmith tracing done; H64 memory/cache done; H51 CTĐT RAG Q&A MVP done; H61 dataset 100 TCs; H47 review + handoff in [h47_qa_dataset_review.md](docs/12-Evaluation/h47_qa_dataset_review.md). Current evidence = **H69** rerun on EC2 (task 94.5 · tool 0.93 · grounding 0.98 · p95 **15.6s** vs 19.6s on Render — infra tail removed, LLM p95 flat) in [docs/evaluation.md](docs/evaluation.md), archive `runs/2026-07-05-223523-e9762e34/`; H68 preserved as the Render-host evidence. Do not retrain ML during eval runs (model_run_id 7 on EC2, 1628 scored).
 
 **Session fix:** Chat session persistence + memory merge fix deployed (early user-message persist, history merge instead of overwrite, frontend cache invalidation).
 
@@ -33,6 +33,7 @@ Handoff snapshot: [.cursor/session-handoff.md](.cursor/session-handoff.md). UX p
 | `frontend/` | Next.js 16, React 19, Vitest | See [frontend/AGENTS.md](frontend/AGENTS.md) for Next.js 16 breaking changes |
 | `docs/` | Numbered product + sprint docs | Authority hierarchy in `docs/README.md` |
 | `scripts/` | Shell/PowerShell helpers, AI logging | Do not modify `.ai-log/` manually |
+| `deploy/` + `docker-compose.prod.yml` | EC2 production stack (pgvector pg18, Caddy TLS) | Runbook [deploy/README.md](deploy/README.md); `.env.production` lives only on the EC2 host |
 
 ## Documentation authority
 

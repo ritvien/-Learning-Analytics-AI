@@ -1,4 +1,9 @@
 # D59 — Render Blueprint (EduInsight backend + PostgreSQL)
+#
+# ⚠️ FALLBACK ONLY since 2026-07-06: production backend moved to AWS EC2 Singapore
+# (https://edu-insight.duckdns.org — see deploy/README.md). This blueprint still
+# auto-deploys from main as a warm fallback until task H72 retires it.
+#
 # Apply via Render Dashboard → New → Blueprint, or connect repo with Blueprint Path = render.yaml
 #
 # Docker build context MUST be backend/ — Dockerfile does COPY pyproject.toml ./
