@@ -44,7 +44,7 @@
 | **D66** | Cập nhật journal cho Phase 2 (H69–H75, cutover EC2) | #8 Journal | P2 | **Hoàng** | ✅ journal.md thêm "Week 7 — Demo Day Phase 2" + 2 decision |
 | **V67** | Thumbnail Demo Day 1280×720 (nếu portal Phase 2 cần) | Bonus | P2 | **Hiếu** | Ảnh public PNG |
 | **V68** | Smoke incognito toàn luồng trước nộp (login → tree → chat → analytics) | QA cuối | P2 | **Hiếu** | Mọi link + luồng chính pass |
-| **H77** | Dọn file lạ `bang-doi-chieu-dong-gop.html` ở root | Repo sạch | P2 | **Hoàng** | Xóa hoặc chuyển vào `docs/` |
+| **H77** | Dọn file lạ `bang-doi-chieu-dong-gop.html` ở root | Repo sạch | P2 | **Hoàng** | ✅ chuyển vào `docs/09-Materials/`; dọn thêm PLAN/walkthrough/plan_review khỏi root |
 
 **Critical path:** P1 → T58a (slide) → V35 (video) · D56a unblock V35 (quay trên URL thật) và D64.  
 **Phân bổ:** Hưng gánh P0 thiếu hẳn (slide + video) · Hoàng doc/tài liệu (P1 + D56/D57/D64/D65 + H76/D66/H77) · Hiếu QA cuối + thumbnail.
@@ -106,7 +106,7 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | **H64** | Kế hoạch memory/cache cho agent | 01/07 12:00 | P1 | H49, H63 | [x] |
 | | Done: contract + short-term summary compaction, `agent_memories` reuse, CTĐT embedding/retrieval cache, prompt policy, migration/test coverage. Redis/tool-result cache deferred sau Demo Day. | | | | |
 | **H51** | CTĐT RAG Q&A MVP | 01/07 18:00 | P0 | H62, H63, H49 | [x] |
-| | Done: LangGraph tool `search_ctdt_program_info`, CTĐT prompt/router policy, alias/query program detection, unsupported non-MVP guard, citation JSON file/trang/section, no use for điểm/CLO cá nhân/dropout. Evidence: `walkthrough.md`, `backend/tests/test_ctdt_tool_h51.py`. | | | | |
+| | Done: LangGraph tool `search_ctdt_program_info`, CTĐT prompt/router policy, alias/query program detection, unsupported non-MVP guard, citation JSON file/trang/section, no use for điểm/CLO cá nhân/dropout. Evidence: [`stories/H51-walkthrough.md`](./stories/H51-walkthrough.md), `backend/tests/test_ctdt_tool_h51.py`. | | | | |
 | **H61** | **Mở rộng test case evaluation** | 02/07 12:00 | P0 | H59, T55e, H51 | [x] |
 | | Done: `gate3_test_cases.json` có 100 TC contiguous; TC36–TC71 Sprint 4 coverage, TC72–TC100 R2 harder coverage (multi-tool, linguistic robustness, hard data edges). Scorer hỗ trợ `expected_tool_sequence` / `expected_tool_counts`. | | | | |
 | **D59** | Production deploy Render + Vercel (+ UptimeRobot) | 02/07 EOD | P1 | T45 | [x] |

@@ -75,7 +75,7 @@ cd backend; pytest -q --no-cov -p no:cacheprovider -m integration tests/test_ctd
 - ✅ **H59 prompt versioning tests**: 16/16 passed (no regression, checksums valid)
 - ✅ **H64/corpus dry-run regression bundle**: included in 85-test pass
 - ⚠️ **Integration smoke**: tool-level smoke added; skipped locally without DB/embedding key
-- ✅ **No API/schema/migration/frontend changes** per PLAN.md scope
+- ✅ **No API/schema/migration/frontend changes** per H51-plan.md scope
 
 ## Contracts Preserved
 
