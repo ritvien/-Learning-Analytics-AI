@@ -164,6 +164,27 @@ Nhật ký phát triển ghi quyết định kỹ thuật, khó khăn và bài h
 
 ---
 
+## Week 7 — Demo Day Phase 2 (06/07 – 08/07): EC2 migration & ops
+
+### 1. Features & Foundations Shipped
+
+- **Cutover EC2 (PR #133):** backend Render → AWS EC2 Singapore (`edu-insight.duckdns.org`), Docker Compose pgvector pg18 + FastAPI + Caddy TLS; DB restore từ Render; browser gọi thẳng backend + cache prewarm dùng chung. Đo thực tế dashboard 0.30–0.50s (Render free cold: 5–61s). ADR-0012.
+- **H69:** rerun 100-case eval trên EC2 — task 94.5% · tool 0.93 · grounding 0.98 · p95 19.6→15.6s (−20%).
+- **H70/H71:** UptimeRobot repoint sang EC2; backup Postgres hằng đêm (`pg_dump -Fc`, rotation 7 slot, verify restore non-destructive).
+- **Doc audit 07/07:** review codebase vs checklist → chốt danh sách deliverable còn thiếu (slide, video), thêm Live URL + screenshots vào README, `docs/architecture.md`, problem/persona/painpoint từ khảo sát thầy cô.
+
+### 2. Hardest Problem & Solution
+
+- **Problem:** pg18 image crash-loop khi mount `/var/lib/postgresql/data`; dump/restore version mismatch với Render PG18.
+- **Solution:** mount ở parent `/var/lib/postgresql` theo convention pg18; dùng `pgvector/pgvector:pg18` khớp source; runbook [deploy/README.md](../deploy/README.md).
+
+### 3. Còn lại trước nộp (deadline 20h 08/07)
+
+- Pitch deck (T58a) + video demo (V35) — 2 deliverable thiếu hẳn, ưu tiên P0.
+- Xem danh sách active: [Sprint4.md § Task active 07/07](07-Sprint-Planning/Sprint4.md).
+
+---
+
 ## Quick Reference — Key Decisions (all sprints)
 
 | Ngày | Quyết định | Sprint |
@@ -178,5 +199,7 @@ Nhật ký phát triển ghi quyết định kỹ thuật, khó khăn và bài h
 | 02/07 | D59 Render+Vercel thay Ngrok | S4 |
 | 03/07 | D60 giữ 71-case; 100-case follow-up | S4 |
 | 04/07 | Journal + Worklog merge S1–S4 → `docs/` | S4 |
+| 06/07 | Cutover backend Render → AWS EC2 Singapore (ADR-0012) | S4-P2 |
+| 07/07 | Audit codebase vs checklist; chốt deliverable còn thiếu | S4-P2 |
 
 **Evidence:** [evaluation.md](./evaluation.md) · [gate3_eval_metrics.md](./12-Evaluation/gate3_eval_metrics.md) · [d59-deployment-evidence.md](./21-Release-Readiness/d59-deployment-evidence.md)

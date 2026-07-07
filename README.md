@@ -4,6 +4,32 @@ EduInsight biến dữ liệu học vụ rời rạc thành thông tin có thể
 
 > Triết lý sản phẩm: **Nhìn tổng thể → drill-down chi tiết → hỏi bằng ngôn ngữ tự nhiên → hành động dựa trên bằng chứng.**
 
+## Bản demo trực tuyến (Live)
+
+| Thành phần | URL |
+|:--|:--|
+| **Ứng dụng (Frontend)** | <https://c2-app-056.vercel.app> |
+| **Backend API** | <https://edu-insight.duckdns.org/api/v1> |
+| **Swagger UI** | <https://edu-insight.duckdns.org/api/docs> |
+| **Health check** | <https://edu-insight.duckdns.org/health> |
+
+**Tài khoản demo:** `admin@epu.edu.vn` / `123456`
+
+> Frontend chạy trên **Vercel** (region Singapore); backend trên **AWS EC2 Singapore** (Docker: PostgreSQL pgvector 18 + FastAPI + Caddy auto-TLS). Trình duyệt gọi thẳng backend qua `NEXT_PUBLIC_API_BASE`; dashboard phục vụ từ cache prewarm dùng chung — đo thực tế **0.3–0.5s** từ Việt Nam. Uptime theo dõi bằng UptimeRobot.
+
+## Ảnh chụp màn hình
+
+|  |  |
+|:--:|:--:|
+| ![Đăng nhập theo vai trò](docs/21-Release-Readiness/screenshots/login-all.png) | ![Dashboard Learning Analytics](docs/21-Release-Readiness/screenshots/analytics-overview-manager.png) |
+| *Đăng nhập theo vai trò (RBAC)* | *Dashboard Learning Analytics — KPI, chart, bộ lọc* |
+| ![Academic Tree](docs/21-Release-Readiness/screenshots/academic-tree-manager.png) | ![Contextual AI Chat](docs/21-Release-Readiness/screenshots/chat-manager.png) |
+| *Academic Tree 5 cấp + panel insight* | *Chat AI hỏi đáp bằng tiếng Việt* |
+| ![Cảnh báo sớm và liên hệ](docs/21-Release-Readiness/screenshots/lecturer-at-risk-contact.png) | ![Report Center](docs/21-Release-Readiness/screenshots/reports-manager.png) |
+| *Cảnh báo sinh viên rủi ro + luồng liên hệ GV* | *Report Center — báo cáo snapshot có version* |
+
+> Bộ ảnh đầy đủ mọi màn hình demo: [docs/21-Release-Readiness/screenshots/](docs/21-Release-Readiness/screenshots/) · bảng đối chiếu route↔ảnh: [ui-qa-evidence.md](docs/21-Release-Readiness/ui-qa-evidence.md).
+
 ## 1. Đặt vấn đề
 
 Trong một cơ sở đào tạo, dữ liệu sinh viên, điểm, lớp học phần, chuẩn đầu ra và chương trình đào tạo thường nằm ở nhiều bảng hoặc nhiều quy trình khác nhau. Người quản lý vì vậy gặp các khó khăn:
