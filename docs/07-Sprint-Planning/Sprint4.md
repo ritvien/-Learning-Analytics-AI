@@ -5,7 +5,7 @@
 > **Deadline Phase 1:** **05/07/2026 23:59** (đã đóng) · **Deadline Phase 2:** **08/07/2026 23:00** — xem § [Demo Day Phase 2 — EC2 migration & ops](#demo-day-phase-2--ec2-migration--ops-thêm-0607--deadline-0807-2300).  
 > **Checklist:** [Checklist.md](../10-References/Checklist.md) · **Sprint trước:** [Sprint3.md](./Sprint3.md)
 
-**Sprint 3 đã đóng (xác nhận 29/06):** H54, H55, T41, V34, V35, V45, V46 · Gate G3-1/2/3/5 · G3-4 (slide + video).
+**Sprint 3 đã đóng (xác nhận 29/06):** H54, H55, T41, V45, V46 · Gate G3-1/2/3/5. ⚠️ **V34 (slide) / V35 (video) / G3-4 tick nhầm — chưa có artifact thật** (`slide.pdf` rỗng 0 byte, không có `video-demo.md`/link YouTube); mở lại ở mục *"Task active — hoàn thiện Demo Day (rà soát codebase 07/07)"* bên dưới.
 
 **Nguyên tắc lịch S4:** Mỗi task có **một deadline chốt** để dễ track. Ưu tiên xong audit + data + RAG trong **3 ngày đầu** để 04–05/07 chỉ còn polish, eval evidence và rehearsal.
 
@@ -20,6 +20,49 @@
 | Data / UI | 1.277 SV seed v2 | Gap audit · T55a–e phased seed · ML score đủ MSSV demo |
 | UX | RBAC, observability | **VUX-1/2/3** · **V65** skeleton/progress · **V66** QA toàn page + screenshots |
 | Product | Dropout UI (V20) | Cảnh báo SV kém + liên hệ GV–SV (T56a–b) |
+
+---
+
+## Task active — hoàn thiện Demo Day (rà soát codebase 07/07)
+
+> Danh sách chốt sau khi review **toàn bộ codebase** (không chỉ tick sprint) ngày 07/07: các deliverable **thiếu hẳn hoặc chưa đủ** để nộp.  
+> **Deadline nội bộ: 20h00 ngày 08/07** (trước cut-off Phase 2 23:00).  
+> Owner: **Hoàng** doc/tài liệu · **Hưng** pitch/slide + video · **Hiếu** QA/thumbnail.  
+> Mọi task pending khác không nằm trong bảng này → [Backlog — defer sau Demo Day](#backlog--defer-sau-demo-day).
+
+| ID | Task | Deliverable | P | Owner | Done when |
+|:--:|:-----|:------------|:-:|:-----:|:----------|
+| **P1** | Phân tích khảo sát thầy cô → **problem statement · persona · painpoint** | Nền tảng pitch/README | P0 | **Hoàng** (doc) → Hưng dùng slide | ✅ [problem-persona-painpoint.md](../01-Brief/problem-persona-painpoint.md) từ [survey sheet](https://docs.google.com/spreadsheets/d/1q4TyfUCYb7XAwzuJeNOLNbufFsqj1Amr72lV3xyctE0/edit?gid=1675836548#gid=1675836548) — 2 persona + 6 painpoint có trích dẫn |
+| **T58a** | Làm **Pitch Deck 10 slide** (§9.6) → export PDF → `git add -f` (`.gitignore` có `*.pdf`) | #7 Pitch Deck | P0 | **Hưng** | `docs/12-Evaluation/gate3_pitch_deck.pdf` có nội dung; metric/cost khớp `evaluation.md`; slide problem/solution dùng **P1** |
+| **V35** | Quay **Video Demo 3–5' HD** trên URL Vercel thật → YouTube unlisted | #6 Video Demo | P0 | **Hưng** | Link YouTube trong `docs/12-Evaluation/video-demo.md` + README |
+| **D56a** | README: thêm section **Live URL** (Vercel FE `c2-app-056.vercel.app` + EC2 BE `edu-insight.duckdns.org`) | #2 / #5 | P0 | **Hoàng** | README có URL production, mở được incognito |
+| **D56b** | README: embed **4–6 screenshot** từ `docs/21-Release-Readiness/screenshots/` | #2 README | P1 | **Hoàng** | README render ảnh login/dashboard/chat |
+| **D57** | Tạo `docs/architecture.md` (trỏ/copy `SystemArchitecture.md`) | #3 Architecture | P1 | **Hoàng** | File tồn tại đúng path chuẩn checklist |
+| **D64** | Cập nhật `demo-day-phase1.md` sang URL production (đang trỏ Ngrok cũ) | #5 Live URL | P1 | **Hoàng** | MVP URL = Vercel; Video/Slide điền link thật |
+| **D65** | Rà & đồng bộ **tick sai** V34/V35/G3-4 với artifact thật | Docs chính xác | P1 | **Hoàng** | Tick phản ánh đúng thực tế *(đã sửa trong Sprint4 07/07; verify lần cuối trước nộp)* |
+| **H76** | Sửa `except Exception: pass` [report_service.py:1196](../../backend/app/agent/report_service.py#L1196) | Code Quality (Lỗi #3) | P2 | **Hoàng** | Log cụ thể thay vì nuốt lỗi |
+| **D66** | Cập nhật journal cho Phase 2 (H69–H75, cutover EC2) | #8 Journal | P2 | **Hoàng** | `docs/journal.md` có entry sau 04/07 |
+| **V67** | Thumbnail Demo Day 1280×720 (nếu portal Phase 2 cần) | Bonus | P2 | **Hiếu** | Ảnh public PNG |
+| **V68** | Smoke incognito toàn luồng trước nộp (login → tree → chat → analytics) | QA cuối | P2 | **Hiếu** | Mọi link + luồng chính pass |
+| **H77** | Dọn file lạ `bang-doi-chieu-dong-gop.html` ở root | Repo sạch | P2 | **Hoàng** | Xóa hoặc chuyển vào `docs/` |
+
+**Critical path:** P1 → T58a (slide) → V35 (video) · D56a unblock V35 (quay trên URL thật) và D64.  
+**Phân bổ:** Hưng gánh P0 thiếu hẳn (slide + video) · Hoàng doc/tài liệu (P1 + D56/D57/D64/D65 + H76/D66/H77) · Hiếu QA cuối + thumbnail.
+
+---
+
+## Backlog — defer sau Demo Day
+
+> Task pending **không** thuộc danh sách active 07/07 → chuyển backlog, xử lý sau deadline Phase 2 (08/07 23:00). Đây là ops/polish, không phải deliverable BTC.
+
+| Task | Mô tả | Owner | Ghi chú |
+|:-----|:------|:-----:|:--------|
+| **H73** | AWS billing alert + hardening nhẹ | Hoàng | Ops; budget $30 + SG rule. Làm sớm nếu còn thời gian |
+| **H72** | Nghỉ hưu Render sau ≥48h fallback | Hoàng | Sau EC2 ổn định ≥48h |
+| **H74** | Auto-deploy GitHub Actions → EC2 | Hoàng | Sau Phase 2 |
+| **H75** | Domain thật thay DuckDNS | Hoàng | Sau Phase 2 |
+| **H30** | Agent safety eval mở rộng | Hoàng | Đã defer từ trước |
+| **V18–V23** | CRUD polish, charts, FE tests | Hiếu | Đã defer từ trước |
 
 ---
 
@@ -96,13 +139,13 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | | Done 06/07: monitor [803424335](https://dashboard.uptimerobot.com/monitors/803424335) repoint qua API (`editMonitor`) sang `https://edu-insight.duckdns.org/health`, friendly_name → `edu-insight.duckdns.org/health`; status **Up** (~240 ms). EC2 `/health` khai báo `methods=["GET","HEAD"]` ([main.py](../../backend/app/main.py#L98)) nên HEAD mặc định của UptimeRobot trả 200 — **không dính 405 như cảnh báo D59**, không cần keyword monitor. Monitor FE [803424323](https://dashboard.uptimerobot.com/monitors/803424323) giữ nguyên (`c2-app-056.vercel.app/api/v1/health`). | | | | |
 | **H71** | **Backup Postgres hằng đêm trên EC2** | 08/07 12:00 | P0 | — | [x] |
 | | Done 06/07: [deploy/backup.sh](../../deploy/backup.sh) (`pg_dump -Fc` trong container → `~/backups/eduinsight-<weekday>.dump`, rotation 7 slot theo `date +%u`, ghi atomic temp→mv + size-check) + [deploy/backup-verify.sh](../../deploy/backup-verify.sh) (restore vào DB throwaway rồi drop — non-destructive) + `.gitattributes` (LF cho `*.sh`); merged vào `main`, EC2 pull. Cron `0 18 * * *` (18:00 UTC = 01:00 SGT) đã cài. Seed bản đầu `eduinsight-1.dump` **7.49 MB**; verify restore **PASS: 72 bảng, `enrollments`=56301 khớp prod**, throwaway DB drop OK. Runbook: [deploy/README.md](../../deploy/README.md) "Backups (H71)". Tùy chọn tương lai: đẩy S3. | | | | |
-| **H73** | **AWS billing alert + hardening nhẹ** | 08/07 **23:00** | P2 | — | [ ] |
+| **H73** | **AWS billing alert + hardening nhẹ** | 08/07 **23:00** | P2 | — | [ ] → backlog |
 | | Budget $30/tháng + email alert; xác nhận SG chỉ mở 22 (My IP)/80/443; bật unattended-upgrades; theo dõi disk 18GB (`docker system df`). Chốt trước deadline Phase 2. | | | | |
-| **H72** | **Nghỉ hưu Render (sau ≥48h fallback)** | 09/07 EOD (sau Phase 2) | P1 | H69, H70 | [ ] |
+| **H72** | **Nghỉ hưu Render (sau ≥48h fallback)** | 09/07 EOD (sau Phase 2) | P1 | H69, H70 | [ ] → backlog |
 | | EC2 ổn định ≥48h → suspend `eduinsight-backend`; dump archive cuối của Render PG (free PG hết hạn ~30 ngày kể từ tạo); cập nhật d59-deployment-evidence.md. | | | | |
-| **H74** | **Auto-deploy GitHub Actions → EC2** | buffer (sau Phase 2) | P2 | H71 | [ ] |
+| **H74** | **Auto-deploy GitHub Actions → EC2** | buffer (sau Phase 2) | P2 | H71 | [ ] → backlog |
 | | Workflow on push `main`: SSH (secrets `EC2_SSH_KEY`, `EC2_HOST`) chạy `deploy/deploy.sh`; concurrency group; notify khi fail. | | | | |
-| **H75** | **Domain thật thay DuckDNS** | buffer (sau Phase 2) | P2 | — | [ ] |
+| **H75** | **Domain thật thay DuckDNS** | buffer (sau Phase 2) | P2 | — | [ ] → backlog |
 | | Mua domain (~50–250k/năm); A record → 18.143.20.43; đổi `API_DOMAIN` + restart caddy; đổi env Vercel + `CORS_ORIGINS` nếu cần. Giảm phụ thuộc DuckDNS (free, không SLA). | | | | |
 
 **Verify:** `cd backend && pytest -q -m "not slow and not eval"` · `python scripts/run_evaluation.py`
@@ -199,8 +242,8 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | D57 | `docs/architecture.md` | Hoàng | 04/07 EOD | [ ] |
 | D62 | User feedback | Hiếu | 04/07 EOD | [x] |
 | D63 | Journal + Worklog | Hoàng | 04/07 EOD | [x] |
-| — | Slide + thuyết trình | T58a → T58b | 05/07 18:00 | [ ] |
-| — | Video Phase 1 | V34, V35 | Done S3 | [x] |
+| — | Slide + thuyết trình | T58a → T58b | 08/07 (Phase 2) | [ ] |
+| — | Video demo | V35 | 08/07 (Phase 2) | [ ] ⚠️ chưa có artifact (tick S3 nhầm) |
 
 ---
 
@@ -249,10 +292,10 @@ VUX-1 + V57 → V65 → V66 → D56
 | H54 Ngrok URL | [x] |
 | H55 Portal copy + README links | [x] |
 | T41 Observability session/trace/event | [x] |
-| V34 Pitch deck | [x] |
-| V35 Video demo | [x] |
+| V34 Pitch deck | [ ] ⚠️ `slide.pdf` rỗng 0B — chưa làm (xem T58a active) |
+| V35 Video demo | [ ] ⚠️ không có `video-demo.md`/link — chưa quay (xem V35 active) |
 | V45 Thumbnail | [x] |
 | V46 Portal Phase 1 submit | [x] |
-| G3-4 Slide + video | [x] |
+| G3-4 Slide + video | [ ] ⚠️ phụ thuộc V34 + V35 chưa xong |
 
 **Open verify:** H44 script file trong repo (nếu V35 đã quay có thể đóng retro).
