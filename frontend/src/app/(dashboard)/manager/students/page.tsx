@@ -335,7 +335,7 @@ export default function StudentsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between" data-tour="page-students-actions">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Quản lý Sinh viên</h1>
           <p className="text-sm text-muted-foreground">
@@ -430,7 +430,7 @@ export default function StudentsPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 rounded-md border p-3 md:grid-cols-5 md:items-end">
+      <div className="grid gap-3 rounded-md border p-3 md:grid-cols-5 md:items-end" data-tour="page-students-filters">
         <div className="space-y-1">
           <Label className="text-xs font-semibold">Khoa</Label>
           <Select value={departmentFilter} onValueChange={(value) => setDepartmentFilter(value ?? "all")}>
@@ -500,7 +500,9 @@ export default function StudentsPage() {
         </Button>
       </div>
 
-      <DataTable columns={columns} data={filteredStudents} searchKey="hoTen" searchPlaceholder="Tìm theo tên sinh viên..." />
+      <div data-tour="page-students-results">
+        <DataTable columns={columns} data={filteredStudents} searchKey="hoTen" searchPlaceholder="Tìm theo tên sinh viên..." />
+      </div>
 
       {/* EDIT Dialog */}
       <Dialog open={!!editStudent} onOpenChange={(open) => { if (!open) setEditStudent(null) }}>

@@ -315,7 +315,7 @@ export default function OverviewPage() {
             {scopedDepartmentId ? "Dashboard trưởng khoa/quản lý khoa, tự giới hạn theo khoa được phân quyền." : "Dashboard tổng hợp dùng dữ liệu đã aggregate từ DWH, không tải raw enrollment về trình duyệt."}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2" data-tour="page-overview-filters">
           <button
             type="button"
             onClick={() => requestDashboardAgent("Phân tích biểu đồ xu hướng pass rate trên dashboard tổng quan hiện tại: xu hướng tăng/giảm, học kỳ bất thường, khoa/ngành cần chú ý và hành động đề xuất.")}
@@ -375,7 +375,7 @@ export default function OverviewPage() {
         ) : null}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5" data-tour="page-overview-kpis">
         {kpis.map((item) => (
           <Card key={item.label}>
             <CardContent className="flex items-start justify-between pt-5">
@@ -514,7 +514,7 @@ export default function OverviewPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card data-tour="page-overview-drilldown">
         <CardHeader><CardTitle className="text-sm">Heatmap ngành × học kỳ</CardTitle></CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-xs">

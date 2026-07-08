@@ -520,7 +520,9 @@ export interface ApiDashboardCourses {
     code: string
     name: string
     credits: number
+    enrollment_count: number
     completed_enrollments: number
+    missing_grade_count: number
     pass_rate: number
     avg_grade: number
     failed_count: number
@@ -540,6 +542,8 @@ export interface ApiDashboardCourses {
     }
     kpis: {
       completed_enrollments: number
+      enrollment_count: number
+      missing_grade_count: number
       pass_rate: number
       avg_grade: number
       section_count: number
@@ -1008,6 +1012,9 @@ export interface ApiHomeroomStudent {
   latest_gpa: number | null
   gpa_delta: number | null
   status: string
+  dropout_probability: number | null
+  dropout_risk_level: string | null
+  dropout_scored_at: string | null
   risk_level: "high" | "watch" | "normal"
   risk_reasons: string[]
 }
@@ -1675,6 +1682,16 @@ function setApiCache<T>(key: string, value: T) {
 
 function invalidateCacheAfterMutation(method: string, input: string) {
   if (method === "GET") return
+  if (input.startsWith("/api/v1/sections")) {
+    invalidateApiCacheByPrefix("/api/v1/sections")
+    invalidateApiCacheByPrefix("/api/v1/analytics/dashboard/sections")
+    invalidateApiCacheByPrefix("/api/v1/analytics/dashboard/courses")
+    invalidateApiCacheByPrefix("/api/v1/interventions/sections")
+  }
+  if (input.startsWith("/api/v1/teachers")) {
+    invalidateApiCacheByPrefix("/api/v1/teachers")
+    invalidateApiCacheByPrefix("/api/v1/sections")
+  }
   if (input.startsWith("/api/v1/interventions")) {
     invalidateApiCacheByPrefix("/api/v1/interventions")
   }
@@ -2049,7 +2066,7 @@ export const api = {
     fetcher<ApiReport[]>(`/api/v1/reports${qs(params ?? {})}`),
   getReport: (id: string) =>
     fetcher<ApiReport>(`/api/v1/reports/${id}`),
-  generateReport: (body: { report_type: ApiReportType; actor_role?: string; scope_type?: string; scope_id?: string; semester_id?: number; period_start?: string; period_end?: string }) =>
+  generateReport: (body: { report_type: ApiReportType; actor_role?: string; scope_type?: string; scope_id?: string; semester_id?: number; period_start?: string; period_end?: string; include_ai_narrative?: boolean }) =>
     fetcher<ApiReport>("/api/v1/reports", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

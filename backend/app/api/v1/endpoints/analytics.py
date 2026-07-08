@@ -1771,7 +1771,9 @@ async def _analytics_dashboard_courses_payload(
         course_base AS (
             SELECT
                 f.course_id,
+                COUNT(*)::INTEGER AS enrollment_count,
                 COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL)::INTEGER AS completed_enrollments,
+                COUNT(*) FILTER (WHERE f.final_grade IS NULL OR f.is_passed IS NULL)::INTEGER AS missing_grade_count,
                 COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::INTEGER AS passed_count,
                 COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::INTEGER AS failed_count,
                 COUNT(*) FILTER (WHERE f.final_grade >= 4 AND f.final_grade < 5)::INTEGER AS near_fail_count,
@@ -1812,7 +1814,9 @@ async def _analytics_dashboard_courses_payload(
             dc.code,
             dc.name,
             dc.credits,
+            cb.enrollment_count,
             cb.completed_enrollments,
+            cb.missing_grade_count,
             cb.pass_rate,
             cb.avg_grade,
             cb.failed_count,
@@ -1872,6 +1876,8 @@ async def _analytics_dashboard_courses_payload(
             {filtered_cte}
             SELECT
                 COALESCE(MAX(completed_enrollments), 0)::INTEGER AS completed_enrollments,
+                COALESCE(MAX(enrollment_count), 0)::INTEGER AS enrollment_count,
+                COALESCE(MAX(missing_grade_count), 0)::INTEGER AS missing_grade_count,
                 COALESCE(MAX(pass_rate), 0)::FLOAT AS pass_rate,
                 COALESCE(MAX(avg_grade), 0)::FLOAT AS avg_grade,
                 COALESCE(MAX(section_count), 0)::INTEGER AS section_count,
@@ -2131,7 +2137,7 @@ async def analytics_dashboard_courses(
         _require_dashboard_role(current_user)
     if program_id is not None:
         await _require_program_scope(db, current_user, program_id)
-    cache_key = ("courses", semester_code, department_id, program_id, date_from, date_to)
+    cache_key = ("courses-v3", semester_code, department_id, program_id, date_from, date_to)
     cached = _dashboard_cache_get(cache_key)
     if cached is not None:
         return cached
@@ -2168,7 +2174,7 @@ async def analytics_dashboard_course_detail(
     if program_id is not None:
         await _require_program_scope(db, current_user, program_id)
     cache_key = (
-        "course-detail",
+        "course-detail-v3",
         course_id,
         semester_code,
         department_id,
@@ -2354,7 +2360,7 @@ async def analytics_dashboard_sections(
     # hierarchy level, not on the user — key on those so entries are shared.
     scope_token = (scope_sql, tuple(sorted(scope_params.items())))
     hierarchy_level = _section_hierarchy_level(current_user, department_id, program_id)
-    cache_key = ("sections-v3", scope_token, hierarchy_level, semester_code, department_id, program_id, course_id,
+    cache_key = ("sections-v4", scope_token, hierarchy_level, semester_code, department_id, program_id, course_id,
                  section_id, teacher_id, q, date_from, date_to, risk_level, sort, limit, offset)
     cached = _dashboard_cache_get(cache_key)
     if cached is not None:
@@ -2389,19 +2395,22 @@ async def analytics_dashboard_sections(
                 MAX(ld.scored_at) AS prediction_scored_at,
                 CASE
                     WHEN COUNT(*) FILTER (WHERE f.final_grade IS NULL) = COUNT(*) THEN 'pending'
+                    WHEN COUNT(DISTINCT f.student_id) < 5 THEN 'watch'
                     WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.30
                          OR COUNT(*) FILTER (WHERE ld.risk_level = 'high') > 0 THEN 'high'
                     WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.15 THEN 'watch'
                     ELSE 'normal'
                 END AS risk_level,
                 CASE WHEN COUNT(*) FILTER (WHERE f.final_grade IS NULL) = COUNT(*) THEN 1
+                     WHEN COUNT(DISTINCT f.student_id) < 5 THEN 3
                      WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.30
                           OR COUNT(*) FILTER (WHERE ld.risk_level = 'high') > 0 THEN 4
                      WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.15 THEN 3
-                     ELSE 2 END AS risk_rank,
+                    ELSE 2 END AS risk_rank,
                 CASE
-                    WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.30 THEN 'high_fail_rate'
                     WHEN COUNT(*) FILTER (WHERE f.final_grade IS NULL) > 0 THEN 'missing_grade'
+                    WHEN COUNT(DISTINCT f.student_id) < 5 THEN 'small_sample'
+                    WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.30 THEN 'high_fail_rate'
                     WHEN COUNT(*) FILTER (WHERE ld.risk_level = 'high') > 0 THEN 'ml_high_risk'
                     WHEN COALESCE(ROUND(COUNT(*) FILTER (WHERE f.is_passed IS TRUE)::DECIMAL /
                         NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) * 100, 1), 0) < 70 THEN 'low_pass_rate'
@@ -2410,6 +2419,7 @@ async def analytics_dashboard_sections(
                 END AS primary_reason,
                 CASE
                     WHEN COUNT(*) FILTER (WHERE f.final_grade IS NULL) = COUNT(*) THEN 'wait_for_grades'
+                    WHEN COUNT(DISTINCT f.student_id) < 5 THEN 'monitor'
                     WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.30
                          OR COUNT(*) FILTER (WHERE ld.risk_level = 'high') > 0 THEN 'intervene_now'
                     WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.15
@@ -2418,6 +2428,7 @@ async def analytics_dashboard_sections(
                 END AS recommended_action,
                 (
                     (CASE WHEN COUNT(*) FILTER (WHERE f.final_grade IS NULL) = COUNT(*) THEN 1
+                          WHEN COUNT(DISTINCT f.student_id) < 5 THEN 3
                           WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.30
                                OR COUNT(*) FILTER (WHERE ld.risk_level = 'high') > 0 THEN 4
                           WHEN COUNT(*) FILTER (WHERE f.is_passed IS FALSE)::DECIMAL / NULLIF(COUNT(*) FILTER (WHERE f.is_passed IS NOT NULL), 0) >= 0.15 THEN 3
@@ -2478,42 +2489,47 @@ async def analytics_dashboard_sections(
                    COALESCE(ROUND(COUNT(*) FILTER (WHERE is_passed IS TRUE)::DECIMAL /
                        NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) * 100, 1), 0)::FLOAT AS pass_rate,
                    COALESCE(ROUND(COUNT(predicted_student_id)::DECIMAL /
-                       NULLIF(COUNT(DISTINCT student_id), 0), 3), 0)::FLOAT AS prediction_coverage,
-                   MAX(scored_at) AS prediction_scored_at,
-                   CASE WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) = COUNT(*) THEN 'pending'
-                        WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
-                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30
-                             OR COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 'high'
-                        WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
-                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.15 THEN 'watch'
-                        ELSE 'normal' END AS risk_level,
-                   CASE WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) = COUNT(*) THEN 1
-                        WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
-                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30
-                             OR COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 4
-                        WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
-                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.15 THEN 3
-                        ELSE 2 END AS risk_rank,
-                   CASE WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
-                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30 THEN 'high_fail_rate'
-                        WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) > 0 THEN 'missing_grade'
-                        WHEN COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 'ml_high_risk'
-                        WHEN COALESCE(ROUND(COUNT(*) FILTER (WHERE is_passed IS TRUE)::DECIMAL /
-                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) * 100, 1), 0) < 70 THEN 'low_pass_rate'
-                        WHEN COUNT(DISTINCT student_id) < 20 THEN 'small_sample'
-                        ELSE 'normal' END AS primary_reason,
-                   CASE WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) = COUNT(*) THEN 'wait_for_grades'
-                        WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
-                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30
-                             OR COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 'intervene_now'
-                        WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
-                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.15
-                             OR COUNT(DISTINCT student_id) < 20 THEN 'monitor'
-                        ELSE 'no_action' END AS recommended_action,
-                   ((CASE WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) = COUNT(*) THEN 1
-                          WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
-                               NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30
-                               OR COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 4
+                        NULLIF(COUNT(DISTINCT student_id), 0), 3), 0)::FLOAT AS prediction_coverage,
+                    MAX(scored_at) AS prediction_scored_at,
+                    CASE WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) = COUNT(*) THEN 'pending'
+                         WHEN COUNT(DISTINCT student_id) < 5 THEN 'watch'
+                         WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                              NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30
+                              OR COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 'high'
+                         WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                              NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.15 THEN 'watch'
+                         ELSE 'normal' END AS risk_level,
+                    CASE WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) = COUNT(*) THEN 1
+                         WHEN COUNT(DISTINCT student_id) < 5 THEN 3
+                         WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                              NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30
+                              OR COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 4
+                         WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                              NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.15 THEN 3
+                         ELSE 2 END AS risk_rank,
+                    CASE WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) > 0 THEN 'missing_grade'
+                         WHEN COUNT(DISTINCT student_id) < 5 THEN 'small_sample'
+                         WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                              NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30 THEN 'high_fail_rate'
+                         WHEN COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 'ml_high_risk'
+                         WHEN COALESCE(ROUND(COUNT(*) FILTER (WHERE is_passed IS TRUE)::DECIMAL /
+                              NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) * 100, 1), 0) < 70 THEN 'low_pass_rate'
+                         WHEN COUNT(DISTINCT student_id) < 20 THEN 'small_sample'
+                         ELSE 'normal' END AS primary_reason,
+                    CASE WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) = COUNT(*) THEN 'wait_for_grades'
+                         WHEN COUNT(DISTINCT student_id) < 5 THEN 'monitor'
+                         WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                              NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30
+                              OR COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 'intervene_now'
+                         WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                              NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.15
+                              OR COUNT(DISTINCT student_id) < 20 THEN 'monitor'
+                         ELSE 'no_action' END AS recommended_action,
+                    ((CASE WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) = COUNT(*) THEN 1
+                           WHEN COUNT(DISTINCT student_id) < 5 THEN 3
+                           WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                                NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30
+                                OR COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 4
                           WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
                                NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.15 THEN 3
                           ELSE 2 END) * 100
@@ -2579,19 +2595,22 @@ async def analytics_dashboard_sections(
                    COUNT(*) FILTER (WHERE is_passed IS NOT NULL)::INTEGER AS graded_count,
                    COUNT(*) FILTER (WHERE is_passed IS TRUE)::INTEGER AS passed_count,
                    CASE WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) = COUNT(*) THEN 'pending'
+                         WHEN COUNT(DISTINCT student_id) < 5 THEN 'watch'
+                         WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                              NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30
+                              OR COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 'high'
+                         WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
+                              NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.15 THEN 'watch'
+                         ELSE 'normal' END AS risk_level,
+                   CASE WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) > 0 THEN 'missing_grade'
+                        WHEN COUNT(DISTINCT student_id) < 5 THEN 'small_sample'
                         WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
-                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30
-                             OR COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 'high'
-                        WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
-                             NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.15 THEN 'watch'
-                        ELSE 'normal' END AS risk_level,
-                   CASE WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
                              NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30 THEN 'high_fail_rate'
-                        WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) > 0 THEN 'missing_grade'
                         WHEN COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 'ml_high_risk'
                         WHEN COUNT(DISTINCT student_id) < 20 THEN 'small_sample'
                         ELSE 'normal' END AS primary_reason,
                    ((CASE WHEN COUNT(*) FILTER (WHERE final_grade IS NULL) = COUNT(*) THEN 1
+                          WHEN COUNT(DISTINCT student_id) < 5 THEN 3
                           WHEN COUNT(*) FILTER (WHERE is_passed IS FALSE)::DECIMAL /
                                NULLIF(COUNT(*) FILTER (WHERE is_passed IS NOT NULL), 0) >= 0.30
                                OR COUNT(*) FILTER (WHERE dropout_risk_level = 'high') > 0 THEN 4

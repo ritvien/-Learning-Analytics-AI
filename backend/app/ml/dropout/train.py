@@ -65,16 +65,18 @@ def _sync_database_url(async_url: str) -> str:
 
 
 def _build_preprocessor() -> ColumnTransformer:
-    return ColumnTransformer(
-        transformers=[
-            (
-                "num",
-                Pipeline([
-                    ("imputer", SimpleImputer(strategy="median")),
-                    ("scaler", StandardScaler()),
-                ]),
-                NUMERIC_FEATURES,
-            ),
+    transformers = [
+        (
+            "num",
+            Pipeline([
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", StandardScaler()),
+            ]),
+            NUMERIC_FEATURES,
+        )
+    ]
+    if CATEGORICAL_FEATURES:
+        transformers.append(
             (
                 "cat",
                 Pipeline([
@@ -82,8 +84,10 @@ def _build_preprocessor() -> ColumnTransformer:
                     ("encoder", OneHotEncoder(handle_unknown="ignore")),
                 ]),
                 CATEGORICAL_FEATURES,
-            ),
-        ]
+            )
+        )
+    return ColumnTransformer(
+        transformers=transformers
     )
 
 

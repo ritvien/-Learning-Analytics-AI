@@ -26,17 +26,27 @@ export default function CoursesPage() {
 
   React.useEffect(() => {
     Promise.all([
+      api.me(),
       api.getCourses({ limit: 500 }),
       api.getPrograms({ limit: 100 }),
       api.getDepartments({ limit: 100 })
-    ]).then(([apiCourses, programs, departments]) => {
+    ]).then(([currentUser, apiCourses, programs, departments]) => {
       const progDeptMap = new Map<number, string>()
+      const progDeptIdMap = new Map<number, number>()
       programs.forEach(p => {
         const d = departments.find(dept => dept.id === p.department_id)
         if (d) progDeptMap.set(p.id, d.name)
+        progDeptIdMap.set(p.id, p.department_id)
       })
+      const visibleCourses =
+        currentUser?.role === "manager" && currentUser.department_id != null
+          ? apiCourses.filter((course) => {
+              if (course.department_id === currentUser.department_id) return true
+              return course.program_ids.some((programId) => progDeptIdMap.get(programId) === currentUser.department_id)
+            })
+          : apiCourses
 
-      const mapped: CourseWithHealth[] = apiCourses.map((c) => {
+      const mapped: CourseWithHealth[] = visibleCourses.map((c) => {
         const deptName = c.department_id ? departments.find(d => d.id === c.department_id)?.name : null
         return {
           id: String(c.id),
@@ -50,8 +60,8 @@ export default function CoursesPage() {
       })
       setCourses(mapped)
       
-      // Fetch health scores in batch
-      api.getCourseHealthBatch(apiCourses.map(c => c.id))
+      // Fetch health scores only for courses visible to the current role.
+      api.getCourseHealthBatch(visibleCourses.map(c => c.id))
         .then(healthScores => {
           setCourses(prev => prev.map(course => {
             const h = healthScores.find(hs => String(hs.node_id) === course.id)
@@ -192,7 +202,7 @@ export default function CoursesPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between" data-tour="page-courses-actions">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Quản lý Môn học</h1>
         </div>
@@ -226,7 +236,9 @@ export default function CoursesPage() {
         )}
       </div>
 
-      <DataTable columns={columns} data={courses} searchKey="tenMonHoc" searchPlaceholder="Tìm theo tên môn..." />
+      <div data-tour="page-courses-results">
+        <DataTable columns={columns} data={courses} searchKey="tenMonHoc" searchPlaceholder="Tìm theo tên môn..." />
+      </div>
 
       {/* EDIT Dialog */}
       <Dialog open={!!editCourse} onOpenChange={(open) => { if (!open) setEditCourse(null) }}>

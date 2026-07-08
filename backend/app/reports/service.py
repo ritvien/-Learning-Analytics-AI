@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
@@ -576,6 +577,7 @@ async def generate_report(
     semester_id: int | None = None,
     period_start: datetime | None = None,
     period_end: datetime | None = None,
+    include_ai_narrative: bool = False,
 ) -> Report:
     """Generate, optionally enhance, persist, and return a report."""
     raw_data = await _load_data(db)
@@ -799,7 +801,14 @@ async def generate_report(
         "generation_tool_calls": generation_tool_calls,
     }
 
-    payload = await _maybe_enhance_with_llm(payload, report_type, actor_role, generation_tool_calls)
+    if include_ai_narrative:
+        payload = await _maybe_enhance_with_llm(payload, report_type, actor_role, generation_tool_calls)
+    else:
+        payload["metrics_json"] = {
+            **payload["metrics_json"],
+            "llm_enhanced": False,
+            "llm_generation_stage": "disabled_by_report_settings",
+        }
     payload = _sync_content_markdown(payload)
     report = Report(
         id=str(uuid4()),
@@ -1978,6 +1987,79 @@ def _clean_dict_list(value: Any) -> list[dict[str, Any]]:
     return [dict(item) for item in value if isinstance(item, dict)]
 
 
+_NUMBER_RE = re.compile(r"(?<![\w/.-])\d+(?:[.,]\d+)?%?")
+_STATIC_REPORT_NUMBERS = {"0", "1", "2", "3", "4", "5", "7", "10", "14", "30", "70"}
+
+
+def _normalize_number_token(value: str) -> str:
+    token = value.strip().replace("%", "").replace(",", ".")
+    try:
+        number = float(token)
+    except ValueError:
+        return token
+    if number.is_integer():
+        return str(int(number))
+    return f"{number:.4f}".rstrip("0").rstrip(".")
+
+
+def _number_tokens_from_text(value: str) -> set[str]:
+    return {_normalize_number_token(match.group(0)) for match in _NUMBER_RE.finditer(value)}
+
+
+def _llm_grounding_text(parsed: dict[str, Any]) -> str:
+    fields = [
+        parsed.get("summary"),
+        parsed.get("good_signals"),
+        parsed.get("issues"),
+        parsed.get("risks"),
+        parsed.get("root_causes"),
+        parsed.get("deep_insights"),
+        parsed.get("actions"),
+    ]
+    # Action deadlines use fixed policy labels (7/14/30 days), so only validate action evidence/reason/task text.
+    action_plan = parsed.get("action_plan")
+    if isinstance(action_plan, list):
+        fields.append(
+            [
+                {
+                    "owner": item.get("owner"),
+                    "task": item.get("task"),
+                    "reason": item.get("reason"),
+                    "priority": item.get("priority"),
+                }
+                for item in action_plan
+                if isinstance(item, dict)
+            ]
+        )
+    return json.dumps(fields, ensure_ascii=False, default=str)
+
+
+def _validate_llm_grounding(
+    parsed: dict[str, Any],
+    payload: ReportPayload,
+    generation_tool_calls: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Check that numbers in LLM prose are grounded in deterministic metrics/tool outputs."""
+    source_text = json.dumps(
+        {
+            "title": payload.get("title"),
+            "summary": payload.get("summary"),
+            "metrics": payload.get("metrics_json") or {},
+            "tool_outputs": generation_tool_calls,
+        },
+        ensure_ascii=False,
+        default=str,
+    )
+    source_numbers = _number_tokens_from_text(source_text) | _STATIC_REPORT_NUMBERS
+    output_numbers = _number_tokens_from_text(_llm_grounding_text(parsed))
+    ungrounded = sorted(output_numbers - source_numbers)
+    return {
+        "checked": True,
+        "output_number_count": len(output_numbers),
+        "ungrounded_numbers": ungrounded[:20],
+    }
+
+
 def _sync_content_markdown(payload: ReportPayload) -> ReportPayload:
     metrics = payload.get("metrics_json") or {}
     good = list(metrics.get("good_signals") or [])
@@ -2020,7 +2102,7 @@ async def _maybe_enhance_with_llm(
         llm_kwargs: dict[str, Any] = {
             "model": settings.llm_model,
             "api_key": settings.llm_api_key,
-            "temperature": 0.3,
+            "temperature": 0,
             "model_kwargs": {"response_format": {"type": "json_object"}},
         }
         if settings.llm_base_url:
@@ -2056,6 +2138,9 @@ async def _maybe_enhance_with_llm(
         parsed = _parse_llm_json(str(response.content))
         if not parsed:
             raise ValueError("LLM did not return parseable JSON")
+        grounding = _validate_llm_grounding(parsed, payload, generation_tool_calls)
+        if grounding["ungrounded_numbers"]:
+            raise ValueError(f"LLM returned ungrounded numbers: {grounding['ungrounded_numbers']}")
 
         summary = str(parsed.get("summary") or "").strip() or payload["summary"]
         good = _clean_str_list(parsed.get("good_signals")) or list(payload["metrics_json"].get("good_signals") or [])
@@ -2084,6 +2169,7 @@ async def _maybe_enhance_with_llm(
             actions=actions,
             llm_enhanced=True,
             llm_generation_stage="tool_outputs_to_llm_to_report",
+            llm_grounding=grounding,
         )
         payload["summary"] = summary
         payload["metrics_json"] = metrics

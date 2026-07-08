@@ -7,8 +7,6 @@ import pandas as pd
 from app.ml.dropout.types import SplitConfig
 
 FEATURE_COLUMNS = [
-    "cohort_year",
-    "program_id",
     "total_registered_credits",
     "total_failed_credits",
     "fail_rate",
@@ -18,7 +16,6 @@ FEATURE_COLUMNS = [
 ]
 
 NUMERIC_FEATURES = [
-    "cohort_year",
     "total_registered_credits",
     "total_failed_credits",
     "fail_rate",
@@ -27,7 +24,7 @@ NUMERIC_FEATURES = [
     "avg_semester_gpa",
 ]
 
-CATEGORICAL_FEATURES = ["program_id"]
+CATEGORICAL_FEATURES: list[str] = []
 
 FORBIDDEN_FEATURES = {"status", "student_code", "student_id", "gender", "full_name"}
 

@@ -127,7 +127,7 @@ export default function DepartmentsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between" data-tour="page-departments-actions">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Quản lý Khoa & Ngành</h1>
         </div>
@@ -158,7 +158,7 @@ export default function DepartmentsPage() {
 
       <div className="grid gap-3">
         {departments.map((dept) => (
-          <Card key={dept.id}>
+          <Card key={dept.id} data-tour="page-departments-results">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 cursor-pointer" onClick={() => toggleExpand(dept.id)}>

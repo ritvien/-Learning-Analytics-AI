@@ -25,10 +25,21 @@ class DropoutStudentNotFoundError(ValueError):
     """Raised when a student has no rows in the dropout feature view."""
 
 
-def _risk_level(probability: float) -> str:
-    if probability >= 0.60:
+MIN_REGISTERED_CREDITS = 15
+MIN_SEMESTERS_ENROLLED = 2
+
+
+def _has_sufficient_history(row_features: pd.Series) -> bool:
+    return (
+        float(row_features.get("total_registered_credits") or 0) >= MIN_REGISTERED_CREDITS
+        and float(row_features.get("semesters_enrolled") or 0) >= MIN_SEMESTERS_ENROLLED
+    )
+
+
+def _risk_level(probability: float, threshold: float) -> str:
+    if probability >= threshold:
         return "high"
-    if probability >= 0.30:
+    if probability >= threshold * 0.5:
         return "medium"
     return "low"
 
@@ -105,6 +116,7 @@ def _build_dropout_result(
     model_run_id: int,
     model_name: str,
     model_version: str,
+    risk_threshold: float,
     scored_at: datetime,
     source: str = "live",
 ) -> DropoutRiskResult:
@@ -112,7 +124,7 @@ def _build_dropout_result(
         student_id=student_id,
         student_code=student_code,
         dropout_probability=probability,
-        risk_level=_risk_level(probability),
+        risk_level=_risk_level(probability, risk_threshold),
         top_factors=_factor_payload(row_features, probability),
         model_run_id=model_run_id,
         model_name=model_name,
@@ -149,6 +161,10 @@ def predict_dropout_risk_for_student(
             )
 
         row = frame.iloc[0]
+        if not _has_sufficient_history(row):
+            raise DropoutStudentNotFoundError(
+                f"Student {student_id} does not have enough academic history for dropout scoring"
+            )
         probability = _predict_probability(bundle, row)
         scored_at = datetime.now(UTC)
         result = _build_dropout_result(
@@ -159,6 +175,7 @@ def predict_dropout_risk_for_student(
             model_run_id=resolved_run_id,
             model_name=model_name,
             model_version=model_version,
+            risk_threshold=bundle.threshold,
             scored_at=scored_at,
             source="live",
         )
@@ -200,9 +217,36 @@ def score_dropout_predictions(model_run_id: int, *, database_url: str | None = N
 
     with engine.begin() as connection:
         resolved_run_id, model_name, model_version, bundle = _resolve_model_run(connection, model_run_id)
+        connection.execute(
+            text(
+                """
+                DELETE FROM ml.student_dropout_prediction p
+                USING dwh.v_student_dropout_features f
+                WHERE f.student_id = p.student_id
+                  AND f.status = 'active'
+                  AND (
+                    f.total_registered_credits < :min_credits
+                    OR f.semesters_enrolled < :min_semesters
+                  )
+                """
+            ),
+            {"min_credits": MIN_REGISTERED_CREDITS, "min_semesters": MIN_SEMESTERS_ENROLLED},
+        )
         frame = pd.read_sql(
-            DROPOUT_FEATURE_QUERY + " WHERE status = 'active'",
+            text(
+                DROPOUT_FEATURE_QUERY
+                + (
+                    " WHERE status = 'active'"
+                    " AND total_registered_credits >= :min_credits"
+                    " AND semesters_enrolled >= :min_semesters"
+                )
+            ),
             connection,
+            params={"min_credits": MIN_REGISTERED_CREDITS, "min_semesters": MIN_SEMESTERS_ENROLLED},
+        )
+        connection.execute(
+            text("DELETE FROM ml.student_dropout_prediction WHERE model_run_id = :model_run_id"),
+            {"model_run_id": resolved_run_id},
         )
         if frame.empty:
             return 0
@@ -220,6 +264,7 @@ def score_dropout_predictions(model_run_id: int, *, database_url: str | None = N
                 model_run_id=resolved_run_id,
                 model_name=model_name,
                 model_version=model_version,
+                risk_threshold=bundle.threshold,
                 scored_at=scored_at,
                 source="batch",
             )

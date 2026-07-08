@@ -1,6 +1,6 @@
 """Unit tests for T32 — CLO course-improvement enrichment (pure logic, no DB)."""
 
-from app.reports.service import _apply_clo_enrichment, _build_clo_enrichment
+from app.reports.service import _apply_clo_enrichment, _build_clo_enrichment, _validate_llm_grounding
 
 
 def _rows():
@@ -66,3 +66,36 @@ def test_apply_clo_enrichment_prepends_suggestions_and_keeps_existing():
     assert metrics["issues"][-1] == "Có 3 sinh viên cần chú ý ngay."
     assert any("watchlist" in a for a in metrics["actions"])
     assert metrics["actions"][0].startswith("Cải thiện CLO3")
+
+
+def test_validate_llm_grounding_accepts_numbers_from_metrics():
+    payload = {
+        "title": "Báo cáo môn học",
+        "summary": "Tỷ lệ đạt 68.3% trên 120 lượt học.",
+        "metrics_json": {"pass_rate": 68.3, "completed_enrollments": 120},
+    }
+    parsed = {
+        "summary": "Môn học đạt 68.3% trên 120 lượt học, cần theo dõi thêm.",
+        "issues": ["Tỷ lệ đạt 68.3% thấp hơn kỳ vọng."],
+    }
+
+    result = _validate_llm_grounding(parsed, payload, [])
+
+    assert result["checked"] is True
+    assert result["ungrounded_numbers"] == []
+
+
+def test_validate_llm_grounding_flags_numbers_not_in_metrics():
+    payload = {
+        "title": "Báo cáo môn học",
+        "summary": "Tỷ lệ đạt 68.3% trên 120 lượt học.",
+        "metrics_json": {"pass_rate": 68.3, "completed_enrollments": 120},
+    }
+    parsed = {
+        "summary": "Môn học đạt 68.3% nhưng có thêm 999 sinh viên rủi ro.",
+        "issues": ["Cần kiểm tra con số 999 vì không có trong nguồn."],
+    }
+
+    result = _validate_llm_grounding(parsed, payload, [])
+
+    assert "999" in result["ungrounded_numbers"]

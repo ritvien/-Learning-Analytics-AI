@@ -8,7 +8,7 @@ import pytest
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import StandardScaler
 
 from app.ml.dropout.dataset import FEATURE_COLUMNS
 from app.ml.dropout.score import (
@@ -20,11 +20,9 @@ from app.ml.dropout.types import ModelBundle
 
 
 def _build_test_bundle() -> ModelBundle:
-    numeric_features = [c for c in FEATURE_COLUMNS if c != "program_id"]
     preprocessor = ColumnTransformer(
         transformers=[
-            ("num", StandardScaler(), numeric_features),
-            ("cat", OneHotEncoder(handle_unknown="ignore"), ["program_id"]),
+            ("num", StandardScaler(), FEATURE_COLUMNS),
         ],
     )
     model = LogisticRegression()
@@ -151,6 +149,49 @@ def test_predict_dropout_risk_student_not_found(
 
     with pytest.raises(DropoutStudentNotFoundError, match="Student 99"):
         predict_dropout_risk_for_student(99, database_url="postgresql://x")
+
+
+@patch("app.ml.dropout.score.joblib.load")
+@patch("app.ml.dropout.score.pd.read_sql")
+@patch("app.ml.dropout.score.create_engine")
+def test_predict_dropout_risk_requires_enough_history(
+    mock_create_engine: MagicMock,
+    mock_read_sql: MagicMock,
+    mock_joblib_load: MagicMock,
+) -> None:
+    mock_joblib_load.return_value = _build_test_bundle()
+    mock_read_sql.return_value = pd.DataFrame(
+        [
+            {
+                "student_id": 42,
+                "student_code": "SV-042",
+                "cohort_year": 2025,
+                "program_id": 2,
+                "status": "active",
+                "total_registered_credits": 3,
+                "total_failed_credits": 3,
+                "fail_rate": 1.0,
+                "cumulative_gpa": 3.8,
+                "semesters_enrolled": 1,
+                "avg_semester_gpa": 3.8,
+            },
+        ],
+    )
+    connection = MagicMock()
+    connection.execute.return_value.one_or_none.return_value = MagicMock(
+        id=7,
+        model_name="dropout_classifier",
+        model_version="vtest",
+        artifact_uri="/tmp/model.joblib",
+        status="completed",
+    )
+    engine = MagicMock()
+    engine.dialect.name = "postgresql"
+    engine.begin.return_value.__enter__.return_value = connection
+    mock_create_engine.return_value = engine
+
+    with pytest.raises(DropoutStudentNotFoundError, match="enough academic history"):
+        predict_dropout_risk_for_student(42, database_url="postgresql://x")
 
 
 @patch("app.ml.dropout.score.create_engine")

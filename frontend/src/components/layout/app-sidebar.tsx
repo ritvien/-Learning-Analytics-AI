@@ -46,36 +46,36 @@ const STRUCTURE_ROLES: ApiUserRole[] = ["superadmin", "admin", "manager", "lectu
 const data: { navMain: { title: string; items: NavItem[] }[] } = {
   navMain: [
     {
-      title: "Điều hành & Phân tích",
+      title: "Ra quyết định",
       items: [
-        { title: "Tổng quan", url: "/manager/analytics", icon: Layers, roles: MANAGEMENT_ROLES },
-        { title: "Cơ cấu đào tạo", url: "/manager", icon: LayoutDashboard, roles: STRUCTURE_ROLES },
-        { title: "Chuẩn đầu ra", url: "/manager/analytics/outcomes", icon: Target, roles: MANAGEMENT_ROLES },
+        { title: "Tổng quan học vụ", url: "/manager/analytics", icon: Layers, roles: MANAGEMENT_ROLES },
+        { title: "Cây đào tạo", url: "/manager", icon: LayoutDashboard, roles: STRUCTURE_ROLES },
+        { title: "Phân tích CĐR", url: "/manager/analytics/outcomes", icon: Target, roles: MANAGEMENT_ROLES },
         { title: "Việc cần xử lý", url: "/manager/tasks", icon: ListTodo, roles: STAFF_ROLES },
-        { title: "Môn học", url: "/manager/analytics/courses", icon: BookOpen, roles: STAFF_ROLES },
-        { title: "Lớp học phần", url: "/manager/analytics/sections", icon: FileText, roles: STAFF_ROLES },
+        { title: "Phân tích môn", url: "/manager/analytics/courses", icon: BookOpen, roles: STAFF_ROLES },
+        { title: "Phân tích lớp", url: "/manager/analytics/sections", icon: FileText, roles: STAFF_ROLES },
         { title: "Lớp cố vấn", url: "/manager/analytics/students", icon: UserRound, roles: STAFF_ROLES },
       ],
     },
     {
-      title: "Dữ liệu đào tạo",
+      title: "Danh mục & Điểm",
       items: [
-        { title: "Sinh viên", url: "/manager/students", icon: Users, roles: READ_ROLES },
-        { title: "Giảng viên", url: "/manager/teachers", icon: GraduationCap, roles: MANAGEMENT_ROLES },
-        { title: "Môn học", url: "/manager/courses", icon: BookOpen, roles: READ_ROLES },
-        { title: "Lớp học phần", url: "/manager/sections", icon: FileText, roles: READ_ROLES },
-        { title: "Điểm số", url: "/manager/grades", icon: FileText, roles: READ_ROLES },
-        { title: "Khoa & Ngành", url: "/manager/departments", icon: Settings, roles: MANAGEMENT_ROLES },
+        { title: "Danh mục sinh viên", url: "/manager/students", icon: Users, roles: READ_ROLES },
+        { title: "Giảng viên & phân công", url: "/manager/teachers", icon: GraduationCap, roles: MANAGEMENT_ROLES },
+        { title: "Danh mục môn", url: "/manager/courses", icon: BookOpen, roles: READ_ROLES },
+        { title: "Danh mục lớp", url: "/manager/sections", icon: FileText, roles: READ_ROLES },
+        { title: "Nhập/xem điểm", url: "/manager/grades", icon: FileText, roles: READ_ROLES },
+        { title: "Khoa/ngành", url: "/manager/departments", icon: Settings, roles: MANAGEMENT_ROLES },
       ],
     },
     {
-      title: "Hệ thống",
+      title: "Báo cáo & Hệ thống",
       items: [
-        { title: "Chat AI", url: "/chat", icon: MessageSquare, roles: STAFF_ROLES },
-        { title: "Báo cáo", url: "/manager/reports", icon: FileText, roles: STAFF_ROLES },
+        { title: "Trợ lý AI", url: "/chat", icon: MessageSquare, roles: STAFF_ROLES },
+        { title: "Trung tâm báo cáo", url: "/manager/reports", icon: FileText, roles: STAFF_ROLES },
         { title: "Tài khoản & phân quyền", url: "/manager/users", icon: ShieldCheck, roles: ["superadmin", "admin"] },
         { title: "Nhật ký hệ thống", url: "/manager/observability", icon: Zap, roles: ["superadmin"] },
-        { title: "Upload CTĐT", url: "/manager/programs", icon: FileUp, roles: ["superadmin", "admin", "manager"] },
+        { title: "Quản lý CTĐT", url: "/manager/programs", icon: FileUp, roles: ["superadmin", "admin", "manager"] },
       ],
     },
   ],
@@ -83,6 +83,30 @@ const data: { navMain: { title: string; items: NavItem[] }[] } = {
 
 function canSeeItem(item: NavItem, role?: ApiUserRole | null) {
   return !item.roles || (role != null && item.roles.includes(role))
+}
+
+function navTourId(url: string) {
+  const ids: Record<string, string> = {
+    "/manager/analytics": "nav-overview",
+    "/manager": "nav-academic-tree",
+    "/manager/analytics/outcomes": "nav-outcomes",
+    "/manager/tasks": "nav-tasks",
+    "/manager/analytics/courses": "nav-course-analytics",
+    "/manager/analytics/sections": "nav-section-analytics",
+    "/manager/analytics/students": "nav-advisor",
+    "/manager/students": "nav-students",
+    "/manager/teachers": "nav-teachers",
+    "/manager/courses": "nav-courses",
+    "/manager/sections": "nav-sections",
+    "/manager/grades": "nav-grades",
+    "/manager/departments": "nav-departments",
+    "/chat": "nav-chat",
+    "/manager/reports": "nav-reports",
+    "/manager/users": "nav-users",
+    "/manager/observability": "nav-observability",
+    "/manager/programs": "nav-programs",
+  }
+  return ids[url]
 }
 
 export function AppSidebar({ userRole, ...props }: React.ComponentProps<typeof Sidebar> & { userRole?: ApiUserRole | null }) {
@@ -95,7 +119,7 @@ export function AppSidebar({ userRole, ...props }: React.ComponentProps<typeof S
     .filter((group) => group.items.length > 0)
 
   return (
-    <Sidebar variant="inset" {...props}>
+    <Sidebar variant="inset" data-tour="sidebar" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -112,8 +136,8 @@ export function AppSidebar({ userRole, ...props }: React.ComponentProps<typeof S
                 </svg>
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
-                <span className="text-sm font-bold tracking-tight">VinUniversity</span>
-                <span className="text-xs font-medium text-muted-foreground">VinUni Analytics</span>
+                <span className="text-sm font-bold tracking-tight">EduInsight</span>
+                <span className="text-xs font-medium text-muted-foreground">EPU Analytics</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -134,6 +158,7 @@ export function AppSidebar({ userRole, ...props }: React.ComponentProps<typeof S
                         <Link
                           href={subItem.url}
                           prefetch
+                          data-tour={navTourId(subItem.url)}
                         />
                       )}
                     >
@@ -154,7 +179,7 @@ export function AppSidebar({ userRole, ...props }: React.ComponentProps<typeof S
             <span className="text-xs font-medium text-muted-foreground">Hệ thống hoạt động</span>
           </div>
           <p className="mt-2 text-center text-[10px] font-medium text-muted-foreground/50">
-            © 2026 Trường ĐH VinUniversity
+            © 2026 EduInsight · EPU
           </p>
         </div>
       </SidebarFooter>
