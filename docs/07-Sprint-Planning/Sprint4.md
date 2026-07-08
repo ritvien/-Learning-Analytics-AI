@@ -141,8 +141,8 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | | Done 06/07: [deploy/backup.sh](../../deploy/backup.sh) (`pg_dump -Fc` trong container → `~/backups/eduinsight-<weekday>.dump`, rotation 7 slot theo `date +%u`, ghi atomic temp→mv + size-check) + [deploy/backup-verify.sh](../../deploy/backup-verify.sh) (restore vào DB throwaway rồi drop — non-destructive) + `.gitattributes` (LF cho `*.sh`); merged vào `main`, EC2 pull. Cron `0 18 * * *` (18:00 UTC = 01:00 SGT) đã cài. Seed bản đầu `eduinsight-1.dump` **7.49 MB**; verify restore **PASS: 72 bảng, `enrollments`=56301 khớp prod**, throwaway DB drop OK. Runbook: [deploy/README.md](../../deploy/README.md) "Backups (H71)". Tùy chọn tương lai: đẩy S3. | | | | |
 | **H73** | **AWS billing alert + hardening nhẹ** | 08/07 **23:00** | P2 | — | [ ] → backlog |
 | | Budget $30/tháng + email alert; xác nhận SG chỉ mở 22 (My IP)/80/443; bật unattended-upgrades; theo dõi disk 18GB (`docker system df`). Chốt trước deadline Phase 2. | | | | |
-| **H72** | **Nghỉ hưu Render (sau ≥48h fallback)** | 09/07 EOD (sau Phase 2) | P1 | H69, H70 | [ ] → backlog |
-| | EC2 ổn định ≥48h → suspend `eduinsight-backend`; dump archive cuối của Render PG (free PG hết hạn ~30 ngày kể từ tạo); cập nhật d59-deployment-evidence.md. | | | | |
+| **H72** | **Nghỉ hưu Render (sau ≥48h fallback)** | 09/07 EOD (sau Phase 2) | P1 | H69, H70 | [x] |
+| | Done 08/07 (sớm 1 ngày — sau 2 ngày EC2 ổn định + H78 xanh): suspend `eduinsight-backend` qua Render API, verify trạng thái `suspended` ✓. Dump cuối của Render PG: **không cần** — EC2 (restore 06/07) là source of truth, data đã phân kỳ sau re-score H78, nightly backup H71 đang chạy; Render PG free để tự hết hạn (~30 ngày). [d59-deployment-evidence.md](../21-Release-Readiness/d59-deployment-evidence.md) đã cập nhật. | | | | |
 | **H74** | **Auto-deploy GitHub Actions → EC2** | buffer (sau Phase 2) | P2 | H71 | [ ] → backlog |
 | | Workflow on push `main`: SSH (secrets `EC2_SSH_KEY`, `EC2_HOST`) chạy `deploy/deploy.sh`; concurrency group; notify khi fail. | | | | |
 | **H75** | **Domain thật thay DuckDNS** | buffer (sau Phase 2) | P2 | — | [ ] → backlog |

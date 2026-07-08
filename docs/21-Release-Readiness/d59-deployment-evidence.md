@@ -1,11 +1,12 @@
 # D59 — Deployment evidence & operator checklist
 
-Updated: 2026-07-06 · Owner: Hoàng · Blueprint: [render.yaml](../../render.yaml)
+Updated: 2026-07-08 · Owner: Hoàng · Blueprint: [render.yaml](../../render.yaml)
 
 > **⚠️ 06/07/2026 — backend migrated to AWS EC2 (Singapore).** Primary backend is now
 > `https://edu-insight.duckdns.org` — runbook: [deploy/README.md](../../deploy/README.md).
-> Render (this document's original subject) is **fallback-only until H72** ([Sprint4.md](../07-Sprint-Planning/Sprint4.md) § Demo Day Phase 2);
-> the sections below remain as historical evidence + fallback ops reference.
+> **08/07/2026 (H72): Render service `eduinsight-backend` suspended** (API verified `suspended`)
+> after 2 days of EC2 stability + the green H78 re-baseline ([Sprint4.md](../07-Sprint-Planning/Sprint4.md) § Demo Day Phase 2);
+> the sections below remain as historical evidence. Resume (if ever needed): `POST /v1/services/{id}/resume`.
 > Measured after cutover: dashboards 0.30–0.50s from VN (Render free cold: 5–61s); login 0.55s.
 
 Production deploy evidence for Demo Day Live URL. Do not commit secrets.
@@ -16,7 +17,7 @@ Production deploy evidence for Demo Day Live URL. Do not commit secrets.
 |:--------|:----|
 | Frontend (Vercel) | `https://c2-app-056.vercel.app` |
 | **Backend (AWS EC2 — primary since 06/07)** | `https://edu-insight.duckdns.org` |
-| Backend (Render — fallback until H72) | `https://eduinsight-backend-jxmm.onrender.com` |
+| Backend (Render — **suspended 08/07**, H72 done) | `https://eduinsight-backend-jxmm.onrender.com` |
 | UptimeRobot FE monitor | https://dashboard.uptimerobot.com/monitors/803424323 |
 | UptimeRobot BE monitor (H70 done — now → EC2 `/health`) | https://dashboard.uptimerobot.com/monitors/803424335 |
 
@@ -91,7 +92,7 @@ Dashboard caches are shared across users (keys carry the resolved scope, not the
 
 **HEAD vs GET:** UptimeRobot HTTP(s) monitors send **HEAD** by default ([docs](https://uptimerobot.com/help/monitor-status-is-wrong/)). The EC2 backend declares `@app.api_route("/health", methods=["GET", "HEAD"])` ([backend/app/main.py](../../backend/app/main.py#L98)) so the default HEAD check returns 200 (verified: HEAD 0.16s / GET 0.40s) — **no 405, no workaround needed**. (Historical: on Render, before HEAD support, monitors could show `405 Method Not Allowed` while GET/smoke passed; workarounds were a **Keyword** monitor with keyword `ok` (GET) or adding a `HEAD` handler.)
 
-Track Render **750 instance-hours/month** quota.
+~~Track Render **750 instance-hours/month** quota.~~ Obsolete since 08/07 (H72): service suspended, no instance-hours consumed; the free Render PG is left to expire on its own (~30 days from creation) — EC2 is the data source of truth with nightly H71 backups.
 
 ## Done checklist
 
