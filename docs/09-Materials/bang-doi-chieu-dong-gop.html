@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bảng đối chiếu đóng góp — Nhóm 3 (Hoàng · Hưng · Hiếu)</title>
+<style>
+  :root{
+    color-scheme: light dark;
+    --ground:#FCFBF9; --panel:#FFFFFF; --panel-2:#F6F4EF;
+    --ink:#1C1B19; --ink-2:#5E5A53; --ink-3:#918B81;
+    --line:#E7E3DA; --line-2:#D9D4C9;
+    --accent:#3E63DD;
+    --bug:#C0453B; --bug-bg:#FBEDEB; --bug-line:#F0C9C4;
+    --m-Hoang:#3E63DD; --m-Hung:#C77C1E; --m-Hieu:#8E4EC6;
+    --shadow:0 1px 2px rgba(28,27,25,.04),0 10px 26px -14px rgba(28,27,25,.22);
+    --serif:"Cambria","Georgia","Times New Roman",ui-serif,serif;
+    --sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --mono:"Cascadia Code","Consolas",ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ground:#171614; --panel:#201F1C; --panel-2:#282723;
+      --ink:#ECE9E3; --ink-2:#ABA69C; --ink-3:#7E7A70;
+      --line:#33312C; --line-2:#413E37; --accent:#7C97FF;
+      --bug:#E8887E; --bug-bg:#33211F; --bug-line:#5A322D;
+      --m-Hoang:#7C97FF; --m-Hung:#D79A4A; --m-Hieu:#B98BE6;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 32px -16px rgba(0,0,0,.65);
+    }
+  }
+  :root[data-theme="light"]{--ground:#FCFBF9;--panel:#FFFFFF;--panel-2:#F6F4EF;--ink:#1C1B19;--ink-2:#5E5A53;--ink-3:#918B81;--line:#E7E3DA;--line-2:#D9D4C9;--accent:#3E63DD;--bug:#C0453B;--bug-bg:#FBEDEB;--bug-line:#F0C9C4;--m-Hoang:#3E63DD;--m-Hung:#C77C1E;--m-Hieu:#8E4EC6;--shadow:0 1px 2px rgba(28,27,25,.04),0 10px 26px -14px rgba(28,27,25,.22);}
+  :root[data-theme="dark"]{--ground:#171614;--panel:#201F1C;--panel-2:#282723;--ink:#ECE9E3;--ink-2:#ABA69C;--ink-3:#7E7A70;--line:#33312C;--line-2:#413E37;--accent:#7C97FF;--bug:#E8887E;--bug-bg:#33211F;--bug-line:#5A322D;--m-Hoang:#7C97FF;--m-Hung:#D79A4A;--m-Hieu:#B98BE6;--shadow:0 1px 2px rgba(0,0,0,.3),0 12px 32px -16px rgba(0,0,0,.65);}
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .m-Hoang{--mc:var(--m-Hoang)} .m-Hung{--mc:var(--m-Hung)} .m-Hieu{--mc:var(--m-Hieu)}
+
+  header.top{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--ground) 90%,transparent);backdrop-filter:saturate(1.4) blur(9px);border-bottom:1px solid var(--line)}
+  .top-in{max-width:1280px;margin:0 auto;padding:13px 24px;display:flex;align-items:center;gap:12px}
+  .brand{margin-right:auto;min-width:0}
+  .brand .kick{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);font-weight:700}
+  .brand h1{font-family:var(--serif);font-size:21px;font-weight:600;margin:1px 0 0;letter-spacing:.01em}
+  .btn{height:38px;padding:0 14px;border:1px solid var(--line);background:var(--panel);border-radius:10px;cursor:pointer;color:var(--ink-2);font-size:13px;font-weight:600;font-family:inherit;display:inline-flex;align-items:center;gap:7px;flex:none}
+  .btn:hover{color:var(--ink);border-color:var(--line-2)}
+  .icon-btn{width:38px;padding:0;justify-content:center;font-size:16px}
+
+  main{max-width:1280px;margin:0 auto;padding:22px 24px 80px}
+  .lede{color:var(--ink-2);font-size:14.5px;max-width:88ch;margin:2px 0 8px}
+  .lede b{color:var(--ink)}
+  .legend{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin:14px 0 20px;font-size:12.5px;color:var(--ink-2)}
+  .legend .it{display:inline-flex;align-items:center;gap:6px}
+  .chip{font-family:var(--mono);font-size:11px;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--ink-2);white-space:nowrap}
+  .sbadge{font-size:10.5px;font-weight:700;letter-spacing:.02em;border-radius:5px;padding:1px 6px;background:color-mix(in srgb,var(--accent) 12%,var(--panel));color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 26%,var(--line))}
+  .bugtag{display:inline-flex;align-items:center;gap:5px;color:var(--bug);font-weight:700;font-size:12px}
+
+  .board{display:grid;grid-template-columns:repeat(3,minmax(340px,1fr));gap:18px}
+  @media (max-width:1120px){ .board{grid-template-columns:1fr;max-width:640px;margin:0 auto} }
+
+  .col{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+  .col-head{padding:16px 18px;border-bottom:1px solid var(--line);position:relative}
+  .col-head::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--mc)}
+  .who{display:flex;align-items:center;gap:10px}
+  .dot{width:15px;height:15px;border-radius:50%;background:var(--mc);flex:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--mc) 20%,transparent)}
+  .who .nm{font-family:var(--serif);font-size:20px;font-weight:600}
+  .who .pfx{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--mc);font-weight:700;background:color-mix(in srgb,var(--mc) 12%,var(--panel));border:1px solid color-mix(in srgb,var(--mc) 26%,var(--line));border-radius:6px;padding:2px 7px}
+  .role{color:var(--ink-2);font-size:13px;margin:6px 0 8px}
+  .cstat{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+  .cstat b{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+  .cstat .s{font-size:11px;color:var(--ink-2);background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:2px 8px;display:inline-flex;gap:5px;align-items:center}
+  .cstat .s.fix{color:var(--bug);background:var(--bug-bg);border-color:var(--bug-line)}
+  .cstat .s.fix b{color:var(--bug)}
+  .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .meta .sp{font-size:10.5px;font-weight:700;color:var(--mc);background:color-mix(in srgb,var(--mc) 11%,var(--panel));border:1px solid color-mix(in srgb,var(--mc) 24%,var(--line));border-radius:5px;padding:1px 6px}
+  .meta .cnt{font-size:12px;color:var(--ink-3);margin-left:auto;font-family:var(--mono)}
+
+  .groups{padding:6px 18px 16px}
+  .grp{padding:12px 0;border-bottom:1px dashed var(--line)}
+  .grp:last-child{border-bottom:0}
+  .grp-h{display:flex;align-items:baseline;gap:8px;margin-bottom:5px}
+  .grp-n{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--mc)}
+  .grp-sp{font-size:10px;color:var(--ink-3);font-family:var(--mono);margin-left:auto;white-space:nowrap}
+  .grp-desc{font-size:13.5px;color:var(--ink);line-height:1.5}
+  .grp-ids{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px}
+  .grp.bug{background:var(--bug-bg);border:1px solid var(--bug-line);border-radius:10px;padding:11px 13px;margin-top:12px}
+  .grp.bug .grp-n{color:var(--bug)}
+  .grp.bug .grp-desc{color:var(--ink)}
+
+  .note{margin-top:22px;font-size:12.5px;color:var(--ink-3);border-top:1px solid var(--line);padding-top:14px;max-width:92ch}
+  .note code{font-family:var(--mono);font-size:11.5px;background:var(--panel-2);padding:1px 5px;border-radius:5px}
+
+  @media print{
+    :root{--ground:#fff;--panel:#fff;--panel-2:#f4f4f4;--ink:#000;--ink-2:#333;--ink-3:#666;--line:#ccc;--line-2:#bbb;--shadow:none}
+    header.top{position:static;backdrop-filter:none;border-bottom:2px solid #000}
+    .no-print{display:none!important}
+    .board{grid-template-columns:repeat(3,1fr);gap:10px}
+    .col{break-inside:avoid;box-shadow:none}
+    body{font-size:11px}
+    @page{size:A3 landscape;margin:12mm}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <span class="kick">Đối chiếu để chấm điểm</span>
+      <h1>Bảng đóng góp — Nhóm 3</h1>
+    </div>
+    <button class="btn no-print" id="printBtn" title="In hoặc lưu thành PDF để chia sẻ">🖨️ In / Lưu PDF</button>
+    <button class="btn icon-btn no-print" id="themeBtn" title="Sáng/tối" aria-label="Đổi giao diện">◐</button>
+  </div>
+</header>
+
+<main>
+  <p class="lede">Tổng hợp <b>toàn bộ Sprint 1–4</b> + <b>soi toàn bộ git commit</b> (kể cả fix bug &amp; các lần reassign), gom theo <b>mảng công việc</b> để dễ quan sát và theo dõi. Nguồn: <b>docs/07-Sprint-Planning</b> (stories H*/T*/V*) &amp; <b>git log</b> (~239 commit làm việc). Số commit trên mỗi cột là số thực đo từ git (đã gộp các tài khoản của cùng một người, bỏ merge).</p>
+  <div class="legend">
+    <span class="it"><span class="chip">H12</span> mã task/story</span>
+    <span class="it"><span class="sbadge">S2</span> sprint thực hiện</span>
+    <span class="it"><span class="bugtag">🐞 Fix bug</span> khối sửa lỗi riêng</span>
+    <span class="it" style="color:var(--ink-3)">Cột màu = danh tính từng người (đồng bộ với form chấm điểm).</span>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <p class="note">
+    Ghi chú độ chính xác: <b>ML dropout (T52a–d)</b> tuy mang mã <code>T*</code> nhưng đã <b>reassign cho Hoàng</b> làm (Sprint 3, 24/06) — Hưng giữ phần hạ tầng <code>ml</code> schema (T50).
+    <b>Slide + video demo G3 (V34/V35)</b> tuy mang mã <code>V*</code> nhưng đã <b>reassign cho Hưng</b> làm (26/06) — Hiếu làm video G2 (V15), thumbnail (V45) và nộp portal (V46).
+    Mã task giữ nguyên theo prefix gốc để trace tài liệu.
+    <br><br>Số commit đo từ <code>git log</code> sau khi gộp các tài khoản của cùng một người: <b>Hoàng</b> = <code>hoang</code> + <code>ritvien</code> + <code>Coopiers</code> (cùng email/GitHub id); <b>Hưng</b> = <code>Datadreamers</code> + <code>7poo</code> (7poo là tài khoản merge PR nhánh <code>hung</code>); <b>Hiếu</b> = <code>minhhieu2710</code>. Đã bỏ commit merge; “việc” = commit không-merge, “fix” = commit có fix/bug/sửa/lỗi trong tiêu đề.
+  </p>
+</main>
+
+<script>
+(function(){
+"use strict";
+var DATA=[
+ {id:"Hoang",name:"Hoàng",prefix:"prefix H",role:"Trưởng nhóm · AI/Data Engineer · PM/PO",sprints:["S1","S2","S3","S4"],
+  commits:{total:199,work:124,fix:39},
+  groups:[
+    {n:"Quản lý & Kiến trúc",sp:"S1–S3",d:"Project Brief, PRD v1→v2.1, lập & phân công sprint, 3 sơ đồ kiến trúc (System/Agent/Data), kiến trúc 3-tier Khoa→Ngành→Chuyên ngành, AI-usage-log hooks.",ids:["H1","H2","H3","H4","H5","H8","H45"]},
+    {n:"Dữ liệu",sp:"S1–S3",d:"Crawl + chuẩn hóa dữ liệu thực 700 SV, seed PostgreSQL, mở rộng seed 1.277 SV thực (+ artifact).",ids:["H6","H11","H46"]},
+    {n:"AI Agent (LangGraph)",sp:"S2–S4",d:"Router + core agent + SQL tool, ReAct loop, chat API + SSE streaming, CLO/Metric-Engine tool, lưu session chat, universal chatbot, memory/cache, concurrency limiter + backpressure.",ids:["H12","H13","H14","H16","H17","H22","H28","H35","H48","H64","H67"]},
+    {n:"Prompt & An toàn",sp:"S2–S3",d:"Prompt theo cấp Khoa/Ngành/Môn, guardrails scope + chống prompt-injection, error-handling 3 tầng + HTTP.",ids:["H21","H40","H52"]},
+    {n:"RAG Chương trình đào tạo",sp:"S4",d:"Chuẩn bị corpus PDF, embedding + pgvector index, Q&A MVP có trích dẫn file/trang/section.",ids:["H62","H63","H51"]},
+    {n:"ML dự đoán bỏ học",sp:"S3",d:"Nhãn dropout, DWH feature view, train classifier, API dropout-risk + agent tool, feature spec chống leakage, eval P/R/F1/PR-AUC.",ids:["T52a","T52b","T52c","T52d","H25a","H25b"]},
+    {n:"Đánh giá (Evaluation)",sp:"S2–S4",d:"Unit/RAGAS tests, metrics framework + baseline, cost report, tracing + prompt versioning, bộ 100 test-case, rerun & tối ưu scorer/metrics, rerun trên EC2 production.",ids:["H36","H38","H39","H42","H43","H59","H60","H61","H47","H66","H69"]},
+    {n:"Triển khai & Vận hành",sp:"S2–S4",d:"Ngrok tunnel, deploy Render + Vercel + UptimeRobot, migrate AWS EC2, backup Postgres hằng đêm, kịch bản video demo.",ids:["H27","H54","D59","H70","H71","H44"]},
+    {bug:true,n:"Fix bug",sp:"S2–S4 · 39 commit",d:"Streaming: proxy rớt Authorization header, buffer Vercel proxy cho login/smoke, persist AI response khi stream. SQL/schema: SQL views unqualified vs dwh, chống schema-leakage (G2.2), fix SQL views + OBE. Deploy/DB: DATABASE_URL→asyncpg, image pg18/pgvector, HEAD health-check UptimeRobot, restore 1.277 SV, merge alembic heads. Guardrail: short-circuit trước title-LLM, NFD unsafe, giữ sanitization khi metrics lỗi. Eval/RAG: allowlist lỗi tiếng Việt (H66), citation capture (H68), cast param asyncpg. CI: chặn LLM-key fallback khi test, sửa 100+ ruff, fix pytest treo, Python 3.9 compat.",ids:["H33","H66","H68"]}
+  ]},
+
+ {id:"Hung",name:"Hưng",prefix:"prefix T",role:"Backend Developer · DevOps · Data (kiêm full-stack analytics)",sprints:["S1","S2","S3","S4"],
+  commits:{total:115,work:71,fix:26},
+  groups:[
+    {n:"Nghiên cứu & Stakeholder",sp:"S1",d:"Chốt bộ câu hỏi phỏng vấn, liên hệ & phỏng vấn 3–5 thầy cô/quản lý khoa, tổng hợp interview insights.",ids:["T1","T2","T3","T4"]},
+    {n:"Nền tảng Backend",sp:"S1–S2",d:"Thiết kế DB schema, FastAPI setup, CRUD 7 entity, ORM models + session, Tree-metrics API, CLO/PLO logic, KPI dashboard API, auth JWT + RBAC middleware.",ids:["T5","T6","T9","T12","T13","T14","T19","T27","T30"]},
+    {n:"Report & Analytics (full-stack)",sp:"S2–S4",d:"Report tool cho agent, prompt report theo cấp, tool report CLO cải thiện môn (persist/edit). Overhaul dashboard analytics + FilterCombobox, wire CRUD ↔ API thật, report build brief hội thoại đa lượt.",ids:["T28","T29","T32"]},
+    {n:"DevOps & Hạ tầng",sp:"S1–S3",d:"Docker multi-stage, CI/CD GitHub Actions, migration + seed runner, điều phối reset DB toàn team, ≥10 PR, deploy runbook, release-candidate verification.",ids:["T7","T8","T11","T25","T18","T45","T48"]},
+    {n:"Data Warehouse & ETL",sp:"S2–S3",d:"Schema dwh + ETL idempotent + data-quality checks, analytics/report API + RBAC contract.",ids:["T26","T42","T43"]},
+    {n:"ML infra & Observability",sp:"S3",d:"Schema ml + prediction tables, session/trace/event log, guardrails backend + RBAC API, superadmin observability API.",ids:["T50","T41","T40","T53"]},
+    {n:"Pipeline dữ liệu & Synthetic",sp:"S4",d:"Data-gap audit cho UI, ML batch-predict + golden MSSV, import SV ngành thưa, synthetic GV + phân công lớp, synthetic CLO, refresh golden + lineage.",ids:["T54","T55a","T55b","T55c","T55d","T55e"]},
+    {n:"Cảnh báo & Can thiệp",sp:"S4",d:"Rule SV at-risk + API danh sách lớp GV, action “Liên hệ” + audit log, sinh login GV demo, gửi mail cảnh báo (SMTP fallback log).",ids:["T56a","T56b","T57a","T57b"]},
+    {n:"Thuyết trình (reassign)",sp:"S3–S4",d:"Demo slides pitch + metric/cost, quay video demo G3 3–5', slide draft + rehearsal + nộp pitch Demo Day.",ids:["V34","V35","T58a","T58b"]},
+    {bug:true,n:"Fix bug",sp:"S1–S4 · 26 commit",d:"DB/bootstrap: port 5433 + trust auth + SQL mounts, bootstrap v59 students idempotent. Agent hiệu năng: chặn async-blocking, giảm workqueue latency/transient error, tăng tool-loop limit. Report flow: brief tích lũy qua turn, followup hội thoại, llm-first understanding. Cache/scope: isolate academic-tree cache theo user, harden guardrail history + RAG cache, enforce enrollment-prediction scope, restore campaign write-guard. Analytics FE: empty-state, join program dimension, date filters. Route: fix reload/deep-link (T51), defect tích hợp từ E2E (T46). CI: 109 ruff errors, StrEnum/email-validator, Node 20 deprecation.",ids:["T51","T46"]}
+  ]},
+
+ {id:"Hieu",name:"Hiếu",prefix:"prefix V",role:"Frontend Developer · QA/Tester",sprints:["S1","S2","S3","S4"],
+  commits:{total:46,work:40,fix:7},
+  groups:[
+    {n:"Nghiên cứu & Thiết kế",sp:"S1",d:"UI/UX research + mood board (Metabase/Grafana/Linear/NotebookLM), wireframe Academic Tree + Detail Panel, Chat, CRUD + Login.",ids:["V1","V2","V3","V4"]},
+    {n:"Nền tảng Frontend",sp:"S1",d:"Setup Next.js + TS + Tailwind + shadcn (dark mode), component library, Tree + Detail Panel (static), API service layer, Login UI.",ids:["V5","V6","V7","V8","V9","V10"]},
+    {n:"Tích hợp API & Realtime",sp:"S2–S3",d:"Tree ↔ API thật, Chat UI, Chat ↔ SSE streaming (typewriter), Tree-node → Chat navigation, Login ↔ auth JWT, chat thinking timeline, global chat shell /chatbot.",ids:["V11","V16","V12","V25","V24","V26","V38","V40"]},
+    {n:"Tính năng UI",sp:"S2–S4",d:"KPI widgets/cards, multi-prompt gợi ý, guided onboarding, Tree 5 tầng Trường→Khoa→Ngành→CN→Môn, dropout risk badge, filter kỳ mặc định, superadmin observability UI, cảnh báo SV + luồng liên hệ GV.",ids:["V29","V28","V30","V36","V20","V42","V43","V56"]},
+    {n:"Trải nghiệm demo (UX)",sp:"S4",d:"Tối ưu perf login + navigation, Việt hóa UI, drill-down tổng quan, skeleton loading + progress, CRUD polish/responsive/dark, chart component, credit-prediction UI.",ids:["VUX-1","VUX-3","V65","V18","V21","V19","V23"]},
+    {n:"RBAC Frontend",sp:"S3",d:"Route guard, ẩn/hiện nav & CRUD theo role, trang /forbidden — không phá RBAC.",ids:["V41"]},
+    {n:"QA & Testing",sp:"S2–S4",d:"Polish Streamlit + demo prep, Playwright E2E (auth/tree/report/chat/responsive), FE unit tests, demo audit + smoke checklist, QA toàn page + screenshots evidence, thu thập user feedback.",ids:["V13","V14","V39","V22","V57","V66","D62"]},
+    {n:"Demo Day & Data demo",sp:"S2–S3",d:"Quay video demo G2 3', thumbnail 1280×720, README/screenshot skeleton, smoke + nộp portal Phase 1, token data SV, audit ngành thưa + crawl artifact.",ids:["V15","V45","V58","V46","V27","V59"]},
+    {bug:true,n:"Fix bug / QA",sp:"S2–S4 · 7 commit",d:"Fix 500 error + hoàn thiện SSE & Login flow; repair cấu trúc JSX trang analytics sections + bỏ import trùng; fix Recharts key + date filters; sửa placeholder names academic tree; sort backend graph imports. E2E phát hiện defect tích hợp (đầu vào cho T46); Việt hóa + empty/error states (VUX-2).",ids:["V39","VUX-2"]}
+  ]}
+];
+
+var board=document.getElementById("board");
+DATA.forEach(function(m){
+  var col=document.createElement("div"); col.className="col m-"+m.id;
+  var groups=m.groups.map(function(g){
+    var ids=(g.ids||[]).map(function(x){return '<span class="chip">'+x+'</span>';}).join("");
+    return '<div class="grp'+(g.bug?' bug':'')+'">'+
+      '<div class="grp-h"><span class="grp-n">'+(g.bug?'🐞 ':'')+g.n+'</span><span class="grp-sp">'+g.sp+'</span></div>'+
+      '<div class="grp-desc">'+g.d+'</div>'+
+      (ids?'<div class="grp-ids">'+ids+'</div>':'')+
+    '</div>';
+  }).join("");
+  var sprints=m.sprints.map(function(s){return '<span class="sp">'+s+'</span>';}).join("");
+  col.innerHTML=
+    '<div class="col-head">'+
+      '<div class="who"><span class="dot"></span><span class="nm">'+m.name+'</span><span class="pfx">'+m.prefix+'</span></div>'+
+      '<div class="role">'+m.role+'</div>'+
+      '<div class="cstat"><span class="s">git <b>'+m.commits.total+'</b> commit</span><span class="s"><b>'+m.commits.work+'</b> việc</span><span class="s fix">🐞 <b>'+m.commits.fix+'</b> fix</span></div>'+
+      '<div class="meta">'+sprints+'<span class="cnt">'+m.groups.filter(function(g){return !g.bug;}).length+' mảng việc</span></div>'+
+    '</div>'+
+    '<div class="groups">'+groups+'</div>';
+  board.appendChild(col);
+});
+
+document.getElementById("themeBtn").onclick=function(){
+  var cur=document.documentElement.getAttribute("data-theme");
+  var dark=cur?cur==="dark":matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.setAttribute("data-theme",dark?"light":"dark");
+};
+document.getElementById("printBtn").onclick=function(){ window.print(); };
+})();
+</script>
+</body>
+</html>

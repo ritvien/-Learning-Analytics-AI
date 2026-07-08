@@ -1,14 +1,16 @@
 ﻿# Demo Day Phase 1 - Submission Copy
 
-> Updated: 2026-06-28
+> Updated: 2026-07-07 (URL production sau cutover EC2 06/07; Ngrok chỉ dùng ở Phase 1)
 
 | Field | Value |
 |:------|:------|
 | Project | EduInsight - AI Learning Analytics |
-| MVP URL | https://kilobyte-crummiest-broadness.ngrok-free.dev |
-| Video | TBD (V35) |
-| Slide | TBD (V34) |
-| Thumbnail | TBD (V45) |
+| MVP URL | https://c2-app-056.vercel.app *(Phase 1 dùng Ngrok `kilobyte-crummiest-broadness.ngrok-free.dev`)* |
+| Backend API | https://edu-insight.duckdns.org/api/v1 |
+| Demo login | `admin@epu.edu.vn` / `123456` |
+| Video | TBD — task V35 (Hưng) |
+| Slide | TBD — task T58a (Hưng) |
+| Thumbnail | TBD — task V67 (Hiếu) |
 
 ## Agent metrics (Gate G3, 35 TC, 28/06/2026)
 

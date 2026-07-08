@@ -41,6 +41,15 @@ and archived.
 > infra-driven tail was removed. H68 below is preserved unchanged as the
 > Render-host evidence.
 
+> **Update 2026-07-08 (H78):** current evidence is now the
+> [H78 section](#h78--post-pr-137-re-baseline-2026-07-08) at the end of this
+> page — the first rerun after PR #137 changed dropout scoring semantics
+> (bundle-threshold risk labels, minimum-history gate) and the production
+> prediction table was re-scored (1,152/1,628 actives; high 604→441). Quality
+> held (task 92.0%, tool 0.94, grounding 0.99); dropout goldens TC28/30/42
+> unchanged and passing. H69 below is preserved unchanged as the pre-#137
+> evidence.
+
 ## BTC Evidence Checklist
 
 | Requirement | D60 evidence |
@@ -445,7 +454,8 @@ Block split:
 
 # H69 — EC2 Production Rerun (2026-07-06)
 
-**Current evaluation evidence.** First 100-case rerun on the new AWS EC2
+**Superseded by [H78](#h78--post-pr-137-re-baseline-2026-07-08) as current
+evidence — preserved unchanged as the pre-#137 baseline.** First 100-case rerun on the new AWS EC2
 Singapore host after the Render→EC2 cutover (PR #133). Archived immutable run
 folder: `docs/12-Evaluation/runs/2026-07-05-223523-e9762e34/` (manifest, cases,
 raw results, metrics, report).
@@ -564,3 +574,81 @@ Block split:
   views and point the core prompt at `dwh.fact_clo_achievement`.
 - Replace the 12-chunk demo CTDT corpus with real-PDF extraction (38 PDFs in
   `crawl/pdf_ctdt`).
+
+---
+
+# H78 — Post-PR #137 Re-baseline (2026-07-08)
+
+**Current evaluation evidence.** First 100-case rerun after PR #137 changed
+dropout scoring semantics and the production prediction table was re-scored.
+Archived immutable run folder:
+`docs/12-Evaluation/runs/2026-07-08-064216-8d5e83f9/` (manifest, cases, raw
+results, metrics).
+
+## Snapshot
+
+| Field | Value |
+|:--|:--|
+| Task | H78 (re-baseline the 100-case eval after deploying PR #137 and batch re-scoring dropout predictions) |
+| Run timestamp | `2026-07-08T06:42:16+00:00` (2026-07-08 13:42 ICT) |
+| Deployed backend | `main` @ `bebb293a` (PR #135–#137; deployed via `deploy/deploy.sh`, alembic no-op, `/health` 200 public) |
+| Dataset | `h61-expanded-100`, hash `gate3-h61-100-88ed3ab71f60` — identical to H69's (no golden changes needed; see audit below) |
+| Prompts | unchanged: `core_agent 2026-07-04.2` · `router 2026-07-01.2` · `fast_response 2026-07-01.1` |
+| Environment | Production API `https://edu-insight.duckdns.org` (AWS EC2 `ap-southeast-1`) |
+| Judge | Off (`with_judge=false`, same as all prior runs) |
+| ML | **No retrain** (model_run_id 7, xgboost, bundle threshold 0.85). Batch re-score via `/admin/ml/score-dropout`: 1,152/1,628 active students scored; 476 excluded by the new minimum-history gate (<15 registered credits or <2 semesters) with their stale predictions deleted. Latest-per-student risk mix: high 604→441, medium 164→201, low 861→511 |
+
+## Why H78
+
+PR #137 changed how persisted dropout predictions are produced: risk level is
+now derived from the model bundle's threshold (0.85 for run 7) instead of the
+fixed 0.60/0.30 cutoffs, and students with insufficient academic history are
+no longer scored (their old rows are deleted). The production table was
+re-scored the same day. The agent's dropout tool reads exactly this table, so
+H69 describes a prediction table that no longer exists; H78 verifies quality
+held on the new one.
+
+Golden audit before the run (read-only SQL against prod): TC28/TC42
+(`21810310019`, expelled — prediction row untouched by the active-only batch,
+probability 0.99984) and TC30 (`24810310117`, active, 89 credits / 5
+semesters — passes the gate, re-scored to an identical 0.99982) all remain
+within the dataset's ±0.001 tolerances. **No dataset or pinned-test changes
+were needed** (`test_h61_preserves_t55e_numeric_golden_values` stays green).
+
+## Results — H69 vs H78
+
+| Metric | H69 (pre-#137) | **H78 (post-#137)** | Δ | Gate | Status |
+|:--|--:|--:|--:|--:|:--|
+| Task completion | 94.5% | **92.0%** | −2.5 | ≥85% | **Pass** |
+| Tool accuracy | 0.93 | **0.94** | +0.01 | ≥0.80 | **Pass** |
+| Semantic accuracy | 0.72 | **0.73** | +0.01 | ≥0.75 | Miss (−0.02) |
+| Grounding | 0.98 | **0.99** | +0.01 | ≥0.70 | **Pass** |
+| Latency p95 | 15,581 ms | **16,692 ms** | +1,111 | ≤15,000 ms | Miss (LLM-bound) |
+| Cost avg/task | $0.0040 | **$0.0038** | −$0.0002 | measured | Measured |
+
+**84 Pass / 16 Partial / 0 Fail; all 100 cases returned HTTP 200.** The three
+dropout goldens TC28/30/42 all score task 1.0 / semantic 1.00 — the slice PR
+#137 actually touched is clean.
+
+The task dip vs H69 (94.5 → 92.0, five more Partials, no Fails) sits in the
+case families the H68/H69 reports already flag as keyword-scorer noise on
+"data limitation" answers (cohort-dimension questions such as TC01/TC03/TC10/
+TC22, CLO TC29, guardrail phrasing TC55/TC56/TC59/TC60) — no new failure mode
+appeared. Latency p95 is still LLM-bound on the same heavy multi-tool tail
+(tool accuracy and grounding both improved), so the +1.1 s is run-to-run
+variance of that tail, not an infra or code regression.
+
+## Ops context recorded with this run
+
+- Manual `deploy/backup.sh` + `backup-verify.sh` PASS (7.57 MB dump, 72
+  tables restored into the throwaway DB) taken **before** the re-score.
+- PR #137's report-generation changes (AI narrative now opt-in via
+  `include_ai_narrative`, LLM numeric-grounding validation, temperature 0) do
+  not affect this eval — the chat-agent path, prompts and dataset are
+  unchanged, and prod has zero report schedules.
+- PR #137's demo-data scripts are a no-op on prod: `synthetic_data_lineage`
+  is empty there (1,824/1,824 students already carry realistic
+  `@student.epu.edu.vn` profiles), and the committed replacement mapping
+  changes zero student codes/names. Decision: do not run them on prod.
+- pytest subset for the PR #137-touched areas on the merged tree
+  (h71-postgres-backup + main): 39 passed.

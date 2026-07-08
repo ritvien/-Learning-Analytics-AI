@@ -35,16 +35,16 @@
 | **P1** | Phân tích khảo sát thầy cô → **problem statement · persona · painpoint** | Nền tảng pitch/README | P0 | **Hoàng** (doc) → Hưng dùng slide | ✅ [problem-persona-painpoint.md](../01-Brief/problem-persona-painpoint.md) từ [survey sheet](https://docs.google.com/spreadsheets/d/1q4TyfUCYb7XAwzuJeNOLNbufFsqj1Amr72lV3xyctE0/edit?gid=1675836548#gid=1675836548) — 2 persona + 6 painpoint có trích dẫn |
 | **T58a** | Làm **Pitch Deck 10 slide** (§9.6) → export PDF → `git add -f` (`.gitignore` có `*.pdf`) | #7 Pitch Deck | P0 | **Hưng** | `docs/12-Evaluation/gate3_pitch_deck.pdf` có nội dung; metric/cost khớp `evaluation.md`; slide problem/solution dùng **P1** |
 | **V35** | Quay **Video Demo 3–5' HD** trên URL Vercel thật → YouTube unlisted | #6 Video Demo | P0 | **Hưng** | Link YouTube trong `docs/12-Evaluation/video-demo.md` + README |
-| **D56a** | README: thêm section **Live URL** (Vercel FE `c2-app-056.vercel.app` + EC2 BE `edu-insight.duckdns.org`) | #2 / #5 | P0 | **Hoàng** | README có URL production, mở được incognito |
-| **D56b** | README: embed **4–6 screenshot** từ `docs/21-Release-Readiness/screenshots/` | #2 README | P1 | **Hoàng** | README render ảnh login/dashboard/chat |
-| **D57** | Tạo `docs/architecture.md` (trỏ/copy `SystemArchitecture.md`) | #3 Architecture | P1 | **Hoàng** | File tồn tại đúng path chuẩn checklist |
-| **D64** | Cập nhật `demo-day-phase1.md` sang URL production (đang trỏ Ngrok cũ) | #5 Live URL | P1 | **Hoàng** | MVP URL = Vercel; Video/Slide điền link thật |
-| **D65** | Rà & đồng bộ **tick sai** V34/V35/G3-4 với artifact thật | Docs chính xác | P1 | **Hoàng** | Tick phản ánh đúng thực tế *(đã sửa trong Sprint4 07/07; verify lần cuối trước nộp)* |
+| **D56a** | README: thêm section **Live URL** (Vercel FE `c2-app-056.vercel.app` + EC2 BE `edu-insight.duckdns.org`) | #2 / #5 | P0 | **Hoàng** | ✅ README có section "Bản demo trực tuyến (Live)" + login demo |
+| **D56b** | README: embed **4–6 screenshot** từ `docs/21-Release-Readiness/screenshots/` | #2 README | P1 | **Hoàng** | ✅ README có gallery 6 ảnh (login/analytics/tree/chat/at-risk/reports) |
+| **D57** | Tạo `docs/architecture.md` (trỏ/copy `SystemArchitecture.md`) | #3 Architecture | P1 | **Hoàng** | ✅ [architecture.md](../architecture.md) — 3 diagram + component + data flow + deploy |
+| **D64** | Cập nhật `demo-day-phase1.md` sang URL production (đang trỏ Ngrok cũ) | #5 Live URL | P1 | **Hoàng** | ✅ MVP URL = Vercel; thêm BE API + login demo |
+| **D65** | Rà & đồng bộ **tick sai** V34/V35/G3-4 với artifact thật | Docs chính xác | P1 | **Hoàng** | ✅ Sprint4 đã đồng bộ 07/07; verify lần cuối trước nộp |
 | **H76** | Sửa `except Exception: pass` [report_service.py:1196](../../backend/app/agent/report_service.py#L1196) | Code Quality (Lỗi #3) | P2 | **Hoàng** | Log cụ thể thay vì nuốt lỗi |
-| **D66** | Cập nhật journal cho Phase 2 (H69–H75, cutover EC2) | #8 Journal | P2 | **Hoàng** | `docs/journal.md` có entry sau 04/07 |
+| **D66** | Cập nhật journal cho Phase 2 (H69–H75, cutover EC2) | #8 Journal | P2 | **Hoàng** | ✅ journal.md thêm "Week 7 — Demo Day Phase 2" + 2 decision |
 | **V67** | Thumbnail Demo Day 1280×720 (nếu portal Phase 2 cần) | Bonus | P2 | **Hiếu** | Ảnh public PNG |
 | **V68** | Smoke incognito toàn luồng trước nộp (login → tree → chat → analytics) | QA cuối | P2 | **Hiếu** | Mọi link + luồng chính pass |
-| **H77** | Dọn file lạ `bang-doi-chieu-dong-gop.html` ở root | Repo sạch | P2 | **Hoàng** | Xóa hoặc chuyển vào `docs/` |
+| **H77** | Dọn file lạ `bang-doi-chieu-dong-gop.html` ở root | Repo sạch | P2 | **Hoàng** | ✅ chuyển vào `docs/09-Materials/`; dọn thêm PLAN/walkthrough/plan_review khỏi root |
 
 **Critical path:** P1 → T58a (slide) → V35 (video) · D56a unblock V35 (quay trên URL thật) và D64.  
 **Phân bổ:** Hưng gánh P0 thiếu hẳn (slide + video) · Hoàng doc/tài liệu (P1 + D56/D57/D64/D65 + H76/D66/H77) · Hiếu QA cuối + thumbnail.
@@ -106,7 +106,7 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | **H64** | Kế hoạch memory/cache cho agent | 01/07 12:00 | P1 | H49, H63 | [x] |
 | | Done: contract + short-term summary compaction, `agent_memories` reuse, CTĐT embedding/retrieval cache, prompt policy, migration/test coverage. Redis/tool-result cache deferred sau Demo Day. | | | | |
 | **H51** | CTĐT RAG Q&A MVP | 01/07 18:00 | P0 | H62, H63, H49 | [x] |
-| | Done: LangGraph tool `search_ctdt_program_info`, CTĐT prompt/router policy, alias/query program detection, unsupported non-MVP guard, citation JSON file/trang/section, no use for điểm/CLO cá nhân/dropout. Evidence: `walkthrough.md`, `backend/tests/test_ctdt_tool_h51.py`. | | | | |
+| | Done: LangGraph tool `search_ctdt_program_info`, CTĐT prompt/router policy, alias/query program detection, unsupported non-MVP guard, citation JSON file/trang/section, no use for điểm/CLO cá nhân/dropout. Evidence: [`stories/H51-walkthrough.md`](./stories/H51-walkthrough.md), `backend/tests/test_ctdt_tool_h51.py`. | | | | |
 | **H61** | **Mở rộng test case evaluation** | 02/07 12:00 | P0 | H59, T55e, H51 | [x] |
 | | Done: `gate3_test_cases.json` có 100 TC contiguous; TC36–TC71 Sprint 4 coverage, TC72–TC100 R2 harder coverage (multi-tool, linguistic robustness, hard data edges). Scorer hỗ trợ `expected_tool_sequence` / `expected_tool_counts`. | | | | |
 | **D59** | Production deploy Render + Vercel (+ UptimeRobot) | 02/07 EOD | P1 | T45 | [x] |
@@ -141,12 +141,14 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | | Done 06/07: [deploy/backup.sh](../../deploy/backup.sh) (`pg_dump -Fc` trong container → `~/backups/eduinsight-<weekday>.dump`, rotation 7 slot theo `date +%u`, ghi atomic temp→mv + size-check) + [deploy/backup-verify.sh](../../deploy/backup-verify.sh) (restore vào DB throwaway rồi drop — non-destructive) + `.gitattributes` (LF cho `*.sh`); merged vào `main`, EC2 pull. Cron `0 18 * * *` (18:00 UTC = 01:00 SGT) đã cài. Seed bản đầu `eduinsight-1.dump` **7.49 MB**; verify restore **PASS: 72 bảng, `enrollments`=56301 khớp prod**, throwaway DB drop OK. Runbook: [deploy/README.md](../../deploy/README.md) "Backups (H71)". Tùy chọn tương lai: đẩy S3. | | | | |
 | **H73** | **AWS billing alert + hardening nhẹ** | 08/07 **23:00** | P2 | — | [ ] → backlog |
 | | Budget $30/tháng + email alert; xác nhận SG chỉ mở 22 (My IP)/80/443; bật unattended-upgrades; theo dõi disk 18GB (`docker system df`). Chốt trước deadline Phase 2. | | | | |
-| **H72** | **Nghỉ hưu Render (sau ≥48h fallback)** | 09/07 EOD (sau Phase 2) | P1 | H69, H70 | [ ] → backlog |
-| | EC2 ổn định ≥48h → suspend `eduinsight-backend`; dump archive cuối của Render PG (free PG hết hạn ~30 ngày kể từ tạo); cập nhật d59-deployment-evidence.md. | | | | |
+| **H72** | **Nghỉ hưu Render (sau ≥48h fallback)** | 09/07 EOD (sau Phase 2) | P1 | H69, H70 | [x] |
+| | Done 08/07 (sớm 1 ngày — sau 2 ngày EC2 ổn định + H78 xanh): suspend `eduinsight-backend` qua Render API, verify trạng thái `suspended` ✓. Dump cuối của Render PG: **không cần** — EC2 (restore 06/07) là source of truth, data đã phân kỳ sau re-score H78, nightly backup H71 đang chạy; Render PG free để tự hết hạn (~30 ngày). [d59-deployment-evidence.md](../21-Release-Readiness/d59-deployment-evidence.md) đã cập nhật. | | | | |
 | **H74** | **Auto-deploy GitHub Actions → EC2** | buffer (sau Phase 2) | P2 | H71 | [ ] → backlog |
 | | Workflow on push `main`: SSH (secrets `EC2_SSH_KEY`, `EC2_HOST`) chạy `deploy/deploy.sh`; concurrency group; notify khi fail. | | | | |
 | **H75** | **Domain thật thay DuckDNS** | buffer (sau Phase 2) | P2 | — | [ ] → backlog |
 | | Mua domain (~50–250k/năm); A record → 18.143.20.43; đổi `API_DOMAIN` + restart caddy; đổi env Vercel + `CORS_ORIGINS` nếu cần. Giảm phụ thuộc DuckDNS (free, không SLA). | | | | |
+| **H78** | **Deploy PR #137 + dropout re-score + eval re-baseline** | 08/07 23:00 | P0 | H69 · PR #137 | [x] |
+| | Done 08/07: `deploy.sh` → EC2 `main @ bebb293a` (alembic no-op, health 200 public); backup thủ công + verify **PASS** (7.57 MB, 72 bảng) trước khi đổi data; batch re-score `/admin/ml/score-dropout?model_run_id=7` → **1.152/1.628 SV active** trong ~12s (476 bị loại bởi history gate ≥15 TC & ≥2 kỳ, prediction cũ bị dọn; threshold bundle **0.85** → high 604→441 · medium 164→201 · low 861→511; golden bảo lưu `21810310019` giữ nguyên). Audit goldens TC28/30/42 qua SQL read-only: **không đổi — không sửa dataset/pinned test**. Rerun 100-case → archive [`runs/2026-07-08-064216-8d5e83f9/`](../12-Evaluation/runs/2026-07-08-064216-8d5e83f9/) + section H78 trong [evaluation.md](../evaluation.md): task **92.0%** ✓ · tool **0.94** ✓ · grounding **0.99** ✓ · semantic 0.73 · p95 16,692 ms (LLM-bound) · 84 Pass/16 Partial/0 Fail · TC28/30/42 pass. pytest subset #137 trên merged tree: 39 passed. PR #138 mở (H76 log fallback + H77). FE Vercel bundle #137 live. Script demo-data #137: **no-op trên prod** (`synthetic_data_lineage` rỗng, 1824/1824 profile đã chuẩn) — chốt không chạy. H72 suspend Render: pending thao tác tay. | | | | |
 
 **Verify:** `cd backend && pytest -q -m "not slow and not eval"` · `python scripts/run_evaluation.py`
 
@@ -238,8 +240,8 @@ Rà soát từ eval reports, seed manifest và UI hiện tại. **T54** xuất `
 | D59 | Live URL production | Hoàng | 02/07 EOD | [x] |
 | D60 | Evaluation evidence | H60, H61, H47, H66 | 03/07 EOD · refresh sau H66 | [x] |
 | D61 | Test coverage ≥60% | Hoàng | 03/07 EOD | [x] |
-| D56 | README.md đầy đủ | V58, **V66** → D56 + team | 04/07 12:00 | [ ] |
-| D57 | `docs/architecture.md` | Hoàng | 04/07 EOD | [ ] |
+| D56 | README.md đầy đủ | V58, **V66** → D56 + team | 07/07 | [x] Live URL + 6 screenshot |
+| D57 | `docs/architecture.md` | Hoàng | 07/07 | [x] [architecture.md](../architecture.md) |
 | D62 | User feedback | Hiếu | 04/07 EOD | [x] |
 | D63 | Journal + Worklog | Hoàng | 04/07 EOD | [x] |
 | — | Slide + thuyết trình | T58a → T58b | 08/07 (Phase 2) | [ ] |

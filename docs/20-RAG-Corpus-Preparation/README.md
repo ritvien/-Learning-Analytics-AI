@@ -54,7 +54,7 @@ Day la nhom nguon gan nhat voi corpus ban giao cho Hoang. Cac file nay **khong n
 
 | Nguon | Vi tri | Noi dung | Trang thai cho T49 |
 | --- | --- | --- | --- |
-| PDF de cuong mau | `sample_syllabus.pdf` | File de cuong hoc phan mau dung de test extract/tach noi dung. | Co the dua vao MVP sau khi extract text sach. |
+| PDF de cuong mau | `sample_syllabus.pdf` *(da go khoi repo de giam dung luong; lay lai tu nguon EPU khi can)* | File de cuong hoc phan mau dung de test extract/tach noi dung. | Co the dua vao MVP sau khi extract text sach. |
 | Link PDF CLO/de cuong | `crawl/clo_pdf_urls.json` | Danh sach URL PDF de cuong hoc phan EPU. | Can download/verify lai link, tinh checksum, gan source metadata. |
 | CLO da extract backup | `crawl/extracted_clos_backup.json` | Ket qua extract CLO tu PDF backup. | Can review chat luong, map voi course/CLO hien tai, loai duplicate/noisy item. |
 | Raw EPU data | `epu_data.json` | Raw data crawl ban dau. | Chi dung de doi chieu/source lineage, khong dua thang vao RAG user-facing. |

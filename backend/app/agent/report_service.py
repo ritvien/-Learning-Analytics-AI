@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import time
 import unicodedata
@@ -44,6 +45,8 @@ from app.models.people import User
 from app.models.report import Report
 from app.models.teaching import Section
 from app.reports.service import generate_report
+
+logger = logging.getLogger(__name__)
 
 WRITE_INTENT_WORDS = ("tạo task", "tao task", "giao việc", "schedule", "hẹn lịch", "gửi report", "send report")
 
@@ -1194,7 +1197,9 @@ async def _build_answer(
             if content:
                 return _append_report_links(apply_output_guardrails(content), snapshot)
         except Exception:
-            pass
+            # LLM narrative is best-effort; fall back to the deterministic answer
+            # below on any failure (API error, timeout, bad response) but record it.
+            logger.warning("Report agent LLM answer failed; using deterministic fallback", exc_info=True)
     return _append_report_links(_deterministic_answer(message, mode, snapshot, tool_calls), snapshot)
 
 
