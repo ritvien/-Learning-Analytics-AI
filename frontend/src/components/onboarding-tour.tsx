@@ -278,7 +278,7 @@ export function OnboardingTour({ user }: { user: ApiUser }) {
           element?.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" })
         },
         onPopoverRender: (popover) => {
-          popover.closeButton.textContent = "Bỏ qua"
+          popover.closeButton.textContent = "×"
           popover.closeButton.setAttribute("aria-label", "Bỏ qua hướng dẫn")
           popover.closeButton.setAttribute("title", "Bỏ qua hướng dẫn")
         },
