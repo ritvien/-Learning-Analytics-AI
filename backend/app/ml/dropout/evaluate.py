@@ -47,7 +47,8 @@ def _aggregate_transformed_importance(
             if raw in aggregated:
                 aggregated[raw] += magnitude
         elif name.startswith("cat__"):
-            aggregated["program_id"] += magnitude
+            raw = name.removeprefix("cat__").rsplit("_", 1)[0]
+            aggregated[raw] = aggregated.get(raw, 0.0) + magnitude
     total = sum(aggregated.values()) or 1.0
     return {
         key: round(score / total, 4)

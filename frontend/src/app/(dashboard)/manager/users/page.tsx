@@ -399,7 +399,7 @@ export default function UsersPage() {
 
       {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
 
-      <div className="grid gap-3 md:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-5" data-tour="page-users-filters">
         {counts.map((item) => (
           <Card key={item.role}>
             <CardHeader className="pb-2">
@@ -431,7 +431,7 @@ export default function UsersPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card data-tour="page-users-results">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Users className="h-5 w-5" />

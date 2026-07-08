@@ -70,12 +70,6 @@ function barColor(value: number) {
   return "#dc2626"
 }
 
-function performanceTone(row: PerformanceRow) {
-  if ((row.passRate ?? 100) < 60 || (row.avgGrade ?? 10) < 5 || (row.atRiskRate ?? 0) >= 20) return "#dc2626"
-  if ((row.passRate ?? 100) < PASS_TARGET || (row.outcome ?? 100) < OUTCOME_TARGET || (row.atRiskRate ?? 0) >= 10) return "#f59e0b"
-  return "#059669"
-}
-
 function performanceRiskScore(row: PerformanceRow) {
   const passGap = row.passRate === null ? 0 : Math.max(0, PASS_TARGET - row.passRate)
   const gradeGap = row.avgGrade === null ? 0 : Math.max(0, 5.5 - row.avgGrade) * 10
@@ -452,39 +446,39 @@ export default function OutcomeAnalyticsPage() {
   if (!data) return <div className="text-sm text-muted-foreground">Chưa có dữ liệu sức khỏe khoa/ngành.</div>
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-        <div>
+    <div className="flex w-full min-w-0 max-w-full flex-col gap-5 overflow-x-hidden">
+      <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">Sức khỏe khoa/ngành</h1>
           <p className="text-sm text-muted-foreground">Góc nhìn quản lý theo kết quả học tập, quy mô, rủi ro sinh viên và mức đạt chuẩn đầu ra.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 xl:flex xl:w-auto xl:flex-wrap xl:justify-end">
           <Select value={semester} onValueChange={(value) => setSemester(value ?? "all")}>
-            <SelectTrigger className="w-48"><span className="truncate">{semesterLabel}</span></SelectTrigger>
+            <SelectTrigger className="w-full xl:w-48"><span className="truncate">{semesterLabel}</span></SelectTrigger>
             <SelectContent><SelectItem value="all">Tất cả học kỳ</SelectItem>{data.semesters.map((item) => <SelectItem key={item.id} value={item.code}>{item.name}</SelectItem>)}</SelectContent>
           </Select>
           {!scopedDepartmentId ? (
             <Select value={departmentId} onValueChange={(value) => { setDepartmentId(value ?? "all"); setProgramId("all") }}>
-              <SelectTrigger className="w-56"><span className="truncate">{departmentId === "all" ? "Tất cả khoa" : data.departments.find((department) => String(department.id) === departmentId)?.name ?? departmentId}</span></SelectTrigger>
+              <SelectTrigger className="w-full xl:w-56"><span className="truncate">{departmentId === "all" ? "Tất cả khoa" : data.departments.find((department) => String(department.id) === departmentId)?.name ?? departmentId}</span></SelectTrigger>
               <SelectContent><SelectItem value="all">Tất cả khoa</SelectItem>{data.departments.map((department) => <SelectItem key={department.id} value={String(department.id)}>{department.name}</SelectItem>)}</SelectContent>
             </Select>
           ) : null}
           <Select value={programId} onValueChange={(value) => setProgramId(value ?? "all")}>
-            <SelectTrigger className="w-64"><span className="truncate">{programLabel}</span></SelectTrigger>
+            <SelectTrigger className="w-full xl:w-64"><span className="truncate">{programLabel}</span></SelectTrigger>
             <SelectContent><SelectItem value="all">Tất cả ngành</SelectItem>{filteredPrograms.map((program) => <SelectItem key={program.id} value={String(program.id)}>{program.name}</SelectItem>)}</SelectContent>
           </Select>
           <Select value={ploId} onValueChange={(value) => setPloId(value ?? "all")}>
-            <SelectTrigger className="w-40"><span className="truncate">{ploId === "all" ? "Tất cả PLO" : ploOptions.find((item) => String(item.id) === ploId)?.code ?? ploId}</span></SelectTrigger>
+            <SelectTrigger className="w-full xl:w-40"><span className="truncate">{ploId === "all" ? "Tất cả PLO" : ploOptions.find((item) => String(item.id) === ploId)?.code ?? ploId}</span></SelectTrigger>
             <SelectContent><SelectItem value="all">Tất cả PLO</SelectItem>{ploOptions.map((item) => <SelectItem key={item.id} value={String(item.id)}>{item.code} · {item.name}</SelectItem>)}</SelectContent>
           </Select>
           <Select value={minEvidence} onValueChange={(value) => setMinEvidence(value ?? "30")}>
-            <SelectTrigger className="w-36"><span>n ≥ {minEvidence}</span></SelectTrigger>
+            <SelectTrigger className="w-full xl:w-36"><span>n ≥ {minEvidence}</span></SelectTrigger>
             <SelectContent><SelectItem value="10">n ≥ 10</SelectItem><SelectItem value="30">n ≥ 30</SelectItem><SelectItem value="100">n ≥ 100</SelectItem></SelectContent>
           </Select>
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-5">
         {[
           {
             label: "Sinh viên",
@@ -522,9 +516,9 @@ export default function OutcomeAnalyticsPage() {
             tone: data.kpis.attainment_pct >= OUTCOME_TARGET ? "text-emerald-600" : "text-destructive",
           },
         ].map((item) => (
-          <Card key={item.label}>
+          <Card key={item.label} className="min-w-0">
             <CardContent className="flex items-start justify-between gap-3 py-4">
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">{item.label}</p>
                 <p className="mt-1 text-2xl font-bold tabular-nums">{item.value}</p>
                 <p className="mt-1 text-[11px] text-muted-foreground">{item.note}</p>
@@ -536,7 +530,7 @@ export default function OutcomeAnalyticsPage() {
       </div>
 
       {urgentSignals.length ? (
-        <Card className="border-primary/20">
+        <Card className="min-w-0 border-primary/20">
           <CardHeader><CardTitle className="text-base">Điểm cần chú ý trước</CardTitle></CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {urgentSignals.map((item) => (
@@ -553,25 +547,42 @@ export default function OutcomeAnalyticsPage() {
         </Card>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        <Card>
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle className="text-base">Xu hướng sức khỏe theo học kỳ</CardTitle>
-            <CardDescription>Bar là quy mô lượt học; line là tỷ lệ đạt và điểm trung bình.</CardDescription>
+            <CardDescription>Trục trái là điểm TB (0-10), trục phải là tỷ lệ đạt (%); bar nền là quy mô lượt học.</CardDescription>
           </CardHeader>
           <CardContent className="h-[340px]">
             {trendRows.length ? (
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={trendRows} margin={{ top: 12, right: 8, bottom: 8, left: 0 }}>
+                <ComposedChart data={trendRows} margin={{ top: 12, right: 12, bottom: 8, left: 36 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="semester" tick={{ fontSize: 12 }} />
-                  <YAxis yAxisId="count" tick={{ fontSize: 12 }} />
-                  <YAxis yAxisId="rate" orientation="right" domain={[0, 100]} tick={{ fontSize: 12 }} />
-                  <YAxis yAxisId="grade" domain={[0, 10]} hide />
+                  <YAxis
+                    yAxisId="grade"
+                    domain={[0, 10]}
+                    ticks={[0, 2, 4, 6, 8, 10]}
+                    tickFormatter={(value) => `${value}đ`}
+                    tick={{ fontSize: 12, fill: "#475569" }}
+                    tickMargin={8}
+                    width={62}
+                    label={{ value: "Điểm TB", angle: -90, position: "insideLeft", offset: -4, fontSize: 12, fill: "#475569" }}
+                  />
+                  <YAxis
+                    yAxisId="rate"
+                    orientation="right"
+                    domain={[0, 100]}
+                    tick={{ fontSize: 12, fill: "#475569" }}
+                    tickFormatter={(value) => `${value}%`}
+                    label={{ value: "Tỷ lệ đạt", angle: 90, position: "insideRight", fontSize: 12, fill: "#475569" }}
+                  />
+                  <YAxis yAxisId="count" hide />
                   <Tooltip />
                   <Legend />
                   <ReferenceLine yAxisId="rate" y={PASS_TARGET} stroke="#f59e0b" strokeDasharray="4 4" />
-                  <Bar yAxisId="count" dataKey="count" name="Lượt học" fill="#93c5fd" radius={[4, 4, 0, 0]} maxBarSize={52} />
+                  <ReferenceLine yAxisId="grade" y={5.5} stroke="#ef4444" strokeDasharray="4 4" />
+                  <Bar yAxisId="count" dataKey="count" name="Lượt học" fill="#93c5fd" fillOpacity={0.55} radius={[4, 4, 0, 0]} maxBarSize={52} />
                   <Line yAxisId="rate" type="monotone" dataKey="passRate" name="Tỷ lệ đạt (%)" stroke="#059669" strokeWidth={2.5} dot={{ r: 3 }} />
                   <Line yAxisId="grade" type="monotone" dataKey="avgGrade" name="Điểm TB" stroke="#2563eb" strokeWidth={2.5} dot={{ r: 3 }} />
                 </ComposedChart>
@@ -580,7 +591,7 @@ export default function OutcomeAnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle className="text-base">Ma trận hiệu suất khoa/ngành</CardTitle>
             <CardDescription>Mỗi chấm là một khoa/ngành. Sang phải là đạt học phần tốt hơn, lên cao là điểm trung bình tốt hơn.</CardDescription>
@@ -595,9 +606,9 @@ export default function OutcomeAnalyticsPage() {
               <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />ổn hơn</span>
             </div>
             <div className="h-[340px]">
-            {observedPerformanceRows.length >= 3 ? (
+            {matrixRows.length ? (
               <ResponsiveContainer width="100%" height="100%">
-                <ScatterChart margin={{ top: 12, right: 18, bottom: 12, left: 0 }}>
+                <ScatterChart margin={{ top: 12, right: 18, bottom: 12, left: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     type="number"
@@ -614,6 +625,7 @@ export default function OutcomeAnalyticsPage() {
                     name="Điểm trung bình"
                     domain={[0, 10]}
                     tick={{ fontSize: 12 }}
+                    width={44}
                     label={{ value: "Điểm trung bình (0-10)", angle: -90, position: "insideLeft", fontSize: 12 }}
                   />
                   <ZAxis type="number" dataKey="volume" range={[180, 1100]} />
@@ -626,22 +638,30 @@ export default function OutcomeAnalyticsPage() {
                 </ScatterChart>
               </ResponsiveContainer>
             ) : observedPerformanceRows.length ? (
-              <div className="h-full">
+              <div className="flex h-full flex-col">
                 <div className="mb-3 rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-800">
-                  Phạm vi này chưa đủ điểm để vẽ ma trận, nên hiển thị ranking hiệu suất quan sát được.
+                  Phạm vi này thiếu tỷ lệ đạt hoặc điểm trung bình, nên chưa thể đặt lên ma trận X/Y.
                 </div>
-                <ResponsiveContainer width="100%" height="82%">
-                  <BarChart data={observedPerformanceRows.slice(0, 8)} layout="vertical" margin={{ top: 8, right: 32, bottom: 8, left: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 12 }} />
-                    <YAxis type="category" dataKey="code" width={88} tick={{ fontSize: 12 }} />
-                    <Tooltip />
-                    <ReferenceLine x={PASS_TARGET} stroke="#ef4444" strokeDasharray="4 4" />
-                    <Bar dataKey="passRate" name="Tỷ lệ đạt (%)" radius={[0, 5, 5, 0]} maxBarSize={26}>
-                      {observedPerformanceRows.slice(0, 8).map((row) => <Cell key={`${row.level}:${row.id}`} fill={performanceTone(row)} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="min-h-0 flex-1 overflow-x-auto rounded-md border">
+                  <table className="w-full min-w-[560px] text-xs">
+                    <thead>
+                      <tr className="border-b bg-muted/40 text-left text-muted-foreground">
+                        {["Đơn vị", "Đạt học phần", "Điểm TB", "SV rủi ro", "Outcome"].map((item) => <th key={item} className="px-3 py-2 font-medium">{item}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {observedPerformanceRows.slice(0, 8).map((row) => (
+                        <tr key={`${row.level}:${row.id}`}>
+                          <td className="px-3 py-2"><div className="font-medium">{row.code}</div><div className="max-w-[180px] truncate text-muted-foreground">{row.name}</div></td>
+                          <td className="px-3 py-2">{pct(row.passRate)}</td>
+                          <td className="px-3 py-2">{row.avgGrade === null ? "—" : row.avgGrade.toFixed(2)}</td>
+                          <td className="px-3 py-2">{row.atRisk === null ? "—" : `${numberText(row.atRisk)} (${pct(row.atRiskRate)})`}</td>
+                          <td className="px-3 py-2">{pct(row.outcome)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             ) : observableOutcomeRows.length ? (
               <div className="h-full">
@@ -664,12 +684,12 @@ export default function OutcomeAnalyticsPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="min-w-0">
         <CardHeader>
           <CardTitle className="text-base">Xếp hạng đơn vị cần ưu tiên</CardTitle>
           <CardDescription>Ưu tiên theo tín hiệu quan sát được: tỷ lệ đạt, điểm trung bình, sinh viên rủi ro và outcome.</CardDescription>
         </CardHeader>
-        <CardContent className="overflow-x-auto p-0">
+        <CardContent className="min-w-0 overflow-x-auto p-0">
           <table className="w-full min-w-[860px] text-xs">
             <thead><tr className="border-y bg-muted/40 text-left text-muted-foreground">{["Đơn vị", "Cấp", "SV", "Đạt học phần", "Điểm TB", "SV rủi ro", "Outcome", "PLO yếu"].map((item) => <th key={item} className="px-4 py-3 font-medium">{item}</th>)}</tr></thead>
             <tbody className="divide-y">
@@ -698,12 +718,12 @@ export default function OutcomeAnalyticsPage() {
       </Card>
 
       {sparseOutcomePrograms.length || unmappedProgramCount ? (
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle className="text-base">Ngành chưa đủ dữ liệu phân tích</CardTitle>
             <CardDescription>Các ngành này có trong danh mục nhưng chưa đủ chuỗi mapping để lên biểu đồ outcome.</CardDescription>
           </CardHeader>
-          <CardContent className="overflow-x-auto p-0">
+          <CardContent className="min-w-0 overflow-x-auto p-0">
             {unmappedProgramCount ? (
               <div className="border-b px-4 py-3 text-sm text-muted-foreground">
                 {unmappedProgramCount} ngành chưa map môn học vào chương trình đang được gom lại, không đưa vào ranking can thiệp.
@@ -746,7 +766,7 @@ export default function OutcomeAnalyticsPage() {
         <p className="text-sm text-muted-foreground">PLO/CLO là một nhóm chỉ báo trong dashboard; dùng phần này để truy nguồn từ PLO yếu tới môn và CLO cụ thể.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
+      <div className="grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-5">
         {[
           ["PLO có dữ liệu", data.kpis.plos_with_evidence, Target, "text-primary"],
           ["PLO đạt chuẩn", data.kpis.plos_at_target, CheckCircle2, "text-emerald-600"],
@@ -754,9 +774,9 @@ export default function OutcomeAnalyticsPage() {
           ["Môn có dữ liệu", data.kpis.courses_with_evidence, BookOpen, "text-blue-600"],
           ["Attainment TB", pct(data.kpis.attainment_pct), Target, data.kpis.attainment_pct >= OUTCOME_TARGET ? "text-emerald-600" : "text-destructive"],
         ].map(([label, value, Icon, tone]) => (
-          <Card key={String(label)}>
+          <Card key={String(label)} className="min-w-0">
             <CardContent className="flex items-start justify-between gap-2 py-4">
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">{String(label)}</p>
                 <p className="mt-1 text-2xl font-bold tabular-nums">{String(value)}</p>
               </div>
@@ -766,8 +786,8 @@ export default function OutcomeAnalyticsPage() {
         ))}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-        <Card>
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle className="text-base">PLO yếu nhất</CardTitle>
             <CardDescription>Mỗi dòng là một PLO trong một ngành; thanh thể hiện mức đạt so với ngưỡng 70%.</CardDescription>
@@ -805,9 +825,9 @@ export default function OutcomeAnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0">
           <CardHeader><CardTitle className="text-base">Môn kéo PLO xuống</CardTitle></CardHeader>
-          <CardContent className="overflow-x-auto p-0">
+          <CardContent className="min-w-0 overflow-x-auto p-0">
             <table className="w-full min-w-[820px] text-xs">
               <thead><tr className="border-y bg-muted/40 text-left text-muted-foreground">{["PLO", "Môn", "Đạt", "Cỡ mẫu", "Action"].map((item) => <th key={item} className="px-4 py-3 font-medium">{item}</th>)}</tr></thead>
               <tbody className="divide-y">{driverCourses.map((row) => <tr key={`${row.plo_id}:${row.course_id}`}><td className="px-4 py-3"><div className="font-semibold">{row.plo_code}</div><div className="text-muted-foreground">{row.program_code}</div></td><td className="px-4 py-3"><div className="font-medium">{row.course_code}</div><div className="max-w-[260px] truncate text-muted-foreground">{row.course_name}</div></td><td className="px-4 py-3"><Badge variant={row.attainment_pct < OUTCOME_TARGET ? "destructive" : "secondary"}>{pct(row.attainment_pct)}</Badge></td><td className="px-4 py-3 tabular-nums">{numberText(row.evidence_count)}</td><td className="px-4 py-3"><Link className="font-medium text-primary hover:underline" href={analyticsHref("/manager/analytics/courses", { course_id: row.course_id, program_id: row.program_id, semester_code: semester === "all" ? undefined : semester, source: "outcomes" })}>Xem môn</Link></td></tr>)}</tbody>
@@ -816,7 +836,7 @@ export default function OutcomeAnalyticsPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="min-w-0">
         <CardHeader><CardTitle className="text-base">CLO driver chi tiết</CardTitle></CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {driverClos.length ? driverClos.map((row) => (

@@ -150,3 +150,49 @@
     @apply font-sans;
   }
 }
+
+.driver-popover.eduinsight-onboarding {
+  max-width: min(360px, calc(100vw - 24px));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  box-shadow: 0 16px 40px rgb(15 23 42 / 18%);
+}
+
+.driver-popover.eduinsight-onboarding .driver-popover-title {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  line-height: 1.35;
+  padding-right: 32px;
+}
+
+.driver-popover.eduinsight-onboarding .driver-popover-description {
+  line-height: 1.55;
+}
+
+.driver-popover.eduinsight-onboarding button {
+  border-radius: 6px;
+  text-shadow: none;
+}
+
+.driver-popover.eduinsight-onboarding .driver-popover-close-btn {
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: none;
+  opacity: 1;
+}
+
+.driver-popover.eduinsight-onboarding .driver-popover-close-btn:hover {
+  border-color: var(--border);
+  background: var(--muted);
+  color: var(--foreground);
+}

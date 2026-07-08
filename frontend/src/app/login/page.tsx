@@ -2,7 +2,6 @@
 
 import { FormEvent, useState } from "react"
 import { useRouter } from "next/navigation"
-import { GraduationCap } from "lucide-react"
 
 import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"

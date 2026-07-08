@@ -361,7 +361,7 @@ export default function TeachersPage() {
             <DialogTrigger render={<Button disabled={!canCreateTeacher} />}>
               <Plus className="mr-2 h-4 w-4" /> Thêm GV
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[520px]">
+            <DialogContent className="sm:max-w-[680px]">
               <form onSubmit={handleCreate}>
                 <DialogHeader>
                   <DialogTitle>Thêm Giảng viên</DialogTitle>
@@ -405,7 +405,7 @@ export default function TeachersPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 rounded-md border p-3 md:grid-cols-[minmax(220px,1fr)_220px_auto] md:items-end">
+      <div className="grid gap-3 rounded-md border p-3 md:grid-cols-[minmax(220px,1fr)_220px_auto] md:items-end" data-tour="page-teachers-filters">
         <div className="space-y-1">
           <Label className="text-xs font-semibold">Khoa</Label>
           <Select value={departmentFilter} onValueChange={(value) => setDepartmentFilter(value ?? "all")}>
@@ -445,10 +445,12 @@ export default function TeachersPage() {
         </Button>
       </div>
 
-      <DataTable columns={columns} data={filteredTeachers} searchKey="hoTen" searchPlaceholder="Tìm theo tên GV..." />
+      <div data-tour="page-teachers-results">
+        <DataTable columns={columns} data={filteredTeachers} searchKey="hoTen" searchPlaceholder="Tìm theo tên GV..." />
+      </div>
 
       <Dialog open={!!editTeacher} onOpenChange={(open) => { if (!open) setEditTeacher(null) }}>
-        <DialogContent className="sm:max-w-[520px]">
+        <DialogContent className="sm:max-w-[680px]">
           {editTeacher && (
             <form onSubmit={handleUpdate}>
               <DialogHeader>
@@ -659,7 +661,8 @@ function AssignSectionsDialog({
 
   React.useEffect(() => {
     if (semesters.length > 0 && !selectedSemesterId) {
-      const latest = [...semesters].sort((a, b) => b.id - a.id)[0]
+      const latest = semesters.find((semester) => semester.is_current)
+        ?? [...semesters].sort((a, b) => b.year - a.year || b.term - a.term || b.id - a.id)[0]
       setSelectedSemesterId(String(latest.id))
     }
   }, [semesters, selectedSemesterId])
@@ -678,6 +681,14 @@ function AssignSectionsDialog({
   const teacherDepartmentCourses = courses.filter((course) => course.department_id === teacher.departmentId)
   const teacherDepartmentCourseIds = new Set(teacherDepartmentCourses.map((course) => course.id))
   const visibleAssignedCount = tempAssignedIds.length
+  const currentSemesterSections = sections.filter(
+    (section) => String(section.semester_id) === selectedSemesterId && teacherDepartmentCourseIds.has(section.course_id),
+  )
+  const changedSections = currentSemesterSections.filter((section) => {
+    const wasAssigned = section.teacher_id === Number(teacher.id)
+    const isChecked = tempAssignedIds.includes(section.id)
+    return wasAssigned !== isChecked
+  })
 
   const filteredSections = sections.filter((sec) => {
     if (String(sec.semester_id) !== selectedSemesterId) return false
@@ -733,10 +744,6 @@ function AssignSectionsDialog({
     setSaving(true)
     setError(null)
     try {
-      const currentSemesterSections = sections.filter(
-        (s) => String(s.semester_id) === selectedSemesterId && teacherDepartmentCourseIds.has(s.course_id)
-      )
-      
       // Kiểm tra xem có lớp nào đang được gán cho giảng viên khác mà người dùng muốn chuyển không
       const sectionsToTransfer: ApiSection[] = []
       for (const sec of currentSemesterSections) {
@@ -764,6 +771,12 @@ function AssignSectionsDialog({
         }
       }
 
+      if (changedSections.length === 0) {
+        setError("Chưa có thay đổi nào để lưu. Hãy chọn hoặc bỏ chọn lớp học phần trước.")
+        setSaving(false)
+        return
+      }
+
       const promises: Promise<unknown>[] = []
 
       for (const sec of currentSemesterSections) {
@@ -788,10 +801,10 @@ function AssignSectionsDialog({
 
   return (
     <Dialog open={true} onOpenChange={(open) => { if (!open) onClose() }}>
-      <DialogContent className="sm:max-w-[760px] max-h-[85vh] flex flex-col p-6">
+      <DialogContent className="sm:max-w-[900px] max-h-[85vh] flex flex-col p-6">
         <DialogHeader className="pb-2">
           <DialogTitle>Phân công lớp học phần</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="leading-relaxed">
             Phân công lớp cho <strong>{teacher.hoTen}</strong> ({teacher.maGV}) trong khoa {teacher.khoaQuanLy}.
           </DialogDescription>
         </DialogHeader>
@@ -803,7 +816,7 @@ function AssignSectionsDialog({
         )}
 
         <div className="flex flex-col gap-4 py-2 flex-1 overflow-hidden">
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-[180px_minmax(280px,1fr)_220px]">
             <div className="space-y-1">
               <Label>Học kỳ</Label>
               <Select value={selectedSemesterId} onValueChange={(value) => setSelectedSemesterId(value ?? "")}>
@@ -818,12 +831,17 @@ function AssignSectionsDialog({
             <div className="space-y-1">
               <Label>Môn học trong khoa</Label>
               <Select value={selectedCourseId} onValueChange={(value) => setSelectedCourseId(value ?? "all")}>
-                <SelectTrigger><SelectValue placeholder="Tất cả môn" /></SelectTrigger>
-                <SelectContent>
+                <SelectTrigger className="h-auto min-h-9 w-full whitespace-normal py-2 *:data-[slot=select-value]:line-clamp-none">
+                  <SelectValue placeholder="Tất cả môn" />
+                </SelectTrigger>
+                <SelectContent align="start" className="max-h-80 min-w-[min(560px,calc(100vw-2rem))]">
                   <SelectItem value="all">Tất cả môn trong khoa</SelectItem>
                   {teacherDepartmentCourses.map((course) => (
-                    <SelectItem key={course.id} value={String(course.id)}>
-                      {course.code} - {course.name}
+                    <SelectItem key={course.id} value={String(course.id)} className="items-start py-2 pr-8">
+                      <span className="flex min-w-0 flex-col gap-0.5 whitespace-normal leading-snug">
+                        <span className="font-mono text-xs font-semibold text-primary">{course.code}</span>
+                        <span>{course.name}</span>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -936,8 +954,8 @@ function AssignSectionsDialog({
 
         <DialogFooter className="pt-2 border-t">
           <Button variant="outline" onClick={onClose} disabled={saving}>Hủy</Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Đang lưu..." : `Lưu ${visibleAssignedCount} lớp đã chọn`}
+          <Button onClick={handleSave} disabled={saving || changedSections.length === 0}>
+            {saving ? "Đang lưu..." : changedSections.length ? `Lưu ${changedSections.length} thay đổi` : `Đã chọn ${visibleAssignedCount} lớp`}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -946,9 +964,8 @@ function AssignSectionsDialog({
 }
 
 function TeacherForm({ departments, teacher }: { departments: ApiDepartment[]; teacher?: TeacherRow }) {
-  const selectedDepartment = departments.find((department) => department.name === teacher?.khoaQuanLy)
-  const defaultDepartmentValue = selectedDepartment?.id
-    ? String(selectedDepartment.id)
+  const defaultDepartmentValue = teacher?.departmentId
+    ? String(teacher.departmentId)
     : departments.length === 1
       ? String(departments[0].id)
       : ""
@@ -975,15 +992,20 @@ function TeacherForm({ departments, teacher }: { departments: ApiDepartment[]; t
           <Input name="soDienThoai" defaultValue={teacher?.soDienThoai} />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2 md:col-span-2">
           <Label>Khoa quản lý *</Label>
           <Select name="department_id" defaultValue={defaultDepartmentValue}>
-            <SelectTrigger><SelectValue placeholder="Chọn khoa quản lý" /></SelectTrigger>
-            <SelectContent>
+            <SelectTrigger className="h-auto min-h-10 w-full items-start whitespace-normal py-2 *:data-[slot=select-value]:line-clamp-none">
+              <SelectValue placeholder="Chọn khoa quản lý" />
+            </SelectTrigger>
+            <SelectContent align="start" className="max-h-80 min-w-[min(640px,calc(100vw-2rem))]">
               {departments.map((department) => (
-                <SelectItem key={department.id} value={String(department.id)}>
-                  {department.code} - {department.name}
+                <SelectItem key={department.id} value={String(department.id)} className="items-start py-2 pr-8">
+                  <span className="flex min-w-0 flex-col gap-0.5 whitespace-normal leading-snug">
+                    <span className="font-mono text-xs font-semibold text-primary">{department.code}</span>
+                    <span>{department.name}</span>
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>

@@ -797,6 +797,7 @@ export default function ChatPage() {
 
         <div className="flex-1 overflow-y-auto py-4 px-6" ref={scrollRef}>
           <div className="flex flex-col gap-4 w-full">
+            <div data-tour="page-chat-messages">
             {messages.map((msg) => (
               <div
                 key={msg.id}
@@ -1042,6 +1043,7 @@ export default function ChatPage() {
                 </div>
               </div>
             ))}
+            </div>
 
             {messages.length === 1 && (
               <div className="mt-4">
@@ -1069,6 +1071,7 @@ export default function ChatPage() {
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              data-tour="page-chat-input"
               placeholder="Hỏi bất cứ điều gì về dữ liệu học tập..."
               disabled={isLoading}
               className="flex-1 rounded-xl pr-12 shadow-sm"

@@ -20,4 +20,6 @@ def test_model_metrics_dataclass() -> None:
 
 def test_training_feature_set_matches_spec() -> None:
     assert "status" not in FEATURE_COLUMNS
+    assert "cohort_year" not in FEATURE_COLUMNS
+    assert "program_id" not in FEATURE_COLUMNS
     assert "fail_rate" in FEATURE_COLUMNS
