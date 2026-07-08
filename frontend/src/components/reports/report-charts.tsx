@@ -23,6 +23,8 @@ import {
   Line,
 } from "recharts"
 
+import { normalizeReportDeepDiveHref } from "@/lib/report-deep-dive"
+
 // ── Shared tooltip style ──────────────────────────────────────────────────────
 
 const TOOLTIP_STYLE: React.CSSProperties = {
@@ -45,8 +47,9 @@ interface BarItem {
 }
 
 function openReportHref(href?: string) {
-  if (!href) return
-  window.location.assign(href)
+  const safeHref = normalizeReportDeepDiveHref(href)
+  if (!safeHref) return
+  window.location.assign(safeHref)
 }
 
 export function ReportBarChart({
@@ -66,13 +69,14 @@ export function ReportBarChart({
   const barHeight = Math.max(120, data.length * 44 + 48)
   const computedHeight = height ?? barHeight
   const isPercent = unit === "%"
-  const hasLinks = data.some((item) => item.href)
+  const linkedData = data.map((item) => ({ ...item, href: normalizeReportDeepDiveHref(item.href) ?? undefined }))
+  const hasLinks = linkedData.some((item) => item.href)
 
   return (
     <div className="space-y-2">
       <ResponsiveContainer width="100%" height={computedHeight}>
       <BarChart
-        data={data}
+        data={linkedData}
         layout="vertical"
         margin={{ top: 4, right: 40, left: 8, bottom: 4 }}
       >
@@ -111,7 +115,7 @@ export function ReportBarChart({
             openReportHref(payload?.href ?? payload?.payload?.href)
           }
         >
-          {data.map((entry) => (
+          {linkedData.map((entry) => (
             <Cell
               key={entry.name}
               fill={isPercent ? (entry.value >= target ? "hsl(var(--primary))" : "hsl(var(--destructive))") : "hsl(var(--destructive))"}
@@ -124,7 +128,7 @@ export function ReportBarChart({
       </ResponsiveContainer>
       {hasLinks ? (
         <div className="flex flex-wrap gap-2 border-t pt-2">
-          {data
+          {linkedData
             .filter((item) => item.href)
             .map((item) => (
               <a
@@ -164,7 +168,7 @@ export function ReportSectionBarChart({
     "Tỷ lệ đạt": item.pass_rate,
     fullLabel: item.teacher ? `${item.name} — ${item.teacher}` : item.name,
     sample: item.sample,
-    href: item.href,
+    href: normalizeReportDeepDiveHref(item.href) ?? undefined,
   }))
   const hasLinks = chartData.some((item) => item.href)
 
