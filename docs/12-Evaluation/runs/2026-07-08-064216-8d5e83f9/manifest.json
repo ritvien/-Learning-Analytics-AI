@@ -1,0 +1,50 @@
+{
+  "task": "H78",
+  "started_at": "2026-07-08T06:42:16.404391+00:00",
+  "commit_sha": "8d5e83f9ebe181e962736aa0b74a35f468b36f7b",
+  "commit_short_sha": "8d5e83f9",
+  "git_dirty": true,
+  "dataset_version": "gate3-h61-100-88ed3ab71f60",
+  "eval_set_version": "h61-expanded-100",
+  "test_cases_path": "docs\\12-Evaluation\\gate3_test_cases.json",
+  "test_cases_sha256": "88ed3ab71f60fa60ed1e3c6ccc96742ae2678a73a07667ae0a7ae84b071ecaae",
+  "test_case_count": 100,
+  "prompt_versions": [
+    {
+      "name": "router",
+      "version": "2026-07-01.2",
+      "checksum": "3b067817117440c258064f4323d263ef172ad98a1ff4b9ec3fd8aa60baf73e7c",
+      "is_active": true
+    },
+    {
+      "name": "core_agent",
+      "version": "2026-07-04.2",
+      "checksum": "b2a7d71a79d6b44e10e51ea65a8087ba465a97095e9f2d72ea62381d47df5a40",
+      "is_active": true
+    },
+    {
+      "name": "fast_response",
+      "version": "2026-07-01.1",
+      "checksum": "e3ab4d024b9dc70d07d0f163b3189ac31b1260f52e3e400070c53086b5539208",
+      "is_active": true
+    }
+  ],
+  "runtime": {
+    "llm_provider": "openai",
+    "llm_model": "gpt-5.4-nano",
+    "agent_router_model": "gpt-5.4-nano",
+    "agent_core_model": "gpt-5.4-nano",
+    "rag_embedding_model": "text-embedding-3-small",
+    "base_url": "https://edu-insight.duckdns.org",
+    "eval_email": "lecturer@epu.edu.vn",
+    "evaluator_pricing_model": "gpt-5.4-nano",
+    "langsmith_tracing": "true",
+    "langsmith_project": "EduInsight",
+    "runtime_config_hash": "af7deccffbfe95996cf363049126ea4eccc39979b70af966c505fae38056407c"
+  },
+  "with_judge": false,
+  "results_source": "api",
+  "notes": [
+    "Post-PR#137 re-baseline on EC2 main@bebb293a: dropout re-score run 7 (bundle threshold 0.85, history gate >=15 credits & >=2 semesters, 1152/1628 actives scored, 476 excluded). Goldens TC28/30/42 re-audited via SQL and unchanged; all three pass."
+  ]
+}
