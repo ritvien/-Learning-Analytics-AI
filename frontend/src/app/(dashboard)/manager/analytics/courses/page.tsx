@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { AlertCircle, AlertTriangle, BookOpen, CheckCircle2, Search, SlidersHorizontal, TrendingUp, Users, X } from "lucide-react"
 import {
   Bar,
@@ -13,9 +13,12 @@ import {
   LineChart,
   ReferenceLine,
   ResponsiveContainer,
+  Scatter,
+  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
+  ZAxis,
 } from "recharts"
 
 import { Badge } from "@/components/ui/badge"
@@ -24,7 +27,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { AnalyticsTableSkeleton } from "@/components/loading/page-skeletons"
-import { api, type ApiCourse, type ApiDashboardCourses, type ApiUser } from "@/lib/api"
+import { api, invalidateApiCacheByPrefix, type ApiCourse, type ApiDashboardCourses, type ApiUser } from "@/lib/api"
 import { analyticsHref } from "@/lib/analytics-filters"
 
 const GRADE_COLORS: Record<string, string> = {
@@ -37,6 +40,15 @@ const GRADE_COLORS: Record<string, string> = {
 const SECTION_COMPARE_LIMIT = 18
 const SECTION_SMALL_SAMPLE_THRESHOLD = 15
 const PASS_TARGET = 70
+const MIN_COURSE_SAMPLE_SIZE = 20
+
+type CourseFilterOption = {
+  id: number
+  code: string
+  name: string
+  department_id?: number | null
+  program_ids?: number[]
+}
 
 function routeValue(value: string) {
   return value === "all" ? undefined : Number(value)
@@ -55,6 +67,7 @@ function chartActiveLabel(state: unknown) {
 }
 
 export default function CourseAnalyticsPage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [currentUser, setCurrentUser] = React.useState<ApiUser | null>(null)
   const [data, setData] = React.useState<ApiDashboardCourses | null>(null)
@@ -66,6 +79,7 @@ export default function CourseAnalyticsPage() {
   const [selProg, setSelProg] = React.useState(searchParams.get("program_id") ?? searchParams.get("program") ?? "all")
   const [selCourse, setSelCourse] = React.useState(searchParams.get("course_id") ?? searchParams.get("course") ?? "all")
   const [courseQuery, setCourseQuery] = React.useState("")
+  const [isCoursePickerOpen, setIsCoursePickerOpen] = React.useState(false)
   const [trendRange, setTrendRange] = React.useState("6")
   const [showAdvanced, setShowAdvanced] = React.useState(false)
 
@@ -112,6 +126,7 @@ export default function CourseAnalyticsPage() {
       program_id: params.program_id,
     }
     const parsedCourseId = Number(selCourse)
+    invalidateApiCacheByPrefix("/api/v1/analytics/dashboard/courses")
     const request = selCourse !== "all" && Number.isFinite(parsedCourseId)
       ? Promise.all([
         api.getDashboardCourse(parsedCourseId, params),
@@ -188,13 +203,39 @@ export default function CourseAnalyticsPage() {
     if (nextUrl !== currentUrl) window.history.replaceState(null, "", nextUrl)
   }, [searchParams, selCourse, selDept, selProg, selSemester])
 
+  const courseRows = React.useMemo(() => data?.course_rows ?? [], [data])
+
   const filteredPrograms = React.useMemo(() => {
     if (!data) return []
     if (selDept === "all") return data.programs
     return data.programs.filter((program) => program.department_id === Number(selDept))
   }, [data, selDept])
 
-  const filteredCourseOptions = React.useMemo(() => {
+  const allowedCourseIds = React.useMemo(() => {
+    if (selDept === "all" && selProg === "all") return null
+    const ids = new Set<number>()
+    for (const course of courseOptions) {
+      if (selProg !== "all") {
+        if (course.program_ids.includes(Number(selProg))) ids.add(course.id)
+        continue
+      }
+      if (selDept !== "all" && course.department_id === Number(selDept)) ids.add(course.id)
+    }
+    return ids
+  }, [courseOptions, selDept, selProg])
+
+  const filteredCourseOptions = React.useMemo<CourseFilterOption[]>(() => {
+    if (courseRows.length) {
+      const scopedRows = allowedCourseIds && courseOptions.length
+        ? courseRows.filter((course) => allowedCourseIds.has(course.id))
+        : courseRows
+      return scopedRows.map((course) => ({
+        id: course.id,
+        code: course.code,
+        name: course.name,
+      }))
+    }
+
     const departmentProgramIds = new Set(
       (data?.programs ?? [])
         .filter((program) => program.department_id === Number(selDept))
@@ -209,17 +250,33 @@ export default function CourseAnalyticsPage() {
       if (selProg !== "all" && !course.program_ids.includes(Number(selProg))) return false
       return true
     })
-  }, [courseOptions, data, selDept, selProg])
+  }, [allowedCourseIds, courseOptions, courseRows, data, selDept, selProg])
 
   const courseSuggestions = React.useMemo(() => {
     const normalized = courseQuery.trim().toLocaleLowerCase("vi")
-    if (!normalized) return []
-    return filteredCourseOptions
-      .filter((course) => `${course.code} ${course.name}`.toLocaleLowerCase("vi").includes(normalized))
-      .slice(0, 8)
+    const source = normalized
+      ? filteredCourseOptions.filter((course) => `${course.id} ${course.code} ${course.name}`.toLocaleLowerCase("vi").includes(normalized))
+      : filteredCourseOptions
+    return [...source]
+      .sort((a, b) => a.code.localeCompare(b.code, "vi"))
+      .slice(0, 12)
   }, [courseQuery, filteredCourseOptions])
 
-  const courseRows = React.useMemo(() => data?.course_rows ?? [], [data])
+  const exactCourseMatch = React.useMemo(() => {
+    const normalized = courseQuery.trim().toLocaleLowerCase("vi")
+    if (!normalized) return null
+    return filteredCourseOptions.find((course) => {
+      const code = course.code.toLocaleLowerCase("vi")
+      const label = `${course.code} - ${course.name}`.toLocaleLowerCase("vi")
+      return String(course.id) === normalized || code === normalized || label === normalized
+    }) ?? null
+  }, [courseQuery, filteredCourseOptions])
+
+  const visibleCourseSuggestions = React.useMemo(() => {
+    if (!isCoursePickerOpen) return []
+    return courseSuggestions
+  }, [courseSuggestions, isCoursePickerOpen])
+
   const selectedCourse = data?.selected_course?.course
     ?? filteredCourseOptions.find((course) => course.id === Number(selCourse))
     ?? courseRows.find((course) => course.id === Number(selCourse))
@@ -241,6 +298,8 @@ export default function CourseAnalyticsPage() {
       : 0
     return {
       readyCount: readyRows.length,
+      gradedCourseCount: courseRows.filter((course) => course.completed_enrollments > 0).length,
+      missingGradeCount: courseRows.reduce((sum, course) => sum + course.missing_grade_count, 0),
       totalEnrollments,
       weightedPassRate,
       belowPassTarget: courseRows.filter((course) => course.completed_enrollments >= 20 && course.pass_rate < PASS_TARGET).length,
@@ -253,6 +312,10 @@ export default function CourseAnalyticsPage() {
       priorityRows: [...readyRows].sort((a, b) => (a.health_score ?? 101) - (b.health_score ?? 101)).slice(0, 8),
       insufficientCount: courseRows.filter((course) => course.data_status === "insufficient_sample").length,
       missingCloCount: courseRows.filter((course) => course.data_status === "missing_clo").length,
+      excludedRows: [...courseRows]
+        .filter((course) => course.data_status !== "ready")
+        .sort((a, b) => b.completed_enrollments - a.completed_enrollments || a.code.localeCompare(b.code, "vi"))
+        .slice(0, 12),
     }
   }, [courseRows])
 
@@ -287,15 +350,18 @@ export default function CourseAnalyticsPage() {
     const latest = trend[comparisonIndex]
     const previous = trend[comparisonIndex - 1]
     const maxFailSemester = trend.find((row) => 100 - row.passRate === maxFailRate)?.hk ?? null
-    const abnormalSections = [...selected.section_rows]
+    const sectionMatrix = [...selected.section_rows]
       .filter((section) => section.completed_enrollments > 0)
-      .sort((a, b) => a.pass_rate_diff - b.pass_rate_diff || b.completed_enrollments - a.completed_enrollments)
+      .sort((a, b) => a.pass_rate - b.pass_rate || a.pass_rate_diff - b.pass_rate_diff || b.completed_enrollments - a.completed_enrollments)
       .slice(0, SECTION_COMPARE_LIMIT)
       .map((section) => ({
         ...section,
         label: `${section.section_code} · n=${section.completed_enrollments}`,
         passRateDiff: section.pass_rate_diff,
         passRate: section.pass_rate,
+        avgGrade: section.avg_grade,
+        courseId: selected.course.id,
+        size: Math.max(120, Math.min(520, section.completed_enrollments * 24)),
       }))
     const smallSectionCount = selected.section_rows.filter(
       (section) => section.completed_enrollments > 0 && section.completed_enrollments < SECTION_SMALL_SAMPLE_THRESHOLD,
@@ -307,7 +373,7 @@ export default function CourseAnalyticsPage() {
       cloTrend: selected.clo_trend.filter((row) => visibleSemesters.has(row.semester)),
       dist,
       cloRows,
-      abnormalSections,
+      sectionMatrix,
       maxFailRate,
       maxFailSemester,
       passDelta: latest && previous ? +(latest.passRate - previous.passRate).toFixed(1) : null,
@@ -315,6 +381,7 @@ export default function CourseAnalyticsPage() {
       belowTargetSections: selected.section_rows.filter((section) => section.pass_rate < PASS_TARGET).length,
       smallSectionCount,
       selectedSemesterTrend,
+      coursePassRate: selected.kpis.pass_rate,
       evidenceSummary: {
         trendSemesters: trend.length,
         visibleSemesters: visibleTrend.length,
@@ -322,6 +389,7 @@ export default function CourseAnalyticsPage() {
         enrollments: selected.kpis.completed_enrollments,
         cloRows: selected.clo_rows.length,
         cloEvidence: selected.clo_trend.reduce((sum, row) => sum + row.evidence_count, 0),
+        missingGrades: selected.kpis.missing_grade_count,
       },
     }
   }, [data, selSemester, trendRange])
@@ -329,11 +397,21 @@ export default function CourseAnalyticsPage() {
   function selectCourse(course: { id: number; code: string; name: string }) {
     setSelCourse(String(course.id))
     setCourseQuery(`${course.code} - ${course.name}`)
+    setIsCoursePickerOpen(false)
   }
 
   function selectSemesterFromChart(state: unknown) {
     const label = chartActiveLabel(state)
     if (label) setSelSemester(label)
+  }
+
+  function openSectionFromChart(state: unknown) {
+    if (!state || typeof state !== "object") return
+    const payload = "payload" in state ? (state as { payload?: unknown }).payload : state
+    if (!payload || typeof payload !== "object") return
+    const point = payload as { id?: unknown; courseId?: unknown; semester_code?: unknown }
+    if (typeof point.id !== "number" || typeof point.courseId !== "number" || typeof point.semester_code !== "string") return
+    router.push(sectionHref(point.id, point.courseId, point.semester_code))
   }
 
   function resetFilters() {
@@ -342,6 +420,7 @@ export default function CourseAnalyticsPage() {
     setSelProg("all")
     setSelCourse("all")
     setCourseQuery("")
+    setIsCoursePickerOpen(false)
     setTrendRange("6")
     setShowAdvanced(false)
   }
@@ -353,15 +432,18 @@ export default function CourseAnalyticsPage() {
       setSelProg("all")
       setSelCourse("all")
       setCourseQuery("")
+      setIsCoursePickerOpen(false)
     }
     if (key === "program") {
       setSelProg("all")
       setSelCourse("all")
       setCourseQuery("")
+      setIsCoursePickerOpen(false)
     }
     if (key === "course") {
       setSelCourse("all")
       setCourseQuery("")
+      setIsCoursePickerOpen(false)
     }
   }
 
@@ -372,10 +454,10 @@ export default function CourseAnalyticsPage() {
         <p className="text-sm text-muted-foreground">Phân tích sâu môn học bằng dữ liệu tổng hợp từ DWH</p>
       </div>
 
-      <Card>
-        <CardContent className="py-4">
+      <Card className="overflow-visible" data-tour="page-course-filters">
+        <CardContent className="overflow-visible py-4">
           <div className="flex flex-wrap items-start gap-3">
-            <Select value={selDept} disabled={isScoped} onValueChange={(value) => { setSelDept(value ?? "all"); setSelProg("all"); setSelCourse("all"); setCourseQuery("") }}>
+            <Select value={selDept} disabled={isScoped} onValueChange={(value) => { setSelDept(value ?? "all"); setSelProg("all"); setSelCourse("all"); setCourseQuery(""); setIsCoursePickerOpen(false) }}>
               <SelectTrigger className="w-56" aria-label="Khoa">
                 <span className="truncate">{selectedDeptName}</span>
               </SelectTrigger>
@@ -387,33 +469,64 @@ export default function CourseAnalyticsPage() {
               </SelectContent>
             </Select>
 
-            <div className="relative min-w-[260px] flex-1 lg:max-w-md">
+            <div className="relative min-w-[340px] flex-[1.5] lg:max-w-2xl">
               <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 value={courseQuery}
-                onChange={(event) => setCourseQuery(event.target.value)}
-                placeholder="Chọn môn theo mã hoặc tên..."
+                onChange={(event) => {
+                  const nextValue = event.target.value
+                  setCourseQuery(nextValue)
+                  setIsCoursePickerOpen(true)
+                  if (nextValue !== selectedCourseLabel) setSelCourse("all")
+                }}
+                onFocus={() => setIsCoursePickerOpen(true)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    const nextCourse = exactCourseMatch ?? visibleCourseSuggestions[0]
+                    if (nextCourse) {
+                      event.preventDefault()
+                      selectCourse(nextCourse)
+                    }
+                  }
+                  if (event.key === "Escape") setIsCoursePickerOpen(false)
+                }}
+                onBlur={() => window.setTimeout(() => setIsCoursePickerOpen(false), 120)}
+                placeholder="Gõ mã/tên môn hoặc chọn từ danh sách..."
                 className="pl-9 pr-9"
                 aria-label="Tìm môn học"
+                aria-expanded={isCoursePickerOpen}
+                aria-controls="course-filter-options"
               />
               {courseQuery ? (
                 <button
                   type="button"
                   className="absolute right-2 top-2 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                   aria-label="Xóa môn đang tìm"
-                  onClick={() => { setCourseQuery(""); setSelCourse("all") }}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => { setCourseQuery(""); setSelCourse("all"); setIsCoursePickerOpen(true) }}
                 >
                   <X className="h-4 w-4" />
                 </button>
               ) : null}
-              {courseSuggestions.length > 0 && courseQuery !== selectedCourseLabel ? (
-                <div className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-lg">
-                  {courseSuggestions.map((course) => (
-                    <button key={course.id} type="button" className="flex w-full items-start gap-3 rounded-sm px-3 py-2 text-left text-sm hover:bg-accent" onClick={() => selectCourse(course)}>
+              {isCoursePickerOpen ? (
+                <div id="course-filter-options" className="absolute z-50 mt-1 min-h-[13.5rem] max-h-80 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-lg">
+                  {visibleCourseSuggestions.map((course) => (
+                    <button
+                      key={course.id}
+                      type="button"
+                      className="flex w-full items-start gap-3 rounded-sm px-3 py-2 text-left text-sm hover:bg-accent"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => selectCourse(course)}
+                    >
                       <span className="shrink-0 font-mono text-xs font-semibold text-primary">{course.code}</span>
                       <span className="line-clamp-2">{course.name}</span>
                     </button>
                   ))}
+                  {!visibleCourseSuggestions.length ? (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      Không tìm thấy môn phù hợp trong phạm vi lọc hiện tại.
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -456,7 +569,7 @@ export default function CourseAnalyticsPage() {
 
           {showAdvanced ? (
             <div className="mt-4 max-w-sm border-t pt-4">
-              <Select value={selProg} onValueChange={(value) => { setSelProg(value ?? "all"); setSelCourse("all"); setCourseQuery("") }} disabled={selDept === "all"}>
+              <Select value={selProg} onValueChange={(value) => { setSelProg(value ?? "all"); setSelCourse("all"); setCourseQuery(""); setIsCoursePickerOpen(false) }} disabled={selDept === "all"}>
                 <SelectTrigger aria-label="Ngành">
                   <span className="truncate">{selectedProgramName}</span>
                 </SelectTrigger>
@@ -516,17 +629,17 @@ export default function CourseAnalyticsPage() {
               <p className="text-sm text-muted-foreground">Phân tích tương quan {courseRows.length} môn học từ DWH</p>
               {courseOverview.insufficientCount > 0 || courseOverview.missingCloCount > 0 ? (
                 <p className="mt-1 text-xs text-amber-700">
-                  Không xếp hạng {courseOverview.insufficientCount} môn có dưới 20 lượt học và {courseOverview.missingCloCount} môn chưa có minh chứng CLO.
+                  Các môn này vẫn có điểm nếu có lượt học hợp lệ. Health Score chỉ tạm ẩn với {courseOverview.insufficientCount} môn dưới {MIN_COURSE_SAMPLE_SIZE} lượt học và {courseOverview.missingCloCount} môn chưa có minh chứng CLO.
                 </p>
               ) : null}
             </div>
 
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
               {[
-                ["Môn đủ dữ liệu", courseOverview.readyCount.toLocaleString("vi-VN")],
+                ["Môn có điểm", courseOverview.gradedCourseCount.toLocaleString("vi-VN")],
+                ["Đủ điều kiện Health", courseOverview.readyCount.toLocaleString("vi-VN")],
                 ["Pass rate có trọng số", `${courseOverview.weightedPassRate.toFixed(1)}%`],
                 [`Môn dưới chuẩn ${PASS_TARGET}%`, courseOverview.belowPassTarget.toLocaleString("vi-VN")],
-                ["Môn CLO dưới chuẩn", courseOverview.belowCloTarget.toLocaleString("vi-VN")],
                 ["Tổng lượt học", courseOverview.totalEnrollments.toLocaleString("vi-VN")],
               ].map(([label, value]) => (
                 <Card key={label}>
@@ -539,7 +652,7 @@ export default function CourseAnalyticsPage() {
             </div>
 
             <div className="grid lg:grid-cols-2 gap-4">
-              <Card>
+              <Card data-tour="page-course-actions">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-semibold">Các môn có tỷ lệ đạt thấp nhất</CardTitle>
                   <p className="text-xs text-muted-foreground">Chỉ so sánh môn có ít nhất 20 lượt học trong phạm vi đang chọn.</p>
@@ -567,6 +680,10 @@ export default function CourseAnalyticsPage() {
 
               <CoursePriorityCard rows={courseOverview.priorityRows} onSelect={selectCourse} />
             </div>
+
+            {courseOverview.excludedRows.length ? (
+              <CourseStatusReviewCard rows={courseOverview.excludedRows} onSelect={selectCourse} />
+            ) : null}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-2">
@@ -593,6 +710,7 @@ export default function CourseAnalyticsPage() {
             {[
               ["Cỡ mẫu KPI", `${courseStats.evidenceSummary.enrollments.toLocaleString("vi-VN")} lượt`, `${courseStats.evidenceSummary.sections} lớp trong phạm vi lọc`],
               ["Chuỗi xu hướng", `${courseStats.evidenceSummary.trendSemesters} học kỳ`, selSemester !== "all" ? `KPI đang neo tại ${selSemester}` : "KPI dùng toàn phạm vi"],
+              ["Thiếu điểm", courseStats.evidenceSummary.missingGrades.toLocaleString("vi-VN"), "Số lượt học chưa có điểm tổng kết"],
               ["CLO evidence", courseStats.evidenceSummary.cloEvidence.toLocaleString("vi-VN"), `${courseStats.evidenceSummary.cloRows} CLO có tổng hợp`],
               ["Ngưỡng đánh giá", `${PASS_TARGET}% đạt`, "Dùng để tô màu và ưu tiên drill-down"],
             ].map(([label, value, note]) => (
@@ -644,17 +762,17 @@ export default function CourseAnalyticsPage() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">Lớp lệch so với trung bình môn</CardTitle>
+              <CardTitle className="text-sm font-semibold">Ma trận lớp học phần</CardTitle>
               <p className="text-xs text-muted-foreground">
-                Mỗi thanh là chênh lệch tỷ lệ đạt của một lớp so với mức trung bình của môn trong phạm vi đang lọc.
-                Thanh âm nghĩa là lớp thấp hơn mặt bằng môn.
+                Mỗi chấm là một lớp: sang phải là tỷ lệ đạt cao hơn, lên trên là điểm trung bình tốt hơn. Chấm lớn hơn nghĩa là lớp có nhiều lượt học hơn.
               </p>
             </CardHeader>
             <CardContent>
               <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-                <Badge variant="outline">Đơn vị: điểm %</Badge>
+                <Badge variant="outline">X: tỷ lệ đạt</Badge>
+                <Badge variant="outline">Y: điểm TB thang 10</Badge>
+                <Badge variant="outline">Size: cỡ mẫu</Badge>
                 <Badge variant="outline">Hiển thị tối đa {SECTION_COMPARE_LIMIT} lớp</Badge>
-                <Badge variant="outline">Có kèm cỡ mẫu</Badge>
                 <span className="text-muted-foreground">Bấm mã lớp ở bảng dưới để mở trang can thiệp.</span>
               </div>
               {courseStats.smallSectionCount > 0 ? (
@@ -662,30 +780,48 @@ export default function CourseAnalyticsPage() {
                   {courseStats.smallSectionCount} lớp có dưới {SECTION_SMALL_SAMPLE_THRESHOLD} lượt học; chênh lệch của các lớp này dễ dao động, nên dùng để rà soát chứ chưa kết luận.
                 </div>
               ) : null}
-              {courseStats.abnormalSections.length ? (
-                <ResponsiveContainer width="100%" height={Math.max(280, courseStats.abnormalSections.length * 32)}>
-                  <BarChart data={courseStats.abnormalSections} layout="vertical" margin={{ left: 8, right: 36, top: 8, bottom: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" tickFormatter={(value) => `${value}%`} tick={{ fontSize: 10 }} />
-                    <YAxis type="category" dataKey="label" width={132} tick={{ fontSize: 10 }} />
-                    <ReferenceLine x={0} stroke="#64748b" strokeDasharray="4 4" />
-                    <Tooltip
-                      formatter={(value, name, item) => [
-                        name === "passRateDiff" ? `${Number(value).toFixed(1)} điểm %` : value,
-                        `So với TB môn · đạt ${item.payload.passRate}% · cỡ mẫu ${item.payload.completed_enrollments} lượt`,
-                      ]}
-                      labelFormatter={(label) => `Lớp ${label}`}
-                      contentStyle={{ fontSize: 12, borderRadius: 8 }}
+              {courseStats.sectionMatrix.length ? (
+                <ResponsiveContainer width="100%" height={340}>
+                  <ScatterChart margin={{ left: 8, right: 20, top: 18, bottom: 12 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      type="number"
+                      dataKey="passRate"
+                      name="Tỷ lệ đạt"
+                      domain={[0, 100]}
+                      ticks={[0, 25, 50, 70, 100]}
+                      tickFormatter={(value) => `${value}%`}
+                      tick={{ fontSize: 10 }}
                     />
-                    <Bar dataKey="passRateDiff" radius={[0, 5, 5, 0]} maxBarSize={20}>
-                      {courseStats.abnormalSections.map((section) => (
-                        <Cell key={section.id} fill={section.passRateDiff < -15 ? "#dc2626" : section.passRateDiff < 0 ? "#f59e0b" : "#16a34a"} />
+                    <YAxis
+                      type="number"
+                      dataKey="avgGrade"
+                      name="Điểm TB"
+                      domain={[0, 10]}
+                      ticks={[0, 2.5, 5, 7.5, 10]}
+                      tick={{ fontSize: 10 }}
+                      width={34}
+                    />
+                    <ZAxis type="number" dataKey="size" range={[180, 720]} />
+                    <ReferenceLine x={PASS_TARGET} stroke="#f59e0b" strokeDasharray="5 4" />
+                    <ReferenceLine y={5} stroke="#ef4444" strokeDasharray="5 4" />
+                    <ReferenceLine x={courseStats.coursePassRate} stroke="#2563eb" strokeDasharray="4 4" />
+                    <Tooltip content={<SectionMatrixTooltip />} cursor={{ strokeDasharray: "3 3" }} />
+                    <Scatter data={courseStats.sectionMatrix} onClick={openSectionFromChart} className="cursor-pointer">
+                      {courseStats.sectionMatrix.map((section) => (
+                        <Cell
+                          key={section.id}
+                          fill={section.passRate < PASS_TARGET || section.avgGrade < 5 ? "#dc2626" : section.passRate < courseStats.coursePassRate ? "#f59e0b" : "#16a34a"}
+                          fillOpacity={0.82}
+                          stroke="#ffffff"
+                          strokeWidth={1.5}
+                        />
                       ))}
-                    </Bar>
-                  </BarChart>
+                    </Scatter>
+                  </ScatterChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex h-[180px] items-center justify-center text-sm text-muted-foreground">Chưa có lớp đủ dữ liệu để so sánh với trung bình môn.</div>
+                <div className="flex h-[180px] items-center justify-center text-sm text-muted-foreground">Chưa có lớp có điểm để so sánh.</div>
               )}
             </CardContent>
           </Card>
@@ -880,7 +1016,7 @@ export default function CourseAnalyticsPage() {
               </CardContent>
             </Card>
 
-            <Card className="lg:col-span-3">
+            <Card className="lg:col-span-3" data-tour="page-course-results">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold">Chi tiết các lớp học phần</CardTitle>
               </CardHeader>
@@ -998,6 +1134,29 @@ function CloTrendHeatmap({
   )
 }
 
+function SectionMatrixTooltip({ active, payload }: { active?: boolean; payload?: { payload?: unknown }[] }) {
+  if (!active || !payload?.length) return null
+  const row = payload[0]?.payload as {
+    section_code?: string
+    completed_enrollments?: number
+    passRate?: number
+    avgGrade?: number
+    passRateDiff?: number
+  }
+  if (!row) return null
+  return (
+    <div className="rounded-md border bg-background px-3 py-2 text-xs shadow-md">
+      <div className="font-semibold">Lớp {row.section_code}</div>
+      <div className="mt-1 space-y-0.5 text-muted-foreground">
+        <div>Tỷ lệ đạt: <span className="font-medium text-foreground">{(row.passRate ?? 0).toFixed(1)}%</span></div>
+        <div>Điểm TB: <span className="font-medium text-foreground">{(row.avgGrade ?? 0).toFixed(2)}</span></div>
+        <div>Cỡ mẫu: <span className="font-medium text-foreground">{row.completed_enrollments ?? 0} lượt</span></div>
+        <div>So với TB môn: <span className="font-medium text-foreground">{(row.passRateDiff ?? 0) > 0 ? "+" : ""}{(row.passRateDiff ?? 0).toFixed(1)} điểm %</span></div>
+      </div>
+    </div>
+  )
+}
+
 function CoursePriorityCard({
   rows,
   onSelect,
@@ -1038,6 +1197,65 @@ function CoursePriorityCard({
               <tr><td colSpan={4} className="py-8 text-center text-muted-foreground">Chưa có môn đủ dữ liệu để xếp hạng.</td></tr>
             )}
           </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function CourseStatusReviewCard({
+  rows,
+  onSelect,
+}: {
+  rows: ApiDashboardCourses["course_rows"]
+  onSelect: (course: { id: number; code: string; name: string }) => void
+}) {
+  function reason(course: ApiDashboardCourses["course_rows"][number]) {
+    if (course.missing_grade_count > 0) return `${course.missing_grade_count} lượt thiếu điểm`
+    if (course.data_status === "insufficient_sample") return `Cỡ mẫu ${course.completed_enrollments}/${MIN_COURSE_SAMPLE_SIZE}`
+    if (course.data_status === "missing_clo") return "Thiếu minh chứng CLO"
+    return "Đủ điều kiện"
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold">Môn có điểm nhưng chưa tính Health</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Các môn này vẫn có điểm TB và tỷ lệ đạt; trạng thái chỉ nói vì sao chưa đưa vào bảng ưu tiên Health Score.
+        </p>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="max-h-[320px] overflow-y-auto">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 border-b bg-background/95">
+              <tr className="text-muted-foreground">
+                <th className="px-4 py-2 text-left font-medium">Môn học</th>
+                <th className="px-2 py-2 text-right font-medium">Lượt học</th>
+                <th className="px-2 py-2 text-right font-medium">Điểm TB</th>
+                <th className="px-2 py-2 text-right font-medium">Đạt</th>
+                <th className="px-4 py-2 text-left font-medium">Lý do</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {rows.map((course) => (
+                <tr key={course.id} className="cursor-pointer hover:bg-muted/30" onClick={() => onSelect(course)}>
+                  <td className="px-4 py-2.5">
+                    <div className="font-mono text-[11px] font-semibold text-primary">{course.code}</div>
+                    <div className="max-w-[260px] truncate font-medium">{course.name}</div>
+                  </td>
+                  <td className="px-2 py-2.5 text-right tabular-nums">{course.completed_enrollments}</td>
+                  <td className="px-2 py-2.5 text-right tabular-nums">{course.avg_grade.toFixed(2)}</td>
+                  <td className="px-2 py-2.5 text-right tabular-nums">{course.pass_rate.toFixed(1)}%</td>
+                  <td className="px-4 py-2.5">
+                    <Badge variant={course.missing_grade_count > 0 ? "destructive" : "outline"} className="text-[10px]">
+                      {reason(course)}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         </div>
       </CardContent>

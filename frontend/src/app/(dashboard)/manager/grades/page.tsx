@@ -357,7 +357,7 @@ export default function GradesPage() {
             Chọn lớp học phần để xem toàn bộ sinh viên và các cột điểm. Có thể nhập tay hoặc tải mẫu Excel của lớp để điền điểm và import lại.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2" data-tour="page-grades-actions">
           <Button variant="outline" onClick={handleDownloadTemplate}>
             <FileSpreadsheet className="mr-2 h-4 w-4" /> Xuất mẫu lớp
           </Button>
@@ -375,7 +375,7 @@ export default function GradesPage() {
         </div>
       </div>
 
-      <Card>
+      <Card data-tour="page-grades-filters">
         <CardContent className="grid gap-3 p-4 md:grid-cols-[minmax(240px,360px)_1fr]">
           <div className="space-y-2">
             <Label>Lớp học phần</Label>
@@ -403,7 +403,9 @@ export default function GradesPage() {
         <div className="rounded-lg border bg-muted/30 px-4 py-3 text-sm">{importMessage}</div>
       ) : null}
 
-      <DataTable columns={columns} data={filteredGrades} searchKey="tenMonHoc" searchPlaceholder="Tìm theo tên môn..." />
+      <div data-tour="page-grades-results">
+        <DataTable columns={columns} data={filteredGrades} searchKey="tenMonHoc" searchPlaceholder="Tìm theo tên môn..." />
+      </div>
 
       <Dialog open={!!editGrade} onOpenChange={(open) => { if (!open) setEditGrade(null) }}>
         <DialogContent className="sm:max-w-[560px]">

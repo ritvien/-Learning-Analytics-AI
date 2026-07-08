@@ -673,6 +673,10 @@ function buildReportHtml(report: ApiReport) {
   const atRisk = metrics.at_risk_students ?? metrics.watchlist_count ?? "Chưa có"
   const confidence = dataConfidence(report)
   const rows = reportHtmlMetricRows(metrics)
+  const sample = confidenceSample(report)
+  const riskLevel = localizeReportText(metrics.risk_level ?? "Chưa rõ")
+  const focusStatement = issues[0] ?? risks[0] ?? goodSignals[0] ?? "Chưa có nhận định trọng tâm."
+  const nextAction = actions[0] ?? "Rà soát dữ liệu chi tiết và xác nhận với đơn vị phụ trách."
 
   return `<!doctype html>
 <html lang="vi">
@@ -686,8 +690,8 @@ function buildReportHtml(report: ApiReport) {
       margin: 0;
       background: #eef2f7;
       color: #111827;
-      font-family: "Times New Roman", Times, serif;
-      font-size: 13pt;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 11pt;
       line-height: 1.5;
     }
     main {
@@ -698,39 +702,44 @@ function buildReportHtml(report: ApiReport) {
       padding: 25mm 20mm 20mm 30mm;
       box-shadow: 0 20px 60px rgba(15, 23, 42, 0.15);
     }
-    .topline {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
-      font-size: 12pt;
-      text-align: center;
-      text-transform: uppercase;
-      font-weight: 700;
+    .hero {
+      margin: -8mm -6mm 10mm;
+      padding: 12mm;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #0f172a, #1e3a8a 58%, #065f46);
+      color: #fff;
     }
-    .underline { display: inline-block; border-bottom: 1px solid #111827; padding-bottom: 2px; }
-    .document-meta { display: grid; grid-template-columns: 1fr 1fr; margin-top: 14px; font-size: 12.5pt; }
-    .document-date { text-align: center; font-style: italic; }
-    .recipient { margin: 12px 0 18px; }
+    .eyebrow { font-size: 9pt; text-transform: uppercase; letter-spacing: 2px; color: #bfdbfe; font-weight: 700; }
     h1 {
-      margin: 28px 0 8px;
-      text-align: center;
-      text-transform: uppercase;
-      font-size: 18pt;
+      margin: 10px 0 8px;
+      font-size: 22pt;
       line-height: 1.35;
     }
-    .subtitle { text-align: center; font-size: 13pt; margin-bottom: 24px; }
-    h2 { margin: 18px 0 8px; font-size: 13.5pt; text-transform: uppercase; }
-    h3 { margin: 12px 0 6px; font-size: 13pt; }
+    .hero-summary { max-width: 660px; color: #dbeafe; font-size: 11pt; }
+    .hero-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 18px; }
+    .kpi { border: 1px solid rgba(255,255,255,.22); border-radius: 14px; padding: 10px; background: rgba(255,255,255,.10); }
+    .kpi-label { font-size: 8.5pt; color: #cbd5e1; text-transform: uppercase; letter-spacing: 1px; }
+    .kpi-value { margin-top: 4px; font-size: 17pt; font-weight: 800; }
+    .meta-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 0 0 12px; }
+    .meta-card { border: 1px solid #dbe3ef; border-radius: 12px; background: #f8fafc; padding: 9px 10px; }
+    .meta-label { font-size: 8.5pt; text-transform: uppercase; color: #64748b; font-weight: 700; }
+    .meta-value { margin-top: 3px; font-weight: 700; }
+    .brief { display: grid; grid-template-columns: 1.3fr .9fr; gap: 12px; margin: 12px 0 16px; }
+    .panel { border: 1px solid #dbe3ef; border-radius: 14px; padding: 12px; background: #fff; }
+    .panel.accent { background: #eff6ff; border-color: #bfdbfe; }
+    h2 { margin: 18px 0 8px; font-size: 13pt; text-transform: uppercase; letter-spacing: .3px; }
+    h3 { margin: 12px 0 6px; font-size: 12pt; }
     p { margin: 6px 0; text-align: justify; }
-    table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 11.5pt; }
-    th, td { border: 1px solid #111827; padding: 6px 8px; vertical-align: top; }
-    th { background: #f3f4f6; text-align: center; font-weight: 700; }
+    table { width: 100%; border-collapse: separate; border-spacing: 0; overflow: hidden; margin: 8px 0 14px; font-size: 10pt; border: 1px solid #dbe3ef; border-radius: 12px; }
+    th, td { border-bottom: 1px solid #dbe3ef; padding: 7px 8px; vertical-align: top; }
+    th { background: #0f172a; color: #fff; text-align: left; font-weight: 700; }
+    tr:last-child td { border-bottom: 0; }
     thead { display: table-header-group; }
     tr, .summary { break-inside: avoid; page-break-inside: avoid; }
     h2, h3 { break-after: avoid; page-break-after: avoid; }
     ul { margin: 6px 0 12px 22px; padding: 0; }
     li { margin: 4px 0; text-align: justify; }
-    .summary { border: 1px solid #111827; padding: 10px 12px; margin: 10px 0 14px; }
+    .summary { border: 1px solid #dbe3ef; border-left: 5px solid #2563eb; border-radius: 12px; padding: 10px 12px; margin: 10px 0 14px; background: #f8fafc; }
     .signature {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -742,23 +751,41 @@ function buildReportHtml(report: ApiReport) {
     @media print {
       body { background: #fff; }
       main { width: auto; min-height: auto; margin: 0; padding: 0; box-shadow: none; }
+      .hero { margin: 0 0 10mm; }
     }
   </style>
 </head>
 <body><main>
-  <div class="topline">
-    <div>TRƯỜNG ĐẠI HỌC ĐIỆN LỰC<br/><span class="underline">ĐƠN VỊ QUẢN LÝ ĐÀO TẠO</span></div>
-    <div>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM<br/><span class="underline">Độc lập - Tự do - Hạnh phúc</span></div>
+  <div class="hero">
+    <div class="eyebrow">EduInsight Report · ${escapeHtml(labelFromMap(report.report_type, reportTypeLabels))}</div>
+    <h1>${escapeHtml(report.title)}</h1>
+    <p class="hero-summary">${reportHtmlText(report.summary)}</p>
+    <div class="hero-grid">
+      <div class="kpi"><div class="kpi-label">Tỷ lệ đạt</div><div class="kpi-value">${escapeHtml(passRate)}</div></div>
+      <div class="kpi"><div class="kpi-label">Mức rủi ro</div><div class="kpi-value">${escapeHtml(riskLevel)}</div></div>
+      <div class="kpi"><div class="kpi-label">Độ tin cậy</div><div class="kpi-value">${confidence}%</div></div>
+    </div>
   </div>
 
-  <div class="document-meta">
-    <div>Số: ${escapeHtml(reportReference(report))}</div>
-    <div class="document-date">${escapeHtml(formalReportDate(report.created_at))}</div>
+  <div class="meta-strip">
+    <div class="meta-card"><div class="meta-label">Phạm vi</div><div class="meta-value">${escapeHtml(reportScopeDisplay(report))}</div></div>
+    <div class="meta-card"><div class="meta-label">Kỳ dữ liệu</div><div class="meta-value">${escapeHtml(reportPeriodLabel(report))}</div></div>
+    <div class="meta-card"><div class="meta-label">Mã báo cáo</div><div class="meta-value">${escapeHtml(reportReference(report))}</div></div>
+    <div class="meta-card"><div class="meta-label">Ngày sinh</div><div class="meta-value">${escapeHtml(formalReportDate(report.created_at))}</div></div>
   </div>
 
-  <h1>${escapeHtml(report.title)}</h1>
-  <div class="subtitle">${escapeHtml(labelFromMap(report.report_type, reportTypeLabels))}</div>
-  <p class="recipient"><strong>Kính gửi:</strong> ${escapeHtml(reportRecipient(report))}</p>
+  <div class="brief">
+    <div class="panel">
+      <h2 style="margin-top:0">Điểm cần đọc trước</h2>
+      <p>${reportHtmlText(focusStatement)}</p>
+      <p><strong>Bước tiếp theo:</strong> ${reportHtmlText(nextAction)}</p>
+    </div>
+    <div class="panel accent">
+      <h2 style="margin-top:0">Độ chắc dữ liệu</h2>
+      <p><strong>${confidence}%</strong> · ${sample.toLocaleString("vi-VN")} mẫu/minh chứng.</p>
+      <p>${reportHtmlText(dataConfidenceBasis(report))}</p>
+    </div>
+  </div>
 
   <h2>I. Thông tin báo cáo</h2>
   <table>
@@ -848,6 +875,7 @@ export default function ReportsPage() {
   const [selectedSemesterId, setSelectedSemesterId] = React.useState("")
   const [periodStartDate, setPeriodStartDate] = React.useState("")
   const [periodEndDate, setPeriodEndDate] = React.useState("")
+  const [includeAiNarrative, setIncludeAiNarrative] = React.useState(false)
   const [courseSearch, setCourseSearch] = React.useState("")
   const [sectionSearch, setSectionSearch] = React.useState("")
   const [isLoading, setIsLoading] = React.useState(true)
@@ -1302,6 +1330,7 @@ export default function ReportsPage() {
         semester_id: selectedSemesterId ? Number(selectedSemesterId) : undefined,
         period_start: startOfDayIso(periodStartDate),
         period_end: endOfDayIso(periodEndDate),
+        include_ai_narrative: includeAiNarrative,
       })
       await refreshReports()
       setSelectedReport(report)
@@ -1322,7 +1351,7 @@ export default function ReportsPage() {
             Mở báo cáo đã có, tạo báo cáo theo phạm vi được phân quyền, rồi xuất PDF khi cần.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2" data-tour="page-reports-actions">
           <Button onClick={() => setGenerateOpen(true)} disabled={!canGenerateReports}>
             <Plus className="mr-2 size-4" />
             Tạo báo cáo
@@ -1388,7 +1417,7 @@ export default function ReportsPage() {
         </div>
       ) : null}
 
-      <div className="space-y-3">
+      <div className="space-y-3" data-tour="page-reports-filters">
             <div className="flex flex-col gap-2 sm:flex-row">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -1456,7 +1485,7 @@ export default function ReportsPage() {
                       : "Không tìm thấy báo cáo phù hợp."}
                   </div>
                 ) : (
-                  <div className="max-h-[760px] space-y-2 overflow-y-auto pr-1">
+                  <div className="max-h-[760px] space-y-2 overflow-y-auto pr-1" data-tour="page-reports-results">
                     {workspaceReports.map((report) => (
                       <button
                         key={report.id}
@@ -1810,6 +1839,22 @@ export default function ReportsPage() {
               </p>
             </div>
 
+            <label className="flex items-start gap-3 rounded-lg border bg-background p-3 text-sm">
+              <input
+                type="checkbox"
+                checked={includeAiNarrative}
+                onChange={(event) => setIncludeAiNarrative(event.target.checked)}
+                className="mt-1 size-4"
+              />
+              <span>
+                <span className="font-medium">Bật AI viết lại phần diễn giải</span>
+                <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                  Mặc định báo cáo dùng câu chữ theo luật để giữ số liệu kiểm chứng được. Nếu bật AI,
+                  backend sẽ kiểm tra lại các con số trong phần viết trước khi lưu.
+                </span>
+              </span>
+            </label>
+
             <Button onClick={() => handleGenerate()} disabled={isGenerating} className="w-full">
               {isGenerating ? (
                 <Loader2 className="mr-2 size-4 animate-spin" />
@@ -1949,7 +1994,13 @@ function percentDisplay(value: unknown) {
 
 function reportSectionStatus(value: "good" | "watch" | "missing") {
   const label = value === "good" ? "Đủ dữ liệu" : value === "watch" ? "Cần theo dõi" : "Chưa đủ dữ liệu"
-  return <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">{label}</span>
+  const cls =
+    value === "good"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : value === "watch"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-slate-200 bg-slate-50 text-slate-500"
+  return <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${cls}`}>{label}</span>
 }
 
 function ReportSectionBlock({
@@ -1966,13 +2017,18 @@ function ReportSectionBlock({
   children: React.ReactNode
 }) {
   return (
-    <section id={`report-section-${index}`} className="border-t border-slate-900 pt-4">
+    <section id={`report-section-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-100">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h3 className="text-[15px] font-bold uppercase text-slate-950">
-            {index}. {title}
+        <div className="flex gap-3">
+          <div className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-950 text-sm font-semibold text-white">
+            {index}
+          </div>
+          <div>
+          <h3 className="text-[15px] font-bold uppercase tracking-wide text-slate-950">
+            {title}
           </h3>
           <p className="mt-1 text-[13px] leading-6 text-slate-600">{purpose}</p>
+          </div>
         </div>
         {reportSectionStatus(status)}
       </div>
@@ -1983,15 +2039,15 @@ function ReportSectionBlock({
 
 function ReportKeyValueGrid({ rows }: { rows: ReportTableRow[] }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-hidden rounded-xl border border-slate-200">
       <table className="w-full border-collapse text-[13px]">
         <tbody>
       {rows.map((row) => (
         <tr key={row.label}>
-          <td className="w-1/3 border border-slate-900 bg-slate-50 px-3 py-2 font-semibold align-top">
+          <td className="w-1/3 border-b border-slate-200 bg-slate-50 px-3 py-2.5 font-semibold align-top text-slate-700">
             {row.label}
           </td>
-          <td className="border border-slate-900 px-3 py-2 align-top">
+          <td className="border-b border-slate-200 px-3 py-2.5 align-top">
             <div className="break-words">{row.value}</div>
             {row.note ? <div className="mt-1 text-xs text-slate-600">{row.note}</div> : null}
           </td>
@@ -2016,12 +2072,12 @@ function ReportSimpleTable({
     return <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">{empty}</div>
   }
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto rounded-xl border border-slate-200">
       <table className="w-full min-w-[640px] border-collapse text-[13px]">
-        <thead className="bg-slate-50">
+        <thead className="bg-slate-950 text-white">
           <tr>
             {columns.map((column) => (
-              <th key={column} className="border border-slate-900 px-3 py-2 text-left font-semibold text-slate-950">
+              <th key={column} className="border-b border-slate-800 px-3 py-2.5 text-left font-semibold">
                 {column}
               </th>
             ))}
@@ -2029,9 +2085,9 @@ function ReportSimpleTable({
         </thead>
         <tbody>
           {rows.map((row, rowIndex) => (
-            <tr key={rowIndex}>
+            <tr key={rowIndex} className={rowIndex % 2 ? "bg-slate-50/60" : "bg-white"}>
               {row.map((cell, cellIndex) => (
-                <td key={cellIndex} className="border border-slate-900 px-3 py-2 align-top">
+                <td key={cellIndex} className="border-b border-slate-200 px-3 py-2.5 align-top">
                   {cell}
                 </td>
               ))}
@@ -2285,36 +2341,72 @@ function ReportStandardDocument({
       ? { label: "Lượt chưa đạt", value: metricDisplay(metrics, "failed_enrollments") }
       : null,
   ].filter(Boolean) as ReportTableRow[])
+  const riskLevel = String(metrics.risk_level ?? "Chưa rõ")
+  const primaryOutcome =
+    hasMetric(metrics, "pass_rate")
+      ? percentDisplay(metrics.pass_rate)
+      : hasMetric(metrics, "avg_grade")
+        ? metricDisplay(metrics, "avg_grade")
+        : hasMetric(metrics, "avg_gpa")
+          ? metricDisplay(metrics, "avg_gpa")
+          : "Chưa có"
+  const evidenceCount = confidenceSample(report)
+  const focusStatement = issues[0] ?? risks[0] ?? goodSignals[0] ?? "Chưa có nhận định trọng tâm."
+  const nextAction = actions[0] ?? "Rà soát dữ liệu chi tiết và xác nhận với đơn vị phụ trách."
+  const heroKpis = [
+    { label: "Kết quả chính", value: primaryOutcome, note: hasMetric(metrics, "pass_rate") ? "tỷ lệ đạt quan sát" : "chỉ số trung tâm" },
+    { label: "Mức rủi ro", value: riskLevel, note: "đánh giá từ snapshot dữ liệu" },
+    { label: "Độ tin cậy", value: `${confidence}%`, note: `${evidenceCount.toLocaleString("vi-VN")} mẫu/minh chứng` },
+  ]
   let sectionIndex = 1
 
   return (
     <article
-      className="mx-auto max-w-[900px] space-y-5 bg-white px-5 py-6 text-slate-950 shadow-sm ring-1 ring-slate-200 sm:px-8 lg:px-12"
-      style={{ fontFamily: '"Times New Roman", Times, serif' }}
+      className="mx-auto max-w-[960px] overflow-hidden rounded-[1.25rem] bg-white text-slate-950 shadow-xl shadow-slate-200/70 ring-1 ring-slate-200"
     >
-      <div className="grid gap-4 text-center text-[13px] font-bold uppercase sm:grid-cols-2">
-        <div>
-          TRƯỜNG ĐẠI HỌC ĐIỆN LỰC
-          <div className="mx-auto mt-1 w-fit border-b border-slate-900 pb-0.5">ĐƠN VỊ QUẢN LÝ ĐÀO TẠO</div>
+      <header className="relative isolate overflow-hidden bg-slate-950 px-5 py-6 text-white sm:px-8 lg:px-10">
+        <div className="absolute inset-y-0 right-0 -z-10 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.45),transparent_38%),linear-gradient(135deg,transparent,rgba(16,185,129,0.18))]" />
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-2xl">
+            <div className="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.22em] text-cyan-100">
+              <span>EduInsight Report</span>
+              <span className="h-1 w-1 rounded-full bg-cyan-200" />
+              <span>{labelFromMap(report.report_type, reportTypeLabels)}</span>
+            </div>
+            <h2 className="mt-4 text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">{report.title}</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
+              {localizeReportText(report.summary)}
+            </p>
+          </div>
+          <div className="min-w-[220px] rounded-2xl border border-white/15 bg-white/10 p-4 text-sm shadow-2xl backdrop-blur">
+            <div className="text-xs uppercase tracking-wide text-slate-300">Phạm vi</div>
+            <div className="mt-1 font-semibold">{reportScopeDisplay(report)}</div>
+            <div className="mt-4 text-xs uppercase tracking-wide text-slate-300">Kỳ dữ liệu</div>
+            <div className="mt-1">{reportPeriodLabel(report)}</div>
+            <div className="mt-4 text-xs text-slate-300">Mã: {reportReference(report)}</div>
+          </div>
         </div>
-        <div>
-          CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
-          <div className="mx-auto mt-1 w-fit border-b border-slate-900 pb-0.5">Độc lập - Tự do - Hạnh phúc</div>
+        <div className="mt-7 grid gap-3 md:grid-cols-3">
+          {heroKpis.map((item) => (
+            <ReportHeroKpi key={item.label} {...item} />
+          ))}
         </div>
-      </div>
+      </header>
 
-      <div className="grid gap-2 text-[13px] sm:grid-cols-2">
-        <div>Số: {reportReference(report)}</div>
-        <div className="text-center italic">{formalReportDate(report.created_at)}</div>
+      <div className="space-y-6 px-5 py-6 sm:px-8 lg:px-10">
+      <div className="grid gap-4 lg:grid-cols-[1.35fr_0.9fr]">
+        <ReportExecutiveBrief
+          focus={focusStatement}
+          action={nextAction}
+          recipient={reportRecipient(report)}
+        />
+        <ReportEvidenceCard
+          confidence={confidence}
+          sample={evidenceCount}
+          basis={dataConfidenceBasis(report)}
+          llmEnhanced={Boolean(metrics.llm_enhanced)}
+        />
       </div>
-
-      <div className="py-5 text-center">
-        <h2 className="text-[21px] font-bold uppercase leading-snug">{report.title}</h2>
-        <p className="mt-2 text-[14px] text-slate-700">
-          {labelFromMap(report.report_type, reportTypeLabels)}
-        </p>
-      </div>
-      <p className="text-[14px]"><strong>Kính gửi:</strong> {reportRecipient(report)}</p>
 
       <ReportSectionBlock
         index={sectionIndex++}
@@ -2508,6 +2600,7 @@ function ReportStandardDocument({
           <strong>Nơi nhận:</strong> Như trên; lưu đơn vị lập báo cáo.<br />
           Mã tra cứu: {report.id} · Phiên bản 1.0 · Tài liệu sử dụng nội bộ.
         </div>
+      </div>
       </div>
     </article>
   )
@@ -2846,15 +2939,93 @@ function ReportPreview({ report, isLoading }: { report: ApiReport; isLoading: bo
   )
 }
 
+function ReportHeroKpi({ label, value, note }: { label: string; value: React.ReactNode; note: string }) {
+  return (
+    <div className="rounded-2xl border border-white/15 bg-white/10 p-4 shadow-xl shadow-slate-950/20 backdrop-blur">
+      <div className="text-xs font-medium uppercase tracking-[0.16em] text-slate-300">{label}</div>
+      <div className="mt-2 text-2xl font-semibold leading-tight text-white">{value}</div>
+      <div className="mt-1 text-xs leading-5 text-slate-300">{note}</div>
+    </div>
+  )
+}
+
+function ReportExecutiveBrief({
+  focus,
+  action,
+  recipient,
+}: {
+  focus: string
+  action: string
+  recipient: string
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5 shadow-sm">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+        <Sparkles className="size-4 text-primary" />
+        Executive brief
+      </div>
+      <h3 className="mt-3 text-lg font-semibold tracking-tight text-slate-950">Điểm cần đọc trước</h3>
+      <p className="mt-3 text-sm leading-7 text-slate-700">{localizeReportText(focus)}</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl border border-slate-200 bg-white p-3">
+          <div className="text-xs font-medium uppercase text-slate-500">Người nhận chính</div>
+          <div className="mt-1 text-sm font-semibold text-slate-950">{recipient}</div>
+        </div>
+        <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
+          <div className="text-xs font-medium uppercase text-blue-700">Bước tiếp theo</div>
+          <div className="mt-1 text-sm leading-6 text-blue-950">{localizeReportText(action)}</div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function ReportEvidenceCard({
+  confidence,
+  sample,
+  basis,
+  llmEnhanced,
+}: {
+  confidence: number
+  sample: number
+  basis: string
+  llmEnhanced: boolean
+}) {
+  const tone = confidence >= 78 ? "text-emerald-700" : confidence >= 58 ? "text-amber-700" : "text-slate-500"
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Grounding</div>
+          <h3 className="mt-3 text-lg font-semibold text-slate-950">Độ chắc của nhận định</h3>
+        </div>
+        <div className={`text-3xl font-semibold ${tone}`}>{confidence}%</div>
+      </div>
+      <Progress value={confidence} className="mt-4 h-2" />
+      <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+        <div className="rounded-xl bg-slate-50 p-3">
+          <div className="text-xs text-slate-500">Cỡ mẫu</div>
+          <div className="mt-1 font-semibold">{sample.toLocaleString("vi-VN")}</div>
+        </div>
+        <div className="rounded-xl bg-slate-50 p-3">
+          <div className="text-xs text-slate-500">Diễn giải</div>
+          <div className="mt-1 font-semibold">{llmEnhanced ? "AI có kiểm chứng" : "Theo luật"}</div>
+        </div>
+      </div>
+      <p className="mt-3 text-xs leading-5 text-slate-500">{basis}</p>
+    </section>
+  )
+}
+
 function NarrativeCard({ title, items }: { title: string; items: string[] }) {
   const visibleItems = items.slice(0, 3)
   return (
-    <div className="rounded-md border bg-slate-50 p-3">
-      <div className="text-[13px] font-semibold text-slate-950">{title}</div>
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <div className="text-[13px] font-semibold uppercase tracking-wide text-slate-950">{title}</div>
       {visibleItems.length ? (
         <div className="mt-2 space-y-2 text-[13px] leading-6 text-slate-700">
           {visibleItems.map((item, index) => (
-            <p key={`${title}-${index}`} className="text-justify">
+            <p key={`${title}-${index}`} className="border-l-2 border-slate-300 pl-3 text-justify">
               {localizeReportText(item)}
             </p>
           ))}

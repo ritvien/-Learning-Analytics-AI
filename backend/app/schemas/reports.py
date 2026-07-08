@@ -22,6 +22,7 @@ class ReportGenerateRequest(BaseModel):
     semester_id: int | None = None
     period_start: datetime | None = None
     period_end: datetime | None = None
+    include_ai_narrative: bool = False
 
 
 class ReportFeedbackCreate(BaseModel):

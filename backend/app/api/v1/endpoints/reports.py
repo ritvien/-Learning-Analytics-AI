@@ -249,6 +249,7 @@ async def create_report(payload: ReportGenerateRequest, db: DBSession, current_u
             semester_id=payload.semester_id,
             period_start=payload.period_start,
             period_end=payload.period_end,
+            include_ai_narrative=payload.include_ai_narrative,
         )
         return await _get_report_or_404(report.id, db, current_user)
     except ValueError as exc:

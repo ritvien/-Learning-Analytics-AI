@@ -143,6 +143,7 @@ export default function ProgramsPage() {
 
       {/* Drop zone */}
       <div
+        data-tour="page-programs-upload"
         onDrop={handleDrop}
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
         onDragLeave={() => setIsDragging(false)}
@@ -182,7 +183,7 @@ export default function ProgramsPage() {
       </div>
 
       {/* File list */}
-      <Card>
+      <Card data-tour="page-programs-results">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <BookOpen className="h-4 w-4" />

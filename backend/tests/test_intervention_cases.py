@@ -1,10 +1,13 @@
 """Case workflow and actor-boundary coverage."""
 
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.endpoints.interventions import _bulk_message
 from app.dependencies import create_access_token, hash_password
+from app.models.intervention import StudentInterventionContact
+from app.models.ops import OpsTaskEvent
 from app.models.people import User, UserRole
 from tests.test_homeroom_rbac import _seed_homeroom_data
 
@@ -200,6 +203,16 @@ async def test_advisor_assessment_and_appointment_lifecycle(
     assert completed.status_code == 200
     assert completed.json()["status"] == "completed"
     assert completed.json()["completed_at"] is not None
+    assessment_contact = next(
+        item for item in history.json()
+        if item["subject"] == "Nhận định hỗ trợ học tập đã xác nhận"
+    )
+    assert assessment_contact["channel"] == "internal"
+    assert assessment_contact["message"] == "Sinh viên cần rà soát kế hoạch học lại."
+    assert assessment_contact["note"] == "Trao đổi trực tiếp và theo dõi GPA học kỳ tới."
+    assert assessment_contact["metadata_json"]["source"] == "advisor_assessment"
+    assert assessment_contact["metadata_json"]["conclusion"] == "support_needed"
+    assert assessment_contact["metadata_json"]["confirmed"] is True
     assert {item["subject"] for item in history.json()} >= {
         "Nhận định hỗ trợ học tập đã xác nhận",
         "Lịch trao đổi hỗ trợ học tập",
@@ -209,6 +222,57 @@ async def test_advisor_assessment_and_appointment_lifecycle(
         "appointment_scheduled",
         "appointment_completed",
     }
+    confirmed_event = next(
+        event for event in detail.json()["events"]
+        if event["event_type"] == "assessment_confirmed"
+    )
+    assert confirmed_event["payload"]["contact_id"] == assessment_contact["id"]
+
+
+async def test_confirmed_advisor_assessment_is_visible_from_task_timeline(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    data = await _seed_homeroom_data(db_session)
+    lecturer = data["lecturer"]
+    student = data["own_student"]
+    student.gpa_cumulative = 1.5
+    await db_session.flush()
+    client.headers["Authorization"] = f"Bearer {create_access_token(lecturer.id, lecturer.role)}"
+
+    synced = await client.post("/api/v1/interventions/cases/sync-risk-signals?max_cases=10")
+    case_item = (await client.get("/api/v1/interventions/cases")).json()[0]
+    assessment = await client.put(
+        f"/api/v1/interventions/cases/{case_item['id']}/assessment",
+        json={
+            "assessment": "Chốt nhận định từ task queue.",
+            "conclusion": "support_needed",
+            "action_plan": "Lập kế hoạch hỗ trợ theo tuần.",
+            "confirm": True,
+        },
+    )
+    detail = await client.get(f"/api/v1/interventions/cases/{case_item['id']}")
+
+    task_events = (
+        await db_session.execute(
+            select(OpsTaskEvent).where(
+                OpsTaskEvent.task_id == case_item["task_id"],
+                OpsTaskEvent.event_type == "advisor_assessment_confirmed",
+            )
+        )
+    ).scalars().all()
+    confirmed_event = next(
+        event for event in detail.json()["events"]
+        if event["event_type"] == "assessment_confirmed"
+    )
+    contact = await db_session.get(StudentInterventionContact, confirmed_event["payload"]["contact_id"])
+
+    assert synced.status_code == 200
+    assert assessment.status_code == 200
+    assert task_events
+    assert task_events[0].payload_json["case_id"] == case_item["id"]
+    assert task_events[0].payload_json["student_id"] == student.id
+    assert task_events[0].payload_json["contact_id"] == contact.id
+    assert contact.message == "Chốt nhận định từ task queue."
 
 
 async def test_bulk_notice_is_saved_to_each_student_history(
@@ -421,7 +485,7 @@ async def test_scoped_viewer_cannot_mutate_intervention_campaign(
     assert send_attempt.status_code == 403
 
 
-async def test_manager_can_view_but_not_edit_advisor_assessment(
+async def test_manager_can_confirm_scoped_advisor_assessment(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
     data = await _seed_homeroom_data(db_session)
@@ -437,7 +501,10 @@ async def test_manager_can_view_but_not_edit_advisor_assessment(
     client.headers["Authorization"] = f"Bearer {create_access_token(manager.id, manager.role)}"
     response = await client.put(
         f"/api/v1/interventions/cases/{created.json()['id']}/assessment",
-        json={"assessment": "Manager must not author this.", "conclusion": "monitor", "confirm": True},
+        json={"assessment": "Manager confirms scoped support note.", "conclusion": "monitor", "confirm": True},
     )
+    history = await client.get(f"/api/v1/interventions/students/{student.id}/history")
 
-    assert response.status_code == 403
+    assert response.status_code == 200
+    assert response.json()["assessment_confirmed_by_user_id"] == manager.id
+    assert history.json()[0]["message"] == "Manager confirms scoped support note."

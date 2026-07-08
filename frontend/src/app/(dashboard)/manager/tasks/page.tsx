@@ -9,12 +9,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { queueDashboardAgentPrompt, requestDashboardAgent, setDashboardAgentContext } from "@/lib/dashboard-agent-context"
-import { api, getCachedCurrentUser, type ApiAdvisorCase, type ApiInterventionCampaign, type ApiInterventionMessage, type ApiImprovementOutcome, type ApiOpsAlert, type ApiOpsTask, type ApiUser } from "@/lib/api"
+import { api, getCachedCurrentUser, type ApiAdvisorCase, type ApiInterventionCampaign, type ApiInterventionContact, type ApiInterventionMessage, type ApiImprovementOutcome, type ApiOpsAlert, type ApiOpsTask, type ApiUser } from "@/lib/api"
 import { getPageDataCache, setPageDataCache } from "@/lib/page-data-cache"
 import { canAssignTasks, canGenerateAlerts, canHandleTask, hasAlertData, taskTabsForRole, type TaskTabKey } from "@/lib/task-policy"
 
@@ -96,6 +96,44 @@ function contextButtonLabel(task: ApiOpsTask) {
   if (task.task_type === "contact_student" || task.scope_type === "student") return "Mở hồ sơ SV"
   if (task.scope_type === "program") return "Mở CTĐT"
   return "Mở ngữ cảnh"
+}
+
+function advisorConclusionLabel(value: "support_needed" | "monitor" | "no_action") {
+  return {
+    support_needed: "Cần hỗ trợ",
+    monitor: "Tiếp tục theo dõi",
+    no_action: "Chưa cần hành động",
+  }[value]
+}
+
+function contactChannelLabel(value: string) {
+  const labels: Record<string, string> = {
+    internal: "Nội bộ",
+    email: "Email",
+    phone: "Điện thoại",
+    meeting: "Lịch hẹn",
+    in_person: "Trực tiếp",
+    other: "Khác",
+  }
+  return labels[value] ?? value
+}
+
+function contactStatusLabel(value: string) {
+  const labels: Record<string, string> = {
+    drafted: "Bản nháp",
+    logged: "Đã ghi nhận",
+    emailed: "Đã gửi",
+    failed: "Lỗi",
+  }
+  return labels[value] ?? value
+}
+
+function contactTitle(item: ApiInterventionContact) {
+  return item.subject || (item.channel === "internal" ? "Nhận định nội bộ" : "Ghi nhận hỗ trợ")
+}
+
+function contactMainText(item: ApiInterventionContact) {
+  return item.message || item.note || item.subject || "Đã ghi nhận vào hồ sơ sinh viên."
 }
 
 function taskAgentPrompt(task: ApiOpsTask) {
@@ -345,6 +383,29 @@ function AdvisorCaseDetail({ item, onClose, onReload }: { item: ApiAdvisorCase |
   const [purpose, setPurpose] = React.useState("")
   const [outcome, setOutcome] = React.useState<ApiImprovementOutcome>("needs_follow_up")
   const [busy, setBusy] = React.useState(false)
+  const [localError, setLocalError] = React.useState("")
+  const [localMessage, setLocalMessage] = React.useState("")
+  const [history, setHistory] = React.useState<ApiInterventionContact[]>([])
+  const [historyLoading, setHistoryLoading] = React.useState(false)
+
+  const loadHistory = React.useCallback(async (target: ApiAdvisorCase | null) => {
+    if (!target) {
+      setHistory([])
+      return
+    }
+    setHistoryLoading(true)
+    try {
+      const rows = await api.getInterventionHistory(target.student_id, {
+        section_id: target.section_id ?? undefined,
+        class_code: target.class_code ?? undefined,
+      })
+      setHistory(rows)
+    } catch {
+      setHistory([])
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [])
 
   React.useEffect(() => {
     setAssessment(item?.advisor_assessment ?? "")
@@ -353,11 +414,25 @@ function AdvisorCaseDetail({ item, onClose, onReload }: { item: ApiAdvisorCase |
     setAppointmentAt("")
     setPurpose("")
     setOutcome(item?.improvement_outcome ?? "needs_follow_up")
-  }, [item])
+    setLocalError("")
+    setLocalMessage("")
+    void loadHistory(item)
+  }, [item, loadHistory])
 
-  async function run(action: () => Promise<unknown>) {
+  async function run(action: () => Promise<unknown>, successMessage = "Đã lưu cập nhật.") {
     setBusy(true)
-    try { await action(); onReload() } finally { setBusy(false) }
+    setLocalError("")
+    setLocalMessage("")
+    try {
+      await action()
+      setLocalMessage(successMessage)
+      await loadHistory(item)
+      onReload()
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : "Không lưu được cập nhật. Vui lòng thử lại.")
+    } finally {
+      setBusy(false)
+    }
   }
 
   const baselineAcademic = (item?.signal_snapshot.academic ?? {}) as Record<string, unknown>
@@ -384,23 +459,90 @@ function AdvisorCaseDetail({ item, onClose, onReload }: { item: ApiAdvisorCase |
             </Button>
             <div className="rounded-lg border p-3">
               <div className="mb-1 font-medium">Nhận định hệ thống/AI đề xuất</div>
-              <p className="mb-3 text-xs text-muted-foreground">Đã tổng hợp từ dữ liệu học tập và ML hiện có. Giảng viên chỉ cần kiểm tra, chỉnh nếu cần và xác nhận.</p>
-              <Textarea value={assessment} onChange={(event) => setAssessment(event.target.value)} placeholder="Nhận định dựa trên tín hiệu học tập và trao đổi thực tế..." />
+              <p className="mb-3 text-xs text-muted-foreground">
+                Đây là bản nháp từ dữ liệu học tập và ML. Người phụ trách có thể chỉnh nội dung, chọn kết luận và lưu/chốt lại.
+              </p>
+              {!canEdit ? (
+                <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  Tài khoản hiện tại chỉ có quyền xem case này. Cần là giảng viên được giao, manager đúng khoa hoặc admin để chỉnh.
+                </div>
+              ) : null}
+              {localError ? <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">{localError}</div> : null}
+              {localMessage ? <div className="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">{localMessage}</div> : null}
+              <Label htmlFor="advisor-assessment">Nội dung nhận định</Label>
+              <Textarea
+                id="advisor-assessment"
+                className="mt-2 min-h-32"
+                value={assessment}
+                onChange={(event) => setAssessment(event.target.value)}
+                disabled={!canEdit || busy}
+                placeholder="Nhận định dựa trên tín hiệu học tập và trao đổi thực tế..."
+              />
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <Select value={conclusion} onValueChange={(value) => setConclusion(value as typeof conclusion)}>
-                  <SelectTrigger>Kết luận</SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="support_needed">Cần hỗ trợ</SelectItem>
-                    <SelectItem value="monitor">Tiếp tục theo dõi</SelectItem>
-                    <SelectItem value="no_action">Chưa cần hành động</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input value={actionPlan} onChange={(event) => setActionPlan(event.target.value)} placeholder="Hướng xử lý" />
+                <div className="space-y-2">
+                  <Label>Kết luận</Label>
+                  <Select value={conclusion} onValueChange={(value) => setConclusion(value as typeof conclusion)} disabled={!canEdit || busy}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={advisorConclusionLabel(conclusion)} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="support_needed">Cần hỗ trợ</SelectItem>
+                      <SelectItem value="monitor">Tiếp tục theo dõi</SelectItem>
+                      <SelectItem value="no_action">Chưa cần hành động</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="advisor-action-plan">Hướng xử lý</Label>
+                  <Textarea
+                    id="advisor-action-plan"
+                    value={actionPlan}
+                    onChange={(event) => setActionPlan(event.target.value)}
+                    disabled={!canEdit || busy}
+                    placeholder="Ví dụ: Theo dõi tiến độ, đặt lịch trao đổi, hướng dẫn học lại..."
+                  />
+                </div>
               </div>
               <div className="mt-3 flex gap-2">
-                <Button variant="outline" disabled={!canEdit || !assessment.trim() || busy} onClick={() => run(() => api.saveAdvisorAssessment(item.id, { assessment: assessment.trim(), conclusion, action_plan: actionPlan || null }))}>Lưu nháp</Button>
-                <Button disabled={!canEdit || !assessment.trim() || busy} onClick={() => run(() => api.saveAdvisorAssessment(item.id, { assessment: assessment.trim(), conclusion, action_plan: actionPlan || null, confirm: true }))}>Chốt nhận định</Button>
+                <Button variant="outline" disabled={!canEdit || !assessment.trim() || busy} onClick={() => run(() => api.saveAdvisorAssessment(item.id, { assessment: assessment.trim(), conclusion, action_plan: actionPlan || null }), "Đã lưu bản chỉnh sửa. Bản này chưa ghi vào lịch sử sinh viên cho tới khi chốt.")}>
+                  {busy ? "Đang lưu..." : "Lưu chỉnh sửa"}
+                </Button>
+                <Button disabled={!canEdit || !assessment.trim() || busy} onClick={() => run(() => api.saveAdvisorAssessment(item.id, { assessment: assessment.trim(), conclusion, action_plan: actionPlan || null, confirm: true }), "Đã chốt nhận định và lưu vào lịch sử đánh giá/hỗ trợ của sinh viên.")}>
+                  {item.assessment_confirmed_at ? "Chốt lại nhận định" : "Xác nhận nhận định"}
+                </Button>
               </div>
+            </div>
+            <div className="rounded-lg border p-3">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="font-medium">Lịch sử đánh giá/hỗ trợ của sinh viên</div>
+                  <p className="text-xs text-muted-foreground">Các nhận định đã chốt, lịch hẹn và ghi nhận hỗ trợ được lưu append-only vào hồ sơ sinh viên.</p>
+                </div>
+                <Badge variant="secondary">{history.length} lượt</Badge>
+              </div>
+              {historyLoading ? (
+                <p className="py-4 text-sm text-muted-foreground">Đang tải lịch sử...</p>
+              ) : history.length ? (
+                <div className="space-y-2">
+                  {history.slice(0, 5).map((entry) => (
+                    <div key={entry.id} className="rounded-md border bg-muted/20 p-2 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-medium">{contactTitle(entry)}</span>
+                        <span className="text-xs text-muted-foreground">{new Date(entry.created_at).toLocaleString("vi-VN")}</span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 whitespace-pre-line text-muted-foreground">{contactMainText(entry)}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Badge variant="outline" className="text-[10px]">{contactChannelLabel(entry.channel)}</Badge>
+                        <Badge variant="outline" className="text-[10px]">{contactStatusLabel(entry.status)}</Badge>
+                        {entry.metadata_json?.conclusion ? <Badge variant="secondary" className="text-[10px]">{advisorConclusionLabel(entry.metadata_json.conclusion as "support_needed" | "monitor" | "no_action")}</Badge> : null}
+                      </div>
+                      {entry.note ? <p className="mt-2 rounded bg-background/70 p-2 text-xs text-muted-foreground">Hướng xử lý: {entry.note}</p> : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="py-4 text-sm text-muted-foreground">Chưa có nhận định hoặc lịch hẹn nào được chốt vào hồ sơ sinh viên.</p>
+              )}
             </div>
             <div className="rounded-lg border p-3">
               <div className="mb-3 font-medium">Đặt lịch trao đổi khi cần</div>
@@ -431,7 +573,7 @@ function AdvisorCaseDetail({ item, onClose, onReload }: { item: ApiAdvisorCase |
                 <div className="rounded-md bg-muted p-2"><div className="text-xs text-muted-foreground">Mức rủi ro</div><div>{String(item.signal_snapshot.risk_level ?? "—")} → {String(item.follow_up_snapshot.risk_level ?? "—")}</div></div>
               </div>
               <Select value={outcome} onValueChange={(value) => setOutcome(value as ApiImprovementOutcome)}>
-                <SelectTrigger>Kết quả</SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Chọn kết quả" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="improved">Đã cải thiện</SelectItem>
                   <SelectItem value="unchanged">Chưa thay đổi</SelectItem>
@@ -853,7 +995,7 @@ export default function TasksPage() {
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Quá hạn</div><div className="text-2xl font-semibold">{tasks.filter((task) => task.due_at && new Date(task.due_at) < new Date() && !["resolved", "closed"].includes(task.status)).length}</div></CardContent></Card>
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">High priority</div><div className="text-2xl font-semibold">{tasks.filter((task) => ["urgent", "critical", "high"].includes(task.priority)).length}</div></CardContent></Card>
       </div>
-      <Card>
+      <Card data-tour="page-tasks-actions">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2 text-base"><CalendarDays className="size-4" />Cố vấn và lịch hẹn</CardTitle>
@@ -997,7 +1139,7 @@ export default function TasksPage() {
           </CardContent>
         </Card>
       ) : null}
-      <Tabs value={tab} onValueChange={(value) => setTab(value as TaskTabKey)}>
+      <Tabs value={tab} onValueChange={(value) => setTab(value as TaskTabKey)} data-tour="page-tasks-filters">
         <TabsList className="flex flex-wrap">
           {tabs.map((key) => <TabsTrigger key={key} value={key}>{TAB_LABELS[key]}</TabsTrigger>)}
         </TabsList>
@@ -1015,7 +1157,7 @@ export default function TasksPage() {
                 </SelectContent>
               </Select>
             ) : null}
-            <Card>
+            <Card data-tour="page-tasks-results">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   {key === "alerts" ? <AlertTriangle className="size-4" /> : <ListTodo className="size-4" />}

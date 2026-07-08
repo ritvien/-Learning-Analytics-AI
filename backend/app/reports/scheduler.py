@@ -81,6 +81,7 @@ async def run_schedule(
             generated_by=schedule.created_by,
             scope_type=schedule.scope_type,
             scope_id=schedule.scope_id,
+            include_ai_narrative=schedule.include_ai_narrative,
         )
     except Exception as exc:
         run.status = "failed"

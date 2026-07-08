@@ -336,7 +336,7 @@ export default function ObservabilityPage() {
         <Card><CardContent className="flex items-center gap-3 p-4"><Clock className="h-8 w-8 rounded-full bg-amber-100 p-2 text-amber-700" /><div><p className="text-xs text-muted-foreground">Avg latency</p><p className="text-2xl font-bold">{formatDuration(avgLatency)}</p></div></CardContent></Card>
       </div>
 
-      <Card>
+      <Card data-tour="page-observability-filters">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base"><Filter className="h-4 w-4" />Bộ lọc điều tra</CardTitle>
           <CardDescription>Lọc theo user/session/route/event để nối từ cookie → session → event → API trace.</CardDescription>
@@ -385,7 +385,7 @@ export default function ObservabilityPage() {
 
         <TabsContent value="overview" className="mt-4 space-y-4">
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
-            <Card>
+            <Card data-tour="page-observability-results">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base"><Activity className="h-4 w-4" />Event volume & lỗi theo thời gian</CardTitle>
                 <CardDescription>Nhìn nhanh nhịp sử dụng, spike lỗi và latency trung bình trong tập event đang tải.</CardDescription>

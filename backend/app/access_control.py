@@ -6,7 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.academic import Course, Department, Program, Specialization
+from app.models.academic import Course, Department, Program, Specialization, program_courses
 from app.models.people import HomeroomAssignment, Student, Teacher, User, UserRole
 from app.models.report import Report, ReportSchedule
 from app.models.teaching import Enrollment, Section
@@ -122,7 +122,17 @@ async def can_access_course(db: AsyncSession, user: User, course_id: int) -> boo
     department_ids = await user_department_ids(db, user)
     if not department_ids:
         return False
-    query = select(exists().where(Course.id == course_id, Course.department_id.in_(department_ids)))
+    query = select(
+        exists()
+        .where(Course.id == course_id)
+        .where(
+            (Course.department_id.in_(department_ids))
+            | exists()
+            .where(program_courses.c.course_id == Course.id)
+            .where(program_courses.c.program_id == Program.id)
+            .where(Program.department_id.in_(department_ids))
+        )
+    )
     result = await db.execute(query)
     return bool(result.scalar())
 

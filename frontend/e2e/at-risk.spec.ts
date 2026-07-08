@@ -277,6 +277,9 @@ test.describe('EduInsight At-Risk & Intervention Flow E2E', () => {
 
     // Pre-seed localStorage to mark all tours as seen, preventing driver.js and the Phân tích dialog from appearing
     await page.evaluate(() => {
+      const cached = JSON.parse(sessionStorage.getItem('current_user_cache_v1') ?? localStorage.getItem('current_user_cache_v1') ?? '{}');
+      const userId = cached.user?.id ?? cached.id;
+      if (userId) localStorage.setItem(`eduinsight_onboarding_v3_${userId}`, 'completed');
       const paths = [
         '/manager',
         '/manager/analytics',

@@ -58,9 +58,14 @@ function studentStatusLabel(value: string) {
     suspended: "Tạm đình chỉ",
     expelled: "Buộc thôi học",
     dropout: "Đã thôi học",
+    withdrawn: "Đã rút học",
     inactive: "Không hoạt động",
   }
   return labels[value.toLowerCase()] ?? value
+}
+
+function isTerminalAcademicStatus(value: string) {
+  return ["expelled", "dropout", "withdrawn", "inactive"].includes(value.toLowerCase())
 }
 
 function channelLabel(value: string) {
@@ -123,58 +128,32 @@ function mergeInterventionHistory(
   })
 }
 
-type StudentAnalyticsDetailSnapshot = {
-  data: ApiHomeroomStudentAnalytics | null
-  history: ApiInterventionContact[]
-  supportProfile: ApiStudentSupportProfile | null
-}
-
-const studentAnalyticsDetailCache = new Map<number, StudentAnalyticsDetailSnapshot>()
-
-function updateStudentAnalyticsDetailCache(studentId: number, patch: Partial<StudentAnalyticsDetailSnapshot>) {
-  const current = studentAnalyticsDetailCache.get(studentId) ?? {
-    data: null,
-    history: [],
-    supportProfile: null,
-  }
-  studentAnalyticsDetailCache.set(studentId, { ...current, ...patch })
-}
-
 export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
-  const cachedSnapshot = studentAnalyticsDetailCache.get(studentId)
-  const [data, setData] = React.useState<ApiHomeroomStudentAnalytics | null>(cachedSnapshot?.data ?? null)
-  const [loading, setLoading] = React.useState(!cachedSnapshot?.data)
+  const [data, setData] = React.useState<ApiHomeroomStudentAnalytics | null>(null)
+  const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState("")
   const [semesterFilter, setSemesterFilter] = React.useState("all")
   const [resultFilter, setResultFilter] = React.useState<"all" | "failed" | "passed">("all")
   const [query, setQuery] = React.useState("")
-  const [history, setHistory] = React.useState<ApiInterventionContact[]>(cachedSnapshot?.history ?? [])
+  const [history, setHistory] = React.useState<ApiInterventionContact[]>([])
   const [historyLoading, setHistoryLoading] = React.useState(false)
-  const [supportProfile, setSupportProfile] = React.useState<ApiStudentSupportProfile | null>(cachedSnapshot?.supportProfile ?? null)
+  const [supportProfile, setSupportProfile] = React.useState<ApiStudentSupportProfile | null>(null)
 
   React.useEffect(() => {
     let active = true
-    const cached = studentAnalyticsDetailCache.get(studentId)
     setError("")
-    if (cached?.data) {
-      setData(cached.data)
-      setHistory(cached.history)
-      setSupportProfile(cached.supportProfile)
-      setLoading(false)
-    } else {
-      setData(null)
-      setHistory([])
-      setSupportProfile(null)
-      setLoading(true)
-    }
+    setData(null)
+    setHistory([])
+    setSupportProfile(null)
+    setLoading(true)
     api.getHomeroomStudentAnalytics(studentId)
       .then((response) => {
         if (!active) return
         setData(response)
-        updateStudentAnalyticsDetailCache(studentId, { data: response })
       })
       .catch(() => {
-        if (active && !cached?.data) {
+        if (active) {
+          setData(null)
           setError("Không thể mở phân tích sinh viên này. Hãy kiểm tra lại phạm vi lớp chủ nhiệm.")
         }
       })
@@ -194,9 +173,7 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
       .then((items) => {
         if (!active) return
         setHistory((current) => {
-          const next = mergeInterventionHistory(current, items)
-          updateStudentAnalyticsDetailCache(studentId, { history: next })
-          return next
+          return mergeInterventionHistory(current, items)
         })
       })
       .catch(() => {
@@ -217,11 +194,8 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
       .then((profile) => {
         if (!active) return
         setSupportProfile(profile)
-        updateStudentAnalyticsDetailCache(studentId, { supportProfile: profile })
         setHistory((current) => {
-          const next = mergeInterventionHistory(current, profile?.contact_history ?? [])
-          updateStudentAnalyticsDetailCache(studentId, { history: next })
-          return next
+          return mergeInterventionHistory(current, profile?.contact_history ?? [])
         })
       })
       .catch(() => {
@@ -271,6 +245,7 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
   }
 
   const { profile, kpis, class_benchmark: benchmark, risk } = data
+  const hasTerminalStatus = isTerminalAcademicStatus(profile.status)
   const riskView = riskPresentation(risk.level)
   const RiskIcon = riskView.icon
   const latestTrend = data.trend.at(-1)
@@ -313,6 +288,18 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
         </div>
       </div>
 
+      {hasTerminalStatus ? (
+        <div className="flex gap-3 rounded-lg border border-red-300 bg-red-50 p-4 text-red-900">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-700" />
+          <div>
+            <p className="font-semibold">Kết quả học vụ đã xác nhận: {studentStatusLabel(profile.status)}</p>
+            <p className="mt-1 text-sm text-red-800">
+              Đây là trạng thái đã xảy ra trong hệ thống học vụ, không phải xác suất do ML dự báo. Model nguy cơ bỏ học chỉ chấm sinh viên có trạng thái đang học, nên hồ sơ này không có điểm nguy cơ ML mới.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {[
           { label: "GPA tích lũy", value: profile.gpa_cumulative?.toFixed(2) ?? "—", note: "Thang điểm 4", icon: GraduationCap, tone: "text-primary" },
@@ -335,17 +322,27 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-        <Card className="border-amber-200/70">
+        <Card className={hasTerminalStatus ? "border-red-200/70" : "border-amber-200/70"} data-tour="page-student-summary">
           <CardHeader className="pb-3">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <CardTitle className="text-base">Tín chỉ có nguy cơ kỳ này</CardTitle>
-                <CardDescription>Ước tính từ các tín hiệu học tập hiện có; chưa kết luận chậm tốt nghiệp.</CardDescription>
+                <CardTitle className="text-base">{hasTerminalStatus ? "Dự báo ML không áp dụng" : "Tín chỉ có nguy cơ kỳ này"}</CardTitle>
+                <CardDescription>
+                  {hasTerminalStatus
+                    ? `Sinh viên đang ở trạng thái ${studentStatusLabel(profile.status).toLocaleLowerCase("vi")}; ưu tiên đối chiếu quyết định học vụ thay vì chạy dự báo.`
+                    : "Ước tính từ các tín hiệu học tập hiện có; chưa kết luận chậm tốt nghiệp."}
+                </CardDescription>
               </div>
-              <Badge variant="outline">{creditPrediction ? creditPrediction.risk_level : "Chưa đủ dữ liệu"}</Badge>
+              <Badge variant={hasTerminalStatus ? "destructive" : "outline"}>{hasTerminalStatus ? "Đã có kết quả học vụ" : creditPrediction ? creditPrediction.risk_level : "Chưa đủ dữ liệu"}</Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          {hasTerminalStatus ? (
+            <CardContent>
+              <p className="rounded-md bg-red-50 p-3 text-sm text-red-800">
+                Không hiển thị xác suất hoặc tín chỉ dự kiến để tránh hiểu nhầm một kết quả đã xảy ra thành dự báo tương lai.
+              </p>
+            </CardContent>
+          ) : <CardContent className="space-y-4">
             <div className="grid grid-cols-3 gap-2 text-center text-sm">
               <div className="rounded-lg bg-muted/40 p-3">
                 <p className="text-xs text-muted-foreground">Đăng ký</p>
@@ -378,7 +375,7 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
             ) : (
               <p className="rounded-md bg-muted/30 p-3 text-sm text-muted-foreground">Chưa có học phần đang học đủ điểm thành phần để ước tính course-risk.</p>
             )}
-          </CardContent>
+          </CardContent>}
         </Card>
 
         <Card>
@@ -455,7 +452,7 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
           </CardContent>
         </Card>
 
-        <Card className={risk.level === "high" ? "border-red-200" : risk.level === "watch" ? "border-amber-200" : "border-emerald-200"}>
+        <Card className={risk.level === "high" ? "border-red-200" : risk.level === "watch" ? "border-amber-200" : "border-emerald-200"} data-tour="page-student-risk">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base"><RiskIcon className="h-4 w-4" />Nhận định cố vấn</CardTitle>
             <CardDescription>Tín hiệu quy tắc từ GPA và kết quả học phần, không phải dự đoán ML.</CardDescription>
@@ -475,7 +472,7 @@ export function StudentAnalyticsDetail({ studentId }: { studentId: number }) {
         </Card>
       </div>
 
-      <Card id="support-history" className="scroll-mt-24 border-primary/20">
+      <Card id="support-history" className="scroll-mt-24 border-primary/20" data-tour="page-student-support">
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>

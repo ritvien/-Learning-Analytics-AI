@@ -104,10 +104,12 @@ def _visible_filter(user: CurrentUser, department_ids: set[int] | None = None):
 
 def _permissions(item: InterventionCase, user: CurrentUser) -> dict:
     is_owner = user.role == UserRole.lecturer and item.assignee_user_id == user.id
+    can_manage_visible_case = is_admin(user) or user.role == UserRole.manager
+    can_update_workflow = is_owner or can_manage_visible_case
     return {
         "can_assign": user.role == UserRole.manager,
         "can_escalate": user.role == UserRole.manager,
-        "can_update_workflow": is_owner,
+        "can_update_workflow": can_update_workflow,
         "can_contact": is_owner,
         "can_view_private_timeline": user.role in {UserRole.manager, UserRole.lecturer} or is_admin(user),
     }
@@ -203,8 +205,11 @@ def _appointment_payload(item: InterventionAppointment) -> dict:
 
 
 def _require_case_owner(item: InterventionCase, user: CurrentUser) -> None:
-    if user.role != UserRole.lecturer or item.assignee_user_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the assigned lecturer can update student support")
+    if is_admin(user) or user.role == UserRole.manager:
+        return
+    if user.role == UserRole.lecturer and item.assignee_user_id == user.id:
+        return
+    raise HTTPException(status_code=403, detail="Only the assigned lecturer or scoped manager can update student support")
 
 
 async def _current_signal_snapshot(db: DBSession, user: CurrentUser, item: InterventionCase) -> dict:
@@ -638,29 +643,45 @@ async def upsert_advisor_assessment(
     item.advisor_assessment = payload.assessment
     item.advisor_conclusion = payload.conclusion
     item.advisor_action_plan = payload.action_plan
+    contact_id: int | None = None
     if payload.confirm:
         item.assessment_confirmed_by_user_id = current_user.id
         item.assessment_confirmed_at = datetime.now(UTC)
-        db.add(
-            StudentInterventionContact(
-                case_id=item.id,
+        contact = StudentInterventionContact(
+            case_id=item.id,
+            task_id=item.task_id,
+            actor_user_id=current_user.id,
+            student_id=item.student_id,
+            section_id=item.section_id,
+            class_code=item.class_code,
+            channel="internal",
+            status="logged",
+            subject="Nhận định hỗ trợ học tập đã xác nhận",
+            message=payload.assessment,
+            note=payload.action_plan,
+            metadata_json={
+                "source": "advisor_assessment",
+                "conclusion": payload.conclusion,
+                "confirmed": True,
+                "confirmed_at": item.assessment_confirmed_at.isoformat(),
+            },
+        )
+        db.add(contact)
+        await db.flush()
+        contact_id = contact.id
+        if item.task_id is not None:
+            await add_task_event(
+                db,
                 task_id=item.task_id,
                 actor_user_id=current_user.id,
-                student_id=item.student_id,
-                section_id=item.section_id,
-                class_code=item.class_code,
-                channel="other",
-                status="logged",
-                subject="Nhận định hỗ trợ học tập đã xác nhận",
-                message=payload.assessment,
-                note=payload.action_plan,
-                metadata_json={
-                    "source": "advisor_assessment",
+                event_type="advisor_assessment_confirmed",
+                payload={
+                    "case_id": item.id,
+                    "student_id": item.student_id,
+                    "contact_id": contact_id,
                     "conclusion": payload.conclusion,
-                    "confirmed": True,
                 },
             )
-        )
     else:
         item.assessment_confirmed_by_user_id = None
         item.assessment_confirmed_at = None
@@ -669,7 +690,7 @@ async def upsert_advisor_assessment(
             case_id=item.id,
             actor_user_id=current_user.id,
             event_type="assessment_confirmed" if payload.confirm else "assessment_saved",
-            payload_json={"conclusion": payload.conclusion, "confirmed": payload.confirm},
+            payload_json={"conclusion": payload.conclusion, "confirmed": payload.confirm, "contact_id": contact_id},
         )
     )
     await db.flush()

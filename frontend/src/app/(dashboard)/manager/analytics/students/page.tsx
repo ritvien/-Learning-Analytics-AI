@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { AlertTriangle, ArrowRight, CheckCircle2, GraduationCap, ListTodo, Search, Trash2, UserRound, Users } from "lucide-react"
+import { AlertTriangle, ArrowRight, CheckCircle2, GraduationCap, ListTodo, Search, UserRound, Users } from "lucide-react"
 import {
   Bar,
   BarChart,
@@ -12,31 +12,23 @@ import {
   LineChart,
   ReferenceLine,
   ResponsiveContainer,
-  Scatter,
-  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
-  ZAxis,
 } from "recharts"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AnalyticsTableSkeleton } from "@/components/loading/page-skeletons"
 import {
   api,
-  type ApiHomeroomAssignment,
   type ApiHomeroomClassDetail,
   type ApiHomeroomClassSummary,
-  type ApiStudent,
-  type ApiTeacher,
   type ApiUser,
 } from "@/lib/api"
-import { getPageDataCache, setPageDataCache } from "@/lib/page-data-cache"
 
 function riskBadge(level: "high" | "watch" | "normal") {
   if (level === "high") return <Badge variant="destructive">Cần ưu tiên</Badge>
@@ -44,69 +36,48 @@ function riskBadge(level: "high" | "watch" | "normal") {
   return <Badge className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600" variant="outline">Ổn định</Badge>
 }
 
-type HomeroomAnalyticsPageCache = {
-  currentUser: ApiUser | null
-  classes: ApiHomeroomClassSummary[]
-  selectedClass: string
-  detail: ApiHomeroomClassDetail | null
-  teachers: ApiTeacher[]
-  students: ApiStudent[]
-  assignments: ApiHomeroomAssignment[]
+function pct(value: number | null | undefined, digits = 1) {
+  if (value === null || value === undefined) return "—"
+  return `${(value * 100).toFixed(digits)}%`
 }
 
-const HOMEROOM_ANALYTICS_PAGE_CACHE_KEY = "manager:analytics:students"
+function dropoutColor(value: number | null | undefined) {
+  const risk = value ?? 0
+  if (risk >= 0.7) return "#dc2626"
+  if (risk >= 0.4) return "#f59e0b"
+  return "#16a34a"
+}
+
+function isHighDropoutRisk(level: string | null | undefined) {
+  return level === "high"
+}
+
+function isMediumDropoutRisk(level: string | null | undefined) {
+  return level === "medium"
+}
 
 export default function HomeroomAnalyticsPage() {
   const router = useRouter()
-  const cachedPage = React.useMemo(() => getPageDataCache<HomeroomAnalyticsPageCache>(HOMEROOM_ANALYTICS_PAGE_CACHE_KEY), [])
-  const [currentUser, setCurrentUser] = React.useState<ApiUser | null>(cachedPage?.currentUser ?? null)
-  const [classes, setClasses] = React.useState<ApiHomeroomClassSummary[]>(cachedPage?.classes ?? [])
-  const [selectedClass, setSelectedClass] = React.useState(cachedPage?.selectedClass ?? "")
-  const [detail, setDetail] = React.useState<ApiHomeroomClassDetail | null>(cachedPage?.detail ?? null)
-  const [teachers, setTeachers] = React.useState<ApiTeacher[]>(cachedPage?.teachers ?? [])
-  const [students, setStudents] = React.useState<ApiStudent[]>(cachedPage?.students ?? [])
-  const [assignments, setAssignments] = React.useState<ApiHomeroomAssignment[]>(cachedPage?.assignments ?? [])
-  const [teacherId, setTeacherId] = React.useState("")
-  const [classCode, setClassCode] = React.useState("")
-  const [loading, setLoading] = React.useState(!cachedPage?.currentUser)
+  const [currentUser, setCurrentUser] = React.useState<ApiUser | null>(null)
+  const [classes, setClasses] = React.useState<ApiHomeroomClassSummary[]>([])
+  const [selectedClass, setSelectedClass] = React.useState("")
+  const [detail, setDetail] = React.useState<ApiHomeroomClassDetail | null>(null)
+  const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState("")
   const [studentQuery, setStudentQuery] = React.useState("")
   const [riskFilter, setRiskFilter] = React.useState<"all" | "high" | "watch" | "normal">("all")
   const [selectedWeakCourse, setSelectedWeakCourse] = React.useState<number | null>(null)
 
-  const canManage = currentUser?.role === "superadmin" || currentUser?.role === "admin" || currentUser?.role === "manager"
-
   const refresh = React.useCallback(async () => {
     setError("")
     const me = await api.me()
     const classList = await api.getHomeroomClasses()
-    let teacherList: ApiTeacher[] = []
-    let studentList: ApiStudent[] = []
-    let assignmentList: ApiHomeroomAssignment[] = []
     setCurrentUser(me)
     setClasses(classList)
-    setSelectedClass((current) => current && classList.some(item => item.class_code === current)
+    const analyzableClasses = classList.filter((item) => item.student_count > 0)
+    setSelectedClass((current) => current && analyzableClasses.some(item => item.class_code === current)
       ? current
-      : classList[0]?.class_code ?? "")
-    if (["superadmin", "admin", "manager"].includes(me.role)) {
-      ;[teacherList, studentList, assignmentList] = await Promise.all([
-        api.getTeachers({ limit: 1000 }),
-        api.getStudents({ limit: 5000 }),
-        api.getHomeroomAssignments(),
-      ])
-      setTeachers(teacherList)
-      setStudents(studentList)
-      setAssignments(assignmentList)
-    }
-    setPageDataCache<HomeroomAnalyticsPageCache>(HOMEROOM_ANALYTICS_PAGE_CACHE_KEY, {
-      currentUser: me,
-      classes: classList,
-      selectedClass: classList[0]?.class_code ?? "",
-      detail: getPageDataCache<HomeroomAnalyticsPageCache>(HOMEROOM_ANALYTICS_PAGE_CACHE_KEY)?.detail ?? null,
-      teachers: teacherList,
-      students: studentList,
-      assignments: assignmentList,
-    })
+      : analyzableClasses[0]?.class_code ?? "")
   }, [])
 
   React.useEffect(() => {
@@ -122,18 +93,17 @@ export default function HomeroomAnalyticsPage() {
     }
     api.getHomeroomClass(selectedClass).then((nextDetail) => {
       setDetail(nextDetail)
-      const cached = getPageDataCache<HomeroomAnalyticsPageCache>(HOMEROOM_ANALYTICS_PAGE_CACHE_KEY)
-      if (cached) setPageDataCache(HOMEROOM_ANALYTICS_PAGE_CACHE_KEY, { ...cached, selectedClass, detail: nextDetail })
     }).catch((err: unknown) => {
       setDetail(null)
       setError(err instanceof Error ? err.message : "Không tải được lớp chủ nhiệm.")
     })
   }, [selectedClass])
 
-  const availableClassCodes = React.useMemo(
-    () => [...new Set(students.map(student => student.class_code).filter((value): value is string => Boolean(value)))].sort(),
-    [students],
+  const analyzableClasses = React.useMemo(
+    () => classes.filter((item) => item.student_count > 0),
+    [classes],
   )
+  const emptyClassCount = classes.length - analyzableClasses.length
 
   const gpaDistribution = React.useMemo(() => {
     const rows = detail?.students ?? []
@@ -159,48 +129,91 @@ export default function HomeroomAnalyticsPage() {
     })
   }, [detail, riskFilter, selectedWeakCourse, studentQuery])
 
-  const riskMatrix = React.useMemo(() => (detail?.students ?? [])
+  const advisorRiskRows = React.useMemo(() => (detail?.students ?? [])
     .filter((student) => student.gpa_cumulative !== null)
     .map((student) => ({
       ...student,
       gpa: student.gpa_cumulative,
-      failed: student.failed_courses,
-      size: Math.max(80, student.failed_courses * 24),
-      fill: student.risk_level === "high" ? "#ef4444" : student.risk_level === "watch" ? "#f59e0b" : "#10b981",
+      dropoutRisk: (student.dropout_probability ?? 0) * 100,
+      fill: dropoutColor(student.dropout_probability),
+      priorityScore: (4 - (student.gpa_cumulative ?? 4)) * 25 + (student.dropout_probability ?? 0) * 50 + student.failed_courses * 12,
     })), [detail])
+  const advisorRiskGroups = React.useMemo(() => {
+    const groups = [
+      {
+        key: "meet_now",
+        title: "Gặp trước",
+        description: "GPA dưới 2.0, trượt từ 5 học phần, hoặc model xếp nguy cơ cao.",
+        tone: "border-red-200 bg-red-50 text-red-950",
+        badge: "destructive" as const,
+        items: advisorRiskRows.filter((student) =>
+          (student.gpa ?? 4) < 2 || student.failed_courses >= 5 || isHighDropoutRisk(student.dropout_risk_level),
+        ),
+      },
+      {
+        key: "academic_support",
+        title: "Phụ đạo học thuật",
+        description: "GPA dưới 2.5 hoặc còn học phần chưa đạt.",
+        tone: "border-orange-200 bg-orange-50 text-orange-950",
+        badge: "outline" as const,
+        items: advisorRiskRows.filter((student) =>
+          !((student.gpa ?? 4) < 2 || student.failed_courses >= 5 || isHighDropoutRisk(student.dropout_risk_level))
+          && ((student.gpa ?? 4) < 2.5 || student.failed_courses > 0),
+        ),
+      },
+      {
+        key: "advisor_watch",
+        title: "Cố vấn theo dõi",
+        description: "Học vụ chưa quá nặng nhưng ML cần theo dõi thêm.",
+        tone: "border-violet-200 bg-violet-50 text-violet-950",
+        badge: "outline" as const,
+        items: advisorRiskRows.filter((student) =>
+          !((student.gpa ?? 4) < 2 || student.failed_courses >= 5 || isHighDropoutRisk(student.dropout_risk_level))
+          && !((student.gpa ?? 4) < 2.5 || student.failed_courses > 0)
+          && isMediumDropoutRisk(student.dropout_risk_level),
+        ),
+      },
+      {
+        key: "stable",
+        title: "Theo dõi định kỳ",
+        description: "Chưa có tín hiệu mạnh; xử lý sau các nhóm trên.",
+        tone: "border-emerald-200 bg-emerald-50 text-emerald-950",
+        badge: "outline" as const,
+        items: advisorRiskRows.filter((student) =>
+          !((student.gpa ?? 4) < 2 || student.failed_courses >= 5 || isHighDropoutRisk(student.dropout_risk_level))
+          && !((student.gpa ?? 4) < 2.5 || student.failed_courses > 0)
+          && !isMediumDropoutRisk(student.dropout_risk_level),
+        ),
+      },
+    ]
+    return groups.map((group) => ({
+      ...group,
+      items: [...group.items].sort((a, b) => b.priorityScore - a.priorityScore),
+    }))
+  }, [advisorRiskRows])
+  const topAdvisorStudents = React.useMemo(
+    () => [...advisorRiskRows].sort((a, b) => b.priorityScore - a.priorityScore).slice(0, 6),
+    [advisorRiskRows],
+  )
+  const missingDropoutPredictions = React.useMemo(
+    () => (detail?.students ?? []).filter((student) => student.gpa_cumulative !== null && student.dropout_probability === null).length,
+    [detail],
+  )
 
   const openStudent = (studentId: number) => {
     router.push(`/manager/analytics/students/${studentId}`)
   }
 
-  async function assignClass() {
-    if (!teacherId || !classCode) return
-    setError("")
-    try {
-      await api.createHomeroomAssignment({ teacher_id: Number(teacherId), class_code: classCode })
-      setTeacherId("")
-      setClassCode("")
-      await refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không phân công được lớp chủ nhiệm.")
-    }
-  }
-
-  async function removeAssignment(id: number) {
-    await api.deleteHomeroomAssignment(id)
-    await refresh()
-  }
-
   if (loading) return <AnalyticsTableSkeleton message="Đang tải lớp chủ nhiệm..." />
 
-  if (currentUser?.role !== "lecturer") {
+  if (currentUser && !["superadmin", "admin", "manager", "lecturer"].includes(currentUser.role)) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center gap-3 py-20 text-center">
           <GraduationCap className="h-12 w-12 text-muted-foreground/40" />
           <div>
-            <p className="font-semibold">Trang dành cho giảng viên được giao chủ nhiệm</p>
-            <p className="mt-1 text-sm text-muted-foreground">Quản trị viên thực hiện phân công tại trang Giảng viên.</p>
+            <p className="font-semibold">Trang dành cho giảng viên/cố vấn và quản lý đào tạo</p>
+            <p className="mt-1 text-sm text-muted-foreground">Tài khoản hiện tại chưa có quyền xem lớp cố vấn.</p>
           </div>
         </CardContent>
       </Card>
@@ -210,7 +223,7 @@ export default function HomeroomAnalyticsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Quan sát lớp chủ nhiệm</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Lớp cố vấn</h1>
         <p className="text-sm text-muted-foreground">
           Theo dõi lớp hành chính được phân công, phát hiện sinh viên cần cố vấn và ưu tiên hành động.
         </p>
@@ -218,77 +231,29 @@ export default function HomeroomAnalyticsPage() {
 
       {error ? <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div> : null}
 
-      {canManage ? (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Phân công lớp chủ nhiệm</CardTitle>
-            <p className="text-xs text-muted-foreground">Quan hệ này độc lập với giảng viên dạy lớp học phần.</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
-              <div className="space-y-1">
-                <Label>Giảng viên/cố vấn</Label>
-                <Select value={teacherId} onValueChange={(value) => setTeacherId(value ?? "")}>
-                  <SelectTrigger><SelectValue placeholder="Chọn giảng viên" /></SelectTrigger>
-                  <SelectContent>{teachers.map(item => <SelectItem key={item.id} value={String(item.id)}>{item.full_name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Lớp hành chính</Label>
-                <Select value={classCode} onValueChange={(value) => setClassCode(value ?? "")}>
-                  <SelectTrigger><SelectValue placeholder="Chọn lớp" /></SelectTrigger>
-                  <SelectContent>{availableClassCodes.map(code => <SelectItem key={code} value={code}>{code}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <Button onClick={assignClass} disabled={!teacherId || !classCode}>Giao chủ nhiệm</Button>
-            </div>
-            {assignments.length ? (
-              <div className="flex flex-wrap gap-2">
-                {assignments.map(item => {
-                  const teacher = teachers.find(entry => entry.id === item.teacher_id)
-                  return (
-                    <div key={item.id} className="flex items-center gap-2 rounded-md border px-3 py-2 text-xs">
-                      <span className="font-medium">{item.class_code}</span>
-                      <span className="text-muted-foreground">{teacher?.full_name ?? `GV #${item.teacher_id}`}</span>
-                      <Button variant="ghost" size="icon-xs" onClick={() => removeAssignment(item.id)} aria-label="Gỡ phân công"><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {classes.length === 0 ? (
+      {analyzableClasses.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-20 text-center">
             <GraduationCap className="h-12 w-12 text-muted-foreground/40" />
             <div>
-              <p className="font-semibold">Chưa được phân công lớp chủ nhiệm</p>
-              <p className="mt-1 text-sm text-muted-foreground">Quản lý cần giao lớp hành chính cho hồ sơ giảng viên trước khi dashboard có dữ liệu.</p>
+              <p className="font-semibold">Chưa có lớp cố vấn có sinh viên</p>
+              <p className="mt-1 text-sm text-muted-foreground">Phân công lớp chủ nhiệm được quản lý tại trang Quản lý giảng viên.</p>
             </div>
           </CardContent>
         </Card>
       ) : (
         <>
-          <div className="grid gap-3 md:grid-cols-[280px_1fr] md:items-center">
+          <div className="flex flex-wrap items-center gap-3" data-tour="page-advisor-filters">
             <Select value={selectedClass} onValueChange={(value) => { setSelectedClass(value ?? ""); setSelectedWeakCourse(null) }}>
-              <SelectTrigger><SelectValue placeholder="Chọn lớp chủ nhiệm" /></SelectTrigger>
-              <SelectContent>{classes.map(item => <SelectItem key={item.assignment_id} value={item.class_code}>{item.class_code}</SelectItem>)}</SelectContent>
+              <SelectTrigger className="w-72"><SelectValue placeholder="Chọn lớp cố vấn" /></SelectTrigger>
+              <SelectContent>{analyzableClasses.map(item => <SelectItem key={item.assignment_id} value={item.class_code}>{item.class_code} · {item.student_count} SV</SelectItem>)}</SelectContent>
             </Select>
-            <div className="flex flex-wrap gap-2">
-              {classes.map(item => (
-                <Button key={item.assignment_id} size="sm" variant={selectedClass === item.class_code ? "default" : "outline"} onClick={() => { setSelectedClass(item.class_code); setSelectedWeakCourse(null) }}>
-                  {item.class_code} · {item.student_count} SV
-                </Button>
-              ))}
-            </div>
+            <span className="text-sm text-muted-foreground">{analyzableClasses.length} lớp có dữ liệu{emptyClassCount ? ` · Ẩn ${emptyClassCount} lớp chưa có sinh viên` : ""}</span>
           </div>
 
           {detail ? (
             <>
-              <Card className="border-primary/20">
+              <Card className="border-primary/20" data-tour="page-advisor-actions">
                 <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
                   <div><p className="font-semibold">Can thiệp học tập lớp ${detail.class_code}</p><p className="text-sm text-muted-foreground">Analytics được giữ nguyên; nhận định, lịch hẹn và follow-up được xử lý tại hub chung.</p></div>
                   <Button onClick={() => router.push(`/manager/tasks?scope_type=homeroom&scope_id=${encodeURIComponent(detail.class_code)}`)}><ListTodo className="mr-2 h-4 w-4" />Mở việc cần xử lý</Button>
@@ -311,7 +276,7 @@ export default function HomeroomAnalyticsPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-sm">Xu hướng GPA lớp theo học kỳ</CardTitle>
-                    <p className="text-xs text-muted-foreground">GPA hệ 4, tính theo tín chỉ; đường đỏ là ngưỡng cảnh báo 2.0.</p>
+                    <p className="text-xs text-muted-foreground">GPA thang 4; đường đỏ là ngưỡng cảnh báo 2.0.</p>
                   </CardHeader>
                   <CardContent>
                     {detail.trend.length ? (
@@ -356,31 +321,82 @@ export default function HomeroomAnalyticsPage() {
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,1fr)]">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm">Ma trận ưu tiên cố vấn</CardTitle>
-                    <p className="text-xs text-muted-foreground">Trục ngang là GPA tích lũy; trục dọc là số học phần chưa đạt. Bấm một điểm để mở hồ sơ.</p>
+                    <CardTitle className="text-sm">Phân tầng ưu tiên cố vấn</CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      Ưu tiên theo rule học vụ trước: GPA thấp hoặc trượt nhiều môn sẽ vào nhóm gặp trước; ML chỉ là tín
+                      hiệu tham khảo bổ sung.
+                    </p>
+                    {missingDropoutPredictions ? (
+                      <p className="text-xs text-amber-700">
+                        {missingDropoutPredictions} sinh viên chưa có dự báo ML; vẫn được phân tầng bằng GPA và số học phần chưa đạt.
+                      </p>
+                    ) : null}
                   </CardHeader>
                   <CardContent>
-                    <ResponsiveContainer width="100%" height={320}>
-                      <ScatterChart margin={{ left: 0, right: 16, top: 10, bottom: 8 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" dataKey="gpa" name="GPA" domain={[0, 4]} ticks={[0, 1, 2, 3, 4]} tick={{ fontSize: 10 }} />
-                        <YAxis type="number" dataKey="failed" name="Môn chưa đạt" allowDecimals={false} tick={{ fontSize: 10 }} width={34} />
-                        <ZAxis type="number" dataKey="size" range={[80, 260]} />
-                        <ReferenceLine x={2} stroke="#ef4444" strokeDasharray="5 4" />
-                        <ReferenceLine y={3} stroke="#f59e0b" strokeDasharray="5 4" />
-                        <Tooltip
-                          cursor={{ strokeDasharray: "3 3" }}
-                          content={({ active, payload }) => {
-                            if (!active || !payload?.length) return null
-                            const row = payload[0].payload
-                            return <div className="rounded-md border bg-background p-3 text-xs shadow-md"><p className="font-semibold">{row.full_name}</p><p>GPA: {row.gpa?.toFixed(2)}</p><p>Chưa đạt: {row.failed} học phần</p><p>Kỳ gần nhất: {row.latest_gpa?.toFixed(2) ?? "—"}</p></div>
-                          }}
-                        />
-                        <Scatter data={riskMatrix}>
-                          {riskMatrix.map((student) => <Cell key={student.id} fill={student.fill} onClick={() => openStudent(student.id)} className="cursor-pointer" />)}
-                        </Scatter>
-                      </ScatterChart>
-                    </ResponsiveContainer>
+                    {advisorRiskRows.length ? (
+                      <div className="space-y-4">
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {advisorRiskGroups.map((group) => (
+                            <div key={group.key} className={`rounded-lg border p-3 ${group.tone}`}>
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="font-semibold">{group.title}</div>
+                                  <p className="mt-1 text-xs opacity-80">{group.description}</p>
+                                </div>
+                                <div className="text-2xl font-bold">{group.items.length}</div>
+                              </div>
+                              <div className="mt-3 space-y-2">
+                                {group.items.slice(0, 3).map((student) => (
+                                  <button
+                                    key={student.id}
+                                    type="button"
+                                    onClick={() => openStudent(student.id)}
+                                    className="flex w-full items-center justify-between gap-2 rounded-md bg-background/70 px-2 py-1.5 text-left text-xs transition hover:bg-background"
+                                  >
+                                    <span className="min-w-0 truncate font-medium">{student.student_code} - {student.full_name}</span>
+                                    <span className="shrink-0 text-muted-foreground">GPA {student.gpa?.toFixed(2)} · {pct(student.dropout_probability, 0)}</span>
+                                  </button>
+                                ))}
+                                {!group.items.length ? <div className="rounded-md bg-background/50 px-2 py-2 text-xs opacity-70">Không có sinh viên ở nhóm này.</div> : null}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="rounded-lg border p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-semibold">Danh sách cần xem trước</div>
+                              <p className="text-xs text-muted-foreground">Sắp xếp theo GPA thấp, nguy cơ bỏ học cao và số học phần chưa đạt.</p>
+                            </div>
+                            <Badge variant="outline">{topAdvisorStudents.length} sinh viên</Badge>
+                          </div>
+                          <div className="mt-3 divide-y">
+                            {topAdvisorStudents.map((student, index) => (
+                              <button
+                                key={student.id}
+                                type="button"
+                                onClick={() => openStudent(student.id)}
+                                className="grid w-full gap-2 py-2 text-left text-sm transition hover:bg-muted/40 sm:grid-cols-[32px_1fr_auto]"
+                              >
+                                <span className="text-xs font-semibold text-muted-foreground">#{index + 1}</span>
+                                <span>
+                                  <span className="font-medium">{student.student_code} - {student.full_name}</span>
+                                  <span className="mt-0.5 block text-xs text-muted-foreground">{student.failed_courses} học phần chưa đạt</span>
+                                </span>
+                                <span className="flex flex-wrap gap-1.5 sm:justify-end">
+                                  <Badge variant={isHighDropoutRisk(student.dropout_risk_level) ? "destructive" : "outline"}>Nguy cơ {pct(student.dropout_probability, 0)}</Badge>
+                                  <Badge variant="outline">GPA {student.gpa?.toFixed(2)}</Badge>
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex h-[340px] items-center justify-center px-6 text-center text-sm text-muted-foreground">
+                        Chưa có đủ cặp dữ liệu GPA + dự báo nguy cơ bỏ học để phân tầng cố vấn.
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -425,7 +441,7 @@ export default function HomeroomAnalyticsPage() {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card data-tour="page-advisor-results">
                   <CardHeader className="space-y-3">
                     <div>
                       <CardTitle className="text-sm">Danh sách sinh viên lớp {detail.class_code}</CardTitle>

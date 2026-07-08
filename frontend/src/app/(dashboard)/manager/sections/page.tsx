@@ -367,7 +367,7 @@ export default function SectionsPage() {
       </div>
 
       {/* Filter widgets */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg bg-card text-card-foreground">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg bg-card text-card-foreground" data-tour="page-sections-filters">
         <div className="space-y-1">
           <Label className="text-xs font-semibold">Học kỳ</Label>
           <Select value={filterSemesterId} onValueChange={(value) => setFilterSemesterId(value ?? "all")}>
@@ -453,7 +453,7 @@ export default function SectionsPage() {
         </div>
       </div>
 
-      <div className="border rounded-md bg-card">
+      <div className="border rounded-md bg-card" data-tour="page-sections-results">
         {isLoading ? (
           <div className="p-4">
             <CrudListSkeleton message="Đang tải dữ liệu lớp học phần..." columns={8} />

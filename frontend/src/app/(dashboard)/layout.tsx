@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import dynamic from "next/dynamic"
 import { usePathname, useRouter } from "next/navigation"
+import { CircleHelp } from "lucide-react"
 
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { DashboardPreloader } from "@/components/layout/dashboard-preloader"
@@ -167,13 +168,13 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <AppSidebar userRole={user?.role ?? null} />
-      <SidebarInset>
+      <SidebarInset className="min-w-0">
         <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
           <div className="flex items-center gap-2">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="hidden font-semibold text-foreground/80 sm:inline-block">VinUniversity</span>
+              <span className="hidden font-semibold text-foreground/80 sm:inline-block">EduInsight</span>
               <span className="hidden sm:inline-block">/</span>
             <span>Hệ thống Quản lý</span>
             </div>
@@ -195,6 +196,18 @@ export default function DashboardLayout({
                 </div>
               </div>
             ) : null}
+            {user ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => window.dispatchEvent(new Event("eduinsight:start-onboarding"))}
+                title="Mở hướng dẫn sử dụng"
+                aria-label="Mở hướng dẫn sử dụng"
+              >
+                <CircleHelp className="h-4 w-4" />
+                <span className="hidden lg:inline">Hướng dẫn</span>
+              </Button>
+            ) : null}
             {user?.role !== "viewer" ? <NotificationBell /> : null}
             <ThemeToggle />
             <Button variant="outline" size="sm" onClick={logout}>
@@ -204,7 +217,7 @@ export default function DashboardLayout({
         </header>
         <div className="flex min-h-0 flex-1 2xl:flex-row">
           <main className="min-w-0 flex-1 space-y-4 p-4">
-            {enhancementsReady ? <OnboardingTour /> : null}
+            {enhancementsReady && user ? <OnboardingTour user={user} /> : null}
             {enhancementsReady ? <DashboardPreloader userRole={user?.role ?? null} /> : null}
             {children}
           </main>

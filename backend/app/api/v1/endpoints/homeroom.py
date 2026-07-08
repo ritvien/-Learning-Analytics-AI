@@ -345,8 +345,29 @@ async def get_homeroom_class(class_code: str, db: DBSession, current_user: Curre
         ).all()
         failed_by_student = {student_id: int(count) for student_id, count in failed_rows}
     students = []
+    latest_dropout: dict[int, dict] = {}
+    if student_ids and db.get_bind().dialect.name == "postgresql":
+        prediction_rows = (
+            await db.execute(
+                text(
+                    """
+                    SELECT DISTINCT ON (student_id)
+                        student_id,
+                        dropout_probability,
+                        risk_level,
+                        scored_at
+                    FROM ml.student_dropout_prediction
+                    WHERE student_id = ANY(:student_ids)
+                    ORDER BY student_id, scored_at DESC
+                    """
+                ),
+                {"student_ids": student_ids},
+            )
+        ).mappings().all()
+        latest_dropout = {int(row["student_id"]): dict(row) for row in prediction_rows}
     for student, program_name in student_rows:
         signal = signals.get(student.id, {})
+        dropout = latest_dropout.get(student.id, {})
         failed_count = int(signal.get("failed_courses", failed_by_student.get(student.id, 0)) or 0)
         near_fail_count = int(signal.get("near_fail_courses", 0) or 0)
         cumulative_gpa = float(student.gpa_cumulative) if student.gpa_cumulative is not None else None
@@ -374,6 +395,11 @@ async def get_homeroom_class(class_code: str, db: DBSession, current_user: Curre
                 "latest_gpa": signal.get("latest_gpa"),
                 "gpa_delta": signal.get("gpa_delta"),
                 "status": student.status,
+                "dropout_probability": float(dropout["dropout_probability"])
+                if dropout.get("dropout_probability") is not None
+                else None,
+                "dropout_risk_level": dropout.get("risk_level"),
+                "dropout_scored_at": dropout.get("scored_at"),
                 "risk_level": risk["level"],
                 "risk_reasons": risk["reasons"],
             }
