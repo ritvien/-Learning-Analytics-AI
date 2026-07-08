@@ -1,6 +1,11 @@
 # Presentation Status
 
-`slide.pdf` hiện là placeholder rỗng và cần được tạo lại trước Demo Day.
+Deck mới: [eduinsight-demo-day-deck.md](eduinsight-demo-day-deck.md).
+
+File này viết theo format Marp-compatible Markdown, có thể dùng trực tiếp để
+trình bày, đưa vào Marp for VS Code, hoặc copy sang PowerPoint/Canva.
+
+`slide.pdf` hiện là placeholder rỗng và cần được tạo lại từ deck mới trước Demo Day.
 
 Pitch deck mới phải thể hiện:
 

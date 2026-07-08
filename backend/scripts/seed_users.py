@@ -11,7 +11,7 @@ from app.database import AsyncSessionLocal
 from app.dependencies import hash_password
 from app.models.academic import Course, Department, Program
 from app.models.people import HomeroomAssignment, Student, Teacher, User, UserRole
-from app.models.teaching import Section
+from app.models.teaching import Enrollment, Section
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -271,39 +271,66 @@ async def _ensure_demo_teacher(db, config: dict[str, str], department_id: int, u
 
 
 async def _assign_sections_to_teacher(db, teacher: Teacher, limit: int) -> list[Section]:
-    current_sections = list(
-        (
-            await db.execute(
-                select(Section)
-                .join(Course, Course.id == Section.course_id)
-                .where(Section.teacher_id == teacher.id)
-                .where(Course.department_id == teacher.department_id)
-                .order_by(Section.id)
-            )
-        )
-        .scalars()
-        .all()
+    current_rows = await _section_rows_for_demo_assignment(
+        db,
+        department_id=teacher.department_id,
+        teacher_id=teacher.id,
     )
-    if len(current_sections) >= limit:
-        return current_sections[:limit]
+    current_with_data = [section for section, completed_count in current_rows if completed_count > 0]
+    current_without_data = [section for section, completed_count in current_rows if completed_count == 0]
+    if len(current_with_data) >= limit:
+        return current_with_data[:limit]
 
-    sections = list(
-        (
-            await db.execute(
-                select(Section)
-                .join(Course, Course.id == Section.course_id)
-                .where(Course.department_id == teacher.department_id)
-                .where(Section.teacher_id.is_(None))
-                .order_by(Section.id)
-                .limit(limit - len(current_sections))
-            )
-        )
-        .scalars()
-        .all()
+    unassigned_rows = await _section_rows_for_demo_assignment(
+        db,
+        department_id=teacher.department_id,
+        unassigned_only=True,
     )
-    for section in sections:
+    selected = current_with_data
+    for section, completed_count in unassigned_rows:
+        if completed_count == 0 or len(selected) >= limit:
+            continue
         section.teacher_id = teacher.id
-    return current_sections + sections
+        selected.append(section)
+
+    for section, completed_count in unassigned_rows:
+        if completed_count > 0 or len(selected) >= limit:
+            continue
+        section.teacher_id = teacher.id
+        selected.append(section)
+
+    return (selected + current_without_data)[:limit]
+
+
+async def _section_rows_for_demo_assignment(
+    db,
+    *,
+    department_id: int,
+    teacher_id: int | None = None,
+    unassigned_only: bool = False,
+) -> list[tuple[Section, int]]:
+    """Return sections ordered by analytics usefulness for lecturer demo accounts."""
+    completed_count = func.count(Enrollment.id).label("completed_count")
+    query = (
+        select(Section, completed_count)
+        .join(Course, Course.id == Section.course_id)
+        .outerjoin(
+            Enrollment,
+            (Enrollment.section_id == Section.id)
+            & (Enrollment.final_grade.is_not(None))
+            & (Enrollment.is_passed.is_not(None)),
+        )
+        .where(Course.department_id == department_id)
+        .group_by(Section.id)
+        .order_by(completed_count.desc(), Section.id)
+    )
+    if teacher_id is not None:
+        query = query.where(Section.teacher_id == teacher_id)
+    if unassigned_only:
+        query = query.where(Section.teacher_id.is_(None))
+
+    rows = (await db.execute(query)).all()
+    return [(section, int(count or 0)) for section, count in rows]
 
 
 async def _assign_homeroom_class(
@@ -381,23 +408,23 @@ async def _pick_or_create_demo_teacher(db, department_id: int) -> Teacher | None
         await db.execute(
             select(Teacher)
             .join(Section, Section.teacher_id == Teacher.id)
+            .where(Teacher.department_id == department_id)
             .where(Teacher.is_active == True)  # noqa: E712
             .where(or_(Teacher.user_id.is_(None), Teacher.email == "demo.lecturer@epu.edu.vn"))
             .order_by(Teacher.department_id, Teacher.id)
             .limit(1)
         )
     ).scalar_one_or_none()
-    if teacher is not None:
-        return teacher
 
-    teacher = (
-        await db.execute(
-            select(Teacher)
-            .where(Teacher.department_id == department_id, Teacher.is_active == True)  # noqa: E712
-            .order_by(Teacher.id)
-            .limit(1)
-        )
-    ).scalar_one_or_none()
+    if teacher is None:
+        teacher = (
+            await db.execute(
+                select(Teacher)
+                .where(Teacher.department_id == department_id, Teacher.is_active == True)  # noqa: E712
+                .order_by(Teacher.id)
+                .limit(1)
+            )
+        ).scalar_one_or_none()
     if teacher is None:
         teacher = Teacher(
             department_id=department_id,
@@ -411,25 +438,9 @@ async def _pick_or_create_demo_teacher(db, department_id: int) -> Teacher | None
         db.add(teacher)
         await db.flush()
 
-    sections = (
-        await db.execute(
-            select(Section)
-            .join(Course, Course.id == Section.course_id)
-            .where(Course.department_id == teacher.department_id)
-            .where(Section.teacher_id.is_(None))
-            .order_by(Section.id)
-            .limit(8)
-        )
-    ).scalars().all()
-    for section in sections:
-        section.teacher_id = teacher.id
-
+    sections = await _assign_sections_to_teacher(db, teacher, limit=DEMO_SECTIONS_PER_LECTURER)
     if not sections:
-        has_any_section = (
-            await db.execute(select(Section).where(Section.teacher_id == teacher.id).limit(1))
-        ).scalar_one_or_none()
-        if has_any_section is None:
-            return None
+        return None
     return teacher
 
 if __name__ == "__main__":

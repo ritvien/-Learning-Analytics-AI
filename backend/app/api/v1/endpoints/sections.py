@@ -1,7 +1,7 @@
 """CRUD endpoints for Section (Lớp học phần)."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.access_control import can_access_section, get_teacher_for_user, is_admin, require_department_scope
 from app.crud import teaching as crud
@@ -95,7 +95,10 @@ async def create_section(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Cannot assign teacher from another department",
                 )
-    return await crud.create_section(db, payload.model_dump())
+    created = await crud.create_section(db, payload.model_dump())
+    await _sync_section_to_dwh_if_available(db, created.id)
+    _invalidate_section_analytics_cache()
+    return created
 
 
 @router.patch("/{section_id}", response_model=SectionResponse, dependencies=[Depends(require_write_access)])
@@ -130,7 +133,10 @@ async def update_section(
                     detail="Cannot assign teacher from another department",
                 )
                 
-    return await crud.update_section(db, obj, payload.model_dump(exclude_unset=True))
+    updated = await crud.update_section(db, obj, payload.model_dump(exclude_unset=True))
+    await _sync_section_to_dwh_if_available(db, updated.id)
+    _invalidate_section_analytics_cache()
+    return updated
 
 
 @router.delete("/{section_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_write_access)])
@@ -149,3 +155,39 @@ async def delete_section(
             detail="Insufficient permissions to access this section",
         )
     await crud.delete_section(db, obj)
+    _invalidate_section_analytics_cache()
+
+
+async def _sync_section_to_dwh_if_available(db: DBSession, section_id: int) -> None:
+    """Keep DWH section ownership current after CRUD writes without a full ETL run."""
+    bind = db.get_bind()
+    if bind.dialect.name != "postgresql":
+        return
+    has_dim_section = await db.scalar(text("SELECT to_regclass('dwh.dim_section') IS NOT NULL"))
+    if not has_dim_section:
+        return
+    await db.execute(
+        text(
+            """
+            INSERT INTO dwh.dim_section (section_id, section_code, course_id, semester_id, teacher_id, updated_at)
+            SELECT id, section_code, course_id, semester_id, teacher_id, NOW()
+            FROM public.sections
+            WHERE id = :section_id
+            ON CONFLICT (section_id) DO UPDATE SET
+                section_code = EXCLUDED.section_code,
+                course_id = EXCLUDED.course_id,
+                semester_id = EXCLUDED.semester_id,
+                teacher_id = EXCLUDED.teacher_id,
+                updated_at = NOW()
+            """
+        ),
+        {"section_id": section_id},
+    )
+
+
+def _invalidate_section_analytics_cache() -> None:
+    from app.api.v1.endpoints.analytics import _dashboard_cache_clear
+    from app.api.v1.endpoints.tree import invalidate_tree_cache
+
+    _dashboard_cache_clear()
+    invalidate_tree_cache()

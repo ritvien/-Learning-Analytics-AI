@@ -64,6 +64,7 @@ import {
   ReportSectionBarChart,
   ReportTrendLine,
 } from "@/components/reports/report-charts"
+import { normalizeReportDeepDiveHref } from "@/lib/report-deep-dive"
 
 type TemplateId = "department_report" | "program_report" | "course_report" | "section_report" | "school_report"
 type ReportWorkspace = "actions" | "library"
@@ -552,31 +553,7 @@ function reportHtmlList(items: string[], empty = "Chưa có nội dung ghi nhậ
 }
 
 function normalizeDeepDiveHref(href: unknown) {
-  if (typeof href !== "string" || !href.trim()) return null
-  const raw = href.trim()
-  if (!raw.startsWith("/manager/analytics")) return null
-  try {
-    const url = new URL(raw, "http://localhost")
-    if (!url.pathname.startsWith("/manager/analytics")) return null
-    const courseId = url.searchParams.get("course_id") ?? url.searchParams.get("course")
-    const programId = url.searchParams.get("program_id") ?? url.searchParams.get("program")
-    const sectionId = url.searchParams.get("section_id") ?? url.searchParams.get("section")
-    if (courseId && /^\d+$/.test(courseId)) {
-      url.searchParams.set("course_id", courseId)
-      url.searchParams.set("course", courseId)
-    }
-    if (programId && /^\d+$/.test(programId)) {
-      url.searchParams.set("program_id", programId)
-      url.searchParams.set("program", programId)
-    }
-    if (sectionId && /^\d+$/.test(sectionId)) {
-      url.searchParams.set("section_id", sectionId)
-      url.searchParams.set("section", sectionId)
-    }
-    return `${url.pathname}${url.search}`
-  } catch {
-    return null
-  }
+  return normalizeReportDeepDiveHref(href)
 }
 
 function reportHtmlLink(href: unknown, label = "Mở") {
